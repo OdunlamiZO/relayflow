@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://relayflow.local/schemas/message-event.schema.json",
+  "title": "MessageEvent",
+  "type": "object",
+  "required": ["workspaceId", "channelAccountId", "provider", "direction", "externalConversationId", "text"],
+  "properties": {
+    "workspaceId": { "type": "string", "format": "uuid" },
+    "channelAccountId": { "type": "string", "format": "uuid" },
+    "provider": { "type": "string", "enum": ["telegram", "whatsapp", "instagram", "messenger", "webchat", "email", "sms"] },
+    "direction": { "type": "string", "enum": ["inbound", "outbound"] },
+    "externalConversationId": { "type": "string" },
+    "externalSenderId": { "type": "string" },
+    "providerMessageId": { "type": "string" },
+    "text": { "type": "string" },
+    "rawPayload": { "type": "object" }
+  },
+  "additionalProperties": false
+}

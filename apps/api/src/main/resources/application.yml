@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: relayflow-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/relayflow}
+    username: ${DATABASE_USERNAME:relayflow}
+    password: ${DATABASE_PASSWORD:relayflow}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+printf "Running backend format check...\n"
+cd "$repo_root/apps/api"
+mvn spotless:check -Pdevelopment
+
+printf "Running backend tests...\n"
+mvn test
+
+printf "Running frontend checks...\n"
+cd "$repo_root/apps/web"
+npm run lint
+npm run typecheck
+npm run format:check
+npm run test
+
+cd "$repo_root"
+git add .
