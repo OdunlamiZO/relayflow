@@ -1,0 +1,52 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / editors
+.idea/
+.vscode/
+*.iml
+
+# Java / Maven
+apps/api/target/
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# Node / Next.js
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+apps/web/dist/
+apps/web/.turbo/
+apps/web/.vercel/
+apps/web/coverage/
+apps/web/tsconfig.tsbuildinfo
+apps/web/.eslintcache
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+apps/api/.env
+apps/api/.env.*
+!apps/api/.env.example
+apps/web/.env
+apps/web/.env.*
+!apps/web/.env.example
+
+# Local runtime data
+postgres_data/
+redis_data/
