@@ -5,11 +5,17 @@ info:
   description: API contract for the RelayFlow backend.
 servers:
   - url: http://localhost:8080
+
 paths:
+
+  # ── Health ───────────────────────────────────────────────────────────────────
+
   /api/health:
     get:
       operationId: getHealth
       summary: Check API health
+      tags: [Health]
+      security: []
       responses:
         "200":
           description: API is healthy
@@ -17,13 +23,708 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+
+  # ── Authentication ────────────────────────────────────────────────────────────
+
+  /api/auth/me:
+    get:
+      operationId: getCurrentUser
+      summary: Get the authenticated user
+      tags: [Auth]
+      security: []
+      responses:
+        "200":
+          description: Current session state. `authenticated` is false when no session exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedUserResponse"
+
+  /api/auth/signup:
+    post:
+      operationId: signup
+      summary: Register a new account with email and password
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          description: Account created and session established
+        "400":
+          description: Validation error or email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/login:
+    post:
+      operationId: login
+      summary: Log in with email and password
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Session established
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/logout:
+    post:
+      operationId: logout
+      summary: Invalidate the current session
+      tags: [Auth]
+      responses:
+        "204":
+          description: Session invalidated
+
+  /api/auth/guest:
+    post:
+      operationId: createGuestSession
+      summary: Create an anonymous guest session with a pre-built workspace
+      tags: [Auth]
+      security: []
+      responses:
+        "201":
+          description: Guest session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestSessionResponse"
+
+  # ── Workspaces ────────────────────────────────────────────────────────────────
+
+  /api/workspaces:
+    get:
+      operationId: listWorkspaces
+      summary: List workspaces the authenticated user is a member of
+      tags: [Workspaces]
+      responses:
+        "200":
+          description: Workspace list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspaceResponse"
+    post:
+      operationId: createWorkspace
+      summary: Create a new workspace
+      tags: [Workspaces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceRequest"
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+
+  # ── Channel Accounts ──────────────────────────────────────────────────────────
+
+  /api/channel-accounts:
+    get:
+      operationId: listChannelAccounts
+      summary: List channel accounts for a workspace
+      tags: [ChannelAccounts]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: Channel account list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChannelAccountResponse"
+    post:
+      operationId: createChannelAccount
+      summary: Connect a new channel account
+      tags: [ChannelAccounts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelAccountRequest"
+      responses:
+        "201":
+          description: Channel account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAccountResponse"
+
+  /api/channel-accounts/{id}:
+    delete:
+      operationId: disconnectChannelAccount
+      summary: Disconnect a channel account (sets status to DISABLED; data is preserved)
+      tags: [ChannelAccounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "204":
+          description: Channel account disconnected
+        "404":
+          description: Channel account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/channel-accounts/{id}/reconnect:
+    post:
+      operationId: reconnectChannelAccount
+      summary: Re-enable a disconnected channel account (sets status back to ACTIVE)
+      tags: [ChannelAccounts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: Channel account re-enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAccountResponse"
+        "404":
+          description: Channel account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Conversations ─────────────────────────────────────────────────────────────
+
+  /api/conversations:
+    get:
+      operationId: listConversations
+      summary: List conversations for a workspace, newest first
+      tags: [Conversations]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdQuery"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Paginated conversation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationPageResponse"
+    post:
+      operationId: createConversation
+      summary: Create a conversation
+      tags: [Conversations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversationRequest"
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationResponse"
+
+  /api/conversations/{conversationId}:
+    get:
+      operationId: getConversation
+      summary: Get a single conversation
+      tags: [Conversations]
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: Conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationResponse"
+        "404":
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Messages ──────────────────────────────────────────────────────────────────
+
+  /api/conversations/{conversationId}/messages:
+    get:
+      operationId: listMessages
+      summary: List messages in a conversation (cursor-based, newest first)
+      tags: [Messages]
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+        - name: before
+          in: query
+          description: ISO-8601 cursor — return only messages created before this timestamp
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Paginated message list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessagePageResponse"
+    post:
+      operationId: createMessage
+      summary: Send an outbound message (or record an inbound one)
+      tags: [Messages]
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequest"
+      responses:
+        "201":
+          description: Message created and delivered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "502":
+          description: Message could not be delivered to the channel provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── SSE ───────────────────────────────────────────────────────────────────────
+
+  /api/sse/workspace/{workspaceId}:
+    get:
+      operationId: subscribeWorkspaceEvents
+      summary: Subscribe to real-time workspace events over SSE
+      tags: [SSE]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: |
+            SSE stream. Events emitted after the originating transaction commits:
+            - `message.created` — `{ workspaceId, conversationId }`
+            - `workspace.updated` — `{ workspaceId }`
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ── Telegram Webhooks ─────────────────────────────────────────────────────────
+
+  /api/telegram/webhook/{channelAccountId}:
+    post:
+      operationId: telegramWebhook
+      summary: Receive a Telegram update for a dedicated bot channel account
+      tags: [Telegram]
+      security: []
+      parameters:
+        - name: channelAccountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Update accepted
+
+  /api/telegram/webhook/shared:
+    post:
+      operationId: telegramSharedWebhook
+      summary: Receive a Telegram update for the shared guest bot
+      tags: [Telegram]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Update accepted
+
+# ── Reusable components ────────────────────────────────────────────────────────
+
 components:
+
+  parameters:
+    workspaceIdQuery:
+      name: workspaceId
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    conversationIdPath:
+      name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
   schemas:
+
+    # ── Enums ──────────────────────────────────────────────────────────────────
+
+    ChannelProvider:
+      type: string
+      enum: [TELEGRAM]
+
+    ChannelAccountStatus:
+      type: string
+      enum: [ACTIVE, DISABLED]
+
+    ConversationStatus:
+      type: string
+      enum: [OPEN, PENDING, CLOSED]
+
+    MessageDirection:
+      type: string
+      enum: [INBOUND, OUTBOUND]
+
+    MessageSenderType:
+      type: string
+      enum: [CONTACT, AGENT, BOT]
+
+    # ── Requests ───────────────────────────────────────────────────────────────
+
+    SignupRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    CreateWorkspaceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    CreateChannelAccountRequest:
+      type: object
+      required: [workspaceId, provider, name]
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        provider:
+          $ref: "#/components/schemas/ChannelProvider"
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/ChannelAccountStatus"
+        encryptedCredentials:
+          type: string
+          description: Plaintext bot token — encrypted server-side before storage
+        metadata:
+          type: object
+          additionalProperties: true
+
+    CreateConversationRequest:
+      type: object
+      required: [workspaceId, contactId, channelAccountId]
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        contactId:
+          type: string
+          format: uuid
+        channelAccountId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/ConversationStatus"
+        assignedUserId:
+          type: string
+          format: uuid
+          nullable: true
+
+    CreateMessageRequest:
+      type: object
+      required: [direction, senderType]
+      properties:
+        direction:
+          $ref: "#/components/schemas/MessageDirection"
+        senderType:
+          $ref: "#/components/schemas/MessageSenderType"
+        text:
+          type: string
+          nullable: true
+        providerMessageId:
+          type: string
+          nullable: true
+        rawPayload:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    # ── Responses ──────────────────────────────────────────────────────────────
+
     HealthResponse:
       type: object
-      required:
-        - status
+      required: [status]
       properties:
         status:
           type: string
           example: ok
+
+    ErrorResponse:
+      type: object
+      required: [message, timestamp]
+      properties:
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    AuthenticatedUserResponse:
+      type: object
+      required: [authenticated, anonymous]
+      properties:
+        authenticated:
+          type: boolean
+        anonymous:
+          type: boolean
+        email:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+
+    GuestSessionResponse:
+      type: object
+      required: [workspaceId]
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+
+    WorkspaceResponse:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ChannelAccountResponse:
+      type: object
+      required: [id, workspaceId, provider, name, status, metadata, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        provider:
+          $ref: "#/components/schemas/ChannelProvider"
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/ChannelAccountStatus"
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ConversationResponse:
+      type: object
+      required: [id, workspaceId, contactId, channelAccountId, channelProvider, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        contactId:
+          type: string
+          format: uuid
+        contactDisplayName:
+          type: string
+          nullable: true
+        channelAccountId:
+          type: string
+          format: uuid
+        channelProvider:
+          $ref: "#/components/schemas/ChannelProvider"
+        channelAccountName:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ConversationStatus"
+        assignedUserId:
+          type: string
+          format: uuid
+          nullable: true
+        lastMessageAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ConversationPageResponse:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationResponse"
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true
+
+    MessageResponse:
+      type: object
+      required: [id, workspaceId, conversationId, direction, senderType, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        direction:
+          $ref: "#/components/schemas/MessageDirection"
+        senderType:
+          $ref: "#/components/schemas/MessageSenderType"
+        text:
+          type: string
+          nullable: true
+        providerMessageId:
+          type: string
+          nullable: true
+        rawPayload:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    MessagePageResponse:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageResponse"
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true
