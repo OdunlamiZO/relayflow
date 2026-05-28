@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400,0,0&display=swap");
-
 :root {
   --font-inter: Inter;
   --font-jetbrains-mono: "JetBrains Mono";
@@ -142,12 +140,18 @@ a {
   direction: ltr;
   display: inline-block;
   font-family: "Material Symbols Rounded", sans-serif;
-  font-feature-settings: "liga";
+  font-feature-settings: "liga" 1;
   font-size: 20px;
   font-style: normal;
   font-weight: normal;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
   letter-spacing: normal;
   line-height: 1;
+  text-rendering: optimizeLegibility;
   text-transform: none;
   white-space: nowrap;
   word-wrap: normal;

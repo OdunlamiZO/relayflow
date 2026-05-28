@@ -7,8 +7,8 @@
   "properties": {
     "workspaceId": { "type": "string", "format": "uuid" },
     "channelAccountId": { "type": "string", "format": "uuid" },
-    "provider": { "type": "string", "enum": ["telegram", "whatsapp", "instagram", "messenger", "webchat", "email", "sms"] },
-    "direction": { "type": "string", "enum": ["inbound", "outbound"] },
+    "provider": { "type": "string", "enum": ["TELEGRAM"] },
+    "direction": { "type": "string", "enum": ["INBOUND", "OUTBOUND"] },
     "externalConversationId": { "type": "string" },
     "externalSenderId": { "type": "string" },
     "providerMessageId": { "type": "string" },
