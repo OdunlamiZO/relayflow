@@ -1,6 +1,7 @@
 package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.repository.UserRepository;
+import java.util.List;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -28,6 +29,9 @@ public class EmailPasswordUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("No password credential set for user: " + email);
         }
 
-        return User.withUsername(email).password(user.getPasswordHash()).roles("USER").build();
+        return User.withUsername(email)
+                .password(user.getPasswordHash())
+                .authorities(List.of())
+                .build();
     }
 }

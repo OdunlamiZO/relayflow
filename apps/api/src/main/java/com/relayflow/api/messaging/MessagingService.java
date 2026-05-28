@@ -378,19 +378,20 @@ public class MessagingService {
     }
 
     /**
-     * Deletes all data belonging to a workspace, then the workspace itself. Deletion order respects
-     * FK constraints: messages → conversations → external identities → contacts → channel accounts
-     * → workspace members → workspace.
+     * Soft-deletes all data belonging to a workspace, then the workspace itself. No rows are
+     * permanently removed — every table's {@code deleted_at} is stamped with the same instant. FK
+     * order no longer matters for soft deletes, but preserved for clarity.
      */
     @Transactional
     public void deleteWorkspace(UUID workspaceId) {
-        log.info("Deleting workspace and all associated data: {}", workspaceId);
-        messageRepository.deleteByWorkspaceId(workspaceId);
-        conversationRepository.deleteByWorkspaceId(workspaceId);
-        externalIdentityRepository.deleteByWorkspaceId(workspaceId);
-        contactRepository.deleteByWorkspaceId(workspaceId);
-        channelAccountRepository.deleteByWorkspaceId(workspaceId);
-        workspaceMemberRepository.deleteByWorkspaceId(workspaceId);
+        log.info("Soft-deleting workspace and all associated data: {}", workspaceId);
+        Instant now = Instant.now();
+        messageRepository.softDeleteByWorkspaceId(workspaceId, now);
+        conversationRepository.softDeleteByWorkspaceId(workspaceId, now);
+        externalIdentityRepository.softDeleteByWorkspaceId(workspaceId, now);
+        contactRepository.softDeleteByWorkspaceId(workspaceId, now);
+        channelAccountRepository.softDeleteByWorkspaceId(workspaceId, now);
+        workspaceMemberRepository.softDeleteByWorkspaceId(workspaceId, now);
         workspaceRepository.deleteById(workspaceId);
     }
 

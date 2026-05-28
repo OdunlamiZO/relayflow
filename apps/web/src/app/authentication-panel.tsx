@@ -81,22 +81,39 @@ export function AuthenticationPanel() {
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
-            {/* Name / email header */}
-            <div className="border-b border-neutral-200 px-4 py-3">
-              <p className="truncate text-xs font-semibold text-neutral-800">
-                {user.displayName ?? "Guest"}
-              </p>
+          <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+            {/* User card */}
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt=""
+                    src={user.avatarUrl}
+                    className="h-full w-full rounded-full object-cover"
+                  />
+                ) : (
+                  <span>{initial}</span>
+                )}
+              </div>
 
-              {user.email && (
-                <p className="mt-0.5 truncate text-[11px] text-neutral-400">
-                  {user.email}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-neutral-900">
+                  {user.displayName ?? "Guest"}
                 </p>
-              )}
+
+                {user.email && (
+                  <p className="truncate text-xs text-neutral-400">
+                    {user.email}
+                  </p>
+                )}
+              </div>
             </div>
 
+            <div className="border-t border-neutral-100" />
+
             {/* Actions */}
-            <div className="py-1">
+            <div className="p-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -108,10 +125,10 @@ export function AuthenticationPanel() {
                   });
                 }}
                 disabled={isLoggingOut}
-                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-60"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-red-bg hover:text-red-text disabled:opacity-60"
               >
                 <span
-                  className="material-symbols-rounded text-[18px] text-neutral-500"
+                  className="material-symbols-rounded text-[18px]"
                   aria-hidden="true"
                 >
                   logout

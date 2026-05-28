@@ -70,7 +70,7 @@ export function ConfirmModal({
             disabled={isPending}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
               destructive
-                ? "bg-red-600 text-white hover:bg-red-700"
+                ? "bg-red-text text-neutral-100 hover:bg-red-text-hover"
                 : "bg-secondary text-white hover:opacity-90"
             }`}
           >

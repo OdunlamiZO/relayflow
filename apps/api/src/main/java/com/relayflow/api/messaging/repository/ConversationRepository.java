@@ -1,11 +1,13 @@
 package com.relayflow.api.messaging.repository;
 
 import com.relayflow.api.messaging.domain.Conversation;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -32,7 +34,9 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     Optional<Conversation> findInWorkspace(
             @Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
 
-    void deleteByWorkspaceId(UUID workspaceId);
+    @Modifying
+    @Query("UPDATE Conversation c SET c.deletedAt = :now WHERE c.workspace.id = :workspaceId")
+    void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
 
     @Query(
             """

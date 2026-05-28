@@ -205,7 +205,7 @@ function ChannelItem({
             {channel.status === "ACTIVE" ? (
               <button
                 onClick={() => setShowConfirm(true)}
-                className="text-xs font-medium text-neutral-500 hover:text-red-600"
+                className="text-xs font-medium text-neutral-500 hover:text-red-text"
               >
                 Disconnect
               </button>

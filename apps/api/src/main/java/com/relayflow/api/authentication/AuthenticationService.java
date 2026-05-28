@@ -23,7 +23,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -83,6 +82,7 @@ public class AuthenticationService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
 
         userRepository.save(user);
+
         log.info("New user registered: email={}", request.email());
 
         establishSession(request.email(), request.password(), httpRequest, httpResponse);
@@ -96,6 +96,7 @@ public class AuthenticationService {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         log.info("Login attempt: email={}", request.email());
+
         establishSession(request.email(), request.password(), httpRequest, httpResponse);
 
         User user =
@@ -117,27 +118,28 @@ public class AuthenticationService {
     @Transactional
     public GuestSessionResponse createGuestSession(
             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        String anonId = UUID.randomUUID().toString();
-        String email = "guest-" + anonId + "@relayflow.io";
+        String anonymousId = UUID.randomUUID().toString();
+        String email = "guest-" + anonymousId + "@relayflow.io";
 
         User user = new User();
         user.setEmail(email);
         user.setProvider(AuthenticationProvider.ANONYMOUS);
-        user.setProviderSubject(anonId);
+        user.setProviderSubject(anonymousId);
         user.setAnonymous(true);
         user.setLastActiveAt(Instant.now());
         userRepository.save(user);
 
         WorkspaceResponse workspace =
                 messagingService.createWorkspace(
-                        new CreateWorkspaceRequest("My Workspace"), user.getId());
+                        new CreateWorkspaceRequest("Guest Workspace"), user.getId());
 
         if (sharedBotToken != null && !sharedBotToken.isBlank()) {
             messagingService.createSharedBotChannelAccount(workspace.id(), sharedBotToken);
         }
 
         log.info("Guest session created: userId={}, workspaceId={}", user.getId(), workspace.id());
-        establishAnonSession(user, httpRequest, httpResponse);
+
+        establishAnonymousSession(user, httpRequest, httpResponse);
 
         return new GuestSessionResponse(workspace.id());
     }
@@ -193,12 +195,12 @@ public class AuthenticationService {
         SecurityContextHolder.setContext(context);
     }
 
-    private void establishAnonSession(
+    private void establishAnonymousSession(
             User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         UserDetails userDetails =
                 org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
                         .password("")
-                        .authorities(List.of(new SimpleGrantedAuthority("ROLE_USER")))
+                        .authorities(List.of())
                         .build();
 
         UsernamePasswordAuthenticationToken auth =
