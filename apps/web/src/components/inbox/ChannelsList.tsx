@@ -164,8 +164,14 @@ function ChannelItem({
 
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+  // Show the webhook URL for custom-bot channels so the owner can verify
+  // what endpoint RelayFlow registered with Telegram on their behalf.
+  // Shared-bot channels route through a single platform-level endpoint —
+  // there is no per-channel webhook to display.
   const webhookUrl =
-    channel.provider === "TELEGRAM" && channel.status === "ACTIVE"
+    channel.provider === "TELEGRAM" &&
+    channel.status === "ACTIVE" &&
+    !channel.shared
       ? `${apiBaseUrl}/api/telegram/webhook/${channel.id}`
       : null;
 

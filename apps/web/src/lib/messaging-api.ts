@@ -25,6 +25,7 @@ export type ChannelAccount = {
   provider: ChannelProvider;
   name: string;
   status: ChannelAccountStatus;
+  shared: boolean;
   metadata: JsonObject;
   createdAt: string;
 };

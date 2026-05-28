@@ -192,6 +192,7 @@ public class MessagingService {
         channelAccount.setProvider(ChannelProvider.TELEGRAM);
         channelAccount.setName("Shared Telegram Bot");
         channelAccount.setStatus(ChannelAccountStatus.ACTIVE);
+        channelAccount.setShared(true);
         channelAccount.setEncryptedCredentials(credentialEncryptionService.encrypt(botToken));
         channelAccount.setMetadata(new LinkedHashMap<>());
 

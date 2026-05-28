@@ -12,5 +12,6 @@ public record ChannelAccountResponse(
         ChannelProvider provider,
         String name,
         ChannelAccountStatus status,
+        boolean shared,
         Map<String, Object> metadata,
         Instant createdAt) {}
