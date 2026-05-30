@@ -55,6 +55,10 @@ paths:
       responses:
         "201":
           description: Account created and session established
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedUserResponse"
         "400":
           description: Validation error or email already in use
           content:
@@ -77,6 +81,10 @@ paths:
       responses:
         "200":
           description: Session established
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedUserResponse"
         "401":
           description: Invalid credentials
           content:
@@ -227,6 +235,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Contacts ────────────────────────────────────────────────────────────────
+
+  /api/contacts:
+    post:
+      operationId: createContact
+      summary: Create a contact in a workspace
+      tags: [Contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactRequest"
+      responses:
+        "201":
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+
+  /api/external-identities:
+    post:
+      operationId: createExternalIdentity
+      summary: Link a contact to an external channel identity
+      tags: [Contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExternalIdentityRequest"
+      responses:
+        "201":
+          description: External identity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalIdentityResponse"
+
   # ── Conversations ─────────────────────────────────────────────────────────────
 
   /api/conversations:
@@ -349,6 +397,115 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Workflows ────────────────────────────────────────────────────────────────
+
+  /api/workflows:
+    get:
+      operationId: listWorkflows
+      summary: List workflow definitions for a workspace
+      tags: [Workflows]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: Workflow definition list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkflowDefinitionResponse"
+    post:
+      operationId: createWorkflow
+      summary: Create a workflow definition
+      tags: [Workflows]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkflowDefinitionRequest"
+      responses:
+        "201":
+          description: Workflow definition created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDefinitionResponse"
+
+  /api/workflows/{id}:
+    get:
+      operationId: getWorkflow
+      summary: Get a workflow definition
+      tags: [Workflows]
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: Workflow definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDefinitionResponse"
+        "404":
+          description: Workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateWorkflow
+      summary: Update a workflow definition draft or enabled state
+      description: >
+        Draft graph updates are allowed even when incomplete. When `enabled` is set to true,
+        the backend validates the graph before publishing.
+      tags: [Workflows]
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkflowDefinitionRequest"
+      responses:
+        "200":
+          description: Workflow definition updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDefinitionResponse"
+        "400":
+          description: Workflow graph validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteWorkflow
+      summary: Delete a workflow definition
+      tags: [Workflows]
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "204":
+          description: Workflow definition deleted
+        "404":
+          description: Workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── SSE ───────────────────────────────────────────────────────────────────────
 
   /api/sse/workspace/{workspaceId}:
@@ -368,6 +525,7 @@ paths:
           description: |
             SSE stream. Events emitted after the originating transaction commits:
             - `message.created` — `{ workspaceId, conversationId }`
+            - `conversation.updated` — `{ workspaceId, conversationId }`
             - `workspace.updated` — `{ workspaceId }`
           content:
             text/event-stream:
@@ -427,6 +585,13 @@ components:
       schema:
         type: string
         format: uuid
+    idPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     conversationIdPath:
       name: conversationId
       in: path
@@ -441,7 +606,7 @@ components:
 
     ChannelProvider:
       type: string
-      enum: [TELEGRAM]
+      enum: [TELEGRAM, WHATSAPP, INSTAGRAM, MESSENGER, WEBCHAT, EMAIL, SMS]
 
     ChannelAccountStatus:
       type: string
@@ -457,7 +622,7 @@ components:
 
     MessageSenderType:
       type: string
-      enum: [CONTACT, AGENT, BOT]
+      enum: [CONTACT, AGENT, SYSTEM, WORKFLOW]
 
     # ── Requests ───────────────────────────────────────────────────────────────
 
@@ -511,6 +676,42 @@ components:
           type: object
           additionalProperties: true
 
+    CreateContactRequest:
+      type: object
+      required: [workspaceId]
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          nullable: true
+
+    CreateExternalIdentityRequest:
+      type: object
+      required: [workspaceId, contactId, provider, externalUserId]
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        contactId:
+          type: string
+          format: uuid
+        provider:
+          $ref: "#/components/schemas/ChannelProvider"
+        externalUserId:
+          type: string
+        externalConversationId:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        rawProfile:
+          type: object
+          additionalProperties: true
+          nullable: true
+
     CreateConversationRequest:
       type: object
       required: [workspaceId, contactId, channelAccountId]
@@ -549,6 +750,28 @@ components:
           type: object
           additionalProperties: true
           nullable: true
+
+    CreateWorkflowDefinitionRequest:
+      type: object
+      required: [workspaceId, name]
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    UpdateWorkflowDefinitionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        enabled:
+          type: boolean
+        draftGraph:
+          type: object
+          description: React Flow-style workflow graph. Supported node types include trigger, sendMessage, condition, httpRequest, setVariable, waitForReply, jumpTo, and endConversation.
+          additionalProperties: true
 
     # ── Responses ──────────────────────────────────────────────────────────────
 
@@ -611,7 +834,7 @@ components:
 
     ChannelAccountResponse:
       type: object
-      required: [id, workspaceId, provider, name, status, metadata, createdAt]
+      required: [id, workspaceId, provider, name, status, shared, metadata, createdAt]
       properties:
         id:
           type: string
@@ -625,7 +848,59 @@ components:
           type: string
         status:
           $ref: "#/components/schemas/ChannelAccountStatus"
+        shared:
+          type: boolean
+          description: >
+            true for shared-bot channels managed by the RelayFlow platform;
+            false for custom-bot channels where the workspace owner supplied their own token.
         metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ContactResponse:
+      type: object
+      required: [id, workspaceId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ExternalIdentityResponse:
+      type: object
+      required: [id, workspaceId, contactId, provider, externalUserId, rawProfile, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        contactId:
+          type: string
+          format: uuid
+        provider:
+          $ref: "#/components/schemas/ChannelProvider"
+        externalUserId:
+          type: string
+        externalConversationId:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        rawProfile:
           type: object
           additionalProperties: true
         createdAt:
@@ -728,3 +1003,28 @@ components:
         nextCursor:
           type: string
           nullable: true
+
+    WorkflowDefinitionResponse:
+      type: object
+      required: [id, workspaceId, name, enabled, draftGraph, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        enabled:
+          type: boolean
+        draftGraph:
+          type: object
+          description: React Flow-style workflow graph. Supported node types include trigger, sendMessage, condition, httpRequest, setVariable, waitForReply, jumpTo, and endConversation.
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

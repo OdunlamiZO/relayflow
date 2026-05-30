@@ -1,5 +1,6 @@
 package com.relayflow.api.authentication;
 
+import com.relayflow.api.authentication.domain.User;
 import com.relayflow.api.authentication.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,14 @@ public class SecurityUtils {
 
     public SecurityUtils(UserRepository userRepository) {
         this.userRepository = userRepository;
+    }
+
+    /** Returns true when the authenticated principal is an anonymous guest user. */
+    public boolean isAnonymous(Authentication authentication) {
+        return resolveEmail(authentication)
+                .flatMap(userRepository::findByEmail)
+                .map(User::isAnonymous)
+                .orElse(false);
     }
 
     /**

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
@@ -10,7 +9,7 @@ import { useDeleteChannelAccount } from "@/hooks/use-delete-channel-account";
 import { useReconnectChannelAccount } from "@/hooks/use-reconnect-channel-account";
 import { type ChannelAccount } from "@/lib/messaging-api";
 
-import { ConnectTelegramForm } from "./ConnectTelegramForm";
+import { ConnectTelegramForm } from "../inbox/ConnectTelegramForm";
 
 const PROVIDER_LABEL: Record<string, string> = {
   TELEGRAM: "Telegram",
@@ -41,30 +40,18 @@ export function ChannelsList({ workspaceId }: Props) {
   const [showForm, setShowForm] = useState(false);
 
   return (
-    <div className="mx-auto max-w-2xl p-6 sm:p-8">
-      <div className="mb-6">
-        <Link
-          href={`/inbox?workspaceId=${workspaceId}`}
-          className="mb-4 inline-flex items-center gap-1 text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-700"
-        >
-          <span
-            className="material-symbols-rounded text-[14px]"
-            aria-hidden="true"
-          >
-            arrow_back
-          </span>
-          Back to inbox
-        </Link>
-
-        <h1 className="text-lg font-bold text-primary">Channels</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+    <div className="mx-auto max-w-2xl px-6 py-8 sm:px-8">
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-xl font-bold text-primary">Channels</h1>
+        <p className="mt-1.5 text-sm text-neutral-500">
           Connect messaging channels to receive conversations in this workspace.
         </p>
       </div>
 
       {/* Connected channels */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <section className="mb-8">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Connected
         </h2>
 
@@ -75,7 +62,11 @@ export function ChannelsList({ workspaceId }: Props) {
         )}
 
         {!isLoading && (!channels || channels.length === 0) && (
-          <p className="text-sm text-neutral-500">No channels connected yet.</p>
+          <div className="rounded-xl border border-dashed border-neutral-300 px-4 py-6 text-center">
+            <p className="text-sm text-neutral-400">
+              No channels connected yet.
+            </p>
+          </div>
         )}
 
         {channels && channels.length > 0 && (
@@ -92,8 +83,8 @@ export function ChannelsList({ workspaceId }: Props) {
       </section>
 
       {/* Add channel */}
-      <section className="mt-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Add channel
         </h2>
 
@@ -120,24 +111,28 @@ export function ChannelsList({ workspaceId }: Props) {
         ) : (
           <button
             onClick={() => setShowForm(true)}
-            className="flex w-full items-center gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-100 px-4 py-3.5 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-200"
+            className="flex w-full items-center gap-3 rounded-xl border border-dashed border-neutral-300 bg-white px-4 py-4 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-50"
           >
-            <span
-              className="material-symbols-rounded text-[18px] text-[#229ED9]"
-              aria-hidden="true"
-            >
-              send
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#229ED9]/10">
+              <span
+                className="material-symbols-rounded text-[18px] text-[#229ED9]"
+                aria-hidden="true"
+              >
+                send
+              </span>
             </span>
-            <div>
-              <p className="text-sm font-medium text-neutral-700">
+
+            <div className="flex-1">
+              <p className="text-sm font-medium text-neutral-800">
                 Connect Telegram
               </p>
-              <p className="text-xs text-neutral-500">
-                Receive messages from your Telegram bot
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Receive messages from your own Telegram bot
               </p>
             </div>
+
             <span
-              className="material-symbols-rounded ml-auto text-[16px] text-neutral-400"
+              className="material-symbols-rounded text-[18px] text-neutral-400"
               aria-hidden="true"
             >
               add
@@ -177,18 +172,20 @@ function ChannelItem({
 
   return (
     <>
-      <li className="flex flex-col gap-2 rounded-xl border border-neutral-300 bg-neutral-100 p-4">
+      <li className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span
-              className="material-symbols-rounded shrink-0 text-[18px] text-secondary"
-              aria-hidden="true"
-            >
-              {PROVIDER_ICON[channel.provider] ?? "hub"}
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-100">
+              <span
+                className="material-symbols-rounded text-[18px] text-secondary"
+                aria-hidden="true"
+              >
+                {PROVIDER_ICON[channel.provider] ?? "hub"}
+              </span>
             </span>
 
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-primary">
+              <p className="truncate text-sm font-semibold text-primary">
                 {channel.name}
               </p>
               <p className="text-xs text-neutral-500">
@@ -197,21 +194,21 @@ function ChannelItem({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-3">
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                 channel.status === "ACTIVE"
                   ? "bg-green-bg text-green-text"
-                  : "bg-neutral-200 text-neutral-500"
+                  : "bg-neutral-100 text-neutral-500"
               }`}
             >
-              {channel.status.toLowerCase()}
+              {channel.status === "ACTIVE" ? "Active" : "Disabled"}
             </span>
 
             {channel.status === "ACTIVE" ? (
               <button
                 onClick={() => setShowConfirm(true)}
-                className="text-xs font-medium text-neutral-500 hover:text-red-text"
+                className="text-xs font-medium text-neutral-400 transition-colors hover:text-red-text"
               >
                 Disconnect
               </button>
@@ -219,7 +216,7 @@ function ChannelItem({
               <button
                 onClick={() => reconnect(channel.id)}
                 disabled={isReconnecting}
-                className="text-xs font-medium text-secondary hover:underline disabled:opacity-60"
+                className="text-xs font-medium text-secondary transition-colors hover:underline disabled:opacity-60"
               >
                 {isReconnecting ? "…" : "Reconnect"}
               </button>
@@ -228,9 +225,9 @@ function ChannelItem({
         </div>
 
         {webhookUrl && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5">
+          <div className="flex items-center gap-2 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
             <span
-              className="material-symbols-rounded shrink-0 text-[13px] text-neutral-400"
+              className="material-symbols-rounded flex-shrink-0 text-[13px] text-neutral-400"
               aria-hidden="true"
             >
               webhook

@@ -120,7 +120,7 @@ export function AuthenticationPanel() {
                   setIsOpen(false);
                   logout(undefined, {
                     onSuccess: () => {
-                      router.push("/");
+                      router.push("/login");
                     },
                   });
                 }}

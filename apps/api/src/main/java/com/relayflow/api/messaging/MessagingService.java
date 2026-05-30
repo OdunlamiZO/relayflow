@@ -35,6 +35,7 @@ import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
 import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.telegram.TelegramWebhookRegistrar;
+import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -77,6 +79,10 @@ public class MessagingService {
 
     private final CredentialEncryptionService credentialEncryptionService;
 
+    private final WorkflowDefinitionRepository workflowDefinitionRepository;
+
+    private final String sharedBotToken;
+
     public MessagingService(
             WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
@@ -88,7 +94,9 @@ public class MessagingService {
             MessagingMapper mapper,
             ApplicationEventPublisher eventPublisher,
             TelegramWebhookRegistrar telegramWebhookRegistrar,
-            CredentialEncryptionService credentialEncryptionService) {
+            CredentialEncryptionService credentialEncryptionService,
+            WorkflowDefinitionRepository workflowDefinitionRepository,
+            @Value("${shared.telegram.bot-token:}") String sharedBotToken) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.channelAccountRepository = channelAccountRepository;
@@ -100,6 +108,8 @@ public class MessagingService {
         this.eventPublisher = eventPublisher;
         this.telegramWebhookRegistrar = telegramWebhookRegistrar;
         this.credentialEncryptionService = credentialEncryptionService;
+        this.workflowDefinitionRepository = workflowDefinitionRepository;
+        this.sharedBotToken = sharedBotToken;
     }
 
     @Transactional
@@ -116,6 +126,46 @@ public class MessagingService {
 
         log.info(
                 "Workspace created: id={}, name={}, owner={}",
+                workspace.getId(),
+                workspace.getName(),
+                ownerId);
+
+        return mapper.toDto(workspace);
+    }
+
+    /**
+     * Creates a workspace for a guest user and, if the shared bot is configured, attaches it as a
+     * channel account in the same transaction. If channel-account creation fails, the workspace
+     * creation is rolled back, so the caller never receives a workspace ID that has no bot
+     * attached.
+     */
+    @Transactional
+    public WorkspaceResponse createGuestWorkspace(CreateWorkspaceRequest request, UUID ownerId) {
+        Workspace workspace = new Workspace();
+        workspace.setName(request.name());
+        workspaceRepository.save(workspace);
+
+        WorkspaceMember member = new WorkspaceMember();
+        member.setWorkspaceId(workspace.getId());
+        member.setUserId(ownerId);
+        member.setRole(WorkspaceRole.OWNER);
+        workspaceMemberRepository.save(member);
+
+        if (sharedBotToken != null && !sharedBotToken.isBlank()) {
+            ChannelAccount channelAccount = new ChannelAccount();
+            channelAccount.setWorkspace(workspace);
+            channelAccount.setProvider(ChannelProvider.TELEGRAM);
+            channelAccount.setName("Shared Telegram Bot");
+            channelAccount.setStatus(ChannelAccountStatus.ACTIVE);
+            channelAccount.setShared(true);
+            channelAccount.setEncryptedCredentials(
+                    credentialEncryptionService.encrypt(sharedBotToken));
+            channelAccount.setMetadata(new LinkedHashMap<>());
+            channelAccountRepository.save(channelAccount);
+        }
+
+        log.info(
+                "Guest workspace created: id={}, name={}, owner={}",
                 workspace.getId(),
                 workspace.getName(),
                 ownerId);
@@ -392,6 +442,7 @@ public class MessagingService {
         externalIdentityRepository.softDeleteByWorkspaceId(workspaceId, now);
         contactRepository.softDeleteByWorkspaceId(workspaceId, now);
         channelAccountRepository.softDeleteByWorkspaceId(workspaceId, now);
+        workflowDefinitionRepository.softDeleteByWorkspaceId(workspaceId, now);
         workspaceMemberRepository.softDeleteByWorkspaceId(workspaceId, now);
         workspaceRepository.deleteById(workspaceId);
     }

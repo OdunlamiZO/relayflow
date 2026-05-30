@@ -1,97 +1,52 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { QueryProvider } from "@/components/providers/QueryProvider";
-import { ToastProvider } from "@/components/providers/ToastProvider";
+// Imported after mocks so the mock is in place.
+import { getServerAuthenticationStatus } from "@/lib/server-authentication";
 
 import Home from "./page";
 
+// next/navigation redirect is a throw-based API; mock it as a plain spy.
+const mockRedirect = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  useRouter: vi.fn(() => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-    back: vi.fn(),
-    forward: vi.fn(),
-  })),
-  useSearchParams: vi.fn(() => new URLSearchParams()),
-  usePathname: vi.fn(() => "/"),
+  redirect: (url: string) => {
+    mockRedirect(url);
+  },
 }));
 
-vi.mock("@/hooks/use-authentication", () => ({
-  useAuthentication: vi.fn(() => ({
-    user: null,
-    isLoading: false,
-    isError: false,
-    isAuthenticated: false,
-    isAnonymous: false,
-  })),
+vi.mock("@/lib/server-authentication", () => ({
+  getServerAuthenticationStatus: vi.fn(),
 }));
 
-vi.mock("@/hooks/use-logout", () => ({
-  useLogout: vi.fn(() => ({
-    mutate: vi.fn(),
-    isPending: false,
-  })),
-}));
+const mockGetStatus = vi.mocked(getServerAuthenticationStatus);
 
-function renderHome() {
-  render(
-    <QueryProvider>
-      <ToastProvider>
-        <Home />
-      </ToastProvider>
-    </QueryProvider>
-  );
-}
+beforeEach(() => {
+  mockRedirect.mockReset();
+  mockGetStatus.mockReset();
+});
 
-describe("Home", () => {
-  it("renders the hero headline", () => {
-    renderHome();
+describe("Home (root route)", () => {
+  it("redirects authenticated users to /inbox", async () => {
+    mockGetStatus.mockResolvedValue({ authenticated: true });
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      /all your customer conversations/i
-    );
+    await Home();
+
+    expect(mockRedirect).toHaveBeenCalledWith("/inbox");
   });
 
-  it("renders the open inbox link", () => {
-    renderHome();
+  it("redirects anonymous users to /inbox", async () => {
+    mockGetStatus.mockResolvedValue({ authenticated: true, anonymous: true });
 
-    expect(
-      screen.getByRole("link", { name: /open inbox/i })
-    ).toBeInTheDocument();
+    await Home();
+
+    expect(mockRedirect).toHaveBeenCalledWith("/inbox");
   });
 
-  it("renders the workflow flow nodes", () => {
-    renderHome();
+  it("redirects unauthenticated users to /login", async () => {
+    mockGetStatus.mockResolvedValue({ authenticated: false });
 
-    expect(screen.getByText("Trigger")).toBeInTheDocument();
-    expect(screen.getByText("Send reply")).toBeInTheDocument();
-    expect(screen.getByText("Condition")).toBeInTheDocument();
-  });
+    await Home();
 
-  it("renders get started links pointing to signup", () => {
-    renderHome();
-
-    const links = screen.getAllByRole("link", { name: /get started/i });
-
-    expect(links.length).toBeGreaterThanOrEqual(1);
-    links.forEach((link) => {
-      expect(link).toHaveAttribute("href", "/signup");
-    });
-  });
-
-  it("renders the feature grid", () => {
-    renderHome();
-
-    expect(screen.getByText("Omnichannel inbox")).toBeInTheDocument();
-    expect(screen.getByText("Visual workflow automation")).toBeInTheDocument();
-    expect(screen.getByText("Transparent execution logs")).toBeInTheDocument();
-  });
-
-  it("renders nav log in link when unauthenticated", () => {
-    renderHome();
-
-    expect(screen.getByRole("link", { name: /log in/i })).toBeInTheDocument();
+    expect(mockRedirect).toHaveBeenCalledWith("/login");
   });
 });

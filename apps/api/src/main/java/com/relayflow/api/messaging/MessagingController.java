@@ -58,6 +58,10 @@ public class MessagingController {
             @Valid @RequestBody CreateWorkspaceRequest request, Authentication authentication) {
         UUID userId = securityUtils.resolveUserId(authentication);
 
+        if (securityUtils.isAnonymous(authentication)) {
+            return messagingService.createGuestWorkspace(request, userId);
+        }
+
         return messagingService.createWorkspace(request, userId);
     }
 
