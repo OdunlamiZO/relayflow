@@ -25,6 +25,7 @@ public interface MessagingMapper {
     ChannelAccountResponse toDto(ChannelAccount channelAccount);
 
     @Mapping(source = "workspace.id", target = "workspaceId")
+    @Mapping(target = "identities", ignore = true)
     ContactResponse toDto(Contact contact);
 
     @Mapping(source = "workspace.id", target = "workspaceId")
@@ -41,5 +42,6 @@ public interface MessagingMapper {
 
     @Mapping(source = "workspace.id", target = "workspaceId")
     @Mapping(source = "contact.id", target = "contactId")
+    @Mapping(source = "channelAccount.id", target = "channelAccountId")
     ExternalIdentityResponse toDto(ExternalIdentity externalIdentity);
 }

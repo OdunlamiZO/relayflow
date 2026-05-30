@@ -18,6 +18,11 @@ vi.mock("@/lib/server-authentication", () => ({
   getServerAuthenticationStatus: vi.fn(),
 }));
 
+// TryItButton is a client component that uses hooks — stub it out for SSR tests.
+vi.mock("@/components/landing/TryItButton", () => ({
+  TryItButton: () => null,
+}));
+
 const mockGetStatus = vi.mocked(getServerAuthenticationStatus);
 
 beforeEach(() => {
@@ -42,11 +47,11 @@ describe("Home (root route)", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/inbox");
   });
 
-  it("redirects unauthenticated users to /login", async () => {
+  it("renders the landing page for unauthenticated visitors (no redirect)", async () => {
     mockGetStatus.mockResolvedValue({ authenticated: false });
 
     await Home();
 
-    expect(mockRedirect).toHaveBeenCalledWith("/login");
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 });

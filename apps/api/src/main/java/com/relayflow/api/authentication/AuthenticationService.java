@@ -88,7 +88,7 @@ public class AuthenticationService {
         establishSession(request.email(), request.password(), httpRequest, httpResponse);
 
         return new AuthenticatedUserResponse(
-                true, false, user.getEmail(), user.getDisplayName(), null);
+                true, false, user.getId(), user.getEmail(), user.getDisplayName(), null);
     }
 
     public AuthenticatedUserResponse login(
@@ -110,6 +110,7 @@ public class AuthenticationService {
         return new AuthenticatedUserResponse(
                 true,
                 user.isAnonymous(),
+                user.getId(),
                 user.getEmail(),
                 user.getDisplayName(),
                 user.getAvatarUrl());
@@ -146,20 +147,34 @@ public class AuthenticationService {
 
     public AuthenticatedUserResponse getCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return new AuthenticatedUserResponse(false, false, null, null, null);
+            return new AuthenticatedUserResponse(false, false, null, null, null, null);
         }
 
         Object principal = authentication.getPrincipal();
 
         if (principal instanceof OAuth2User oauthUser) {
             Map<String, Object> attributes = oauthUser.getAttributes();
+            String email = stringAttribute(attributes, "email");
 
-            return new AuthenticatedUserResponse(
-                    true,
-                    false,
-                    stringAttribute(attributes, "email"),
-                    stringAttribute(attributes, "name"),
-                    stringAttribute(attributes, "picture"));
+            return userRepository
+                    .findByEmail(email)
+                    .map(
+                            user ->
+                                    new AuthenticatedUserResponse(
+                                            true,
+                                            false,
+                                            user.getId(),
+                                            email,
+                                            stringAttribute(attributes, "name"),
+                                            stringAttribute(attributes, "picture")))
+                    .orElse(
+                            new AuthenticatedUserResponse(
+                                    true,
+                                    false,
+                                    null,
+                                    email,
+                                    stringAttribute(attributes, "name"),
+                                    stringAttribute(attributes, "picture")));
         }
 
         if (principal instanceof UserDetails userDetails) {
@@ -170,13 +185,14 @@ public class AuthenticationService {
                                     new AuthenticatedUserResponse(
                                             true,
                                             user.isAnonymous(),
+                                            user.getId(),
                                             user.isAnonymous() ? null : user.getEmail(),
                                             user.getDisplayName(),
                                             user.getAvatarUrl()))
-                    .orElse(new AuthenticatedUserResponse(false, false, null, null, null));
+                    .orElse(new AuthenticatedUserResponse(false, false, null, null, null, null));
         }
 
-        return new AuthenticatedUserResponse(false, false, null, null, null);
+        return new AuthenticatedUserResponse(false, false, null, null, null, null);
     }
 
     private void establishSession(

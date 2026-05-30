@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 export type AuthenticatedUser = {
   authenticated: boolean;
   anonymous: boolean;
+  userId: string | null;
   email: string | null;
   displayName: string | null;
   avatarUrl: string | null;

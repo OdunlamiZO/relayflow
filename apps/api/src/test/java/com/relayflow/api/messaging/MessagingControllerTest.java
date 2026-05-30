@@ -51,6 +51,8 @@ class MessagingControllerTest {
 
     @MockBean private MessagingService messagingService;
 
+    @MockBean private WorkspaceAuthorizationService workspaceAuthorizationService;
+
     @MockBean private SecurityUtils securityUtils;
 
     // ── Workspaces ────────────────────────────────────────────────────────────
@@ -209,7 +211,8 @@ class MessagingControllerTest {
         UUID conversationId = UUID.randomUUID();
         UUID contactId = UUID.randomUUID();
         UUID channelAccountId = UUID.randomUUID();
-        when(messagingService.listConversations(eq(workspaceId), anyInt(), anyInt()))
+        when(messagingService.listConversations(
+                        eq(workspaceId), isNull(), isNull(), anyInt(), anyInt()))
                 .thenReturn(
                         new PageResponse<>(
                                 List.of(
@@ -222,6 +225,7 @@ class MessagingControllerTest {
                                                 ChannelProvider.TELEGRAM,
                                                 "Telegram Bot",
                                                 ConversationStatus.OPEN,
+                                                false,
                                                 null,
                                                 null,
                                                 Instant.parse("2026-05-26T10:00:00Z"))),
@@ -253,6 +257,7 @@ class MessagingControllerTest {
                                 ChannelProvider.TELEGRAM,
                                 "Telegram Bot",
                                 ConversationStatus.OPEN,
+                                false,
                                 null,
                                 null,
                                 Instant.parse("2026-05-26T10:00:00Z")));

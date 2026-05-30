@@ -88,7 +88,7 @@ public class WaitForReplyNodeExecutor implements NodeExecutor {
         message.setText(text);
         message.setRawPayload(new LinkedHashMap<>());
 
-        Message saved = messageRepository.save(message);
+        message = messageRepository.save(message);
 
         conversation.setLastMessageAt(Instant.now());
         conversationRepository.save(conversation);
@@ -102,9 +102,9 @@ public class WaitForReplyNodeExecutor implements NodeExecutor {
                                 "conversationId", context.getConversationId().toString())));
 
         eventPublisher.publishEvent(
-                new OutboundMessageEvent(saved, conversation.getChannelAccount()));
+                new OutboundMessageEvent(message, conversation.getChannelAccount()));
 
         return NodeExecutionResult.waiting(
-                Map.of("questionMessageId", saved.getId().toString(), "question", text));
+                Map.of("questionMessageId", message.getId().toString(), "question", text));
     }
 }

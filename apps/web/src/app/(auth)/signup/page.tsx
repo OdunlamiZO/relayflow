@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { GoogleIcon } from "@/components/common/GoogleIcon";
@@ -12,6 +12,8 @@ const apiBaseUrl =
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl");
   const { mutate: signup, isPending } = useSignup();
 
   const [name, setName] = useState("");
@@ -25,7 +27,9 @@ export default function SignupPage() {
       { name, email, password },
       {
         onSuccess: () => {
-          router.push("/inbox");
+          const destination =
+            returnUrl && returnUrl.startsWith("/") ? returnUrl : "/inbox";
+          router.push(destination);
         },
       }
     );

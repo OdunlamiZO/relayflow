@@ -80,12 +80,12 @@ public class EndConversationNodeExecutor implements NodeExecutor {
             message.setText(text);
             message.setRawPayload(new LinkedHashMap<>());
 
-            Message saved = messageRepository.save(message);
+            message = messageRepository.save(message);
 
             conversation.setLastMessageAt(Instant.now());
 
             eventPublisher.publishEvent(
-                    new OutboundMessageEvent(saved, conversation.getChannelAccount()));
+                    new OutboundMessageEvent(message, conversation.getChannelAccount()));
 
             eventPublisher.publishEvent(
                     new SseBroadcastEvent(
@@ -95,12 +95,13 @@ public class EndConversationNodeExecutor implements NodeExecutor {
                                     "workspaceId", context.getWorkspaceId().toString(),
                                     "conversationId", context.getConversationId().toString())));
 
-            output.put("messageId", saved.getId().toString());
+            output.put("messageId", message.getId().toString());
             output.put("text", text);
         }
 
-        // Close the conversation.
+        // Close the conversation and release workflow ownership.
         conversation.setStatus(ConversationStatus.CLOSED);
+        conversation.setLockedByWorkflow(false);
         conversationRepository.save(conversation);
 
         eventPublisher.publishEvent(

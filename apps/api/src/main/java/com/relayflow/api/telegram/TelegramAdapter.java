@@ -1,5 +1,7 @@
 package com.relayflow.api.telegram;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.configuration.CredentialEncryptionService;
 import com.relayflow.api.messaging.OutboundMessageEvent;
 import com.relayflow.api.messaging.ResourceNotFoundException;
@@ -23,6 +25,8 @@ import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.telegram.dto.TelegramMessage;
 import com.relayflow.api.telegram.dto.TelegramUser;
 import com.relayflow.api.telegram.dto.TelegramWebhookPayload;
+import com.relayflow.api.webhook.WebhookDispatchService;
+import com.relayflow.api.webhook.WebhookEventType;
 import com.relayflow.api.workflow.engine.ConversationMessageReceivedEvent;
 import com.relayflow.api.workflow.engine.ConversationOpenedEvent;
 import java.time.Instant;
@@ -64,6 +68,10 @@ public class TelegramAdapter {
 
     private final ApplicationEventPublisher eventPublisher;
 
+    private final ObjectMapper objectMapper;
+
+    private final WebhookDispatchService webhookDispatchService;
+
     private final String sharedBotToken;
 
     private final String webBaseUrl;
@@ -77,6 +85,8 @@ public class TelegramAdapter {
             RestTemplate restTemplate,
             CredentialEncryptionService credentialEncryptionService,
             ApplicationEventPublisher eventPublisher,
+            ObjectMapper objectMapper,
+            WebhookDispatchService webhookDispatchService,
             @Value("${shared.telegram.bot-token:}") String sharedBotToken,
             @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl) {
         this.channelAccountRepository = channelAccountRepository;
@@ -87,6 +97,8 @@ public class TelegramAdapter {
         this.restTemplate = restTemplate;
         this.credentialEncryptionService = credentialEncryptionService;
         this.eventPublisher = eventPublisher;
+        this.objectMapper = objectMapper;
+        this.webhookDispatchService = webhookDispatchService;
         this.sharedBotToken = sharedBotToken;
         this.webBaseUrl = webBaseUrl;
     }
@@ -141,8 +153,9 @@ public class TelegramAdapter {
 
         ExternalIdentity identity =
                 externalIdentityRepository
-                        .findForExternalUser(workspaceId, ChannelProvider.TELEGRAM, externalUserId)
-                        .orElseGet(() -> createIdentity(workspace, from, externalUserId, chatId));
+                        .findForExternalUser(channelAccount.getId(), externalUserId)
+                        .orElseGet(
+                                () -> createIdentity(channelAccount, from, externalUserId, chatId));
 
         Contact contact = identity.getContact();
 
@@ -184,11 +197,15 @@ public class TelegramAdapter {
         inboundMessage.setSenderType(MessageSenderType.CONTACT);
         inboundMessage.setText(msg.text());
         inboundMessage.setProviderMessageId(String.valueOf(msg.messageId()));
-        inboundMessage.setRawPayload(new LinkedHashMap<>());
-        Message saved = messageRepository.save(inboundMessage);
+        inboundMessage.setRawPayload(
+                objectMapper.convertValue(
+                        msg, new TypeReference<LinkedHashMap<String, Object>>() {}));
+        inboundMessage = messageRepository.save(inboundMessage);
 
         conversation.setLastMessageAt(
-                saved.getCreatedAt() != null ? saved.getCreatedAt() : Instant.now());
+                inboundMessage.getCreatedAt() != null
+                        ? inboundMessage.getCreatedAt()
+                        : Instant.now());
         conversationRepository.save(conversation);
 
         log.info(
@@ -198,10 +215,11 @@ public class TelegramAdapter {
                 contact.getDisplayName());
 
         if (triggersWorkflow) {
-            eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, saved));
+            eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, inboundMessage));
         } else {
             // Existing open conversation — notify any waiting workflow runs to resume.
-            eventPublisher.publishEvent(new ConversationMessageReceivedEvent(conversation, saved));
+            eventPublisher.publishEvent(
+                    new ConversationMessageReceivedEvent(conversation, inboundMessage));
         }
 
         eventPublisher.publishEvent(
@@ -299,8 +317,9 @@ public class TelegramAdapter {
         // across multiple guest workspaces for the same Telegram user.
         ExternalIdentity identity =
                 externalIdentityRepository
-                        .findForExternalUser(workspaceId, ChannelProvider.TELEGRAM, telegramUserId)
-                        .orElseGet(() -> createIdentity(workspace, from, telegramUserId, chatId));
+                        .findForExternalUser(channelAccount.getId(), telegramUserId)
+                        .orElseGet(
+                                () -> createIdentity(channelAccount, from, telegramUserId, chatId));
 
         identity.setCreatedAt(Instant.now());
         externalIdentityRepository.save(identity);
@@ -404,10 +423,7 @@ public class TelegramAdapter {
 
         ExternalIdentity identity =
                 externalIdentityRepository
-                        .findForContact(
-                                channelAccount.getWorkspace().getId(),
-                                ChannelProvider.TELEGRAM,
-                                contact.getId())
+                        .findForContact(channelAccount.getId(), contact.getId())
                         .orElseThrow(
                                 () ->
                                         new TelegramSendException(
@@ -475,7 +491,12 @@ public class TelegramAdapter {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private ExternalIdentity createIdentity(
-            Workspace workspace, TelegramUser from, String externalUserId, String chatId) {
+            ChannelAccount channelAccount,
+            TelegramUser from,
+            String externalUserId,
+            String chatId) {
+        Workspace workspace = channelAccount.getWorkspace();
+
         Contact contact = new Contact();
         contact.setWorkspace(workspace);
         contact.setDisplayName(buildDisplayName(from));
@@ -484,13 +505,36 @@ public class TelegramAdapter {
         ExternalIdentity identity = new ExternalIdentity();
         identity.setWorkspace(workspace);
         identity.setContact(contact);
+        identity.setChannelAccount(channelAccount);
         identity.setProvider(ChannelProvider.TELEGRAM);
         identity.setExternalUserId(externalUserId);
         identity.setExternalConversationId(chatId);
         identity.setUsername(from.username());
         identity.setRawProfile(new LinkedHashMap<>());
 
-        return externalIdentityRepository.save(identity);
+        identity = externalIdentityRepository.save(identity);
+
+        Map<String, Object> contactData = new LinkedHashMap<>();
+        contactData.put("id", contact.getId().toString());
+        contactData.put(
+                "displayName", contact.getDisplayName() != null ? contact.getDisplayName() : "");
+        if (from.username() != null) {
+            contactData.put("username", from.username());
+        }
+
+        Map<String, Object> channelData = new LinkedHashMap<>();
+        channelData.put("id", channelAccount.getId().toString());
+        channelData.put("name", channelAccount.getName());
+        channelData.put("provider", ChannelProvider.TELEGRAM);
+
+        Map<String, Object> contactPayload = new LinkedHashMap<>();
+        contactPayload.put("contact", contactData);
+        contactPayload.put("channel", channelData);
+
+        webhookDispatchService.dispatch(
+                workspace.getId(), WebhookEventType.CONTACT_CREATED, contactPayload);
+
+        return identity;
     }
 
     private Conversation createConversation(

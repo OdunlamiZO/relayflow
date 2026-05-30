@@ -9,6 +9,7 @@ public record ExternalIdentityResponse(
         UUID id,
         UUID workspaceId,
         UUID contactId,
+        UUID channelAccountId,
         ChannelProvider provider,
         String externalUserId,
         String externalConversationId,

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { Spinner } from "@/components/common/Spinner";
 import { SettingsShell } from "@/components/settings/SettingsShell";
+import { getServerAuthenticationStatus } from "@/lib/server-authentication";
 
 export const metadata = {
   title: "Settings — RelayFlow",
@@ -13,7 +14,10 @@ type Props = {
 };
 
 export default async function SettingsPage({ searchParams }: Props) {
-  const { workspaceId } = await searchParams;
+  const [{ workspaceId }, { anonymous }] = await Promise.all([
+    searchParams,
+    getServerAuthenticationStatus(),
+  ]);
 
   if (!workspaceId) {
     redirect("/inbox");
@@ -27,7 +31,10 @@ export default async function SettingsPage({ searchParams }: Props) {
         </div>
       }
     >
-      <SettingsShell workspaceId={workspaceId} />
+      <SettingsShell
+        workspaceId={workspaceId}
+        isAnonymous={anonymous ?? false}
+      />
     </Suspense>
   );
 }

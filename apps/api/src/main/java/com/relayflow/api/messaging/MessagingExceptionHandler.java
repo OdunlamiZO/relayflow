@@ -25,6 +25,12 @@ public class MessagingExceptionHandler {
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
     }
 
+    @ExceptionHandler(ConversationLockedException.class)
+    ResponseEntity<ErrorResponse> conversationLocked(ConversationLockedException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(exception.getMessage(), Instant.now()));
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     ResponseEntity<ErrorResponse> notFound(ResourceNotFoundException exception) {
         log.warn("Resource not found: {}", exception.getMessage());
@@ -38,6 +44,14 @@ public class MessagingExceptionHandler {
         log.warn("Workflow validation failed: {}", exception.getMessage());
 
         return ResponseEntity.badRequest()
+                .body(new ErrorResponse(exception.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ErrorResponse> illegalArgument(IllegalArgumentException exception) {
+        log.warn("Illegal argument: {}", exception.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
     }
 

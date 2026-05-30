@@ -42,11 +42,16 @@ export async function requireAuthentication(): Promise<void> {
   }
 }
 
-/** Redirects to /inbox if the user is already authenticated. */
-export async function redirectIfAuthenticated(): Promise<void> {
+/**
+ * Redirects to {@code destination} (default: /inbox) if the user is already authenticated.
+ * Pass a validated returnUrl to preserve the post-login destination.
+ */
+export async function redirectIfAuthenticated(
+  destination = "/inbox"
+): Promise<void> {
   const { authenticated } = await getServerAuthenticationStatus();
 
   if (authenticated) {
-    redirect("/inbox");
+    redirect(destination);
   }
 }

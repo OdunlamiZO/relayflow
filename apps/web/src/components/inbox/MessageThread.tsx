@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { Spinner } from "@/components/common/Spinner";
 import { useConversations } from "@/hooks/use-conversations";
 import { useMessages } from "@/hooks/use-messages";
+import { useUpdateConversation } from "@/hooks/use-update-conversation";
 
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
@@ -29,6 +30,8 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
   const prevScrollHeightRef = useRef<number>(0);
 
   const { data: conversationsData } = useConversations(workspaceId);
+  const { mutate: updateConversation, isPending: isUpdating } =
+    useUpdateConversation(workspaceId);
   const {
     data,
     isLoading,
@@ -143,12 +146,42 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
             {conversation.status}
           </span>
         )}
+
+        {conversation && (
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() =>
+              updateConversation({
+                conversationId: conversationId,
+                status: conversation.status === "CLOSED" ? "OPEN" : "CLOSED",
+              })
+            }
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              conversation.status === "CLOSED"
+                ? "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
+                : "bg-green-bg text-green-text hover:bg-green-bg/70"
+            }`}
+          >
+            {isUpdating ? (
+              <Spinner size="sm" />
+            ) : (
+              <span
+                className="material-symbols-rounded text-[14px] leading-none"
+                aria-hidden="true"
+              >
+                {conversation.status === "CLOSED" ? "refresh" : "done_all"}
+              </span>
+            )}
+            {conversation.status === "CLOSED" ? "Reopen" : "Close"}
+          </button>
+        )}
       </div>
 
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6"
+        className="flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-14 sm:px-6 md:pb-4"
       >
         {/* Load-older spinner */}
         {isFetchingNextPage && (
@@ -187,6 +220,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
       <MessageComposer
         workspaceId={workspaceId}
         conversationId={conversationId}
+        lockedByWorkflow={conversation?.lockedByWorkflow ?? false}
       />
     </div>
   );

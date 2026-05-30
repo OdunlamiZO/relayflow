@@ -12,7 +12,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,12 +28,7 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @SQLDelete(sql = "UPDATE external_identities SET deleted_at = NOW() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
-@Table(
-        name = "external_identities",
-        uniqueConstraints =
-                @UniqueConstraint(
-                        name = "external_identities_workspace_provider_external_user_id_key",
-                        columnNames = {"workspace_id", "provider", "external_user_id"}))
+@Table(name = "external_identities")
 public class ExternalIdentity {
 
     @Id
@@ -48,6 +42,10 @@ public class ExternalIdentity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "contact_id", nullable = false)
     private Contact contact;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "channel_account_id")
+    private ChannelAccount channelAccount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)

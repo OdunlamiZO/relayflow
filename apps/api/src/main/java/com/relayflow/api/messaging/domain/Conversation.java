@@ -50,6 +50,9 @@ public class Conversation {
     @Column(name = "assigned_user_id")
     private UUID assignedUserId;
 
+    @Column(name = "locked_by_workflow", nullable = false)
+    private boolean lockedByWorkflow = false;
+
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
 

@@ -1,8 +1,11 @@
 package com.relayflow.api.authentication.dto;
 
+import java.util.UUID;
+
 public record AuthenticatedUserResponse(
         boolean authenticated,
         boolean anonymous,
+        UUID userId,
         String email,
         String displayName,
         String avatarUrl) {}

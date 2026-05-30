@@ -272,7 +272,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     <div className="flex h-full overflow-hidden">
       <WorkspaceNav workspaceId={workspaceId} />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden pb-14 md:pb-0">
         {/* Editor top bar */}
         <div className="flex flex-shrink-0 flex-col border-b border-neutral-300 bg-neutral-100">
           <div className="flex items-center gap-3 px-4 py-2.5">
@@ -367,9 +367,34 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
           )}
         </div>
 
+        {/* Node palette — horizontal scroll on mobile */}
+        {!isLocked && (
+          <div className="flex flex-shrink-0 gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-100 p-2 md:hidden">
+            {palette.map(({ type, label, icon, color }) => (
+              <div
+                key={type}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("application/reactflow", type);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                className={`flex flex-shrink-0 cursor-grab items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium select-none active:cursor-grabbing ${color}`}
+              >
+                <span
+                  className="material-symbols-rounded text-[13px] leading-none"
+                  aria-hidden="true"
+                >
+                  {icon}
+                </span>
+                {label}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Canvas area */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Node palette — hidden on mobile */}
+          {/* Node palette — vertical sidebar on desktop */}
           <aside className="hidden w-48 flex-shrink-0 flex-col gap-2 border-r border-neutral-300 bg-neutral-100 p-3 md:flex">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
               Nodes

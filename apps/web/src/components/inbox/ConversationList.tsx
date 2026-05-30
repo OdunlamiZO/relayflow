@@ -17,6 +17,8 @@ type Props = {
   selectedConversationId: string | undefined;
   onSelect: (conversationId: string) => void;
   telegramLinked?: boolean;
+  /** When set, only conversations for this contact are shown. */
+  contactId?: string;
 };
 
 export function ConversationList({
@@ -24,6 +26,7 @@ export function ConversationList({
   selectedConversationId,
   onSelect,
   telegramLinked = false,
+  contactId,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +37,7 @@ export function ConversationList({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useConversations(workspaceId);
+  } = useConversations(workspaceId, contactId);
 
   const { isAnonymous } = useAuthentication();
 
@@ -70,7 +73,7 @@ export function ConversationList({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 divide-y divide-neutral-300 overflow-y-auto"
+        className="flex-1 divide-y divide-neutral-300 overflow-y-auto pb-14 md:pb-0"
       >
         {isLoading && (
           <div className="flex justify-center py-8">

@@ -99,17 +99,48 @@ The app supports email/password login, Google OAuth, and temporary anonymous gue
 
 - `GET    /api/workspaces`
 - `POST   /api/workspaces`
+- `GET    /api/workspaces/{workspaceId}/members`
+- `POST   /api/workspaces/{workspaceId}/members`
+- `PATCH  /api/workspaces/{workspaceId}/members/{memberId}`
+- `DELETE /api/workspaces/{workspaceId}/members/{memberId}`
+- `GET    /api/workspaces/{workspaceId}/invites`
+- `POST   /api/workspaces/{workspaceId}/invites`
+- `DELETE /api/workspaces/{workspaceId}/invites/{inviteId}`
+- `GET    /api/invites/{token}`
+- `POST   /api/invites/{token}/accept`
 - `GET    /api/channel-accounts?workspaceId={workspaceId}`
 - `POST   /api/channel-accounts`
 - `DELETE /api/channel-accounts/{id}?workspaceId={workspaceId}`
 - `POST   /api/channel-accounts/{id}/reconnect?workspaceId={workspaceId}`
+- `GET    /api/contacts?workspaceId={workspaceId}`
 - `POST   /api/contacts`
+- `GET    /api/contacts/{id}?workspaceId={workspaceId}`
+- `POST   /api/contacts/{id}/merge?workspaceId={workspaceId}`
+- `DELETE /api/contacts/{id}?workspaceId={workspaceId}`
 - `POST   /api/external-identities`
 - `POST   /api/conversations`
 - `GET    /api/conversations?workspaceId={workspaceId}`
 - `GET    /api/conversations/{id}?workspaceId={workspaceId}`
+- `PATCH  /api/conversations/{id}?workspaceId={workspaceId}`
 - `GET    /api/conversations/{id}/messages?workspaceId={workspaceId}`
 - `POST   /api/conversations/{id}/messages?workspaceId={workspaceId}`
+
+### Integrations
+
+- `GET    /api/workspaces/{workspaceId}/api-keys`
+- `POST   /api/workspaces/{workspaceId}/api-keys`
+- `DELETE /api/workspaces/{workspaceId}/api-keys/{keyId}`
+- `GET    /api/workspaces/{workspaceId}/webhook`
+- `PUT    /api/workspaces/{workspaceId}/webhook`
+- `DELETE /api/workspaces/{workspaceId}/webhook`
+- `POST   /api/workspaces/{workspaceId}/webhook/rotate-secret`
+
+Public API requests authenticate with `X-Api-Key`:
+
+- `GET  /public/v1/conversations`
+- `GET  /public/v1/conversations/{id}`
+- `GET  /public/v1/conversations/{id}/messages`
+- `POST /public/v1/conversations/{id}/messages`
 
 ### Workflows
 
@@ -142,6 +173,13 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Shared bot message routing to the most-recently linked guest workspace.
 - [x] Channel account disconnect — sets status to `DISABLED`; inbound and outbound are gated on `ACTIVE` so messages stop immediately. History is preserved.
 - [x] Closed conversation reopening — when a contact messages a closed conversation it is set back to `OPEN` and workflow automation fires again.
+- [x] Contact management — paginated contacts list, detail panel, delete, and guarded contact merge that moves identities/conversations to the target contact.
+- [x] Per-channel-account identities — external identities are scoped to a channel account/bot so the same Telegram user can appear in separate connected bots without collision.
+- [x] Conversation workflow lock — active workflows own the conversation and agent replies return `409 Conflict` until the workflow finishes, fails, or closes the conversation.
+- [x] Workspace member permissions — owners manage members and grant granular access for inbox, contacts, workflows, channels, API keys, and webhooks.
+- [x] Workspace invites — owners create/revoke expiring email invites; authenticated users can preview and accept matching invites.
+- [x] API keys and public API — workspace API keys can list conversations/messages and send outbound agent messages through `/public/v1`.
+- [x] Workspace webhooks — configurable signed webhooks currently emit `contact.created` with retry/backoff delivery.
 
 ### Authentication
 - [x] Email/password signup and login.
@@ -150,6 +188,8 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 
 ### Inbox UI
 - [x] Conversation list, message thread, and outbound composer.
+- [x] Contacts page with channel badges, contact detail panel, inbox deep link, delete confirmation, and merge modal.
+- [x] Settings UI for member permissions, invites, API keys, and webhook configuration.
 - [x] Real-time updates via SSE — `message.created` and `workspace.updated` events pushed after commit.
 - [x] Google login entry point and session status panel.
 - [x] Guest mode banner with "Create account" prompt and Telegram-connected empty state.
@@ -177,9 +217,9 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 
 ### Planned
 - [ ] Workflow run logs UI — list runs per workflow; step-by-step breakdown with input/output snapshots. Accessible to workspace members.
-- [ ] Workspace membership authorization on all workspace-scoped endpoints.
+- [x] Workspace membership authorization and permission checks on mutating workspace-scoped endpoints.
 - [ ] Telegram webhook verification (`X-Telegram-Bot-Api-Secret-Token`).
-- [ ] Workspace roles — owner, admin, agent — with role-based access control.
+- [ ] Broader role model beyond owner/member permissions.
 - [ ] Conversation assignment to workspace members.
 - [ ] Backend integration tests (Testcontainers, existing IT profile).
 - [ ] Frontend component tests for inbox states and composer.
