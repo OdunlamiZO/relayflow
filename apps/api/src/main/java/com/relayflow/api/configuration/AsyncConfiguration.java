@@ -3,6 +3,7 @@ package com.relayflow.api.configuration;
 import java.util.concurrent.Executor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -16,6 +17,7 @@ public class AsyncConfiguration {
      * <p>Core=4, max=16, queue=500 keeps webhook delivery isolated from the main request-handling
      * threads and provides basic back-pressure.
      */
+    @Primary
     @Bean(name = "webhookExecutor")
     Executor webhookExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { GoogleIcon } from "@/components/common/GoogleIcon";
@@ -11,14 +10,12 @@ const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export default function SignupPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl");
   const { mutate: signup, isPending } = useSignup();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,11 +24,47 @@ export default function SignupPage() {
       { name, email, password },
       {
         onSuccess: () => {
-          const destination =
-            returnUrl && returnUrl.startsWith("/") ? returnUrl : "/inbox";
-          router.push(destination);
+          setEmailSent(true);
         },
       }
+    );
+  }
+
+  if (emailSent) {
+    return (
+      <>
+        <div className="mb-4 flex items-center gap-2.5">
+          <span
+            className="material-symbols-rounded text-[28px] leading-none text-green-text"
+            aria-hidden="true"
+          >
+            mark_email_read
+          </span>
+          <h1 className="m-0 text-xl font-semibold text-primary">
+            Check your inbox
+          </h1>
+        </div>
+
+        <p className="mb-2 text-sm text-neutral-600">
+          We sent a verification link to{" "}
+          <span className="font-semibold text-primary">{email}</span>.
+        </p>
+
+        <p className="text-sm text-neutral-500">
+          Click the link in the email to activate your account. If you
+          don&apos;t see it, check your spam folder.
+        </p>
+
+        <p className="mt-6 text-center text-sm text-neutral-600">
+          Already verified?{" "}
+          <Link
+            href="/login"
+            className="font-semibold text-accent hover:underline"
+          >
+            Sign in
+          </Link>
+        </p>
+      </>
     );
   }
 

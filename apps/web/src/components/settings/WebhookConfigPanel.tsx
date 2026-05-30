@@ -53,7 +53,7 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
 
   const [url, setUrl] = useState(webhook?.url ?? "");
   const [secret, setSecret] = useState("");
-  const [enabled, setEnabled] = useState(webhook?.enabled ?? true);
+  const [enabled, setEnabled] = useState(webhook?.enabled ?? false);
   const [events, setEvents] = useState<WebhookEventType[]>(
     webhook?.events ?? []
   );

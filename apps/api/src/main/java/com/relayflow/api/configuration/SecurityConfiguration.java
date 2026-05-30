@@ -97,6 +97,7 @@ public class SecurityConfiguration {
                                                 "/api/health",
                                                 "/api/auth/me",
                                                 "/api/auth/signup",
+                                                "/api/auth/verify-email",
                                                 "/api/auth/login",
                                                 "/api/auth/guest",
                                                 "/api/telegram/webhook/**",

@@ -17,6 +17,10 @@ export type AuthenticatedUserResponse = {
   avatarUrl: string | null;
 };
 
+export type SignupResponse = {
+  emailVerificationSent: boolean;
+};
+
 export type GuestSessionResponse = {
   workspaceId: string;
 };
@@ -49,10 +53,14 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function signup(
-  payload: SignupPayload
-): Promise<AuthenticatedUserResponse> {
-  return apiPost<AuthenticatedUserResponse>("/api/auth/signup", payload);
+export function signup(payload: SignupPayload): Promise<SignupResponse> {
+  return apiPost<SignupResponse>("/api/auth/signup", payload);
+}
+
+export function verifyEmail(token: string): Promise<AuthenticatedUserResponse> {
+  return apiPost<AuthenticatedUserResponse>("/api/auth/verify-email", {
+    token,
+  });
 }
 
 export function login(
