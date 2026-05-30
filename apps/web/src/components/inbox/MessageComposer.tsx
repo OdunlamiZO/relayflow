@@ -8,9 +8,14 @@ import { useSendMessage } from "@/hooks/use-send-message";
 type Props = {
   workspaceId: string;
   conversationId: string;
+  lockedByWorkflow?: boolean;
 };
 
-export function MessageComposer({ workspaceId, conversationId }: Props) {
+export function MessageComposer({
+  workspaceId,
+  conversationId,
+  lockedByWorkflow = false,
+}: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,6 +63,23 @@ export function MessageComposer({ workspaceId, conversationId }: Props) {
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setText(e.target.value);
     resize();
+  }
+
+  if (lockedByWorkflow) {
+    return (
+      <div className="flex items-center gap-2.5 border-t border-neutral-300 bg-neutral-100 px-4 py-3.5">
+        <span
+          className="material-symbols-rounded flex-shrink-0 text-[16px] leading-none text-purple-text"
+          aria-hidden="true"
+        >
+          smart_toy
+        </span>
+        <p className="text-xs text-neutral-500">
+          A workflow is handling this conversation. You can reply once it
+          finishes.
+        </p>
+      </div>
+    );
   }
 
   return (

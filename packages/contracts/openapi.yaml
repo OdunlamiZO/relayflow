@@ -149,6 +149,291 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkspaceResponse"
 
+  /api/workspaces/{workspaceId}/members:
+    get:
+      operationId: listWorkspaceMembers
+      summary: List members of a workspace
+      tags: [WorkspaceMembers]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Workspace member list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspaceMemberResponse"
+    post:
+      operationId: inviteWorkspaceMemberDirectly
+      summary: Add or invite a workspace member directly by email
+      tags: [WorkspaceMembers]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteMemberRequest"
+      responses:
+        "201":
+          description: Workspace member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMemberResponse"
+
+  /api/workspaces/{workspaceId}/members/{memberId}:
+    patch:
+      operationId: updateWorkspaceMember
+      summary: Update a workspace member role or permissions
+      tags: [WorkspaceMembers]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRequest"
+      responses:
+        "200":
+          description: Workspace member updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMemberResponse"
+    delete:
+      operationId: removeWorkspaceMember
+      summary: Remove a workspace member
+      tags: [WorkspaceMembers]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Workspace member removed
+
+  /api/workspaces/{workspaceId}/invites:
+    get:
+      operationId: listWorkspaceInvites
+      summary: List pending workspace invites
+      tags: [WorkspaceInvites]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Workspace invite list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspaceInviteResponse"
+    post:
+      operationId: createWorkspaceInvite
+      summary: Create or refresh a workspace invite
+      tags: [WorkspaceInvites]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteRequest"
+      responses:
+        "201":
+          description: Workspace invite created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceInviteResponse"
+
+  /api/workspaces/{workspaceId}/invites/{inviteId}:
+    delete:
+      operationId: revokeWorkspaceInvite
+      summary: Revoke a pending workspace invite
+      tags: [WorkspaceInvites]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: inviteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Invite revoked
+
+  /api/invites/{token}:
+    get:
+      operationId: previewWorkspaceInvite
+      summary: Preview a workspace invite
+      tags: [WorkspaceInvites]
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Invite preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitePreviewResponse"
+
+  /api/invites/{token}/accept:
+    post:
+      operationId: acceptWorkspaceInvite
+      summary: Accept a workspace invite
+      tags: [WorkspaceInvites]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Invite accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteAcceptedResponse"
+
+  /api/workspaces/{workspaceId}/api-keys:
+    get:
+      operationId: listApiKeys
+      summary: List workspace API keys
+      tags: [ApiKeys]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: API key list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyResponse"
+    post:
+      operationId: createApiKey
+      summary: Create a workspace API key
+      tags: [ApiKeys]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "201":
+          description: API key created. The plaintext key is returned once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateApiKeyResponse"
+
+  /api/workspaces/{workspaceId}/api-keys/{keyId}:
+    delete:
+      operationId: revokeApiKey
+      summary: Revoke a workspace API key
+      tags: [ApiKeys]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: API key revoked
+
+  /api/workspaces/{workspaceId}/webhook:
+    get:
+      operationId: getWorkspaceWebhook
+      summary: Get workspace webhook configuration
+      tags: [Webhooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Webhook configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookConfigResponse"
+        "404":
+          description: No webhook configured
+    put:
+      operationId: saveWorkspaceWebhook
+      summary: Create or update workspace webhook configuration
+      tags: [Webhooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveWebhookRequest"
+      responses:
+        "200":
+          description: Webhook configuration saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookConfigResponse"
+    delete:
+      operationId: deleteWorkspaceWebhook
+      summary: Delete workspace webhook configuration
+      tags: [Webhooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "204":
+          description: Webhook configuration deleted
+
+  /api/workspaces/{workspaceId}/webhook/rotate-secret:
+    post:
+      operationId: rotateWorkspaceWebhookSecret
+      summary: Rotate workspace webhook signing secret
+      tags: [Webhooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: New plaintext secret returned once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RotateWebhookSecretResponse"
+
   # ── Channel Accounts ──────────────────────────────────────────────────────────
 
   /api/channel-accounts:
@@ -238,6 +523,29 @@ paths:
   # ── Contacts ────────────────────────────────────────────────────────────────
 
   /api/contacts:
+    get:
+      operationId: listContacts
+      summary: List contacts for a workspace, newest first
+      tags: [Contacts]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdQuery"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Paginated contact list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactPageResponse"
     post:
       operationId: createContact
       summary: Create a contact in a workspace
@@ -255,6 +563,94 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ContactResponse"
+
+  /api/contacts/{id}:
+    get:
+      operationId: getContact
+      summary: Get a contact with linked channel identities
+      tags: [Contacts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: Contact detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactDetailResponse"
+        "404":
+          description: Contact not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteContact
+      summary: Delete a contact
+      tags: [Contacts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "204":
+          description: Contact deleted
+        "404":
+          description: Contact not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/contacts/{id}/merge:
+    post:
+      operationId: mergeContacts
+      summary: Merge a source contact into a target contact
+      tags: [Contacts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Target contact ID that will remain after the merge
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MergeContactRequest"
+      responses:
+        "200":
+          description: Updated target contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "400":
+          description: Invalid merge request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Contact not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/external-identities:
     post:
@@ -294,6 +690,13 @@ paths:
           schema:
             type: integer
             default: 30
+        - name: contactId
+          in: query
+          required: false
+          description: When present, only conversations for this contact are returned
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Paginated conversation list
@@ -340,6 +743,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateConversation
+      summary: Update a conversation status
+      tags: [Conversations]
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateConversationRequest"
+      responses:
+        "200":
+          description: Conversation updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationResponse"
 
   # ── Messages ──────────────────────────────────────────────────────────────────
 
@@ -392,6 +815,12 @@ paths:
                 $ref: "#/components/schemas/MessageResponse"
         "502":
           description: Message could not be delivered to the channel provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conversation is currently locked by an active workflow
           content:
             application/json:
               schema:
@@ -573,11 +1002,136 @@ paths:
         "200":
           description: Update accepted
 
+  # ── Public API ───────────────────────────────────────────────────────────────
+
+  /public/v1/conversations:
+    get:
+      operationId: publicListConversations
+      summary: List conversations for the API key workspace
+      tags: [PublicAPI]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: contactId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: channelAccountId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Paginated conversation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationPageResponse"
+
+  /public/v1/conversations/{conversationId}:
+    get:
+      operationId: publicGetConversation
+      summary: Get a conversation for the API key workspace
+      tags: [PublicAPI]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+      responses:
+        "200":
+          description: Conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationResponse"
+
+  /public/v1/conversations/{conversationId}/messages:
+    get:
+      operationId: publicListMessages
+      summary: List messages for a public API conversation
+      tags: [PublicAPI]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+        - name: before
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Paginated message list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessagePageResponse"
+    post:
+      operationId: publicSendMessage
+      summary: Send an outbound agent message via API key
+      tags: [PublicAPI]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicSendMessageRequest"
+      responses:
+        "201":
+          description: Message created and delivered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "409":
+          description: Conversation is currently locked by an active workflow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 # ── Reusable components ────────────────────────────────────────────────────────
 
 components:
 
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
   parameters:
+    workspaceIdPath:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     workspaceIdQuery:
       name: workspaceId
       in: query
@@ -624,6 +1178,30 @@ components:
       type: string
       enum: [CONTACT, AGENT, SYSTEM, WORKFLOW]
 
+    WorkspaceRole:
+      type: string
+      enum: [OWNER, MEMBER]
+
+    WorkspacePermission:
+      type: string
+      enum:
+        - INBOX
+        - CONTACTS_DELETE
+        - WORKFLOWS_WRITE
+        - WORKFLOWS_DELETE
+        - CHANNELS_WRITE
+        - CHANNELS_DELETE
+        - API_KEYS_WRITE
+        - WEBHOOKS_WRITE
+
+    InviteStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, REVOKED, EXPIRED]
+
+    WebhookEventType:
+      type: string
+      enum: [CONTACT_CREATED]
+
     # ── Requests ───────────────────────────────────────────────────────────────
 
     SignupRequest:
@@ -655,6 +1233,78 @@ components:
       properties:
         name:
           type: string
+
+    InviteMemberRequest:
+      type: object
+      required: [email, permissions]
+      properties:
+        email:
+          type: string
+          format: email
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WorkspacePermission"
+
+    UpdateMemberRequest:
+      type: object
+      required: [permissions]
+      properties:
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WorkspacePermission"
+
+    CreateInviteRequest:
+      type: object
+      required: [email, permissions]
+      properties:
+        email:
+          type: string
+          format: email
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WorkspacePermission"
+
+    CreateApiKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SaveWebhookRequest:
+      type: object
+      required: [url, enabled, events]
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        secret:
+          type: string
+          minLength: 16
+          maxLength: 256
+          nullable: true
+          description: Plaintext HMAC secret; encrypted at rest and never returned in webhook config responses.
+        enabled:
+          type: boolean
+        events:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
 
     CreateChannelAccountRequest:
       type: object
@@ -697,6 +1347,11 @@ components:
         contactId:
           type: string
           format: uuid
+        channelAccountId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional channel account/bot that owns this external identity
         provider:
           $ref: "#/components/schemas/ChannelProvider"
         externalUserId:
@@ -711,6 +1366,15 @@ components:
           type: object
           additionalProperties: true
           nullable: true
+
+    MergeContactRequest:
+      type: object
+      required: [sourceContactId]
+      properties:
+        sourceContactId:
+          type: string
+          format: uuid
+          description: Contact that will be merged into the target and then deleted
 
     CreateConversationRequest:
       type: object
@@ -750,6 +1414,20 @@ components:
           type: object
           additionalProperties: true
           nullable: true
+
+    UpdateConversationRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/ConversationStatus"
+
+    PublicSendMessageRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
 
     CreateWorkflowDefinitionRequest:
       type: object
@@ -801,6 +1479,10 @@ components:
           type: boolean
         anonymous:
           type: boolean
+        userId:
+          type: string
+          format: uuid
+          nullable: true
         email:
           type: string
           nullable: true
@@ -832,6 +1514,185 @@ components:
           type: string
           format: date-time
 
+    WorkspaceMemberResponse:
+      type: object
+      required: [id, userId, role, permissions, joinedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          $ref: "#/components/schemas/WorkspaceRole"
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WorkspacePermission"
+        joinedAt:
+          type: string
+          format: date-time
+
+    WorkspaceInviteResponse:
+      type: object
+      required: [id, email, permissions, status, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        inviterName:
+          type: string
+          nullable: true
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WorkspacePermission"
+        status:
+          $ref: "#/components/schemas/InviteStatus"
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    InvitePreviewResponse:
+      type: object
+      required: [inviteId, workspaceId, workspaceName, email, permissions, status, expiresAt]
+      properties:
+        inviteId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        workspaceName:
+          type: string
+        inviterName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WorkspacePermission"
+        status:
+          $ref: "#/components/schemas/InviteStatus"
+        expiresAt:
+          type: string
+          format: date-time
+
+    InviteAcceptedResponse:
+      type: object
+      required: [workspaceId]
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+
+    ApiKeyResponse:
+      type: object
+      required: [id, name, keyPrefix, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateApiKeyResponse:
+      type: object
+      required: [id, name, keyPrefix, createdAt, key]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        key:
+          type: string
+          description: Plaintext API key returned once.
+
+    WebhookConfigResponse:
+      type: object
+      required: [id, workspaceId, url, enabled, events, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        enabled:
+          type: boolean
+        events:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RotateWebhookSecretResponse:
+      type: object
+      required: [secret]
+      properties:
+        secret:
+          type: string
+          description: New plaintext HMAC secret returned once.
+
     ChannelAccountResponse:
       type: object
       required: [id, workspaceId, provider, name, status, shared, metadata, createdAt]
@@ -862,7 +1723,7 @@ components:
 
     ContactResponse:
       type: object
-      required: [id, workspaceId, createdAt]
+      required: [id, workspaceId, createdAt, identities]
       properties:
         id:
           type: string
@@ -876,6 +1737,28 @@ components:
         createdAt:
           type: string
           format: date-time
+        identities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIdentityResponse"
+
+    ContactDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/ContactResponse"
+
+    ContactPageResponse:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactResponse"
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true
 
     ExternalIdentityResponse:
       type: object
@@ -890,6 +1773,10 @@ components:
         contactId:
           type: string
           format: uuid
+        channelAccountId:
+          type: string
+          format: uuid
+          nullable: true
         provider:
           $ref: "#/components/schemas/ChannelProvider"
         externalUserId:
@@ -909,7 +1796,7 @@ components:
 
     ConversationResponse:
       type: object
-      required: [id, workspaceId, contactId, channelAccountId, channelProvider, status, createdAt]
+      required: [id, workspaceId, contactId, channelAccountId, channelProvider, status, lockedByWorkflow, createdAt]
       properties:
         id:
           type: string
@@ -933,6 +1820,9 @@ components:
           nullable: true
         status:
           $ref: "#/components/schemas/ConversationStatus"
+        lockedByWorkflow:
+          type: boolean
+          description: True while an active workflow run owns the conversation and agent replies are blocked.
         assignedUserId:
           type: string
           format: uuid

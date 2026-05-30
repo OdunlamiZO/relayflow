@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { GoogleIcon } from "@/components/common/GoogleIcon";
@@ -12,6 +12,8 @@ const apiBaseUrl =
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl");
   const { mutate: login, isPending } = useLogin();
 
   const [email, setEmail] = useState("");
@@ -24,7 +26,10 @@ export default function LoginPage() {
       { email, password },
       {
         onSuccess: () => {
-          router.push("/inbox");
+          // Redirect to returnUrl if it's a safe relative path, otherwise inbox.
+          const destination =
+            returnUrl && returnUrl.startsWith("/") ? returnUrl : "/inbox";
+          router.push(destination);
         },
       }
     );

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://relayflow.local/schemas/webhook-event.schema.json",
+  "title": "WorkspaceWebhookEvent",
+  "description": "Payload delivered to a workspace-configured webhook endpoint.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event", "timestamp", "workspaceId", "data"],
+  "properties": {
+    "event": {
+      "type": "string",
+      "enum": ["contact.created"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "workspaceId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "data": {
+      "oneOf": [
+        { "$ref": "#/$defs/contactCreatedData" }
+      ]
+    }
+  },
+  "$defs": {
+    "contactCreatedData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contact", "channel"],
+      "properties": {
+        "contact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "displayName"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "username": {
+              "type": "string"
+            }
+          }
+        },
+        "channel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "name", "provider"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "provider": {
+              "type": "string",
+              "enum": ["TELEGRAM"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

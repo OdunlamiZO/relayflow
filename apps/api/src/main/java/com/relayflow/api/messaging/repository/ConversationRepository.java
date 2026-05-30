@@ -1,5 +1,6 @@
 package com.relayflow.api.messaging.repository;
 
+import com.relayflow.api.messaging.domain.Contact;
 import com.relayflow.api.messaging.domain.Conversation;
 import java.time.Instant;
 import java.util.List;
@@ -34,9 +35,25 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     Optional<Conversation> findInWorkspace(
             @Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
 
+    @Query(
+            """
+            select c from Conversation c
+            where c.workspace.id = :workspaceId
+              and c.contact.id = :contactId
+            order by c.lastMessageAt desc nulls last, c.createdAt desc
+            """)
+    List<Conversation> findByWorkspaceAndContact(
+            @Param("workspaceId") UUID workspaceId,
+            @Param("contactId") UUID contactId,
+            Pageable pageable);
+
     @Modifying
     @Query("UPDATE Conversation c SET c.deletedAt = :now WHERE c.workspace.id = :workspaceId")
     void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
+
+    @Modifying
+    @Query("UPDATE Conversation c SET c.contact = :target WHERE c.contact.id = :sourceId")
+    void reassignContact(@Param("target") Contact target, @Param("sourceId") UUID sourceId);
 
     @Query(
             """

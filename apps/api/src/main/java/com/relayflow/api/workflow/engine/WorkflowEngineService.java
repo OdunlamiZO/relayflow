@@ -3,7 +3,9 @@ package com.relayflow.api.workflow.engine;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.Message;
+import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
+import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.domain.WorkflowRun;
@@ -23,6 +25,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -48,7 +51,11 @@ public class WorkflowEngineService {
 
     private final WorkflowRunRepository runRepository;
 
+    private final ConversationRepository conversationRepository;
+
     private final ExternalIdentityRepository externalIdentityRepository;
+
+    private final ApplicationEventPublisher eventPublisher;
 
     private final ObjectMapper objectMapper;
 
@@ -56,11 +63,15 @@ public class WorkflowEngineService {
 
     public WorkflowEngineService(
             WorkflowRunRepository runRepository,
+            ConversationRepository conversationRepository,
             ExternalIdentityRepository externalIdentityRepository,
+            ApplicationEventPublisher eventPublisher,
             ObjectMapper objectMapper,
             List<NodeExecutor> executorList) {
         this.runRepository = runRepository;
+        this.conversationRepository = conversationRepository;
         this.externalIdentityRepository = externalIdentityRepository;
+        this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
         this.executors =
                 executorList.stream()
@@ -105,7 +116,10 @@ public class WorkflowEngineService {
         Map<String, GraphNode> nodeMap =
                 nodes.stream().collect(Collectors.toMap(GraphNode::id, Function.identity()));
 
-        // 4. Create the run record
+        // 4. Lock the conversation — agents cannot message while a workflow is running.
+        setConversationLock(conversation.getId(), true);
+
+        // 5. Create the run record
         WorkflowRun run = new WorkflowRun();
         run.setWorkflowDefinition(definition);
         run.setWorkspace(conversation.getWorkspace());
@@ -113,10 +127,10 @@ public class WorkflowEngineService {
         run.setStatus(WorkflowRunStatus.RUNNING);
         runRepository.save(run);
 
-        // 5. Initialise execution context with conversation data
+        // 6. Initialise execution context with conversation data
         ExecutionContext context = buildContext(run, conversation, triggeringMessage);
 
-        // 6. Walk the graph starting from the trigger node
+        // 7. Walk the graph starting from the trigger node
         try {
             walk(triggerNode, nodeMap, adjacency, context, run);
 
@@ -125,7 +139,9 @@ public class WorkflowEngineService {
             if (run.getStatus() == WorkflowRunStatus.RUNNING) {
                 run.setStatus(WorkflowRunStatus.COMPLETED);
                 run.setFinishedAt(Instant.now());
+                setConversationLock(conversation.getId(), false);
             }
+
             runRepository.save(run);
 
             log.info(
@@ -137,6 +153,8 @@ public class WorkflowEngineService {
             run.setFinishedAt(Instant.now());
             run.setErrorMessage(e.getMessage());
             runRepository.save(run);
+
+            setConversationLock(conversation.getId(), false);
 
             log.error("Workflow run failed: runId={}, error={}", run.getId(), e.getMessage(), e);
         }
@@ -219,6 +237,8 @@ public class WorkflowEngineService {
 
         GraphNode nextNode = resolveNextNode(waitingNode, nextHandle, adjacency, nodeMap);
 
+        UUID conversationId = run.getConversation().getId();
+
         try {
             if (nextNode != null) {
                 walk(nextNode, nodeMap, adjacency, context, run);
@@ -227,7 +247,9 @@ public class WorkflowEngineService {
             if (run.getStatus() == WorkflowRunStatus.RUNNING) {
                 run.setStatus(WorkflowRunStatus.COMPLETED);
                 run.setFinishedAt(Instant.now());
+                setConversationLock(conversationId, false);
             }
+
             runRepository.save(run);
 
             log.info(
@@ -239,6 +261,8 @@ public class WorkflowEngineService {
             run.setFinishedAt(Instant.now());
             run.setErrorMessage(e.getMessage());
             runRepository.save(run);
+
+            setConversationLock(conversationId, false);
 
             log.error("Resumed workflow run failed: runId={}, error={}", runId, e.getMessage(), e);
         }
@@ -515,5 +539,31 @@ public class WorkflowEngineService {
 
     private String nullSafe(String value) {
         return value != null ? value : "";
+    }
+
+    /**
+     * Sets the workflow-lock flag on the conversation and broadcasts a {@code conversation.updated}
+     * SSE event so connected clients update their composer state immediately.
+     */
+    private void setConversationLock(UUID conversationId, boolean locked) {
+        conversationRepository
+                .findById(conversationId)
+                .ifPresent(
+                        conversation -> {
+                            conversation.setLockedByWorkflow(locked);
+                            conversationRepository.save(conversation);
+
+                            eventPublisher.publishEvent(
+                                    new SseBroadcastEvent(
+                                            conversation.getWorkspace().getId(),
+                                            "conversation.updated",
+                                            Map.of(
+                                                    "workspaceId",
+                                                            conversation
+                                                                    .getWorkspace()
+                                                                    .getId()
+                                                                    .toString(),
+                                                    "conversationId", conversationId.toString())));
+                        });
     }
 }

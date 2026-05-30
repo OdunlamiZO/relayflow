@@ -7,11 +7,14 @@ export const metadata: Metadata = {
   title: "RelayFlow",
 };
 
-export default async function AuthLayout({
-  children,
-}: {
+type Props = {
   children: React.ReactNode;
-}) {
+  // searchParams are not available in layouts in Next.js, so returnUrl
+  // handling is done inside page components. The layout only redirects
+  // to /inbox (the default) if no returnUrl is present.
+};
+
+export default async function AuthLayout({ children }: Props) {
   // Validate the session against the API before redirecting — a stale cookie
   // that no longer exists on the server must NOT be treated as authenticated.
   await redirectIfAuthenticated();

@@ -18,6 +18,7 @@ export function InboxShell({ workspaceId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("conversationId") ?? undefined;
+  const contactId = searchParams.get("contactId") ?? undefined;
 
   const { telegramLinked } = useWorkspaceEvents(workspaceId);
 
@@ -30,6 +31,14 @@ export function InboxShell({ workspaceId }: Props) {
 
   function handleBack() {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("conversationId");
+
+    router.push(`?${params.toString()}`);
+  }
+
+  function clearContactFilter() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("contactId");
     params.delete("conversationId");
 
     router.push(`?${params.toString()}`);
@@ -50,11 +59,41 @@ export function InboxShell({ workspaceId }: Props) {
             <WorkspaceSwitcher workspaceId={workspaceId} />
           </div>
 
+          {/* Contact filter banner */}
+          {contactId && (
+            <div className="flex items-center justify-between border-b border-blue-border/20 bg-blue-bg px-3 py-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-text">
+                <span
+                  className="material-symbols-rounded text-[14px] leading-none"
+                  aria-hidden="true"
+                >
+                  filter_alt
+                </span>
+                Contact&apos;s conversations
+              </div>
+
+              <button
+                type="button"
+                onClick={clearContactFilter}
+                title="Clear filter"
+                className="rounded p-0.5 text-blue-text transition-colors hover:bg-blue-bg-hover"
+              >
+                <span
+                  className="material-symbols-rounded text-[14px] leading-none"
+                  aria-hidden="true"
+                >
+                  close
+                </span>
+              </button>
+            </div>
+          )}
+
           <ConversationList
             workspaceId={workspaceId}
             selectedConversationId={conversationId}
             onSelect={selectConversation}
             telegramLinked={telegramLinked}
+            contactId={contactId}
           />
         </aside>
 

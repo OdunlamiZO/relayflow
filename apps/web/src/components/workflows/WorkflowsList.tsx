@@ -43,7 +43,7 @@ export function WorkflowsList({ workspaceId }: Props) {
   }
 
   return (
-    <ul className="flex-1 overflow-y-auto">
+    <ul className="flex-1 overflow-y-auto pb-14 md:pb-0">
       {workflows.map((workflow) => {
         const href = `/workflows/${workflow.id}?workspaceId=${workspaceId}`;
         const isActive = pathname === `/workflows/${workflow.id}`;

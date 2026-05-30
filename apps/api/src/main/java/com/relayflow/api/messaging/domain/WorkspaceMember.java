@@ -1,15 +1,21 @@
 package com.relayflow.api.messaging.domain;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,6 +43,14 @@ public class WorkspaceMember {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private WorkspaceRole role;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "workspace_member_permissions",
+            joinColumns = @JoinColumn(name = "workspace_member_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "permission", length = 40)
+    private Set<WorkspacePermission> permissions = new LinkedHashSet<>();
 
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;

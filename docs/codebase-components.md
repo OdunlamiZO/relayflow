@@ -136,18 +136,52 @@ Important queries include lookup by email/provider subject and expired anonymous
 
 We need it to keep persistence access declarative and testable.
 
+### `ApiKeyAuthentication`
+
+Spring Security `Authentication` implementation representing a validated workspace API key.
+
+Important value:
+
+- `workspaceId`: workspace authorized by the API key.
+
+We need it so public API controllers can resolve workspace scope without a browser session.
+
+### `ApiKeyAuthenticationFilter`
+
+Security filter that reads `X-Api-Key`, hashes it, validates a non-revoked/non-expired workspace API key, and populates the security context.
+
+Important behavior:
+
+- updates `lastUsedAt` at most once per hour.
+- ignores invalid keys so protected public endpoints return unauthorized.
+
+We need it to authenticate external systems through API keys.
+
+### `AsyncConfiguration`
+
+Spring async executor configuration.
+
+Important executors:
+
+- shared async executor for workflow/background tasks.
+- `webhookExecutor` for outbound webhook delivery.
+
+We need it so workflow execution and webhook delivery do not block inbound HTTP/webhook request handling.
+
 ## Messaging Backend
 
 ### `MessagingController`
 
-HTTP controller for workspace, channel account, contact, identity, conversation, and message routes.
+HTTP controller for workspace, member, channel account, contact, identity, conversation, and message routes.
 
 Important methods:
 
 - `listWorkspaces`, `createWorkspace`
+- `listMembers`, `inviteMember`, `updateMember`, `removeMember`
 - `listChannelAccounts`, `createChannelAccount`, `disconnectChannelAccount`, `reconnectChannelAccount`
-- `createContact`, `createExternalIdentity`
-- `createConversation`, `listConversations`, `getConversation`
+- `listContacts`, `createContact`, `getContact`, `mergeContacts`, `deleteContact`
+- `createExternalIdentity`
+- `createConversation`, `listConversations`, `getConversation`, `updateConversation`
 - `listMessages`, `createMessage`
 
 We need it as the REST boundary for the inbox and channel management UI.
@@ -161,11 +195,13 @@ Important methods:
 - `createWorkspace`: creates a workspace and owner membership.
 - `createGuestWorkspace`: guest-specific workspace creation behavior.
 - `listWorkspaces`: lists workspaces by membership.
+- `listWorkspaceMembers`, `inviteWorkspaceMember`, `updateWorkspaceMember`, `removeWorkspaceMember`: owner/member management.
 - `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook.
 - `createSharedBotChannelAccount`: creates a guest/shared Telegram channel account.
 - `disconnectChannelAccount` / `reconnectChannelAccount`: toggles channel availability without deleting history.
-- `createContact`, `createExternalIdentity`, `createConversation`
-- `listConversations`, `getConversation`, `listMessages`
+- `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
+- `createExternalIdentity`, `createConversation`
+- `listConversations`, `getConversation`, `updateConversationStatus`, `listMessages`
 - `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events.
 - `deleteWorkspace`: removes all workspace-owned data for guest cleanup.
 
@@ -184,11 +220,131 @@ Global REST exception handler.
 Handles:
 
 - `TelegramSendException` as `502`.
+- `ConversationLockedException` as `409`.
 - `ResourceNotFoundException` as `404`.
 - `WorkflowValidationException` as `400`.
 - validation errors as `400`.
 
 We need it so frontend receives consistent `{ message, timestamp }` error responses.
+
+### `ConversationLockedException`
+
+Runtime exception thrown when an agent or public API client tries to send a message while an active workflow owns the conversation.
+
+We need it to enforce workflow-driven conversations without silently dropping agent replies.
+
+### `WorkspaceAuthorizationService`
+
+Service that resolves the authenticated user's workspace membership and checks owner or granular permissions.
+
+Important methods:
+
+- `assertMember`: any workspace member can proceed.
+- `assertOwner`: only owners can proceed.
+- `assertPermission`: owners bypass checks; members need the requested `WorkspacePermission`.
+
+We need it so mutating workspace-scoped endpoints can enforce ownership and delegated access.
+
+### `ApiKeyService`
+
+Creates, lists, revokes, hashes, and validates workspace API keys.
+
+Important behaviors:
+
+- returns the plaintext key only during creation.
+- stores only a SHA-256 key hash and safe prefix.
+- supports optional expiry and revocation.
+
+We need it so external systems can call RelayFlow public endpoints without browser sessions.
+
+### `ApiKeyController`
+
+REST controller for workspace API key management.
+
+Endpoints:
+
+- `listApiKeys`
+- `createApiKey`
+- `revokeApiKey`
+
+We need it to let authorized workspace users manage public API credentials.
+
+### `WorkspaceInviteService`
+
+Creates, lists, revokes, previews, and accepts workspace invites.
+
+Important behaviors:
+
+- stores expiring invite tokens.
+- carries a permission set into accepted membership.
+- requires the accepting user's email to match the invite.
+
+We need it for controlled onboarding of additional workspace users.
+
+### `WorkspaceInviteController`
+
+REST controller for workspace invites.
+
+Endpoints:
+
+- `listInvites`
+- `createInvite`
+- `revokeInvite`
+- `previewInvite`
+- `acceptInvite`
+
+We need it for both owner invite management and the public invite acceptance flow.
+
+### `PublicApiController`
+
+API-key-authenticated controller under `/public/v1`.
+
+Endpoints:
+
+- `listConversations`
+- `getConversation`
+- `listMessages`
+- `sendMessage`
+
+We need it so third-party systems can inspect conversations and send outbound replies for a workspace.
+
+### `WebhookService`
+
+Creates, updates, deletes, retrieves, and rotates workspace webhook configuration.
+
+We need it to centralize webhook URL, encrypted secret, enabled state, and subscribed events.
+
+### `WebhookDispatchService`
+
+Asynchronous webhook delivery service.
+
+Important behavior:
+
+- signs payloads with `X-RelayFlow-Signature`.
+- posts JSON payloads to the configured URL.
+- retries failed deliveries with backoff.
+- currently supports `contact.created`.
+
+We need it to notify external systems when RelayFlow creates important records.
+
+### `WebhookController`
+
+REST controller for workspace webhook configuration.
+
+Endpoints:
+
+- `getWebhook`
+- `saveWebhook`
+- `deleteWebhook`
+- `rotateSecret`
+
+We need it so authorized users can manage outbound integration webhooks.
+
+### `EmailService` And `ResendEmailService`
+
+Email abstraction and Resend-backed implementation for transactional emails.
+
+We need them so invite delivery can be swapped or disabled without changing invite domain logic.
 
 ### `OutboundMessageEvent`
 
@@ -214,13 +370,99 @@ We need it as the tenant boundary for conversations, channels, workflows, and me
 
 JPA entity linking users to workspaces with a role.
 
-We need it for ownership and future RBAC.
+Important fields:
+
+- `workspaceId`
+- `userId`
+- `role`
+- `permissions`
+- `joinedAt`
+
+We need it for ownership and granular workspace authorization.
 
 ### `WorkspaceRole`
 
-Enum for workspace roles such as owner/admin/agent.
+Enum for workspace roles: owner and member.
 
 We need it so membership can become permission-aware.
+
+### `WorkspacePermission`
+
+Enum of granular permissions for non-owner workspace members.
+
+Values:
+
+- `INBOX`
+- `CONTACTS_DELETE`
+- `WORKFLOWS_WRITE`
+- `WORKFLOWS_DELETE`
+- `CHANNELS_WRITE`
+- `CHANNELS_DELETE`
+- `API_KEYS_WRITE`
+- `WEBHOOKS_WRITE`
+
+We need it to delegate specific capabilities without making every teammate an owner.
+
+### `WorkspaceInvite`
+
+JPA entity for an expiring workspace invitation.
+
+Important fields:
+
+- `workspaceId`
+- `email`
+- `invitedBy`
+- `token`
+- `permissions`
+- `createdAt`
+- `expiresAt`
+- `acceptedAt`
+- `revokedAt`
+
+We need it to invite users with a defined permission set and track invite state.
+
+### `WorkspaceApiKey`
+
+JPA entity for workspace public API credentials.
+
+Important fields:
+
+- `workspaceId`
+- `name`
+- `keyPrefix`
+- `keyHash`
+- `createdBy`
+- `lastUsedAt`
+- `revokedAt`
+- `expiresAt`
+
+We need it to authenticate external systems while storing no plaintext API key.
+
+### `WorkspaceWebhook`
+
+JPA entity for a workspace's outbound webhook configuration.
+
+Important fields:
+
+- `workspaceId`
+- `url`
+- `secret`
+- `enabled`
+- `events`
+- `createdAt`
+- `updatedAt`
+
+We need it to persist webhook delivery settings and encrypted signing secrets.
+
+### `WebhookEventType`
+
+Enum of outbound webhook event types.
+
+Current value:
+
+- `CONTACT_CREATED` maps to payload event name `contact.created`.
+
+We need it so persisted webhook subscriptions and dispatched payload names stay aligned.
 
 ### `ChannelAccount`
 
@@ -261,6 +503,7 @@ JPA entity linking a contact to an external provider identity, such as a Telegra
 
 Important fields:
 
+- `channelAccount`
 - `provider`
 - `externalUserId`
 - `externalConversationId`
@@ -279,10 +522,11 @@ Important fields:
 - `contact`
 - `channelAccount`
 - `status`
+- `lockedByWorkflow`
 - `assignedUserId`
 - `lastMessageAt`
 
-We need it as the inbox unit users read, select, and reply to.
+We need it as the inbox unit users read, select, and reply to. `lockedByWorkflow` prevents agents from interrupting an active workflow-owned interaction.
 
 ### `ConversationStatus`
 
@@ -320,10 +564,13 @@ We need it to distinguish human replies from workflow/system automation.
 ## Messaging DTO Records
 
 - `CreateWorkspaceRequest`, `WorkspaceResponse`
+- `InviteMemberRequest`, `UpdateMemberRequest`, `WorkspaceMemberResponse`
+- `CreateInviteRequest`, `WorkspaceInviteResponse`, `InvitePreviewResponse`
+- `CreateApiKeyRequest`, `ApiKeyResponse`, `CreateApiKeyResponse`
 - `CreateChannelAccountRequest`, `ChannelAccountResponse`
-- `CreateContactRequest`, `ContactResponse`
+- `CreateContactRequest`, `ContactResponse`, `ContactDetailResponse`, `MergeContactRequest`
 - `CreateExternalIdentityRequest`, `ExternalIdentityResponse`
-- `CreateConversationRequest`, `ConversationResponse`
+- `CreateConversationRequest`, `UpdateConversationRequest`, `ConversationResponse`
 - `CreateMessageRequest`, `MessageResponse`
 - `PageResponse<T>`: generic paginated API response.
 - `ErrorResponse`: normalized API error body.
@@ -334,6 +581,8 @@ We need these records to keep frontend/backend data exchange explicit and stable
 
 - `WorkspaceRepository`
 - `WorkspaceMemberRepository`
+- `WorkspaceInviteRepository`
+- `WorkspaceApiKeyRepository`
 - `ChannelAccountRepository`
 - `ContactRepository`
 - `ExternalIdentityRepository`
@@ -341,6 +590,7 @@ We need these records to keep frontend/backend data exchange explicit and stable
 - `MessageRepository`
 
 These are Spring Data persistence interfaces. Their custom query methods express workspace scoping, pagination, active channel filtering, conversation lookup, message cursors, and cleanup deletes.
+They also support invite lookup, API key lookup by hash, member permission lookup, contact merge reassignment, and public API filters.
 
 We need them so services do not contain SQL or persistence boilerplate.
 
@@ -572,6 +822,7 @@ Important methods:
 
 - `executeWorkflow`: starts a run from a trigger event.
 - `resumeWorkflow`: resumes a run paused by Ask Question.
+- `setConversationLock`: marks a conversation as workflow-owned or releases it.
 - `walk`: traverses the graph.
 - `executeStep`: executes one node and records its step log.
 - `resolveNextNode`: chooses the next node based on source handles.
@@ -581,7 +832,7 @@ Important methods:
 - `newStep`, `finishStep`: create durable step logs.
 - `parseNodes`, `parseEdges`, `buildAdjacency`: convert graph JSON into runtime records.
 
-We need it to turn saved workflow graph definitions into real automation execution.
+We need it to turn saved workflow graph definitions into real automation execution and to keep agent replies from racing active workflow runs.
 
 ### `ExecutionContext`
 
@@ -815,6 +1066,19 @@ We need these to protect and bootstrap the inbox view.
 
 We need them for workflow list and builder routes.
 
+### Contacts Pages
+
+- `contacts/(list)/page.tsx`: resolves workspace and renders `ContactsShell`.
+- `contacts/(list)/layout.tsx`: contacts route wrapper.
+
+We need them for the workspace contact-management surface.
+
+### Invite Pages
+
+- `invite/[token]/page.tsx`: loads invite preview and renders the invite acceptance flow.
+
+We need it so invited users can inspect and accept workspace invitations.
+
 ### Settings Pages
 
 - `settings/page.tsx`: resolves workspace and renders `SettingsShell`.
@@ -904,7 +1168,7 @@ We need it so API errors appear consistently without adding a third-party toast 
 
 ### `WorkspaceNav`
 
-Icon sidebar linking to inbox, workflows, and settings for a workspace.
+Icon sidebar linking to inbox, contacts, workflows, and settings for a workspace.
 
 Important helper:
 
@@ -999,7 +1263,50 @@ We need it for readable inbound/outbound timeline rendering.
 
 Form for sending outbound agent messages.
 
-We need it to let agents reply from the inbox.
+Important behavior:
+
+- disables itself and shows a workflow-ownership notice when `lockedByWorkflow` is true.
+
+We need it to let agents reply from the inbox without interrupting active workflow runs.
+
+## Frontend Contacts Components
+
+### `ContactsShell`
+
+Top-level contacts layout with table, selected contact state, detail panel, delete confirmation, and merge modal.
+
+Important helpers:
+
+- `formatDate`
+- `contactInitial`
+- `ActionMenu`
+- `ContactRow`
+
+We need it for browsing, selecting, deleting, and merging contacts.
+
+### `ContactDetailPanel`
+
+Side panel for one contact.
+
+Important helpers/constants:
+
+- `CHANNEL_META`
+- `formatDateFull`
+- `contactInitial`
+
+We need it to show linked channel identities and jump to the contact's inbox conversations.
+
+### `MergeContactModal`
+
+Modal that lets a user choose a target contact and merge the selected source contact into it.
+
+Important helpers:
+
+- `contactInitial`
+- local search/filter state.
+- merge error display.
+
+We need it to clean up duplicate contacts while preserving identities and conversations.
 
 ### `ConnectTelegramForm`
 
@@ -1013,7 +1320,7 @@ We need it for channel setup in settings.
 
 Settings page layout with `WorkspaceNav`, settings subnav, and channel content.
 
-We need it to create a stable place for channel and future workspace settings.
+We need it to create a stable place for channel, member, invite, API key, and webhook settings.
 
 ### `ChannelsList`
 
@@ -1029,6 +1336,38 @@ Important helper:
 - `ChannelItem`: renders one channel, webhook URL, and disconnect confirmation.
 
 We need it because channel setup should live in workspace settings rather than the inbox conversation list.
+
+### `MembersList`
+
+Workspace member and invite management UI.
+
+Important capabilities:
+
+- list current members.
+- invite a member with selected permissions.
+- update member permissions.
+- remove members.
+- list and revoke pending invites.
+
+We need it so owners can control who can operate the workspace.
+
+### `IntegrationsPanel`
+
+Settings panel that groups API keys and webhook configuration.
+
+We need it so external integration setup lives in one settings area.
+
+### `CreateApiKeyModal`
+
+Modal for naming an API key, optionally setting expiry, and showing the plaintext key once after creation.
+
+We need it to make one-time secret handling explicit in the UI.
+
+### `WebhookConfigPanel`
+
+Settings form for webhook URL, enabled state, subscribed events, secret rotation, and deletion.
+
+We need it to configure outbound workspace webhooks safely.
 
 ## Frontend Workflow Builder Components
 
@@ -1261,6 +1600,15 @@ We need them to keep auth forms/components declarative.
 - `useWorkspaces`: fetches workspaces.
 - `useWorkspace`: selects one workspace from the cached list.
 - `useCreateWorkspace`: creates a workspace and invalidates workspace queries.
+- `useCurrentMember`: fetches current workspace membership/permissions.
+- `useWorkspaceMembers`: fetches workspace members.
+- `useUpdateMember`: updates member role/permissions.
+- `useRemoveMember`: removes a member.
+- `useWorkspaceInvites`: fetches pending invites.
+- `useCreateInvite` / `useInviteMember`: creates invites.
+- `useRevokeInvite`: revokes invites.
+- `useInvitePreview`: loads public invite preview data.
+- `useAcceptInvite`: accepts an invite.
 
 We need them for workspace-first navigation.
 
@@ -1273,11 +1621,21 @@ We need them for workspace-first navigation.
 
 We need them for settings/channel management.
 
+### Contact Hooks
+
+- `useContacts`: infinite query for contact pages.
+- `useContact`: fetches one contact detail.
+- `useDeleteContact`: deletes a contact and invalidates contact caches.
+- `useMergeContact`: merges contacts and invalidates affected caches.
+
+We need them for contact-management screens.
+
 ### Inbox Hooks
 
 - `useConversations`: infinite query for conversations.
 - `useMessages`: infinite query for messages.
 - `useSendMessage`: creates outbound messages and invalidates conversation/message caches.
+- `useUpdateConversation`: changes conversation status.
 - `useWorkspaceEvents`: opens SSE and invalidates React Query caches on events.
 
 Important constants:
@@ -1296,6 +1654,18 @@ We need them for real-time inbox state.
 - `useSaveWorkflow`: patches workflow name, graph, and enabled state.
 
 We need them to keep workflow builder API access outside UI components.
+
+### Integration Hooks
+
+- `useApiKeys`: fetches workspace API keys.
+- `useCreateApiKey`: creates a key and exposes the one-time plaintext secret.
+- `useRevokeApiKey`: revokes a key.
+- `useWorkspaceWebhook`: fetches webhook configuration.
+- `useSaveWebhook`: creates/updates webhook configuration.
+- `useDeleteWebhook`: deletes webhook configuration.
+- `useRotateWebhookSecret`: rotates the signing secret and exposes the one-time plaintext value.
+
+We need them for API key and webhook settings without embedding fetch logic in components.
 
 ## Frontend API Libraries
 
@@ -1324,11 +1694,11 @@ We need it so auth-related network calls are centralized.
 
 ### `messaging-api.ts`
 
-Main typed API client for messaging, channels, workspaces, and workflows.
+Main typed API client for messaging, channels, workspaces, contacts, members, invites, integrations, and workflows.
 
 Important exported types:
 
-- provider/status/message/workflow union types.
+- provider/status/message/workflow/permission/webhook union types.
 - request/response types mirroring OpenAPI.
 - `PageResponse<T>`.
 
@@ -1422,7 +1792,7 @@ We need it to protect fetch URL construction and error handling.
 
 OpenAPI contract for backend REST endpoints.
 
-It documents health, auth, workspaces, channels, contacts, external identities, conversations, messages, workflows, SSE, and Telegram webhooks.
+It documents health, auth, workspaces, members, invites, API keys, webhooks, public API, channels, contacts, external identities, conversations, messages, workflows, SSE, and Telegram webhooks.
 
 We need it as the external API source of truth and future client-generation input.
 
@@ -1443,6 +1813,23 @@ Important fields:
 - `rawPayload`
 
 We need it for channel-normalized message event contracts.
+
+### `webhook-event.schema.json`
+
+JSON schema for outbound workspace webhook payloads.
+
+Important fields:
+
+- `event`
+- `timestamp`
+- `workspaceId`
+- `data`
+
+Currently documented event data:
+
+- `contact.created`: includes contact and channel details.
+
+We need it so third-party webhook consumers have a stable payload contract.
 
 ### `workflow-definition.schema.json`
 

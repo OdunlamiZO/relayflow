@@ -14,7 +14,7 @@ type NavItemProps = {
   active: boolean;
 };
 
-function NavItem({ href, icon, label, active }: NavItemProps) {
+function DesktopNavItem({ href, icon, label, active }: NavItemProps) {
   return (
     <div className="group relative">
       <Link
@@ -48,33 +48,70 @@ function NavItem({ href, icon, label, active }: NavItemProps) {
 export function WorkspaceNav({ workspaceId }: Props) {
   const pathname = usePathname();
 
+  const navItems: NavItemProps[] = [
+    {
+      href: `/inbox?workspaceId=${workspaceId}`,
+      icon: "inbox",
+      label: "Inbox",
+      active:
+        pathname.startsWith("/inbox") &&
+        !pathname.startsWith("/inbox/channels"),
+    },
+    {
+      href: `/contacts?workspaceId=${workspaceId}`,
+      icon: "contacts",
+      label: "Contacts",
+      active: pathname.startsWith("/contacts"),
+    },
+    {
+      href: `/workflows?workspaceId=${workspaceId}`,
+      icon: "account_tree",
+      label: "Workflows",
+      active: pathname.startsWith("/workflows"),
+    },
+    {
+      href: `/settings?workspaceId=${workspaceId}`,
+      icon: "settings",
+      label: "Settings",
+      active: pathname.startsWith("/settings"),
+    },
+  ];
+
   return (
-    <nav className="hidden w-14 flex-shrink-0 flex-col items-center justify-between border-r border-neutral-300 bg-neutral-100 py-3 md:flex">
-      <div className="flex flex-col items-center gap-1">
-        <NavItem
-          href={`/inbox?workspaceId=${workspaceId}`}
-          icon="inbox"
-          label="Inbox"
-          active={
-            pathname.startsWith("/inbox") &&
-            !pathname.startsWith("/inbox/channels")
-          }
-        />
+    <>
+      {/* ── Desktop sidebar ─────────────────────────────────────────── */}
+      <nav className="hidden w-14 flex-shrink-0 flex-col items-center justify-between border-r border-neutral-300 bg-neutral-100 py-3 md:flex">
+        <div className="flex flex-col items-center gap-1">
+          {navItems.slice(0, 3).map((item) => (
+            <DesktopNavItem key={item.label} {...item} />
+          ))}
+        </div>
 
-        <NavItem
-          href={`/workflows?workspaceId=${workspaceId}`}
-          icon="account_tree"
-          label="Workflows"
-          active={pathname.startsWith("/workflows")}
-        />
-      </div>
+        <DesktopNavItem {...navItems[3]} />
+      </nav>
 
-      <NavItem
-        href={`/settings?workspaceId=${workspaceId}`}
-        icon="settings"
-        label="Settings"
-        active={pathname.startsWith("/settings")}
-      />
-    </nav>
+      {/* ── Mobile bottom tab bar ───────────────────────────────────── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center border-t border-neutral-300 bg-neutral-100 md:hidden">
+        {navItems.map((item) => (
+          <Link
+            key={item.label}
+            href={item.href}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 transition-colors ${
+              item.active
+                ? "text-secondary"
+                : "text-neutral-400 hover:text-neutral-700"
+            }`}
+          >
+            <span
+              className="material-symbols-rounded text-[22px] leading-none"
+              aria-hidden="true"
+            >
+              {item.icon}
+            </span>
+            <span className="text-[10px] font-medium">{item.label}</span>
+          </Link>
+        ))}
+      </nav>
+    </>
   );
 }

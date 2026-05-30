@@ -78,7 +78,7 @@ public class SendMessageNodeExecutor implements NodeExecutor {
         message.setText(text);
         message.setRawPayload(new LinkedHashMap<>());
 
-        Message saved = messageRepository.save(message);
+        message = messageRepository.save(message);
 
         conversation.setLastMessageAt(Instant.now());
         conversationRepository.save(conversation);
@@ -92,9 +92,9 @@ public class SendMessageNodeExecutor implements NodeExecutor {
                                 "conversationId", context.getConversationId().toString())));
 
         eventPublisher.publishEvent(
-                new OutboundMessageEvent(saved, conversation.getChannelAccount()));
+                new OutboundMessageEvent(message, conversation.getChannelAccount()));
 
         return NodeExecutionResult.next(
-                Map.of("messageId", saved.getId().toString(), "text", text));
+                Map.of("messageId", message.getId().toString(), "text", text));
     }
 }

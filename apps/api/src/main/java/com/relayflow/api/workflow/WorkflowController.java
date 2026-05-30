@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow;
 
+import com.relayflow.api.messaging.WorkspaceAuthorizationService;
+import com.relayflow.api.messaging.domain.WorkspacePermission;
 import com.relayflow.api.workflow.dto.CreateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.UpdateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.WorkflowDefinitionResponse;
@@ -8,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,8 +30,12 @@ public class WorkflowController {
 
     private final WorkflowService workflowService;
 
-    public WorkflowController(WorkflowService workflowService) {
+    private final WorkspaceAuthorizationService authorizationService;
+
+    public WorkflowController(
+            WorkflowService workflowService, WorkspaceAuthorizationService authorizationService) {
         this.workflowService = workflowService;
+        this.authorizationService = authorizationService;
     }
 
     @GetMapping
@@ -39,7 +46,11 @@ public class WorkflowController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     WorkflowDefinitionResponse createWorkflow(
-            @Valid @RequestBody CreateWorkflowDefinitionRequest request) {
+            @Valid @RequestBody CreateWorkflowDefinitionRequest request,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                request.workspaceId(), authentication, WorkspacePermission.WORKFLOWS_WRITE);
+
         return workflowService.createWorkflow(request);
     }
 
@@ -53,13 +64,23 @@ public class WorkflowController {
     WorkflowDefinitionResponse updateWorkflow(
             @PathVariable UUID id,
             @RequestParam @NotNull UUID workspaceId,
-            @RequestBody UpdateWorkflowDefinitionRequest request) {
+            @RequestBody UpdateWorkflowDefinitionRequest request,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.WORKFLOWS_WRITE);
+
         return workflowService.updateWorkflow(id, workspaceId, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void deleteWorkflow(@PathVariable UUID id, @RequestParam @NotNull UUID workspaceId) {
+    void deleteWorkflow(
+            @PathVariable UUID id,
+            @RequestParam @NotNull UUID workspaceId,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.WORKFLOWS_DELETE);
+
         workflowService.deleteWorkflow(id, workspaceId);
     }
 }

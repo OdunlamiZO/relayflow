@@ -9,6 +9,7 @@ import java.util.UUID;
 public record CreateExternalIdentityRequest(
         @NotNull UUID workspaceId,
         @NotNull UUID contactId,
+        UUID channelAccountId,
         @NotNull ChannelProvider provider,
         @NotBlank String externalUserId,
         String externalConversationId,
