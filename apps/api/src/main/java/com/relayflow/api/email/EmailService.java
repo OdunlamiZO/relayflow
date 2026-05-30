@@ -12,4 +12,13 @@ public interface EmailService {
      * @param acceptUrl full URL the recipient should visit to accept the invite
      */
     void sendInvite(String to, String inviterName, String workspaceName, String acceptUrl);
+
+    /**
+     * Sends an email verification email to a newly registered user.
+     *
+     * @param to recipient email address
+     * @param name display name of the recipient
+     * @param verifyUrl full URL the recipient should visit to verify their email
+     */
+    void sendEmailVerification(String to, String name, String verifyUrl);
 }

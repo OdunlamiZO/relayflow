@@ -4,6 +4,8 @@ import com.relayflow.api.authentication.dto.AuthenticatedUserResponse;
 import com.relayflow.api.authentication.dto.GuestSessionResponse;
 import com.relayflow.api.authentication.dto.LoginRequest;
 import com.relayflow.api.authentication.dto.SignupRequest;
+import com.relayflow.api.authentication.dto.SignupResponse;
+import com.relayflow.api.authentication.dto.VerifyEmailRequest;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,12 +37,17 @@ public class AuthenticationController {
     }
 
     @PostMapping("/signup")
-    @ResponseStatus(HttpStatus.CREATED)
-    AuthenticatedUserResponse signup(
-            @Valid @RequestBody SignupRequest request,
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    SignupResponse signup(@Valid @RequestBody SignupRequest request) {
+        return authenticationService.signup(request);
+    }
+
+    @PostMapping("/verify-email")
+    AuthenticatedUserResponse verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        return authenticationService.signup(request, httpRequest, httpResponse);
+        return authenticationService.verifyEmail(request.token(), httpRequest, httpResponse);
     }
 
     @PostMapping("/login")

@@ -54,6 +54,9 @@ public class User {
     @Column(name = "last_active_at")
     private Instant lastActiveAt;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
