@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Spinner } from "@/components/common/Spinner";
 import { useCreateWorkspace } from "@/hooks/use-create-workspace";
 
 export function CreateWorkspaceForm() {
@@ -72,26 +73,16 @@ export function CreateWorkspaceForm() {
             disabled={isPending}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
+            Create workspace
             {isPending ? (
-              <>
-                <span
-                  className="material-symbols-rounded animate-spin text-[15px]"
-                  aria-hidden="true"
-                >
-                  progress_activity
-                </span>
-                Creating…
-              </>
+              <Spinner size="sm" className="border-white/40 border-t-white" />
             ) : (
-              <>
-                Create workspace
-                <span
-                  className="material-symbols-rounded text-[15px]"
-                  aria-hidden="true"
-                >
-                  arrow_forward
-                </span>
-              </>
+              <span
+                className="material-symbols-rounded text-[15px]"
+                aria-hidden="true"
+              >
+                arrow_forward
+              </span>
             )}
           </button>
         </form>

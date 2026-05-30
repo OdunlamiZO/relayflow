@@ -130,7 +130,7 @@ export function ConversationList({
                 />
 
                 <Link
-                  href={`/inbox/channels?workspaceId=${workspaceId}`}
+                  href={`/settings?workspaceId=${workspaceId}`}
                   className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
                 >
                   <span

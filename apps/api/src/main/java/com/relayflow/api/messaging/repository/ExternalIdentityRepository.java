@@ -42,6 +42,20 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
             @Param("contactId") UUID contactId);
 
     /**
+     * Returns the identity for a contact on a given provider, regardless of workspace. Used by the
+     * workflow engine to resolve the contact's external user ID and username when building the
+     * execution context.
+     */
+    @Query(
+            """
+            select e from ExternalIdentity e
+            where e.contact.id = :contactId
+              and e.provider = :provider
+            """)
+    Optional<ExternalIdentity> findForContactOnProvider(
+            @Param("contactId") UUID contactId, @Param("provider") ChannelProvider provider);
+
+    /**
      * Returns all identities for this Telegram user, newest-first. Ordering by {@code createdAt
      * DESC} means callers always try the most-recently linked workspace first when a user has
      * connected to multiple guest workspaces across sessions.

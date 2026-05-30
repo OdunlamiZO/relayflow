@@ -52,6 +52,18 @@
   --color-purple-bg-hover: #ddd6fe;
   --color-purple-text-hover: #7c3aed;
   --color-purple-border-hover: #8b5cf6;
+  --color-teal-bg: #ccfbf1;
+  --color-teal-text: #134e4a;
+  --color-teal-border: #2dd4bf;
+  --color-teal-bg-hover: #99f6e4;
+  --color-teal-text-hover: #0f766e;
+  --color-teal-border-hover: #14b8a6;
+  --color-orange-bg: #ffedd5;
+  --color-orange-text: #7c2d12;
+  --color-orange-border: #fb923c;
+  --color-orange-bg-hover: #fed7aa;
+  --color-orange-text-hover: #9a3412;
+  --color-orange-border-hover: #f97316;
 }
 
 .dark {
@@ -106,6 +118,18 @@
   --color-purple-bg-hover: #473475;
   --color-purple-text-hover: #ece7fb;
   --color-purple-border-hover: #a187e2;
+  --color-teal-bg: #0f3530;
+  --color-teal-text: #c7f0eb;
+  --color-teal-border: #2dd4bf;
+  --color-teal-bg-hover: #134040;
+  --color-teal-text-hover: #d6f4f0;
+  --color-teal-border-hover: #5de0d2;
+  --color-orange-bg: #4a2000;
+  --color-orange-text: #ffd5a8;
+  --color-orange-border: #e07832;
+  --color-orange-bg-hover: #5a2800;
+  --color-orange-text-hover: #ffe0bc;
+  --color-orange-border-hover: #f08848;
 }
 
 @tailwind base;

@@ -1,19 +1,17 @@
 # RelayFlow
 
-RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation. Telegram is the first pilot adapter, but the core model is channel-agnostic.
+RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation. Telegram is the first adapter, with WhatsApp and Instagram planned. The core model is channel-agnostic.
 
 ## Repository Layout
 
 ```text
 apps/
-  api/          Java 21 + Spring Boot backend
-  web/          Next.js frontend
-packages/
-  contracts/    OpenAPI and JSON schemas shared across frontend/backend
+  api/    Java 21 + Spring Boot backend
+  web/    Next.js frontend
 docs/
-  prd/          Product and technical planning documents
+  prd/    Product and technical planning documents
 infra/
-  docker/       Local infrastructure notes/config
+  docker/ Local infrastructure notes and config
 ```
 
 ## Local Development
@@ -31,7 +29,7 @@ Start infrastructure:
 docker compose up -d postgres redis
 ```
 
-Run database migrations manually:
+Flyway is disabled at runtime, so migrations do not run automatically when the API starts. Run migrations manually before starting the API against a fresh or changed database:
 
 ```bash
 cd apps/api
@@ -79,114 +77,115 @@ npm install
 npm run dev
 ```
 
-## Contracts
+## API Reference
 
-The backend and frontend share contracts through `packages/contracts`.
+### Health
 
-- `openapi.yaml` defines the public API surface.
-- `schemas/` contains JSON schemas for workflow definitions and messaging events.
-- Generated clients should be committed only after the generation flow is standardized.
+- `GET /api/health`
 
-## Messaging API
+### Authentication
 
-The first backend slice is the channel-agnostic messaging persistence API. It stores workspaces, channel accounts, contacts, external channel identities, conversations, and messages.
-
-Current endpoints:
-
-- `GET /api/workspaces`
-- `POST /api/workspaces`
-- `GET /api/channel-accounts?workspaceId={workspaceId}`
-- `POST /api/channel-accounts`
-- `DELETE /api/channel-accounts/{id}?workspaceId={workspaceId}`
-- `POST /api/channel-accounts/{id}/reconnect?workspaceId={workspaceId}`
-- `POST /api/contacts`
-- `POST /api/external-identities`
-- `POST /api/conversations`
-- `GET /api/conversations?workspaceId={workspaceId}`
-- `GET /api/conversations/{conversationId}?workspaceId={workspaceId}`
-- `GET /api/conversations/{conversationId}/messages?workspaceId={workspaceId}`
-- `POST /api/conversations/{conversationId}/messages?workspaceId={workspaceId}`
-
-Flyway is disabled at runtime, so the application will not apply migrations automatically on startup. Run migrations explicitly before starting the API against a fresh database.
-
-## Authentication API
-
-Current endpoints:
-
-- `GET /api/auth/me`
+- `GET  /api/auth/me`
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `POST /api/auth/guest`
-- `GET /oauth2/authorization/google`
-- `GET /login/oauth2/code/google`
+- `GET  /oauth2/authorization/google`
+- `GET  /login/oauth2/code/google`
 
-The app supports email/password login, Google OAuth login, and temporary anonymous guest sessions. Guest sessions create a workspace automatically and can use the shared Telegram bot when `SHARED_TELEGRAM_BOT_TOKEN` is configured.
+The app supports email/password login, Google OAuth, and temporary anonymous guest sessions. Guest sessions create a workspace automatically and can use the shared Telegram bot when `SHARED_TELEGRAM_BOT_TOKEN` is configured.
 
-## Telegram API
+### Messaging
 
-Current endpoints:
+- `GET    /api/workspaces`
+- `POST   /api/workspaces`
+- `GET    /api/channel-accounts?workspaceId={workspaceId}`
+- `POST   /api/channel-accounts`
+- `DELETE /api/channel-accounts/{id}?workspaceId={workspaceId}`
+- `POST   /api/channel-accounts/{id}/reconnect?workspaceId={workspaceId}`
+- `POST   /api/contacts`
+- `POST   /api/external-identities`
+- `POST   /api/conversations`
+- `GET    /api/conversations?workspaceId={workspaceId}`
+- `GET    /api/conversations/{id}?workspaceId={workspaceId}`
+- `GET    /api/conversations/{id}/messages?workspaceId={workspaceId}`
+- `POST   /api/conversations/{id}/messages?workspaceId={workspaceId}`
+
+### Workflows
+
+- `GET    /api/workflows?workspaceId={workspaceId}`
+- `POST   /api/workflows`
+- `GET    /api/workflows/{id}?workspaceId={workspaceId}`
+- `PATCH  /api/workflows/{id}?workspaceId={workspaceId}`
+- `DELETE /api/workflows/{id}?workspaceId={workspaceId}`
+
+### Telegram
 
 - `POST /api/telegram/webhook/{channelAccountId}`
 - `POST /api/telegram/webhook/shared`
 
-The regular webhook path is for a dedicated bot token per channel account. The shared webhook path is for the guest bot flow using a Telegram `/start {workspaceId}` deep link.
+The regular webhook path is for a dedicated bot token per channel account. The shared webhook path handles the guest bot flow using a Telegram `/start {workspaceId}` deep link.
 
-## Implementation Roadmap
+### SSE
 
-#### Messaging core (milestone 1)
-- [x] Backend messaging persistence model for workspaces, channel accounts, contacts, external identities, conversations, and messages.
-- [x] Backend REST endpoints for creating and reading the core messaging records.
-- [x] Telegram adapter — inbound webhook ingestion, outbound relay, and shared bot `/start {workspaceId}` deep-link flow.
-- [x] Outbound message delivery guarantee: Telegram send retried once; on final failure the transaction rolls back, so the message is never saved and the frontend receives a 502 with the error text.
-- [x] Shared bot message routing to the most-recently linked guest workspace when a Telegram user has connected across multiple sessions.
-- [x] Channel account disconnect — sets status to `DISABLED`; inbound webhooks and outbound sends are gated on `ACTIVE` status so messages stop flowing immediately. Conversation history is preserved.
+- `GET /api/sse/workspace/{workspaceId}` — real-time event stream for the inbox
 
-#### Authentication
+Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
+
+## Implementation Status
+
+### Messaging core
+- [x] Channel-agnostic persistence model — workspaces, channel accounts, contacts, external identities, conversations, messages.
+- [x] REST endpoints for creating and reading core messaging records.
+- [x] Telegram adapter — inbound webhook ingestion, outbound relay, shared bot `/start {workspaceId}` deep-link flow.
+- [x] Outbound message delivery guarantee — Telegram send retried once; final failure rolls back the transaction so the message is never saved and the caller receives a descriptive error.
+- [x] Shared bot message routing to the most-recently linked guest workspace.
+- [x] Channel account disconnect — sets status to `DISABLED`; inbound and outbound are gated on `ACTIVE` so messages stop immediately. History is preserved.
+- [x] Closed conversation reopening — when a contact messages a closed conversation it is set back to `OPEN` and workflow automation fires again.
+
+### Authentication
 - [x] Email/password signup and login.
-- [x] Google login/signup with OAuth2 session login and user provisioning.
-- [x] Anonymous guest session flow with auto-created workspace and shared bot channel account. Guest data is purged after 24 hours (configurable via `relayflow.guest.expiry-hours`).
+- [x] Google OAuth2 login with user provisioning.
+- [x] Anonymous guest session flow with auto-created workspace. Guest data purged after 24 hours (configurable via `relayflow.guest.expiry-hours`).
 
-#### Inbox UI
-- [x] Frontend API client code for the messaging endpoints.
-- [x] Inbox screen: conversation list, message thread, and outbound message composer.
-- [x] Real-time inbox updates via SSE (`message.created`, `workspace.updated` events). SSE push fires only after the originating transaction commits.
-- [x] Frontend Google login entry point and session status panel.
-- [x] Guest mode banner with "Create account" prompt and "Telegram connected" empty state after linking.
+### Inbox UI
+- [x] Conversation list, message thread, and outbound composer.
+- [x] Real-time updates via SSE — `message.created` and `workspace.updated` events pushed after commit.
+- [x] Google login entry point and session status panel.
+- [x] Guest mode banner with "Create account" prompt and Telegram-connected empty state.
 
-#### Security and quality
-- [ ] Workspace membership authorization checks on all workspace-scoped endpoints.
-- [ ] Telegram webhook verification — validate `X-Telegram-Bot-Api-Secret-Token` before trusting public webhook calls.
-- [ ] Backend integration tests for persistence against PostgreSQL (Testcontainers, existing IT profile).
-- [ ] Frontend component tests for the inbox states and message composer.
-- [ ] Playwright end-to-end tests for the guest onboarding and inbox flows (run in CI, not pre-commit).
+### Workflow engine
+- [x] Workflow definition data model — `workflow_definitions`, `workflow_runs`, `workflow_run_steps`.
+- [x] Node graph executor — walks the graph step by step, records per-step input/output snapshots, duration, and status.
+- [x] Variable interpolation — `{{variable}}` placeholders resolved at execution time in all text fields.
+- [x] **Trigger node** — fires on `conversation_opened`; multiple concurrent workflows supported per conversation.
+- [x] **Send Message node** — sends an outbound message through the active channel adapter.
+- [x] **Condition node** — multi-branch with configurable variable, operator, and value per branch; `is_set` / `is_not_set` operators need no value.
+- [x] **HTTP Request node** — method, URL, headers, body, content-type, timeout; response status and JSON path mappings saved to workflow variables.
+- [x] **Set Variable node** — creates or overwrites a named workflow variable.
+- [x] **Ask Question node** — sends a question and pauses the run (`WAITING`); resumes when the contact replies. Two modes: open-ended (saves reply to a variable) or defined options (routes by exact match, falls back to "Other").
+- [x] **Jump To node** — redirects execution to another node by ID with a configurable max-jump limit to prevent loops.
+- [x] **End Conversation node** — sends an optional closing message and sets the conversation to `CLOSED`.
+- [x] Workflow graph validator — enforces structural rules at publish time (one trigger, no orphaned nodes, all condition and option branches connected, valid Jump To targets).
+- [x] Workflow run logs — every run and every step persisted with full observability data.
 
-#### Workflow runtime (milestone 2)
-- [ ] Workflow data model — `workflow_definitions`, `workflow_versions`, `workflow_runs`, `workflow_run_steps`, and `workflow_variables` tables.
-- [ ] Workflow execution service — run a published version, advance step by step, write structured per-step log records.
-- [ ] Inbound message trigger node — start a workflow run when a normalized message is stored.
-- [ ] Set variable node — create or override a scoped workflow variable with explicit type handling.
-- [ ] Send message node — send a channel-appropriate outbound message through the active adapter.
-- [ ] Run status and step log API — expose run timeline, step inputs/outputs, branch decisions, and variable snapshots.
+### Workflow builder UI
+- [x] React Flow drag-and-drop canvas.
+- [x] Per-node config panel with variable picker (`{{…}}` button) supporting both built-in and user-defined variables.
+- [x] Save draft and Publish / Unpublish toggle with validation error banner.
+- [x] Node palette: Trigger, Send Message, Condition, HTTP Request, Set Variable, Ask Question, Jump To, End Conversation.
 
-#### HTTP automation node (milestone 3)
-- [ ] HTTP request node — configurable method, URL, headers, query params, JSON body, and auth.
-- [ ] Per-step timeout, retry count, retry delay, success branch, and error branch.
-- [ ] Response body and status code mapping to workflow variables via JSON path extraction.
-- [ ] Secret masking in step log output.
-
-#### Workflow builder UI (milestone 4)
-- [ ] React Flow editor for building workflow graphs.
-- [ ] Save a draft and publish a workflow version.
-- [ ] Manual test-run mode — execute a workflow without sending real customer messages.
-- [ ] Run log timeline UI — step cards showing inputs, outputs, errors, retries, branch decisions, and variable snapshots.
-
-#### Production readiness (milestone 5)
-- [ ] Workspace roles — owner, admin, and agent — with role-based access control in the API.
+### Planned
+- [ ] Workflow run logs UI — list runs per workflow; step-by-step breakdown with input/output snapshots. Accessible to workspace members.
+- [ ] Workspace membership authorization on all workspace-scoped endpoints.
+- [ ] Telegram webhook verification (`X-Telegram-Bot-Api-Secret-Token`).
+- [ ] Workspace roles — owner, admin, agent — with role-based access control.
 - [ ] Conversation assignment to workspace members.
+- [ ] Backend integration tests (Testcontainers, existing IT profile).
+- [ ] Frontend component tests for inbox states and composer.
+- [ ] Playwright end-to-end tests (CI only, not pre-commit).
 - [ ] Structured request/run ID logging and Sentry integration.
-- [ ] Deployment configuration for Render / Fly.io / Railway.
-
+- [ ] Deployment configuration (Render / Fly.io / Railway).
 
 ## Git Hooks
 
@@ -199,40 +198,29 @@ The repository includes `hooks/pre-commit`. It runs:
 - Frontend format check: `npm run format:check`
 - Frontend unit/component tests: `npm run test`
 
-The hook is installed into `.git/hooks/pre-commit` in this scaffold. It can also be reinstalled by running the API Maven build with the `development` profile once dependencies are available.
-
-
-## Frontend Tests
-
-Frontend tests use Vitest with React Testing Library. Default frontend tests are fast unit/component tests and run in pre-commit.
-
-```bash
-cd apps/web
-npm run test
-```
-
-Use watch mode while developing:
-
-```bash
-cd apps/web
-npm run test:watch
-```
-
-Playwright should be added later for browser-based end-to-end flows once the inbox and workflow builder have real user paths. Keep Playwright out of pre-commit; run it in CI or a pre-push workflow.
-
-
-## Backend Tests
-
-Default Maven test/install runs only lightweight tests and does not require Docker:
+Install with:
 
 ```bash
 cd apps/api
 mvn install -Pdevelopment
 ```
 
-Run integration tests against PostgreSQL Testcontainers when Docker Desktop is running:
+## Tests
+
+### Frontend
+
+```bash
+cd apps/web
+npm run test          # unit / component tests (pre-commit)
+npm run test:watch    # watch mode
+```
+
+Playwright end-to-end tests should be added later for the inbox and workflow builder flows. Keep them out of pre-commit; run in CI or a pre-push hook.
+
+### Backend
 
 ```bash
 cd apps/api
-mvn verify -Pintegration-test
+mvn install -Pdevelopment          # lightweight tests, no Docker needed
+mvn verify -Pintegration-test      # full integration tests against PostgreSQL (requires Docker)
 ```

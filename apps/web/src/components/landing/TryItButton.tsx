@@ -48,21 +48,16 @@ export function TryItButton({ fullWidth = false }: Props) {
         disabled={isPending}
         className={`flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60 ${fullWidth ? "w-full sm:w-auto" : ""}`}
       >
+        See it live
         {isPending ? (
-          <>
-            Setting up…
-            <Spinner size="sm" className="border-white/40 border-t-white" />
-          </>
+          <Spinner size="sm" className="border-white/40 border-t-white" />
         ) : (
-          <>
-            See it live
-            <span
-              className="material-symbols-rounded text-[15px]"
-              aria-hidden="true"
-            >
-              arrow_forward
-            </span>
-          </>
+          <span
+            className="material-symbols-rounded text-[15px]"
+            aria-hidden="true"
+          >
+            arrow_forward
+          </span>
         )}
       </button>
     </div>

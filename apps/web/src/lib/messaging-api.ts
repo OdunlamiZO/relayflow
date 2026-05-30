@@ -119,6 +119,27 @@ export type CreateMessageRequest = {
   rawPayload?: JsonObject;
 };
 
+export type WorkflowDefinition = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  enabled: boolean;
+  draftGraph: JsonObject;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateWorkflowRequest = {
+  workspaceId: string;
+  name: string;
+};
+
+export type UpdateWorkflowRequest = {
+  name?: string;
+  enabled?: boolean;
+  draftGraph?: JsonObject;
+};
+
 export type PageResponse<T> = {
   items: T[];
   hasMore: boolean;
@@ -139,7 +160,7 @@ export class ApiError extends Error {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
 };
 
@@ -255,6 +276,43 @@ export class MessagingApiClient {
         method: "POST",
         body: request,
       }
+    );
+  }
+
+  listWorkflows(workspaceId: string) {
+    return this.request<WorkflowDefinition[]>(
+      `/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  createWorkflow(request: CreateWorkflowRequest) {
+    return this.request<WorkflowDefinition>("/api/workflows", {
+      method: "POST",
+      body: request,
+    });
+  }
+
+  getWorkflow(id: string, workspaceId: string) {
+    return this.request<WorkflowDefinition>(
+      `/api/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  updateWorkflow(
+    id: string,
+    workspaceId: string,
+    request: UpdateWorkflowRequest
+  ) {
+    return this.request<WorkflowDefinition>(
+      `/api/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "PATCH", body: request }
+    );
+  }
+
+  deleteWorkflow(id: string, workspaceId: string) {
+    return this.request<void>(
+      `/api/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "DELETE" }
     );
   }
 

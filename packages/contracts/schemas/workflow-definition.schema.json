@@ -1,7 +1,8 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://relayflow.local/schemas/workflow-definition.schema.json",
-  "title": "WorkflowDefinition",
+  "title": "WorkflowDefinitionGraph",
+  "description": "React Flow-style workflow graph persisted in workflow_definitions.draft_graph.",
   "type": "object",
   "additionalProperties": false,
   "required": ["nodes", "edges"],
@@ -17,39 +18,332 @@
   },
   "$defs": {
     "node": {
+      "oneOf": [
+        { "$ref": "#/$defs/triggerNode" },
+        { "$ref": "#/$defs/sendMessageNode" },
+        { "$ref": "#/$defs/conditionNode" },
+        { "$ref": "#/$defs/httpRequestNode" },
+        { "$ref": "#/$defs/setVariableNode" },
+        { "$ref": "#/$defs/waitForReplyNode" },
+        { "$ref": "#/$defs/jumpToNode" },
+        { "$ref": "#/$defs/endConversationNode" }
+      ]
+    },
+    "baseNode": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "nodeType", "config"],
+      "required": ["id", "type", "position", "data"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "nodeType": {
+        "type": {
           "type": "string",
           "enum": [
-            "trigger.message_received",
-            "action.set_variable",
-            "action.http_request",
-            "action.send_message",
-            "logic.condition",
-            "logic.wait",
-            "end.complete",
-            "end.error"
+            "trigger",
+            "sendMessage",
+            "condition",
+            "httpRequest",
+            "setVariable",
+            "waitForReply",
+            "jumpTo",
+            "endConversation"
           ]
         },
-        "config": {
+        "position": { "$ref": "#/$defs/position" },
+        "data": { "type": "object" },
+        "selected": { "type": "boolean" },
+        "dragging": { "type": "boolean" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "measured": {
           "type": "object",
-          "additionalProperties": true
+          "additionalProperties": { "type": "number" }
         }
-      }
+      },
+      "additionalProperties": true
+    },
+    "triggerNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "trigger" },
+            "data": {
+              "type": "object",
+              "required": ["event"],
+              "properties": {
+                "label": { "type": "string" },
+                "event": { "const": "conversation_opened" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "sendMessageNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "sendMessage" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "conditionNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "condition" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "branches": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/conditionBranch" }
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "httpRequestNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "httpRequest" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "method": {
+                  "type": "string",
+                  "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+                },
+                "url": { "type": "string" },
+                "contentType": {
+                  "type": "string",
+                  "enum": [
+                    "application/json",
+                    "application/x-www-form-urlencoded",
+                    "text/plain",
+                    "application/xml"
+                  ]
+                },
+                "body": { "type": "string" },
+                "headers": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/keyValueRow" }
+                },
+                "timeoutSeconds": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "responseStatusVariable": { "type": "string" },
+                "responseMappings": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/responseMapping" }
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "setVariableNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "setVariable" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "variableName": { "type": "string" },
+                "value": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "waitForReplyNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "waitForReply" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "question": { "type": "string" },
+                "responseType": {
+                  "type": "string",
+                  "enum": ["generic", "defined"]
+                },
+                "responseVariable": { "type": "string" },
+                "options": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/waitForReplyOption" }
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "endConversationNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "endConversation" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "jumpToNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "jumpTo" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "targetNodeId": {
+                  "type": "string",
+                  "description": "ID of the node execution should jump to."
+                },
+                "targetNodeLabel": {
+                  "type": "string",
+                  "description": "Denormalized target label used by the builder for display."
+                },
+                "maxJumps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Maximum number of times this jump node can redirect execution before the run terminates."
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
     },
     "edge": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["from", "to"],
+      "required": ["id", "source", "target"],
       "properties": {
-        "from": { "type": "string", "minLength": 1 },
-        "to": { "type": "string", "minLength": 1 },
-        "label": { "type": "string" }
-      }
+        "id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "sourceHandle": { "type": ["string", "null"] },
+        "targetHandle": { "type": ["string", "null"] },
+        "type": { "type": "string" },
+        "selected": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "position": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "conditionBranch": {
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "variable": { "type": "string" },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "gt",
+            "lt",
+            "gte",
+            "lte",
+            "contains",
+            "not_contains",
+            "starts_with",
+            "ends_with",
+            "is_set",
+            "is_not_set"
+          ]
+        },
+        "value": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "keyValueRow": {
+      "type": "object",
+      "required": ["id", "key", "value"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "responseMapping": {
+      "type": "object",
+      "required": ["id", "path", "variable"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string" },
+        "variable": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "waitForReplyOption": {
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": true
     }
   }
 }

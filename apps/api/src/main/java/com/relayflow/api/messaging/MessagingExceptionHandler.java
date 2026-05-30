@@ -2,6 +2,7 @@ package com.relayflow.api.messaging;
 
 import com.relayflow.api.messaging.dto.ErrorResponse;
 import com.relayflow.api.telegram.TelegramSendException;
+import com.relayflow.api.workflow.WorkflowValidationException;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,14 @@ public class MessagingExceptionHandler {
         log.warn("Resource not found: {}", exception.getMessage());
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(exception.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(WorkflowValidationException.class)
+    ResponseEntity<ErrorResponse> workflowValidation(WorkflowValidationException exception) {
+        log.warn("Workflow validation failed: {}", exception.getMessage());
+
+        return ResponseEntity.badRequest()
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
     }
 

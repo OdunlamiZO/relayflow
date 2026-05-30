@@ -50,4 +50,22 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
             @Param("workspaceId") UUID workspaceId,
             @Param("channelAccountId") UUID channelAccountId,
             @Param("contactId") UUID contactId);
+
+    /**
+     * Returns the most recent conversation for a contact on a given channel, regardless of status.
+     * Used to reopen a closed conversation when the contact sends a new message.
+     */
+    @Query(
+            """
+            select c from Conversation c
+            where c.workspace.id = :workspaceId
+              and c.channelAccount.id = :channelAccountId
+              and c.contact.id = :contactId
+            order by c.lastMessageAt desc nulls last, c.createdAt desc
+            """)
+    List<Conversation> findLatestConversationForContact(
+            @Param("workspaceId") UUID workspaceId,
+            @Param("channelAccountId") UUID channelAccountId,
+            @Param("contactId") UUID contactId,
+            Pageable pageable);
 }

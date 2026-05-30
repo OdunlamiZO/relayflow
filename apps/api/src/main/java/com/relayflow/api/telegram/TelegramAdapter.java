@@ -23,16 +23,20 @@ import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.telegram.dto.TelegramMessage;
 import com.relayflow.api.telegram.dto.TelegramUser;
 import com.relayflow.api.telegram.dto.TelegramWebhookPayload;
+import com.relayflow.api.workflow.engine.ConversationMessageReceivedEvent;
+import com.relayflow.api.workflow.engine.ConversationOpenedEvent;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -142,11 +146,36 @@ public class TelegramAdapter {
 
         Contact contact = identity.getContact();
 
-        Conversation conversation =
+        Optional<Conversation> latestConversation =
                 conversationRepository
-                        .findOpenConversationForContact(
-                                workspaceId, channelAccount.getId(), contact.getId())
-                        .orElseGet(() -> createConversation(workspace, contact, channelAccount));
+                        .findLatestConversationForContact(
+                                workspaceId,
+                                channelAccount.getId(),
+                                contact.getId(),
+                                PageRequest.of(0, 1))
+                        .stream()
+                        .findFirst();
+
+        // Three cases:
+        //   1. No prior conversation → create one (triggersWorkflow = true)
+        //   2. Existing OPEN conversation → use it as-is (triggersWorkflow = false)
+        //   3. Existing CLOSED conversation → reopen it (triggersWorkflow = true, triggers
+        // workflows)
+        boolean triggersWorkflow;
+        Conversation conversation;
+
+        if (latestConversation.isEmpty()) {
+            conversation = createConversation(workspace, contact, channelAccount);
+            triggersWorkflow = true;
+        } else if (latestConversation.get().getStatus() == ConversationStatus.CLOSED) {
+            conversation = latestConversation.get();
+            conversation.setStatus(ConversationStatus.OPEN);
+            conversationRepository.save(conversation);
+            triggersWorkflow = true;
+        } else {
+            conversation = latestConversation.get();
+            triggersWorkflow = false;
+        }
 
         Message inboundMessage = new Message();
         inboundMessage.setWorkspace(workspace);
@@ -167,6 +196,13 @@ public class TelegramAdapter {
                 workspaceId,
                 conversation.getId(),
                 contact.getDisplayName());
+
+        if (triggersWorkflow) {
+            eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, saved));
+        } else {
+            // Existing open conversation — notify any waiting workflow runs to resume.
+            eventPublisher.publishEvent(new ConversationMessageReceivedEvent(conversation, saved));
+        }
 
         eventPublisher.publishEvent(
                 new SseBroadcastEvent(

@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/common/EmptyState";
-import { useAuthentication } from "@/hooks/use-authentication";
+import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
+import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
 import { useWorkspaceEvents } from "@/hooks/use-workspace-events";
-import { useWorkspace } from "@/hooks/use-workspaces";
 
 import { ConversationList } from "./ConversationList";
 import { MessageThread } from "./MessageThread";
@@ -18,9 +17,6 @@ type Props = {
 export function InboxShell({ workspaceId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const workspace = useWorkspace(workspaceId);
-  const { isAnonymous } = useAuthentication();
-
   const conversationId = searchParams.get("conversationId") ?? undefined;
 
   const { telegramLinked } = useWorkspaceEvents(workspaceId);
@@ -41,52 +37,17 @@ export function InboxShell({ workspaceId }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {isAnonymous && (
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-yellow-bg-hover bg-yellow-bg px-4 py-2.5">
-          <p className="text-xs text-yellow-text-hover">
-            <span className="font-semibold">Guest mode</span> — your data is
-            temporary and will be removed after 24 hours.
-          </p>
-
-          <Link
-            href="/signup"
-            className="ml-4 flex-shrink-0 rounded-md bg-yellow-border-hover px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-yellow-text-hover"
-          >
-            Create account →
-          </Link>
-        </div>
-      )}
-
       <div className="flex flex-1 overflow-hidden">
+        <WorkspaceNav workspaceId={workspaceId} />
+
         {/* Sidebar — full-width on mobile when no conversation is open */}
         <aside
           className={`flex-shrink-0 flex-col border-r border-neutral-300 bg-neutral-100 md:flex md:w-72 lg:w-80 ${
             conversationId ? "hidden md:flex" : "flex w-full"
           }`}
         >
-          <div className="flex items-center gap-2 border-b border-neutral-300 px-4 py-3">
-            <span
-              className="material-symbols-rounded leading-none text-[16px] text-secondary"
-              aria-hidden="true"
-            >
-              workspaces
-            </span>
-            <span className="truncate text-sm font-semibold text-primary">
-              {workspace?.name ?? "Inbox"}
-            </span>
-
-            <Link
-              href={`/inbox/channels?workspaceId=${workspaceId}`}
-              title="Channels"
-              className="ml-auto flex flex-shrink-0 items-center rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
-            >
-              <span
-                className="material-symbols-rounded leading-none text-[16px]"
-                aria-hidden="true"
-              >
-                settings
-              </span>
-            </Link>
+          <div className="border-b border-neutral-300 px-4 py-3">
+            <WorkspaceSwitcher workspaceId={workspaceId} />
           </div>
 
           <ConversationList

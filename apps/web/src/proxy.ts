@@ -8,18 +8,19 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
-  // Authenticated users don't need the landing page or auth pages.
+  // Fast-path: no cookie at all → definitely not logged in, bounce to login.
+  // Do NOT redirect users WITH a cookie away from login/signup here — the cookie
+  // may be stale (e.g. after an API server restart) and that would create an
+  // infinite loop (inbox → 401 → login → cookie present → inbox → …).
+  // Redirecting away from auth pages for live sessions is handled server-side
+  // in the (auth) layout via redirectIfAuthenticated(), which actually validates
+  // the session against the API.
   if (
-    hasSession &&
-    (pathname === "/" || pathname === "/login" || pathname === "/signup")
+    !hasSession &&
+    (pathname.startsWith("/inbox") ||
+      pathname.startsWith("/workflows") ||
+      pathname.startsWith("/settings"))
   ) {
-    return NextResponse.redirect(new URL("/inbox", request.url));
-  }
-
-  // Unauthenticated users can't access the inbox.
-  // The inbox layout also calls requireAuthentication() as a belt-and-suspenders
-  // server-side check that validates the session against the API.
-  if (!hasSession && pathname.startsWith("/inbox")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -27,5 +28,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/signup", "/inbox/:path*"],
+  matcher: [
+    "/login",
+    "/signup",
+    "/inbox/:path*",
+    "/workflows/:path*",
+    "/settings/:path*",
+  ],
 };

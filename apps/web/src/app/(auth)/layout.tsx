@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { redirectIfAuthenticated } from "@/lib/server-authentication";
+
 export const metadata: Metadata = {
   title: "RelayFlow",
 };
 
-export default function AuthLayout({
+export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Validate the session against the API before redirecting — a stale cookie
+  // that no longer exists on the server must NOT be treated as authenticated.
+  await redirectIfAuthenticated();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-neutral-200 px-4 py-16">
       <Link
