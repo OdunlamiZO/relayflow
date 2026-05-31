@@ -9,9 +9,9 @@ import java.util.UUID;
  * Mutable variable store for a single workflow run.
  *
  * <p>Variables are flat key → value pairs. Keys use dot-notation for built-in context variables
- * (e.g. {@code "contact.name"}, {@code "message.text"}) and plain names for user-defined variables.
- * Unlike respond.io, variables are fully reassignable — any Set Variable node can overwrite any
- * key.
+ * (e.g. {@code "contact.name"}, {@code "conversation.channel"}) and plain names for user-defined
+ * variables. Unlike respond.io, variables are fully reassignable — any Set Variable node can
+ * overwrite any key.
  */
 public class ExecutionContext {
 

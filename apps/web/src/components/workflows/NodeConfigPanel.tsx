@@ -320,7 +320,7 @@ function ConditionForm({
                 onChange={(e) =>
                   updateBranch(branch.id, { variable: e.target.value })
                 }
-                placeholder="e.g. message.text"
+                placeholder="e.g. contact.name"
                 className={inputCls}
               />
             </Field>
@@ -812,7 +812,7 @@ function SetVariableForm({
           type="text"
           value={value}
           onChange={(e) => onChange({ value: e.target.value })}
-          placeholder="e.g. {{message.text}} or a static value"
+          placeholder="e.g. {{contact.name}} or a static value"
           className={inputCls}
         />
       </Field>

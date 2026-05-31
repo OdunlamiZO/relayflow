@@ -87,13 +87,25 @@ npm run dev
 
 - `GET  /api/auth/me`
 - `POST /api/auth/signup`
+- `POST /api/auth/verify-email`
 - `POST /api/auth/login`
+- `POST /api/auth/login/2fa`
 - `POST /api/auth/logout`
 - `POST /api/auth/guest`
 - `GET  /oauth2/authorization/google`
 - `GET  /login/oauth2/code/google`
 
-The app supports email/password login, Google OAuth, and temporary anonymous guest sessions. Guest sessions create a workspace automatically and can use the shared Telegram bot when `SHARED_TELEGRAM_BOT_TOKEN` is configured.
+The app supports verified email/password login, Google OAuth, TOTP two-factor login, and temporary anonymous guest sessions. Guest sessions create a workspace automatically and can use the shared Telegram bot when `SHARED_TELEGRAM_BOT_TOKEN` is configured.
+
+### Profile
+
+- `GET    /api/profile`
+- `PATCH  /api/profile`
+- `POST   /api/profile/change-password`
+- `DELETE /api/profile`
+- `POST   /api/profile/2fa/setup`
+- `POST   /api/profile/2fa/enable`
+- `POST   /api/profile/2fa/disable`
 
 ### Messaging
 
@@ -183,7 +195,11 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 
 ### Authentication
 - [x] Email/password signup and login.
+- [x] Email verification before first email/password login.
 - [x] Google OAuth2 login with user provisioning.
+- [x] Profile management — display name, email update preference, password change, account deletion, and profile page.
+- [x] TOTP two-factor authentication — setup QR code, enable/disable, and 2FA login challenge.
+- [x] Split user model — identities, preferences, and MFA methods live outside the core `users` table.
 - [x] Anonymous guest session flow with auto-created workspace. Guest data purged after 24 hours (configurable via `relayflow.guest.expiry-hours`).
 
 ### Inbox UI

@@ -13,8 +13,12 @@ export function useLogin() {
     onError: (error) => {
       showToast({ kind: "error", message: errorMessage(error) });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    onSuccess: (data) => {
+      // If 2FA is required the server hasn't established a session yet —
+      // don't invalidate the auth query until after the OTP step succeeds.
+      if (!data.twoFactorRequired) {
+        void queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      }
     },
   });
 }

@@ -7,6 +7,8 @@ export type AuthenticatedUser = {
   email: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  twoFactorRequired?: boolean;
+  challengeToken?: string | null;
 };
 
 const apiBaseUrl =

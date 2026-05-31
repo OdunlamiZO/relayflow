@@ -114,6 +114,24 @@ export function AuthenticationPanel() {
 
             {/* Actions */}
             <div className="p-1.5">
+              {!user.anonymous && (
+                <Link
+                  href="/profile"
+                  onClick={() => {
+                    setIsOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                >
+                  <span
+                    className="material-symbols-rounded text-[18px]"
+                    aria-hidden="true"
+                  >
+                    manage_accounts
+                  </span>
+                  Profile
+                </Link>
+              )}
+
               <button
                 type="button"
                 onClick={() => {

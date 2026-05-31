@@ -99,6 +99,7 @@ public class SecurityConfiguration {
                                                 "/api/auth/signup",
                                                 "/api/auth/verify-email",
                                                 "/api/auth/login",
+                                                "/api/auth/login/2fa",
                                                 "/api/auth/guest",
                                                 "/api/telegram/webhook/**",
                                                 "/api/telegram/webhook/shared",

@@ -2,6 +2,7 @@ package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.dto.AuthenticatedUserResponse;
 import com.relayflow.api.authentication.dto.GuestSessionResponse;
+import com.relayflow.api.authentication.dto.Login2FARequest;
 import com.relayflow.api.authentication.dto.LoginRequest;
 import com.relayflow.api.authentication.dto.SignupRequest;
 import com.relayflow.api.authentication.dto.SignupResponse;
@@ -56,6 +57,14 @@ public class AuthenticationController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         return authenticationService.login(request, httpRequest, httpResponse);
+    }
+
+    @PostMapping("/login/2fa")
+    AuthenticatedUserResponse login2FA(
+            @Valid @RequestBody Login2FARequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        return authenticationService.login2FA(request, httpRequest, httpResponse);
     }
 
     @PostMapping("/guest")

@@ -8,4 +8,6 @@ public record AuthenticatedUserResponse(
         UUID userId,
         String email,
         String displayName,
-        String avatarUrl) {}
+        String avatarUrl,
+        boolean twoFactorRequired,
+        String challengeToken) {}

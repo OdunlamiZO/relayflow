@@ -2,6 +2,10 @@ package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.domain.AuthenticationProvider;
 import com.relayflow.api.authentication.domain.User;
+import com.relayflow.api.authentication.domain.UserIdentity;
+import com.relayflow.api.authentication.domain.UserPreferences;
+import com.relayflow.api.authentication.repository.UserIdentityRepository;
+import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -20,8 +24,17 @@ public class OAuth2UserProvisioningService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
 
-    public OAuth2UserProvisioningService(UserRepository userRepository) {
+    private final UserIdentityRepository identityRepository;
+
+    private final UserPreferencesRepository prefsRepository;
+
+    public OAuth2UserProvisioningService(
+            UserRepository userRepository,
+            UserIdentityRepository identityRepository,
+            UserPreferencesRepository prefsRepository) {
         this.userRepository = userRepository;
+        this.identityRepository = identityRepository;
+        this.prefsRepository = prefsRepository;
     }
 
     @Override
@@ -40,26 +53,36 @@ public class OAuth2UserProvisioningService extends DefaultOAuth2UserService {
         String subject = stringAttribute(attributes, "sub");
         String email = stringAttribute(attributes, "email");
 
-        User user =
-                userRepository
-                        .findByProviderIdentity(AuthenticationProvider.GOOGLE, subject)
-                        .orElseGet(User::new);
+        UserIdentity identity =
+                identityRepository
+                        .findByProviderAndProviderSubject(AuthenticationProvider.GOOGLE, subject)
+                        .orElseGet(
+                                () -> {
+                                    User newUser = new User();
+                                    newUser.setEmail(email);
+                                    userRepository.save(newUser);
 
-        boolean isNew = user.getId() == null;
+                                    UserPreferences prefs = new UserPreferences();
+                                    prefs.setUser(newUser);
+                                    prefsRepository.save(prefs);
 
-        user.setProvider(AuthenticationProvider.GOOGLE);
-        user.setProviderSubject(subject);
+                                    UserIdentity newIdentity = new UserIdentity();
+                                    newIdentity.setUser(newUser);
+                                    newIdentity.setProvider(AuthenticationProvider.GOOGLE);
+                                    newIdentity.setProviderSubject(subject);
+                                    newIdentity.setVerified(true);
+
+                                    log.info("Provisioned new Google user: email={}", email);
+
+                                    return identityRepository.save(newIdentity);
+                                });
+
+        // Update profile fields that the provider may have changed since last login.
+        User user = identity.getUser();
         user.setEmail(email);
         user.setDisplayName(stringAttribute(attributes, "name"));
         user.setAvatarUrl(stringAttribute(attributes, "picture"));
-
         userRepository.save(user);
-
-        if (isNew) {
-            log.info("Provisioned new Google user: email={}", email);
-        } else {
-            log.debug("Updated existing Google user: email={}", email);
-        }
     }
 
     private String stringAttribute(Map<String, Object> attributes, String name) {

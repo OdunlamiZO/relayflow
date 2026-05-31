@@ -1,5 +1,8 @@
 package com.relayflow.api.authentication;
 
+import com.relayflow.api.authentication.domain.AuthenticationProvider;
+import com.relayflow.api.authentication.domain.UserIdentity;
+import com.relayflow.api.authentication.repository.UserIdentityRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
 import java.util.List;
 import org.springframework.security.core.userdetails.User;
@@ -13,8 +16,12 @@ public class EmailPasswordUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
 
-    public EmailPasswordUserDetailsService(UserRepository userRepository) {
+    private final UserIdentityRepository identityRepository;
+
+    public EmailPasswordUserDetailsService(
+            UserRepository userRepository, UserIdentityRepository identityRepository) {
         this.userRepository = userRepository;
+        this.identityRepository = identityRepository;
     }
 
     @Override
@@ -25,12 +32,20 @@ public class EmailPasswordUserDetailsService implements UserDetailsService {
                         .orElseThrow(
                                 () -> new UsernameNotFoundException("User not found: " + email));
 
-        if (user.getPasswordHash() == null) {
-            throw new UsernameNotFoundException("No password credential set for user: " + email);
+        UserIdentity identity =
+                identityRepository
+                        .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
+                        .orElseThrow(
+                                () ->
+                                        new UsernameNotFoundException(
+                                                "No email credential for: " + email));
+
+        if (identity.getCredential() == null) {
+            throw new UsernameNotFoundException("No password credential set for: " + email);
         }
 
         return User.withUsername(email)
-                .password(user.getPasswordHash())
+                .password(identity.getCredential())
                 .authorities(List.of())
                 .build();
     }
