@@ -2,8 +2,6 @@ package com.relayflow.api.authentication.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,24 +36,11 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    @Column(name = "password_hash", length = 72)
-    private String passwordHash;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 40)
-    private AuthenticationProvider provider;
-
-    @Column(name = "provider_subject", nullable = false, length = 200)
-    private String providerSubject;
-
     @Column(name = "is_anonymous", nullable = false)
     private boolean anonymous;
 
     @Column(name = "last_active_at")
     private Instant lastActiveAt;
-
-    @Column(name = "email_verified", nullable = false)
-    private boolean emailVerified;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

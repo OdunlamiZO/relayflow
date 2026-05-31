@@ -43,7 +43,7 @@ paths:
   /api/auth/signup:
     post:
       operationId: signup
-      summary: Register a new account with email and password
+      summary: Register a new email/password account and send verification email
       tags: [Auth]
       security: []
       requestBody:
@@ -53,18 +53,38 @@ paths:
             schema:
               $ref: "#/components/schemas/SignupRequest"
       responses:
-        "201":
-          description: Account created and session established
+        "202":
+          description: Signup accepted; verification email sent
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthenticatedUserResponse"
+                $ref: "#/components/schemas/SignupResponse"
         "400":
           description: Validation error or email already in use
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/verify-email:
+    post:
+      operationId: verifyEmail
+      summary: Verify an email address and establish a session
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+      responses:
+        "200":
+          description: Email verified and session established
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedUserResponse"
 
   /api/auth/login:
     post:
@@ -80,7 +100,7 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: Session established
+          description: Session established, or a two-factor challenge returned
           content:
             application/json:
               schema:
@@ -91,6 +111,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/login/2fa:
+    post:
+      operationId: login2FA
+      summary: Complete a two-factor login challenge
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Login2FARequest"
+      responses:
+        "200":
+          description: Session established after OTP verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedUserResponse"
 
   /api/auth/logout:
     post:
@@ -114,6 +154,109 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GuestSessionResponse"
+
+  # ── Profile ─────────────────────────────────────────────────────────────────
+
+  /api/profile:
+    get:
+      operationId: getProfile
+      summary: Get the current user's profile and security settings
+      tags: [Profile]
+      responses:
+        "200":
+          description: Current profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+    patch:
+      operationId: updateProfile
+      summary: Update profile details and preferences
+      tags: [Profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+    delete:
+      operationId: deleteAccount
+      summary: Delete the current user's account and invalidate the session
+      tags: [Profile]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+      responses:
+        "204":
+          description: Account deleted
+
+  /api/profile/change-password:
+    post:
+      operationId: changePassword
+      summary: Change password for an email/password account
+      tags: [Profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed
+
+  /api/profile/2fa/setup:
+    post:
+      operationId: setup2FA
+      summary: Start TOTP two-factor setup
+      tags: [Profile]
+      responses:
+        "200":
+          description: TOTP setup URI for QR-code display
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Setup2FAResponse"
+
+  /api/profile/2fa/enable:
+    post:
+      operationId: enable2FA
+      summary: Enable TOTP two-factor authentication after OTP verification
+      tags: [Profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpRequest"
+      responses:
+        "204":
+          description: Two-factor authentication enabled
+
+  /api/profile/2fa/disable:
+    post:
+      operationId: disable2FA
+      summary: Disable TOTP two-factor authentication after OTP verification
+      tags: [Profile]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpRequest"
+      responses:
+        "204":
+          description: Two-factor authentication disabled
 
   # ── Workspaces ────────────────────────────────────────────────────────────────
 
@@ -1227,11 +1370,63 @@ components:
         password:
           type: string
 
+    Login2FARequest:
+      type: object
+      required: [challengeToken, otp]
+      properties:
+        challengeToken:
+          type: string
+        otp:
+          type: string
+
     CreateWorkspaceRequest:
       type: object
       required: [name]
       properties:
         name:
+          type: string
+
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    UpdateProfileRequest:
+      type: object
+      required: [displayName, receiveEmailUpdates]
+      properties:
+        displayName:
+          type: string
+          maxLength: 200
+        receiveEmailUpdates:
+          type: boolean
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 72
+
+    DeleteAccountRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          nullable: true
+          description: Required for email/password accounts; OAuth users may omit it.
+
+    OtpRequest:
+      type: object
+      required: [otp]
+      properties:
+        otp:
           type: string
 
     InviteMemberRequest:
@@ -1473,7 +1668,7 @@ components:
 
     AuthenticatedUserResponse:
       type: object
-      required: [authenticated, anonymous]
+      required: [authenticated, anonymous, twoFactorRequired]
       properties:
         authenticated:
           type: boolean
@@ -1492,6 +1687,20 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        twoFactorRequired:
+          type: boolean
+          description: True when password login succeeded but OTP verification is still required.
+        challengeToken:
+          type: string
+          nullable: true
+          description: Short-lived token passed to `/api/auth/login/2fa`.
+
+    SignupResponse:
+      type: object
+      required: [emailVerificationSent]
+      properties:
+        emailVerificationSent:
+          type: boolean
 
     GuestSessionResponse:
       type: object
@@ -1500,6 +1709,40 @@ components:
         workspaceId:
           type: string
           format: uuid
+
+    ProfileResponse:
+      type: object
+      required: [userId, email, receiveEmailUpdates, twoFactorEnabled, providers]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        receiveEmailUpdates:
+          type: boolean
+        twoFactorEnabled:
+          type: boolean
+        providers:
+          type: array
+          items:
+            type: string
+            enum: [GOOGLE, EMAIL, ANONYMOUS]
+
+    Setup2FAResponse:
+      type: object
+      required: [otpauthUri]
+      properties:
+        otpauthUri:
+          type: string
+          description: otpauth:// URI suitable for QR-code generation.
 
     WorkspaceResponse:
       type: object

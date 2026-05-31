@@ -1,6 +1,5 @@
 package com.relayflow.api.authentication.repository;
 
-import com.relayflow.api.authentication.domain.AuthenticationProvider;
 import com.relayflow.api.authentication.domain.User;
 import java.time.Instant;
 import java.util.List;
@@ -11,15 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
-
-    @Query(
-            """
-            select u from User u
-            where u.provider = :provider
-              and u.providerSubject = :subject
-            """)
-    Optional<User> findByProviderIdentity(
-            @Param("provider") AuthenticationProvider provider, @Param("subject") String subject);
 
     Optional<User> findByEmail(String email);
 

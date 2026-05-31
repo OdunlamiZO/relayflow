@@ -2,18 +2,29 @@ package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.domain.AuthenticationProvider;
 import com.relayflow.api.authentication.domain.EmailVerificationToken;
+import com.relayflow.api.authentication.domain.MfaMethodType;
+import com.relayflow.api.authentication.domain.TwoFactorChallenge;
 import com.relayflow.api.authentication.domain.User;
+import com.relayflow.api.authentication.domain.UserIdentity;
+import com.relayflow.api.authentication.domain.UserPreferences;
 import com.relayflow.api.authentication.dto.AuthenticatedUserResponse;
 import com.relayflow.api.authentication.dto.GuestSessionResponse;
+import com.relayflow.api.authentication.dto.Login2FARequest;
 import com.relayflow.api.authentication.dto.LoginRequest;
 import com.relayflow.api.authentication.dto.SignupRequest;
 import com.relayflow.api.authentication.dto.SignupResponse;
 import com.relayflow.api.authentication.repository.EmailVerificationTokenRepository;
+import com.relayflow.api.authentication.repository.TwoFactorChallengeRepository;
+import com.relayflow.api.authentication.repository.UserIdentityRepository;
+import com.relayflow.api.authentication.repository.UserMfaMethodRepository;
+import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
+import com.relayflow.api.configuration.CredentialEncryptionService;
 import com.relayflow.api.email.EmailService;
 import com.relayflow.api.messaging.MessagingService;
 import com.relayflow.api.messaging.dto.CreateWorkspaceRequest;
 import com.relayflow.api.messaging.dto.WorkspaceResponse;
+import com.relayflow.api.profile.TwoFactorService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.security.SecureRandom;
@@ -47,7 +58,15 @@ public class AuthenticationService {
 
     private final UserRepository userRepository;
 
+    private final UserIdentityRepository identityRepository;
+
+    private final UserPreferencesRepository prefsRepository;
+
+    private final UserMfaMethodRepository mfaMethodRepository;
+
     private final EmailVerificationTokenRepository verificationTokenRepository;
+
+    private final TwoFactorChallengeRepository challengeRepository;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -59,27 +78,43 @@ public class AuthenticationService {
 
     private final EmailService emailService;
 
+    private final TwoFactorService twoFactorService;
+
+    private final CredentialEncryptionService encryptionService;
+
     private final String webBaseUrl;
 
     private final String sharedBotToken;
 
     public AuthenticationService(
             UserRepository userRepository,
+            UserIdentityRepository identityRepository,
+            UserPreferencesRepository prefsRepository,
+            UserMfaMethodRepository mfaMethodRepository,
             EmailVerificationTokenRepository verificationTokenRepository,
+            TwoFactorChallengeRepository challengeRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             HttpSessionSecurityContextRepository securityContextRepository,
             MessagingService messagingService,
             EmailService emailService,
+            TwoFactorService twoFactorService,
+            CredentialEncryptionService encryptionService,
             @Value("${relayflow.web.base-url}") String webBaseUrl,
             @Value("${shared.telegram.bot-token:}") String sharedBotToken) {
         this.userRepository = userRepository;
+        this.identityRepository = identityRepository;
+        this.prefsRepository = prefsRepository;
+        this.mfaMethodRepository = mfaMethodRepository;
         this.verificationTokenRepository = verificationTokenRepository;
+        this.challengeRepository = challengeRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
         this.messagingService = messagingService;
         this.emailService = emailService;
+        this.twoFactorService = twoFactorService;
+        this.encryptionService = encryptionService;
         this.webBaseUrl = webBaseUrl;
         this.sharedBotToken = sharedBotToken;
     }
@@ -94,11 +129,19 @@ public class AuthenticationService {
         User user = new User();
         user.setEmail(request.email());
         user.setDisplayName(request.name());
-        user.setProvider(AuthenticationProvider.EMAIL);
-        user.setProviderSubject(request.email());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setEmailVerified(false);
         user = userRepository.save(user);
+
+        UserIdentity identity = new UserIdentity();
+        identity.setUser(user);
+        identity.setProvider(AuthenticationProvider.EMAIL);
+        identity.setProviderSubject(request.email());
+        identity.setCredential(passwordEncoder.encode(request.password()));
+        identity.setVerified(false);
+        identityRepository.save(identity);
+
+        UserPreferences prefs = new UserPreferences();
+        prefs.setUser(user);
+        prefsRepository.save(prefs);
 
         String rawToken = generateToken();
         EmailVerificationToken verificationToken = new EmailVerificationToken();
@@ -115,25 +158,12 @@ public class AuthenticationService {
         return new SignupResponse(true);
     }
 
+    @Transactional
     public AuthenticatedUserResponse login(
             LoginRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         log.info("Login attempt: email={}", request.email());
-
-        userRepository
-                .findByEmail(request.email())
-                .ifPresent(
-                        user -> {
-                            if (user.getProvider() == AuthenticationProvider.EMAIL
-                                    && !user.isEmailVerified()) {
-                                throw new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN,
-                                        "Please verify your email address before logging in. Check your inbox.");
-                            }
-                        });
-
-        establishSession(request.email(), request.password(), httpRequest, httpResponse);
 
         User user =
                 userRepository
@@ -141,7 +171,49 @@ public class AuthenticationService {
                         .orElseThrow(
                                 () ->
                                         new ResponseStatusException(
-                                                HttpStatus.INTERNAL_SERVER_ERROR));
+                                                HttpStatus.UNAUTHORIZED,
+                                                "Invalid email or password."));
+
+        UserIdentity identity =
+                identityRepository
+                        .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.UNAUTHORIZED,
+                                                "Invalid email or password."));
+
+        if (!identity.isVerified()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Please verify your email address before logging in. Check your inbox.");
+        }
+
+        // Validate credentials — throws BadCredentialsException if wrong.
+        establishSession(request.email(), request.password(), httpRequest, httpResponse);
+
+        // If 2FA is enabled, invalidate the session we just created and issue a challenge instead.
+        boolean has2FA =
+                mfaMethodRepository
+                        .findByUserAndType(user, MfaMethodType.TOTP)
+                        .map(m -> m.isEnabled())
+                        .orElse(false);
+
+        if (has2FA) {
+            invalidateSession(httpRequest, httpResponse);
+
+            String challengeToken = generateToken();
+            TwoFactorChallenge challenge = new TwoFactorChallenge();
+            challenge.setUser(user);
+            challenge.setToken(challengeToken);
+            challenge.setExpiresAt(Instant.now().plus(Duration.ofMinutes(5)));
+            challengeRepository.save(challenge);
+
+            log.info("2FA challenge issued: email={}", request.email());
+
+            return new AuthenticatedUserResponse(
+                    false, false, null, null, null, null, true, challengeToken);
+        }
 
         return new AuthenticatedUserResponse(
                 true,
@@ -149,7 +221,62 @@ public class AuthenticationService {
                 user.getId(),
                 user.getEmail(),
                 user.getDisplayName(),
-                user.getAvatarUrl());
+                user.getAvatarUrl(),
+                false,
+                null);
+    }
+
+    @Transactional
+    public AuthenticatedUserResponse login2FA(
+            Login2FARequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        TwoFactorChallenge challenge =
+                challengeRepository
+                        .findByToken(request.challengeToken())
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.BAD_REQUEST,
+                                                "Invalid or expired 2FA challenge."));
+
+        if (challenge.isExpired()) {
+            challengeRepository.delete(challenge);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "This 2FA challenge has expired. Please log in again.");
+        }
+
+        User user = challenge.getUser();
+
+        String rawSecret =
+                mfaMethodRepository
+                        .findByUserAndType(user, MfaMethodType.TOTP)
+                        .map(m -> encryptionService.decrypt(m.getCredential()))
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.BAD_REQUEST, "2FA method not found."));
+
+        if (!twoFactorService.verifyCode(rawSecret, request.otp())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid authenticator code. Please try again.");
+        }
+
+        challengeRepository.delete(challenge);
+        establishSessionForUser(user, httpRequest, httpResponse);
+
+        log.info("Login via 2FA: email={}", user.getEmail());
+
+        return new AuthenticatedUserResponse(
+                true,
+                user.isAnonymous(),
+                user.getId(),
+                user.getEmail(),
+                user.getDisplayName(),
+                user.getAvatarUrl(),
+                false,
+                null);
     }
 
     @Transactional
@@ -177,8 +304,18 @@ public class AuthenticationService {
         }
 
         User user = verificationToken.getUser();
-        user.setEmailVerified(true);
-        userRepository.save(user);
+
+        UserIdentity identity =
+                identityRepository
+                        .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                                "Identity not found for user."));
+
+        identity.setVerified(true);
+        identityRepository.save(identity);
 
         verificationToken.markUsed();
         verificationTokenRepository.save(verificationToken);
@@ -188,7 +325,14 @@ public class AuthenticationService {
         establishSessionForUser(user, httpRequest, httpResponse);
 
         return new AuthenticatedUserResponse(
-                true, false, user.getId(), user.getEmail(), user.getDisplayName(), null);
+                true,
+                false,
+                user.getId(),
+                user.getEmail(),
+                user.getDisplayName(),
+                null,
+                false,
+                null);
     }
 
     @Transactional
@@ -199,12 +343,20 @@ public class AuthenticationService {
 
         User user = new User();
         user.setEmail(email);
-        user.setProvider(AuthenticationProvider.ANONYMOUS);
-        user.setProviderSubject(anonymousId);
         user.setAnonymous(true);
-        user.setEmailVerified(true);
         user.setLastActiveAt(Instant.now());
-        userRepository.save(user);
+        user = userRepository.save(user);
+
+        UserIdentity identity = new UserIdentity();
+        identity.setUser(user);
+        identity.setProvider(AuthenticationProvider.ANONYMOUS);
+        identity.setProviderSubject(anonymousId);
+        identity.setVerified(true);
+        identityRepository.save(identity);
+
+        UserPreferences prefs = new UserPreferences();
+        prefs.setUser(user);
+        prefsRepository.save(prefs);
 
         WorkspaceResponse workspace =
                 messagingService.createWorkspace(
@@ -223,7 +375,7 @@ public class AuthenticationService {
 
     public AuthenticatedUserResponse getCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return new AuthenticatedUserResponse(false, false, null, null, null, null);
+            return new AuthenticatedUserResponse(false, false, null, null, null, null, false, null);
         }
 
         Object principal = authentication.getPrincipal();
@@ -242,7 +394,9 @@ public class AuthenticationService {
                                             user.getId(),
                                             email,
                                             stringAttribute(attributes, "name"),
-                                            stringAttribute(attributes, "picture")))
+                                            stringAttribute(attributes, "picture"),
+                                            false,
+                                            null))
                     .orElse(
                             new AuthenticatedUserResponse(
                                     true,
@@ -250,7 +404,9 @@ public class AuthenticationService {
                                     null,
                                     email,
                                     stringAttribute(attributes, "name"),
-                                    stringAttribute(attributes, "picture")));
+                                    stringAttribute(attributes, "picture"),
+                                    false,
+                                    null));
         }
 
         if (principal instanceof UserDetails userDetails) {
@@ -264,12 +420,18 @@ public class AuthenticationService {
                                             user.getId(),
                                             user.isAnonymous() ? null : user.getEmail(),
                                             user.getDisplayName(),
-                                            user.getAvatarUrl()))
-                    .orElse(new AuthenticatedUserResponse(false, false, null, null, null, null));
+                                            user.getAvatarUrl(),
+                                            false,
+                                            null))
+                    .orElse(
+                            new AuthenticatedUserResponse(
+                                    false, false, null, null, null, null, false, null));
         }
 
-        return new AuthenticatedUserResponse(false, false, null, null, null, null);
+        return new AuthenticatedUserResponse(false, false, null, null, null, null, false, null);
     }
+
+    // ── private helpers ────────────────────────────────────────────────────────
 
     private void establishSession(
             String email,
@@ -288,14 +450,14 @@ public class AuthenticationService {
     }
 
     /**
-     * Establishes a session for a verified email user without requiring the plaintext password.
-     * Used after email verification so the user is logged in immediately.
+     * Establishes a session for a verified user without requiring the plaintext password. Used
+     * after email verification and 2FA completion.
      */
     private void establishSessionForUser(
             User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         UserDetails userDetails =
                 org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
-                        .password(user.getPasswordHash())
+                        .password("")
                         .authorities(List.of())
                         .build();
 
@@ -327,6 +489,17 @@ public class AuthenticationService {
 
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
         SecurityContextHolder.setContext(context);
+    }
+
+    private void invalidateSession(
+            HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        jakarta.servlet.http.HttpSession session = httpRequest.getSession(false);
+
+        if (session != null) {
+            session.invalidate();
+        }
+
+        SecurityContextHolder.clearContext();
     }
 
     private static String generateToken() {

@@ -52,8 +52,10 @@ HTTP controller for auth routes.
 Endpoints:
 
 - `me`: returns the current session user.
-- `signup`: creates an email/password account and establishes a session.
-- `login`: authenticates credentials and establishes a session.
+- `signup`: creates an unverified email/password account and sends verification email.
+- `verifyEmail`: verifies the email token and establishes a session.
+- `login`: authenticates credentials and either establishes a session or returns a 2FA challenge.
+- `login2FA`: verifies a TOTP code for a pending login challenge and establishes a session.
 - `guest`: creates an anonymous guest session and workspace.
 - `logout`: invalidates the server session and expires the `JSESSIONID` browser cookie.
 
@@ -65,12 +67,15 @@ Business logic for authentication.
 
 Important methods:
 
-- `signup`: validates email uniqueness, hashes password, saves the user, and signs them in.
-- `login`: authenticates through Spring Security and returns user profile state.
+- `signup`: validates email uniqueness, hashes password, creates an unverified `UserIdentity`, stores preferences, and emails a verification token.
+- `verifyEmail`: validates token state, marks the email identity verified, and establishes a session.
+- `login`: authenticates through Spring Security and returns user profile state or a short-lived 2FA challenge.
+- `login2FA`: verifies the TOTP challenge and establishes a session.
 - `createGuestSession`: creates anonymous user, workspace, and shared Telegram channel when configured.
 - `getCurrentUser`: normalizes OAuth, email, and anonymous principals into `AuthenticatedUserResponse`.
 - `establishSession`: writes an authenticated security context into the session.
-- `establishAnonSession`: creates a session for anonymous users.
+- `establishSessionForUser`: creates a session for a verified user without requiring plaintext password.
+- `establishAnonymousSession`: creates a session for anonymous users.
 
 We need it to keep controller code thin and centralize session/user lifecycle rules.
 
@@ -85,6 +90,50 @@ We need it so the Spring authentication manager can validate email/password logi
 Extends Spring's OAuth user service to provision or update users after Google login.
 
 We need it so Google login creates a local `User` record and returns consistent profile data.
+
+### `ProfileController`
+
+HTTP controller for current-user profile and security routes.
+
+Endpoints:
+
+- `getProfile`
+- `updateProfile`
+- `changePassword`
+- `deleteAccount`
+- `setup2FA`
+- `enable2FA`
+- `disable2FA`
+
+We need it to keep account management separate from login/session endpoints.
+
+### `ProfileService`
+
+Business service for profile, password, account deletion, preferences, and MFA state.
+
+Important methods:
+
+- `getProfile`
+- `updateProfile`
+- `changePassword`
+- `deleteAccount`
+- `setup2FA`
+- `enable2FA`
+- `disable2FA`
+
+We need it to coordinate user, identity, preferences, and MFA tables in one account-management layer.
+
+### `TwoFactorService`
+
+TOTP helper for generating secrets, building `otpauth://` URIs, and verifying authenticator codes.
+
+Important methods:
+
+- `generateSecret`
+- `buildOtpauthUri`
+- `verifyCode`
+
+We need it to keep MFA cryptographic details out of controller/service workflow code.
 
 ### `SecurityUtils`
 
@@ -107,11 +156,76 @@ Important fields:
 - `id`: UUID primary key.
 - `email`: login identifier for email users and generated identifier for guests.
 - `displayName`, `avatarUrl`: profile fields.
-- `provider`, `providerSubject`: tells whether the user came from email, Google, or anonymous guest mode.
-- `passwordHash`: BCrypt hash for email users.
-- `anonymous`, `lastActiveAt`, `createdAt`: guest/session lifecycle fields.
+- `anonymous`, `lastActiveAt`, `createdAt`, `updatedAt`, `deletedAt`: guest/account lifecycle fields.
 
-We need it as the identity anchor for workspaces and workspace membership.
+We need it as the durable person/account anchor for workspaces and workspace membership. Login methods, preferences, and MFA are now satellite tables.
+
+### `UserIdentity`
+
+JPA entity representing one authentication identity for a user.
+
+Important fields:
+
+- `user`
+- `provider`
+- `providerSubject`
+- `credential`
+- `verified`
+- `createdAt`
+
+We need it so one user can have multiple login methods, such as email/password and Google OAuth.
+
+### `UserPreferences`
+
+JPA entity for per-user preferences.
+
+Important fields:
+
+- `userId`
+- `receiveEmailUpdates`
+- `createdAt`
+- `updatedAt`
+
+We need it to keep preferences out of the core identity row.
+
+### `UserMfaMethod`
+
+JPA entity for second-factor methods.
+
+Important fields:
+
+- `user`
+- `type`
+- `credential`
+- `enabled`
+- `createdAt`
+
+We need it to support TOTP today and future MFA methods without changing the `users` table.
+
+### `TwoFactorChallenge`
+
+JPA entity for short-lived login challenges issued after password verification when 2FA is enabled.
+
+Important fields:
+
+- `user`
+- `token`
+- `expiresAt`
+
+We need it so password verification and OTP verification can happen as two separate HTTP requests.
+
+### `EmailVerificationToken`
+
+JPA entity for email verification links.
+
+Important fields:
+
+- `user`
+- `token`
+- `expiresAt`
+- `usedAt`
+
+We need it so email/password accounts cannot log in until email ownership is confirmed.
 
 ### `AuthenticationProvider`
 
@@ -119,22 +233,52 @@ Enum of supported identity providers: email, Google, and anonymous.
 
 We need it so user records can be interpreted correctly during login and cleanup.
 
+### `MfaMethodType`
+
+Enum of MFA method types: TOTP and SMS.
+
+We need it so MFA support can grow beyond TOTP without redesigning the table.
+
 ### Auth DTO Records
 
 - `SignupRequest`: user-supplied name, email, and password.
+- `SignupResponse`: whether verification email was sent.
+- `VerifyEmailRequest`: email verification token.
 - `LoginRequest`: email and password.
+- `Login2FARequest`: 2FA challenge token and OTP.
 - `AuthenticatedUserResponse`: normalized auth/session state for the frontend.
 - `GuestSessionResponse`: workspace ID created for guest mode.
 
 We need these records as stable API contracts between backend and frontend.
 
+### Profile DTO Records
+
+- `ProfileResponse`: user profile, preferences, providers, and 2FA state.
+- `UpdateProfileRequest`: display name and email update preference.
+- `ChangePasswordRequest`: current and new password.
+- `DeleteAccountRequest`: optional password for account deletion.
+- `Setup2FAResponse`: `otpauth://` URI for QR display.
+- `OtpRequest`: authenticator code.
+
+We need these records for account-management UI/backend contracts.
+
 ### `UserRepository`
 
 Spring Data repository for `User`.
 
-Important queries include lookup by email/provider subject and expired anonymous users.
+Important queries include lookup by email and expired anonymous users.
 
 We need it to keep persistence access declarative and testable.
+
+### Authentication Satellite Repositories
+
+- `UserIdentityRepository`: looks up identities by provider subject or user/provider.
+- `UserPreferencesRepository`: stores per-user preferences.
+- `UserMfaMethodRepository`: stores enabled/pending MFA methods.
+- `TwoFactorChallengeRepository`: stores short-lived 2FA login challenges.
+- `EmailVerificationTokenRepository`: stores email verification tokens.
+
+We need these repositories because login methods, profile preferences, MFA, and email verification are deliberately split out of the core `User` table.
 
 ### `ApiKeyAuthentication`
 
@@ -1079,6 +1223,13 @@ We need them for the workspace contact-management surface.
 
 We need it so invited users can inspect and accept workspace invitations.
 
+### Profile Pages
+
+- `profile/layout.tsx`: protected profile shell; redirects anonymous guests away.
+- `profile/page.tsx`: renders `ProfileShell` behind a suspense boundary.
+
+We need them for current-user account and security settings.
+
 ### Settings Pages
 
 - `settings/page.tsx`: resolves workspace and renders `SettingsShell`.
@@ -1307,6 +1458,25 @@ Important helpers:
 - merge error display.
 
 We need it to clean up duplicate contacts while preserving identities and conversations.
+
+## Frontend Profile Components
+
+### `ProfileShell`
+
+Client-side profile management screen.
+
+Important sections:
+
+- personal information and email-update preference.
+- password change for email/password accounts.
+- TOTP two-factor setup, enable, and disable flow.
+- account deletion danger zone.
+
+Important dependency:
+
+- `QRCodeSVG`: renders QR codes from the backend `otpauth://` URI.
+
+We need it so users can manage account details and security without leaving RelayFlow.
 
 ### `ConnectTelegramForm`
 
@@ -1589,11 +1759,24 @@ We need it to simplify imports in `WorkflowEditor`.
 ### Auth Hooks
 
 - `useAuthentication`: fetches current session user.
-- `useLogin`: login mutation with error toast support.
+- `useLogin`: login mutation with error toast support and 2FA challenge handling.
+- `useLogin2FA`: completes the OTP challenge after password login.
 - `useSignup`: signup mutation with error toast support.
 - `useLogout`: logout mutation and cache cleanup.
 
 We need them to keep auth forms/components declarative.
+
+### Profile Hooks
+
+- `useProfile`: fetches current profile state.
+- `useUpdateProfile`: updates display name and email-update preference.
+- `useChangePassword`: changes an email/password account password.
+- `useDeleteAccount`: deletes the current account and clears auth state.
+- `useSetup2FA`: starts TOTP setup and returns an `otpauth://` URI.
+- `useEnable2FA`: verifies OTP and enables TOTP.
+- `useDisable2FA`: verifies OTP and disables TOTP.
+
+We need them to keep profile/security mutations outside the profile component.
 
 ### Workspace Hooks
 
@@ -1676,15 +1859,32 @@ Frontend auth API wrapper.
 Important types:
 
 - `SignupPayload`
+- `SignupResponse`
 - `LoginPayload`
+- `Login2FAPayload`
 - `AuthenticatedUserResponse`
 - `GuestSessionResponse`
+- `ProfileResponse`
+- `UpdateProfilePayload`
+- `ChangePasswordPayload`
+- `DeleteAccountPayload`
+- `Setup2FAResponse`
+- `OtpPayload`
 
 Important functions:
 
 - `signup`
+- `verifyEmail`
 - `login`
+- `login2FA`
 - `createGuestSession`
+- `getProfile`
+- `updateProfile`
+- `changePassword`
+- `deleteAccount`
+- `setup2FA`
+- `enable2FA`
+- `disable2FA`
 
 Important constant:
 
@@ -1709,7 +1909,7 @@ Important classes/constants/functions:
 - `defaultBaseUrl`: API base URL.
 - `messagingApi`: shared client instance.
 - `readResponseBody`: parses error responses.
-- `errorMessage`: normalizes backend error message.
+- `errorMessage`: normalizes a backend error message.
 
 We need it so hooks/components do not hand-roll fetch calls.
 
