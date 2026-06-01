@@ -815,6 +815,65 @@ We need it so outbound message creation can roll back and surface a useful `502`
 
 We need these records to deserialize Telegram's webhook JSON into typed Java data.
 
+## WhatsApp Backend
+
+### `WhatsAppController`
+
+HTTP controller for WhatsApp Business Cloud API webhooks.
+
+Endpoints:
+
+- `verifyWebhook`: handles Meta's `hub.challenge` verification request.
+- `webhook`: accepts inbound WhatsApp webhook payloads.
+
+We need it as WhatsApp's inbound HTTP entry point.
+
+### `WhatsAppAdapter`
+
+WhatsApp integration service.
+
+Important methods:
+
+- `verifyWebhook`: validates Meta verification mode/token and returns the challenge text.
+- `handleWebhook`: accepts inbound WhatsApp payloads.
+- `processInboundMessage`: normalizes supported text messages into contact, identity, conversation, and message records.
+- `onOutboundMessage`: listens for outbound messages and sends them through WhatsApp.
+- `sendWhatsAppMessage`: calls Meta Graph API with retry.
+- `createIdentity`, `createConversation`, `resolveDisplayName`: helper methods for inbound normalization.
+
+We need it to keep WhatsApp-specific webhook, credential, and Graph API behavior out of the channel-agnostic messaging service.
+
+### `WhatsAppCredentials`
+
+Plaintext credential record that is JSON-serialized and encrypted in `channel_accounts.encrypted_credentials`.
+
+Important fields:
+
+- `accessToken`
+- `phoneNumberId`
+- `verifyToken`
+
+We need it because WhatsApp requires both outbound Graph API credentials and a webhook verification secret.
+
+### `WhatsAppSendException`
+
+Exception thrown when outbound WhatsApp delivery fails after retry.
+
+We need it so failed WhatsApp delivery can be surfaced to callers and avoid pretending a message was delivered.
+
+### WhatsApp DTO Records
+
+- `WhatsAppWebhookPayload`
+- `WhatsAppEntry`
+- `WhatsAppChange`
+- `WhatsAppValue`
+- `WhatsAppContactEntry`
+- `WhatsAppContactProfile`
+- `WhatsAppMessage`
+- `WhatsAppTextBody`
+
+We need these records to deserialize Meta's webhook JSON into typed Java data.
+
 ## Workflow Backend
 
 ### `WorkflowController`
@@ -1484,6 +1543,19 @@ Form for adding a Telegram bot token to a workspace.
 
 We need it for channel setup in settings.
 
+### `ConnectWhatsAppForm`
+
+Form for adding a WhatsApp Business Cloud API channel to a workspace.
+
+Important fields:
+
+- display name.
+- access token.
+- phone number ID.
+- verify token.
+
+We need it for WhatsApp channel setup in settings.
+
 ## Frontend Settings Components
 
 ### `SettingsShell`
@@ -1503,7 +1575,8 @@ Important constants:
 
 Important helper:
 
-- `ChannelItem`: renders one channel, webhook URL, and disconnect confirmation.
+- `ChannelItem`: renders one channel, provider-specific webhook URL, and disconnect confirmation.
+- `ProviderButton`: selects Telegram or WhatsApp connection flow.
 
 We need it because channel setup should live in workspace settings rather than the inbox conversation list.
 
@@ -1799,6 +1872,7 @@ We need them for workspace-first navigation.
 
 - `useChannelAccounts`: fetches connected channels.
 - `useConnectTelegram`: connects a Telegram bot token.
+- `useConnectWhatsApp`: connects WhatsApp Business Cloud API credentials.
 - `useDeleteChannelAccount`: disconnects a channel.
 - `useReconnectChannelAccount`: re-enables a disabled channel.
 
@@ -1992,7 +2066,7 @@ We need it to protect fetch URL construction and error handling.
 
 OpenAPI contract for backend REST endpoints.
 
-It documents health, auth, workspaces, members, invites, API keys, webhooks, public API, channels, contacts, external identities, conversations, messages, workflows, SSE, and Telegram webhooks.
+It documents health, auth, workspaces, members, invites, API keys, webhooks, public API, channels, contacts, external identities, conversations, messages, workflows, SSE, Telegram webhooks, and WhatsApp webhooks.
 
 We need it as the external API source of truth and future client-generation input.
 

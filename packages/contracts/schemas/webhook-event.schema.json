@@ -62,7 +62,7 @@
             },
             "provider": {
               "type": "string",
-              "enum": ["TELEGRAM"]
+              "enum": ["TELEGRAM", "WHATSAPP"]
             }
           }
         }

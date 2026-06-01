@@ -1,12 +1,6 @@
 package com.relayflow.api.authentication;
 
-import com.relayflow.api.authentication.domain.AuthenticationProvider;
-import com.relayflow.api.authentication.domain.EmailVerificationToken;
-import com.relayflow.api.authentication.domain.MfaMethodType;
-import com.relayflow.api.authentication.domain.TwoFactorChallenge;
-import com.relayflow.api.authentication.domain.User;
-import com.relayflow.api.authentication.domain.UserIdentity;
-import com.relayflow.api.authentication.domain.UserPreferences;
+import com.relayflow.api.authentication.domain.*;
 import com.relayflow.api.authentication.dto.AuthenticatedUserResponse;
 import com.relayflow.api.authentication.dto.GuestSessionResponse;
 import com.relayflow.api.authentication.dto.Login2FARequest;
@@ -196,7 +190,7 @@ public class AuthenticationService {
         boolean has2FA =
                 mfaMethodRepository
                         .findByUserAndType(user, MfaMethodType.TOTP)
-                        .map(m -> m.isEnabled())
+                        .map(UserMfaMethod::isEnabled)
                         .orElse(false);
 
         if (has2FA) {
@@ -258,7 +252,7 @@ public class AuthenticationService {
                                         new ResponseStatusException(
                                                 HttpStatus.BAD_REQUEST, "2FA method not found."));
 
-        if (!twoFactorService.verifyCode(rawSecret, request.otp())) {
+        if (twoFactorService.isInvalidCode(rawSecret, request.otp())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid authenticator code. Please try again.");
         }
@@ -368,7 +362,7 @@ public class AuthenticationService {
 
         log.info("Guest session created: userId={}, workspaceId={}", user.getId(), workspace.id());
 
-        establishAnonymousSession(user, httpRequest, httpResponse);
+        establishSessionForUser(user, httpRequest, httpResponse);
 
         return new GuestSessionResponse(workspace.id());
     }
@@ -450,29 +444,10 @@ public class AuthenticationService {
     }
 
     /**
-     * Establishes a session for a verified user without requiring the plaintext password. Used
-     * after email verification and 2FA completion.
+     * Establishes a session without requiring the plaintext password. Used after email
+     * verification, 2FA completion, and anonymous session creation.
      */
     private void establishSessionForUser(
-            User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        UserDetails userDetails =
-                org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
-                        .password("")
-                        .authorities(List.of())
-                        .build();
-
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(auth);
-
-        securityContextRepository.saveContext(context, httpRequest, httpResponse);
-        SecurityContextHolder.setContext(context);
-    }
-
-    private void establishAnonymousSession(
             User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         UserDetails userDetails =
                 org.springframework.security.core.userdetails.User.withUsername(user.getEmail())

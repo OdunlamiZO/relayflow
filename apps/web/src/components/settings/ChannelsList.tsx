@@ -4,12 +4,12 @@ import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Spinner } from "@/components/common/Spinner";
+import { ConnectTelegramForm } from "@/components/inbox/ConnectTelegramForm";
+import { ConnectWhatsAppForm } from "@/components/inbox/ConnectWhatsAppForm";
 import { useChannelAccounts } from "@/hooks/use-channel-accounts";
 import { useDeleteChannelAccount } from "@/hooks/use-delete-channel-account";
 import { useReconnectChannelAccount } from "@/hooks/use-reconnect-channel-account";
 import { type ChannelAccount } from "@/lib/messaging-api";
-
-import { ConnectTelegramForm } from "../inbox/ConnectTelegramForm";
 
 const PROVIDER_LABEL: Record<string, string> = {
   TELEGRAM: "Telegram",
@@ -31,13 +31,15 @@ const PROVIDER_ICON: Record<string, string> = {
   MESSENGER: "chat_bubble",
 };
 
+type ActiveForm = "TELEGRAM" | "WHATSAPP" | null;
+
 type Props = {
   workspaceId: string;
 };
 
 export function ChannelsList({ workspaceId }: Props) {
   const { data: channels, isLoading } = useChannelAccounts(workspaceId);
-  const [showForm, setShowForm] = useState(false);
+  const [activeForm, setActiveForm] = useState<ActiveForm>(null);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 sm:px-8">
@@ -88,7 +90,7 @@ export function ChannelsList({ workspaceId }: Props) {
           Add channel
         </h2>
 
-        {showForm ? (
+        {activeForm === "TELEGRAM" && (
           <div className="rounded-xl border border-neutral-300 bg-neutral-100 p-5">
             <div className="mb-4 flex items-center gap-2">
               <span
@@ -104,43 +106,103 @@ export function ChannelsList({ workspaceId }: Props) {
 
             <ConnectTelegramForm
               workspaceId={workspaceId}
-              onSuccess={() => setShowForm(false)}
-              onCancel={() => setShowForm(false)}
+              onSuccess={() => setActiveForm(null)}
+              onCancel={() => setActiveForm(null)}
             />
           </div>
-        ) : (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex w-full items-center gap-3 rounded-xl border border-dashed border-neutral-300 bg-white px-4 py-4 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-50"
-          >
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#229ED9]/10">
+        )}
+
+        {activeForm === "WHATSAPP" && (
+          <div className="rounded-xl border border-neutral-300 bg-neutral-100 p-5">
+            <div className="mb-4 flex items-center gap-2">
               <span
-                className="material-symbols-rounded text-[18px] text-[#229ED9]"
+                className="material-symbols-rounded text-[18px] text-[#25D366]"
                 aria-hidden="true"
               >
-                send
+                chat
               </span>
-            </span>
-
-            <div className="flex-1">
-              <p className="text-sm font-medium text-neutral-800">
-                Connect Telegram
-              </p>
-              <p className="mt-0.5 text-xs text-neutral-500">
-                Receive messages from your own Telegram bot
-              </p>
+              <span className="text-sm font-semibold text-primary">
+                WhatsApp
+              </span>
             </div>
 
-            <span
-              className="material-symbols-rounded text-[18px] text-neutral-400"
-              aria-hidden="true"
-            >
-              add
-            </span>
-          </button>
+            <ConnectWhatsAppForm
+              workspaceId={workspaceId}
+              onSuccess={() => setActiveForm(null)}
+              onCancel={() => setActiveForm(null)}
+            />
+          </div>
+        )}
+
+        {activeForm === null && (
+          <div className="flex flex-col gap-2">
+            <ProviderButton
+              icon="send"
+              iconColor="text-[#229ED9]"
+              iconBg="bg-[#229ED9]/10"
+              label="Connect Telegram"
+              description="Receive messages from your own Telegram bot"
+              onClick={() => setActiveForm("TELEGRAM")}
+            />
+
+            <ProviderButton
+              icon="chat"
+              iconColor="text-[#25D366]"
+              iconBg="bg-[#25D366]/10"
+              label="Connect WhatsApp"
+              description="Receive messages via the WhatsApp Business Cloud API"
+              onClick={() => setActiveForm("WHATSAPP")}
+            />
+          </div>
         )}
       </section>
     </div>
+  );
+}
+
+function ProviderButton({
+  icon,
+  iconColor,
+  iconBg,
+  label,
+  description,
+  onClick,
+}: {
+  icon: string;
+  iconColor: string;
+  iconBg: string;
+  label: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl border border-dashed border-neutral-300 bg-white px-4 py-4 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+    >
+      <span
+        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+      >
+        <span
+          className={`material-symbols-rounded text-[18px] ${iconColor}`}
+          aria-hidden="true"
+        >
+          {icon}
+        </span>
+      </span>
+
+      <div className="flex-1">
+        <p className="text-sm font-medium text-neutral-800">{label}</p>
+        <p className="mt-0.5 text-xs text-neutral-500">{description}</p>
+      </div>
+
+      <span
+        className="material-symbols-rounded text-[18px] text-neutral-400"
+        aria-hidden="true"
+      >
+        add
+      </span>
+    </button>
   );
 }
 
@@ -159,16 +221,23 @@ function ChannelItem({
 
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-  // Show the webhook URL for custom-bot channels so the owner can verify
-  // what endpoint RelayFlow registered with Telegram on their behalf.
-  // Shared-bot channels route through a single platform-level endpoint —
-  // there is no per-channel webhook to display.
-  const webhookUrl =
-    channel.provider === "TELEGRAM" &&
-    channel.status === "ACTIVE" &&
-    !channel.shared
-      ? `${apiBaseUrl}/api/telegram/webhook/${channel.id}`
-      : null;
+
+  // Show the webhook URL so the workspace owner knows what to configure externally.
+  // Telegram: relay reads automatically — show for reference.
+  // WhatsApp: must be manually pasted into Meta Developer Console.
+  // Shared-bot channels route through a platform-level endpoint, no per-channel URL.
+  const webhookUrl = (() => {
+    if (!channel.shared && channel.status === "ACTIVE") {
+      if (channel.provider === "TELEGRAM") {
+        return `${apiBaseUrl}/api/telegram/webhook/${channel.id}`;
+      }
+      if (channel.provider === "WHATSAPP") {
+        return `${apiBaseUrl}/api/whatsapp/webhook/${channel.id}`;
+      }
+    }
+
+    return null;
+  })();
 
   return (
     <>
@@ -225,16 +294,24 @@ function ChannelItem({
         </div>
 
         {webhookUrl && (
-          <div className="flex items-center gap-2 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
+          <div className="flex items-start gap-2 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
             <span
-              className="material-symbols-rounded flex-shrink-0 text-[13px] text-neutral-400"
+              className="material-symbols-rounded mt-0.5 flex-shrink-0 text-[13px] text-neutral-400"
               aria-hidden="true"
             >
               webhook
             </span>
-            <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-neutral-500">
-              {webhookUrl}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="break-all font-mono text-[11px] text-neutral-500">
+                {webhookUrl}
+              </p>
+              {channel.provider === "WHATSAPP" && (
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  Paste this URL into your Meta Developer Console under
+                  Webhooks.
+                </p>
+              )}
+            </div>
           </div>
         )}
       </li>
