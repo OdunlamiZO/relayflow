@@ -1,6 +1,6 @@
 # RelayFlow
 
-RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation. Telegram is the first adapter, with WhatsApp and Instagram planned. The core model is channel-agnostic.
+RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation. Telegram is the first adapter, WhatsApp Business Cloud API support has started, and Instagram is planned. The core model is channel-agnostic.
 
 ## Repository Layout
 
@@ -169,6 +169,13 @@ Public API requests authenticate with `X-Api-Key`:
 
 The regular webhook path is for a dedicated bot token per channel account. The shared webhook path handles the guest bot flow using a Telegram `/start {workspaceId}` deep link.
 
+### WhatsApp
+
+- `GET  /api/whatsapp/webhook/{channelAccountId}`
+- `POST /api/whatsapp/webhook/{channelAccountId}`
+
+The `GET` path handles Meta webhook verification using the channel account's stored verify token. The `POST` path receives WhatsApp Business Cloud API message events.
+
 ### SSE
 
 - `GET /api/sse/workspace/{workspaceId}` — real-time event stream for the inbox
@@ -181,6 +188,7 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Channel-agnostic persistence model — workspaces, channel accounts, contacts, external identities, conversations, messages.
 - [x] REST endpoints for creating and reading core messaging records.
 - [x] Telegram adapter — inbound webhook ingestion, outbound relay, shared bot `/start {workspaceId}` deep-link flow.
+- [x] WhatsApp Business Cloud API adapter — channel connection form, webhook verification, inbound text ingestion, outbound text relay, and per-channel webhook URL display.
 - [x] Outbound message delivery guarantee — Telegram send retried once; final failure rolls back the transaction so the message is never saved and the caller receives a descriptive error.
 - [x] Shared bot message routing to the most-recently linked guest workspace.
 - [x] Channel account disconnect — sets status to `DISABLED`; inbound and outbound are gated on `ACTIVE` so messages stop immediately. History is preserved.
@@ -206,6 +214,7 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Conversation list, message thread, and outbound composer.
 - [x] Contacts page with channel badges, contact detail panel, inbox deep link, delete confirmation, and merge modal.
 - [x] Settings UI for member permissions, invites, API keys, and webhook configuration.
+- [x] Channel settings can connect Telegram or WhatsApp and display provider-specific webhook URLs.
 - [x] Real-time updates via SSE — `message.created` and `workspace.updated` events pushed after commit.
 - [x] Google login entry point and session status panel.
 - [x] Guest mode banner with "Create account" prompt and Telegram-connected empty state.

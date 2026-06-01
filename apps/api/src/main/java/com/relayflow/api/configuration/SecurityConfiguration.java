@@ -103,6 +103,7 @@ public class SecurityConfiguration {
                                                 "/api/auth/guest",
                                                 "/api/telegram/webhook/**",
                                                 "/api/telegram/webhook/shared",
+                                                "/api/whatsapp/webhook/**",
                                                 "/oauth2/authorization/**",
                                                 "/login/oauth2/code/**",
                                                 "/v3/api-docs/**",

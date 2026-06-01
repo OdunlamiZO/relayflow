@@ -57,10 +57,10 @@ public class TwoFactorService {
     }
 
     /**
-     * Verifies a TOTP code against the raw (unencrypted) base32 secret. Allows ±1 time period of
-     * clock skew.
+     * Returns {@code true} if the OTP does <em>not</em> match the secret. Allows ±1 time period of
+     * clock skew. Callers use this as a guard: {@code if (isInvalidCode(...)) throw ...}
      */
-    public boolean verifyCode(String base32Secret, String otp) {
-        return codeVerifier.isValidCode(base32Secret, otp);
+    public boolean isInvalidCode(String base32Secret, String otp) {
+        return !codeVerifier.isValidCode(base32Secret, otp);
     }
 }

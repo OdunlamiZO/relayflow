@@ -190,7 +190,7 @@ public class ProfileService {
 
         String rawSecret = encryptionService.decrypt(method.getCredential());
 
-        if (!twoFactorService.verifyCode(rawSecret, request.otp())) {
+        if (twoFactorService.isInvalidCode(rawSecret, request.otp())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid authenticator code. Please try again.");
         }
@@ -222,7 +222,7 @@ public class ProfileService {
 
         String rawSecret = encryptionService.decrypt(method.getCredential());
 
-        if (!twoFactorService.verifyCode(rawSecret, request.otp())) {
+        if (twoFactorService.isInvalidCode(rawSecret, request.otp())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid authenticator code. Please try again.");
         }

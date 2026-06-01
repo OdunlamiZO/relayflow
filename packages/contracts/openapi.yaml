@@ -1145,6 +1145,68 @@ paths:
         "200":
           description: Update accepted
 
+  # ── WhatsApp Webhooks ────────────────────────────────────────────────────────
+
+  /api/whatsapp/webhook/{channelAccountId}:
+    get:
+      operationId: verifyWhatsAppWebhook
+      summary: Verify a WhatsApp Business Cloud API webhook
+      tags: [WhatsApp]
+      security: []
+      parameters:
+        - name: channelAccountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: hub.mode
+          in: query
+          required: true
+          schema:
+            type: string
+            example: subscribe
+        - name: hub.verify_token
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: hub.challenge
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verification challenge echoed as plain text
+          content:
+            text/plain:
+              schema:
+                type: string
+        "403":
+          description: Verification token mismatch or invalid mode
+    post:
+      operationId: whatsAppWebhook
+      summary: Receive a WhatsApp Business Cloud API webhook event
+      tags: [WhatsApp]
+      security: []
+      parameters:
+        - name: channelAccountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WhatsAppWebhookPayload"
+      responses:
+        "200":
+          description: Update accepted
+
   # ── Public API ───────────────────────────────────────────────────────────────
 
   /public/v1/conversations:
@@ -1935,6 +1997,83 @@ components:
         secret:
           type: string
           description: New plaintext HMAC secret returned once.
+
+    WhatsAppWebhookPayload:
+      type: object
+      required: [object, entry]
+      properties:
+        object:
+          type: string
+        entry:
+          type: array
+          items:
+            $ref: "#/components/schemas/WhatsAppEntry"
+
+    WhatsAppEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WhatsAppChange"
+
+    WhatsAppChange:
+      type: object
+      properties:
+        field:
+          type: string
+        value:
+          $ref: "#/components/schemas/WhatsAppValue"
+
+    WhatsAppValue:
+      type: object
+      properties:
+        messaging_product:
+          type: string
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WhatsAppContactEntry"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/WhatsAppMessage"
+
+    WhatsAppContactEntry:
+      type: object
+      properties:
+        profile:
+          $ref: "#/components/schemas/WhatsAppContactProfile"
+        wa_id:
+          type: string
+
+    WhatsAppContactProfile:
+      type: object
+      properties:
+        name:
+          type: string
+
+    WhatsAppMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        from:
+          type: string
+        timestamp:
+          type: string
+        type:
+          type: string
+        text:
+          $ref: "#/components/schemas/WhatsAppTextBody"
+
+    WhatsAppTextBody:
+      type: object
+      properties:
+        body:
+          type: string
 
     ChannelAccountResponse:
       type: object
