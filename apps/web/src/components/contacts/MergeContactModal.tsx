@@ -69,8 +69,8 @@ export function MergeContactModal({
         : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-neutral-100 shadow-2xl sm:rounded-2xl">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-neutral-300 px-5 py-4">
           <div>
@@ -147,12 +147,12 @@ export function MergeContactModal({
                     <button
                       type="button"
                       onClick={() => setSelected(isSelected ? null : contact)}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-50 ${
+                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-200 ${
                         isSelected ? "bg-blue-bg" : ""
                       }`}
                     >
                       <div
-                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-white"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-neutral-100"
                         aria-hidden="true"
                       >
                         {contactInitial(contact)}
@@ -199,7 +199,7 @@ export function MergeContactModal({
             type="button"
             onClick={onCancel}
             disabled={isMerging}
-            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:opacity-60"
+            className="rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:opacity-60"
           >
             Cancel
           </button>
@@ -208,7 +208,7 @@ export function MergeContactModal({
             type="button"
             onClick={handleConfirm}
             disabled={!selected || isMerging}
-            className="flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-secondary-dark disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-50"
           >
             {isMerging && <Spinner size="sm" />}
             <span className="truncate">

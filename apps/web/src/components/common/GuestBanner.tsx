@@ -18,7 +18,7 @@ export function GuestBanner() {
 
       <Link
         href="/signup"
-        className="ml-4 flex-shrink-0 rounded-md bg-yellow-border-hover px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-yellow-text-hover"
+        className="ml-4 flex-shrink-0 rounded-md bg-yellow-border-hover px-3 py-1 text-xs font-semibold text-neutral-100 transition-colors hover:bg-yellow-text-hover"
       >
         Create account →
       </Link>

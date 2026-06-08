@@ -104,11 +104,14 @@ export function MessageComposer({
         <button
           type="submit"
           disabled={!text.trim() || isPending}
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-secondary text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-secondary text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Send message"
         >
           {isPending ? (
-            <Spinner size="sm" className="border-white/40 border-t-white" />
+            <Spinner
+              size="sm"
+              className="border-neutral-100/40 border-t-neutral-100"
+            />
           ) : (
             <span
               className="material-symbols-rounded"

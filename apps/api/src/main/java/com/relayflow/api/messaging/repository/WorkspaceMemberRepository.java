@@ -1,7 +1,6 @@
 package com.relayflow.api.messaging.repository;
 
 import com.relayflow.api.messaging.domain.WorkspaceMember;
-import com.relayflow.api.messaging.domain.WorkspaceRole;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -13,15 +12,26 @@ import org.springframework.data.repository.query.Param;
 
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, UUID> {
 
-    List<WorkspaceMember> findByUserId(UUID userId);
+    @Query("select m from WorkspaceMember m where m.userId = :userId")
+    List<WorkspaceMember> findByUser(@Param("userId") UUID userId);
 
-    List<WorkspaceMember> findByWorkspaceId(UUID workspaceId);
+    @Query("select m from WorkspaceMember m where m.workspaceId = :workspaceId")
+    List<WorkspaceMember> findByWorkspace(@Param("workspaceId") UUID workspaceId);
 
-    Optional<WorkspaceMember> findByWorkspaceIdAndId(UUID workspaceId, UUID id);
+    @Query("select m from WorkspaceMember m where m.workspaceId = :workspaceId and m.id = :id")
+    Optional<WorkspaceMember> findInWorkspace(
+            @Param("workspaceId") UUID workspaceId, @Param("id") UUID id);
 
-    Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
+    @Query(
+            "select m from WorkspaceMember m where m.workspaceId = :workspaceId and m.userId = :userId")
+    Optional<WorkspaceMember> findByWorkspaceAndUser(
+            @Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId);
 
-    long countByWorkspaceIdAndRole(UUID workspaceId, WorkspaceRole role);
+    /**
+     * Total members (all roles) in a workspace — used to enforce the per-workspace member limit.
+     */
+    @Query("select count(m) from WorkspaceMember m where m.workspaceId = :workspaceId")
+    long countByWorkspace(@Param("workspaceId") UUID workspaceId);
 
     @Modifying
     @Query("UPDATE WorkspaceMember m SET m.deletedAt = :now WHERE m.workspaceId = :workspaceId")

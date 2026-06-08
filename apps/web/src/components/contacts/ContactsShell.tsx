@@ -117,7 +117,7 @@ function ActionMenu({
 
       {open && (
         <div
-          className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl"
+          className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 shadow-xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-1">
@@ -199,14 +199,14 @@ function ContactRow({
   return (
     <tr
       onClick={() => onSelect(contact.id)}
-      className={`group cursor-pointer border-b border-neutral-200 transition-colors hover:bg-neutral-50 ${
+      className={`group cursor-pointer border-b border-neutral-200 transition-colors hover:bg-neutral-200 ${
         selected ? "bg-blue-bg hover:bg-blue-bg" : ""
       }`}
     >
       <td className="py-3 pl-4 pr-3 sm:pl-6">
         <div className="flex items-center gap-3">
           <div
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-white"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-neutral-100"
             aria-hidden="true"
           >
             {initial}
@@ -393,7 +393,7 @@ export function ContactsShell({ workspaceId }: Props) {
                 </tr>
               </thead>
 
-              <tbody className="bg-white">
+              <tbody className="bg-neutral-100">
                 {contacts.map((contact) => (
                   <ContactRow
                     key={contact.id}
@@ -416,7 +416,7 @@ export function ContactsShell({ workspaceId }: Props) {
                 type="button"
                 onClick={() => void fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-60"
               >
                 {isFetchingNextPage ? (
                   <Spinner size="sm" />

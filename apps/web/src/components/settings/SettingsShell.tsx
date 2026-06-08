@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useCurrentMember } from "@/hooks/use-current-member";
+import { usePlans } from "@/hooks/use-plans";
+import { useSubscription } from "@/hooks/use-subscription";
 
+import { BillingPanel } from "./BillingPanel";
 import { ChannelsList } from "./ChannelsList";
 import { IntegrationsPanel } from "./IntegrationsPanel";
 import { MembersList } from "./MembersList";
@@ -41,6 +44,16 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
 
   const canSeeIntegrations = canManageApiKeys || canManageWebhook;
 
+  const isOwner = !isAnonymous && currentMember?.role === "OWNER";
+
+  const { data: plans } = usePlans();
+  const { data: subscription } = useSubscription(isOwner ? workspaceId : "");
+
+  const hasPaidPlans = plans?.some((p) => p.upgradeAvailable) ?? false;
+  const isOnPaidPlan =
+    subscription?.plan !== "FREE" && subscription !== undefined;
+  const showBilling = isOwner && (hasPaidPlans || isOnPaidPlan);
+
   const navItems = [
     ...(canSeeChannels
       ? [{ href: "#channels", icon: "hub", label: "Channels" }]
@@ -51,11 +64,47 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
     ...(canSeeIntegrations
       ? [{ href: "#integrations", icon: "api", label: "Integrations" }]
       : []),
+    ...(showBilling
+      ? [{ href: "#billing", icon: "payments", label: "Billing" }]
+      : []),
   ];
 
   const [activeHref, setActiveHref] = useState<string>(
     navItems[0]?.href ?? "#channels"
   );
+
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const topmost = entries
+          .filter((e) => e.isIntersecting)
+          .sort(
+            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
+          )[0];
+
+        if (topmost) {
+          const href = `#${topmost.target.id}`;
+          setActiveHref(href);
+          history.replaceState(null, "", href);
+        }
+      },
+      { root: main, rootMargin: "0px 0px -60% 0px", threshold: 0 }
+    );
+
+    const ids = navItems.map((item) => item.href.slice(1));
+    ids.forEach((id) => {
+      const el = main.querySelector(`#${id}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navItems.map((i) => i.href).join(",")]);
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -123,7 +172,10 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
           </aside>
 
           {/* Content — sections scroll within this pane; anchor links jump to section ids */}
-          <main className="flex-1 scroll-smooth overflow-y-auto pb-14 md:pb-0">
+          <main
+            ref={mainRef}
+            className="flex-1 scroll-smooth overflow-y-auto pb-14 md:pb-0"
+          >
             {canSeeChannels && (
               <div id="channels">
                 <ChannelsList workspaceId={workspaceId} />
@@ -156,6 +208,12 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
                   canManageApiKeys={canManageApiKeys}
                   canManageWebhook={canManageWebhook}
                 />
+              </div>
+            )}
+
+            {showBilling && (
+              <div id="billing" className="border-t border-neutral-200">
+                <BillingPanel workspaceId={workspaceId} isOwner={isOwner} />
               </div>
             )}
           </main>

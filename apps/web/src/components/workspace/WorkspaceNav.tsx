@@ -37,7 +37,7 @@ function DesktopNavItem({ href, icon, label, active }: NavItemProps) {
       {/* Tooltip — appears to the right on hover */}
       <div
         role="tooltip"
-        className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 shadow-sm opacity-0 transition-opacity group-hover:opacity-100"
+        className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-neutral-200 bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 shadow-sm opacity-0 transition-opacity group-hover:opacity-100"
       >
         {label}
       </div>

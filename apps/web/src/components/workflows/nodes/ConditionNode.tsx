@@ -73,7 +73,7 @@ export function ConditionNode({
             id={branch.id}
             isConnectable={isConnectable}
             style={{ left: `${pct}%` }}
-            className="!border-2 !border-white !bg-neutral-500"
+            className="!border-2 !border-neutral-100 !bg-neutral-500"
           />
         );
       })}

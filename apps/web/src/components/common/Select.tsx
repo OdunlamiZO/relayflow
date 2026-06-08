@@ -61,7 +61,7 @@ export function Select({
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 transition-colors hover:border-neutral-300 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20"
+        className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 transition-colors hover:border-neutral-300 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20"
       >
         <span className={selected ? "text-neutral-800" : "text-neutral-400"}>
           {selected?.label ?? placeholder}
@@ -78,7 +78,7 @@ export function Select({
       {isOpen && (
         <ul
           role="listbox"
-          className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 py-1 shadow-lg"
         >
           {options.map((option) => (
             <li key={option.value}>

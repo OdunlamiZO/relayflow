@@ -69,7 +69,7 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
         </p>
         <Link
           href="/inbox"
-          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
         >
           Go to inbox
         </Link>
@@ -102,7 +102,7 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-neutral-300 bg-neutral-100 shadow-sm">
       {/* Header */}
-      <div className="bg-white px-7 py-6">
+      <div className="bg-neutral-100 px-7 py-6">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Workspace invite
         </p>
@@ -154,10 +154,13 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
             type="button"
             onClick={handleAccept}
             disabled={isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending && (
-              <Spinner size="sm" className="border-white/40 border-t-white" />
+              <Spinner
+                size="sm"
+                className="border-neutral-100/40 border-t-neutral-100"
+              />
             )}
             {isPending ? "Accepting…" : `Join ${preview.workspaceName}`}
           </button>
@@ -169,14 +172,14 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
 
             <Link
               href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}
-              className="flex w-full items-center justify-center rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+              className="flex w-full items-center justify-center rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
             >
               Log in to accept
             </Link>
 
             <Link
               href={`/signup?returnUrl=${encodeURIComponent(returnUrl)}`}
-              className="flex w-full items-center justify-center rounded-lg border border-neutral-300 bg-white px-5 py-3 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+              className="flex w-full items-center justify-center rounded-lg border border-neutral-300 bg-neutral-100 px-5 py-3 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-200"
             >
               Create account
             </Link>

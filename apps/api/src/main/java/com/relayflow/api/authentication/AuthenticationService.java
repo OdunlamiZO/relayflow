@@ -21,6 +21,8 @@ import com.relayflow.api.messaging.dto.WorkspaceResponse;
 import com.relayflow.api.profile.TwoFactorService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -145,6 +147,14 @@ public class AuthenticationService {
         verificationTokenRepository.save(verificationToken);
 
         String verifyUrl = webBaseUrl + "/verify-email?token=" + rawToken;
+
+        if (request.returnUrl() != null
+                && !request.returnUrl().isBlank()
+                && request.returnUrl().startsWith("/")) {
+            verifyUrl +=
+                    "&returnUrl=" + URLEncoder.encode(request.returnUrl(), StandardCharsets.UTF_8);
+        }
+
         emailService.sendEmailVerification(request.email(), request.name(), verifyUrl);
 
         log.info("New user registered: email={}", request.email());

@@ -80,13 +80,13 @@ export function CreateApiKeyModal({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-neutral-900/40"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-2xl bg-neutral-100 p-6 shadow-xl">
         <button
           type="button"
           onClick={onClose}
@@ -147,7 +147,7 @@ export function CreateApiKeyModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90"
+                className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90"
               >
                 Done
               </button>
@@ -193,7 +193,7 @@ export function CreateApiKeyModal({
                     onClick={() => setExpiryDays(opt.days)}
                     className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
                       expiryDays === opt.days
-                        ? "border-secondary bg-secondary text-white"
+                        ? "border-secondary bg-secondary text-neutral-100"
                         : "border-neutral-200 text-neutral-600 hover:border-secondary hover:text-secondary"
                     }`}
                   >
@@ -216,7 +216,7 @@ export function CreateApiKeyModal({
               <button
                 type="submit"
                 disabled={isCreating || !name.trim()}
-                className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-60"
+                className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:opacity-60"
               >
                 {isCreating ? "Creating…" : "Create"}
               </button>

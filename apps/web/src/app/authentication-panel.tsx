@@ -66,7 +66,7 @@ export function AuthenticationPanel() {
           onClick={() => setIsOpen((prev) => !prev)}
           aria-label="Account menu"
           aria-expanded={isOpen}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white transition-colors hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-neutral-100 transition-colors hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           {user.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -81,10 +81,10 @@ export function AuthenticationPanel() {
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+          <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100 shadow-xl">
             {/* User card */}
             <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-neutral-100">
                 {user.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -161,7 +161,7 @@ export function AuthenticationPanel() {
           <div
             role="status"
             aria-label="Signing out"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-100/80 backdrop-blur-sm"
           >
             <Spinner size="lg" />
           </div>
@@ -181,7 +181,7 @@ export function AuthenticationPanel() {
 
       <Link
         href="/signup"
-        className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+        className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
       >
         Get started
       </Link>

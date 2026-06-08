@@ -264,6 +264,64 @@ export type UpdateWorkflowRequest = {
   draftGraph?: JsonObject;
 };
 
+export type Plan = "FREE" | "PRO_MONTHLY" | "PRO_ANNUAL";
+
+export type BillingInterval = "monthly" | "annual";
+
+export type SubscriptionStatus =
+  | "ACTIVE"
+  | "CANCELLATION_SCHEDULED"
+  | "PAST_DUE"
+  | "CANCELLED";
+
+export type Subscription = {
+  plan: Plan;
+  status: SubscriptionStatus;
+  /** Maximum channel accounts allowed. null means unlimited. */
+  maxChannelAccounts: number | null;
+  /** Maximum workflow definitions allowed. null means unlimited. */
+  maxWorkflows: number | null;
+  /** Maximum workspace members allowed. null means unlimited. */
+  maxMembersPerWorkspace: number | null;
+  /** End of current billing period. null for the FREE plan. */
+  currentPeriodEnd: string | null;
+  /** Monthly price in Nigerian Naira. null for the FREE plan. */
+  priceNgn: number | null;
+  /** Billing interval. null for the FREE plan. */
+  billingInterval: BillingInterval | null;
+  /** True when there is a paid plan this workspace can upgrade to right now. Settings always shows an upgrade section when true. */
+  upgradeAvailable: boolean;
+  /** True only when on FREE and upgradeAvailable is true. Paid-plan workspaces with a higher tier show the upgrade prompt in settings only. */
+  upgradeRecommended: boolean;
+  /**
+   * Number of channel accounts that were disabled when the workspace was downgraded to FREE.
+   * null when there is no downgrade notice to show.
+   */
+  downgradeLockedChannels: number | null;
+  /**
+   * Number of workflow definitions that were disabled when the workspace was downgraded to FREE.
+   * null when there is no downgrade notice to show.
+   */
+  downgradeLockedWorkflows: number | null;
+};
+
+/** A single entry from the public plan catalogue — GET /api/plans. */
+export type PlanInfo = {
+  plan: Plan;
+  /** Maximum channel accounts allowed. null means unlimited. */
+  maxChannelAccounts: number | null;
+  /** Maximum workflow definitions allowed. null means unlimited. */
+  maxWorkflows: number | null;
+  /** Maximum workspace members allowed. null means unlimited. */
+  maxMembersPerWorkspace: number | null;
+  /** Monthly price in Nigerian Naira. null for the FREE plan. */
+  priceNgn: number | null;
+  /** Billing interval. null for the FREE plan. */
+  billingInterval: BillingInterval | null;
+  /** True when this plan is currently available for purchase. Always false for FREE. */
+  upgradeAvailable: boolean;
+};
+
 export type PageResponse<T> = {
   items: T[];
   hasMore: boolean;
@@ -604,6 +662,41 @@ export class MessagingApiClient {
     return this.request<RotateWebhookSecretResponse>(
       `/api/workspaces/${encodeURIComponent(workspaceId)}/webhook/rotate-secret`,
       { method: "POST" }
+    );
+  }
+
+  // ── Subscription ──────────────────────────────────────────────────────────
+
+  /** Returns the public plan catalogue with live limits, pricing, and availability. */
+  getPlans() {
+    return this.request<PlanInfo[]>("/api/plans");
+  }
+
+  getSubscription(workspaceId: string) {
+    return this.request<Subscription>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/subscription`
+    );
+  }
+
+  /**
+   * Initializes a checkout session for the given plan. Returns a Paystack authorization URL;
+   * redirect the user there to complete payment.
+   */
+  startCheckout(workspaceId: string, plan: Plan) {
+    return this.request<{ authorizationUrl: string }>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/subscription/checkout`,
+      { method: "POST", body: { plan } }
+    );
+  }
+
+  /**
+   * Schedules cancellation of the workspace subscription at the end of the current billing period.
+   * The workspace retains PRO access until currentPeriodEnd.
+   */
+  cancelSubscription(workspaceId: string) {
+    return this.request<void>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/subscription`,
+      { method: "DELETE" }
     );
   }
 

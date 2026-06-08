@@ -214,7 +214,7 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 translate-x-1 rounded-full bg-white shadow transition-transform ${
+                className={`inline-block h-4 w-4 translate-x-1 rounded-full bg-neutral-100 shadow transition-transform ${
                   enabled ? "translate-x-6" : "translate-x-1"
                 }`}
               />
@@ -252,7 +252,7 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
           <button
             type="submit"
             disabled={saveWebhook.isPending}
-            className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-60"
+            className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:opacity-60"
           >
             {saveWebhook.isPending
               ? isNew
@@ -267,12 +267,12 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
 
       {/* Rotated secret reveal */}
       {revealedSecret && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="mb-2 text-sm font-medium text-amber-800">
+        <div className="mt-4 rounded-xl border border-yellow-border bg-yellow-bg p-4">
+          <p className="mb-2 text-sm font-medium text-yellow-text">
             New signing secret — copy now, it won&apos;t be shown again.
           </p>
 
-          <div className="flex items-stretch gap-2 overflow-hidden rounded-xl border border-amber-200 bg-white">
+          <div className="flex items-stretch gap-2 overflow-hidden rounded-xl border border-yellow-border bg-neutral-100">
             <code className="flex-1 overflow-x-auto p-3 text-xs text-neutral-700 select-all">
               {revealedSecret}
             </code>
@@ -280,7 +280,7 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
             <button
               type="button"
               onClick={copySecret}
-              className="flex flex-shrink-0 items-center gap-1.5 border-l border-amber-200 px-3 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50"
+              className="flex flex-shrink-0 items-center gap-1.5 border-l border-yellow-border px-3 text-sm font-medium text-yellow-text transition-colors hover:bg-yellow-bg"
             >
               <span className="material-symbols-rounded text-[16px] leading-none">
                 {copiedSecret ? "check" : "content_copy"}
@@ -292,7 +292,7 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
           <button
             type="button"
             onClick={() => setRevealedSecret(null)}
-            className="mt-2 text-xs text-amber-700 underline hover:no-underline"
+            className="mt-2 text-xs text-yellow-text underline hover:no-underline"
           >
             I&apos;ve saved it, dismiss
           </button>

@@ -327,11 +327,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkspaceMemberResponse"
+        "409":
+          description: User is already a member of this workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: Workspace member limit reached for the current plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/workspaces/{workspaceId}/members/{memberId}:
     patch:
       operationId: updateWorkspaceMember
       summary: Update a workspace member role or permissions
+      description: >
+        Owner-only endpoint. Direct promotion to OWNER is rejected; ownership must be
+        transferred through `/api/workspaces/{workspaceId}/owner`.
       tags: [WorkspaceMembers]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
@@ -354,6 +369,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkspaceMemberResponse"
+        "409":
+          description: Invalid role update, such as direct owner promotion or owner demotion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: removeWorkspaceMember
       summary: Remove a workspace member
@@ -369,6 +390,51 @@ paths:
       responses:
         "204":
           description: Workspace member removed
+        "409":
+          description: Cannot remove the workspace owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/workspaces/{workspaceId}/owner:
+    put:
+      operationId: transferWorkspaceOwnership
+      summary: Transfer workspace ownership to another member
+      description: >
+        Owner-only endpoint. The current owner is demoted to MEMBER and the target
+        member becomes OWNER. The target must already be a member of the workspace.
+      tags: [WorkspaceMembers]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: memberId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Workspace member ID that should become the new owner.
+      responses:
+        "204":
+          description: Ownership transferred
+        "409":
+          description: Invalid transfer, such as transferring ownership to yourself
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Only the current workspace owner can transfer ownership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Target member not found in the workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/workspaces/{workspaceId}/invites:
     get:
@@ -612,6 +678,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChannelAccountResponse"
+        "402":
+          description: Channel account limit reached for the current plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/channel-accounts/{id}:
     delete:
@@ -782,8 +854,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ContactResponse"
-        "400":
-          description: Invalid merge request
+        "409":
+          description: Invalid merge request, such as merging a contact with itself or merging contacts with identities on the same channel account
           content:
             application/json:
               schema:
@@ -1004,6 +1076,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkflowDefinitionResponse"
+        "402":
+          description: Workflow limit reached for the current plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/workflows/{id}:
     get:
@@ -1077,6 +1155,145 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Subscriptions ─────────────────────────────────────────────────────────────
+
+  /api/plans:
+    get:
+      operationId: listPlans
+      summary: List public plan catalogue
+      tags: [Subscriptions]
+      security: []
+      responses:
+        "200":
+          description: Available plans with live limits, pricing, and checkout availability
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanInfo"
+
+  /api/workspaces/{workspaceId}/subscription:
+    get:
+      operationId: getWorkspaceSubscription
+      summary: Get a workspace subscription
+      tags: [Subscriptions]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Current workspace subscription, limits, and upgrade availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
+        "403":
+          description: User is not a member of the workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: cancelWorkspaceSubscription
+      summary: Schedule cancellation of a workspace subscription
+      description: >
+        Owner-only endpoint. Stops future provider charges and keeps paid access until
+        `currentPeriodEnd`; the downgrade scheduler later moves the workspace to FREE.
+      tags: [Subscriptions]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "204":
+          description: Cancellation scheduled
+        "403":
+          description: Only the workspace owner can manage billing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Payment provider could not be reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Payment provider is not configured or subscription token is not available yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/workspaces/{workspaceId}/subscription/checkout:
+    post:
+      operationId: startSubscriptionCheckout
+      summary: Start checkout for a paid workspace plan
+      tags: [Subscriptions]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartCheckoutRequest"
+      responses:
+        "200":
+          description: Checkout session initialized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "400":
+          description: Invalid checkout request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Only the workspace owner can manage billing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Payment provider or paid plan code is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/paystack/webhook:
+    post:
+      operationId: paystackWebhook
+      summary: Receive Paystack subscription webhook events
+      description: >
+        Handles Paystack subscription lifecycle events including `charge.success`,
+        `subscription.create`, `subscription.not_renew`, `subscription.disable`, and
+        unpaid `invoice.update` events.
+      tags: [Subscriptions]
+      security: []
+      parameters:
+        - name: x-paystack-signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Webhook processed or ignored
+        "401":
+          description: Invalid Paystack signature
+        "500":
+          description: Webhook processing failed
 
   # ── SSE ───────────────────────────────────────────────────────────────────────
 
@@ -1407,6 +1624,18 @@ components:
       type: string
       enum: [CONTACT_CREATED]
 
+    Plan:
+      type: string
+      enum: [FREE, PRO_MONTHLY, PRO_ANNUAL]
+
+    SubscriptionStatus:
+      type: string
+      enum: [ACTIVE, CANCELLATION_SCHEDULED, PAST_DUE, CANCELLED]
+
+    BillingInterval:
+      type: string
+      enum: [monthly, annual]
+
     # ── Requests ───────────────────────────────────────────────────────────────
 
     SignupRequest:
@@ -1421,6 +1650,10 @@ components:
         password:
           type: string
           minLength: 8
+        returnUrl:
+          type: string
+          nullable: true
+          description: Optional frontend path to preserve through email verification.
 
     LoginRequest:
       type: object
@@ -1685,6 +1918,13 @@ components:
       properties:
         text:
           type: string
+
+    StartCheckoutRequest:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          $ref: "#/components/schemas/Plan"
 
     CreateWorkflowDefinitionRequest:
       type: object
@@ -1998,6 +2238,87 @@ components:
           type: string
           description: New plaintext HMAC secret returned once.
 
+    PlanInfo:
+      type: object
+      required: [plan, upgradeAvailable]
+      properties:
+        plan:
+          $ref: "#/components/schemas/Plan"
+        maxChannelAccounts:
+          type: integer
+          nullable: true
+          description: Maximum channel accounts allowed; null means unlimited.
+        maxWorkflows:
+          type: integer
+          nullable: true
+          description: Maximum workflow definitions allowed; null means unlimited.
+        maxMembersPerWorkspace:
+          type: integer
+          nullable: true
+          description: Maximum workspace members allowed; null means unlimited.
+        priceNgn:
+          type: number
+          nullable: true
+          description: Price in Nigerian naira for this plan's billing cycle; null for free plans.
+        billingInterval:
+          $ref: "#/components/schemas/BillingInterval"
+          nullable: true
+          description: Billing interval; null for free plans.
+        upgradeAvailable:
+          type: boolean
+
+    SubscriptionResponse:
+      type: object
+      required: [plan, status, upgradeAvailable, upgradeRecommended]
+      properties:
+        plan:
+          $ref: "#/components/schemas/Plan"
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+        maxChannelAccounts:
+          type: integer
+          nullable: true
+          description: Maximum channel accounts allowed; null means unlimited.
+        maxWorkflows:
+          type: integer
+          nullable: true
+          description: Maximum workflow definitions allowed; null means unlimited.
+        maxMembersPerWorkspace:
+          type: integer
+          nullable: true
+          description: Maximum workspace members allowed; null means unlimited.
+        currentPeriodEnd:
+          type: string
+          format: date-time
+          nullable: true
+        priceNgn:
+          type: number
+          nullable: true
+          description: Price in Nigerian naira for this plan's billing cycle; null for free plans.
+        billingInterval:
+          $ref: "#/components/schemas/BillingInterval"
+          nullable: true
+        downgradeLockedChannels:
+          type: integer
+          nullable: true
+          description: Channel accounts disabled during the most recent downgrade to FREE; null when no downgrade notice is active.
+        downgradeLockedWorkflows:
+          type: integer
+          nullable: true
+          description: Workflow definitions disabled during the most recent downgrade to FREE; null when no downgrade notice is active.
+        upgradeAvailable:
+          type: boolean
+        upgradeRecommended:
+          type: boolean
+
+    CheckoutResponse:
+      type: object
+      required: [authorizationUrl]
+      properties:
+        authorizationUrl:
+          type: string
+          format: uri
+
     WhatsAppWebhookPayload:
       type: object
       required: [object, entry]
@@ -2068,11 +2389,29 @@ components:
           type: string
         text:
           $ref: "#/components/schemas/WhatsAppTextBody"
+        interactive:
+          $ref: "#/components/schemas/WhatsAppInteractive"
 
     WhatsAppTextBody:
       type: object
       properties:
         body:
+          type: string
+
+    WhatsAppInteractive:
+      type: object
+      properties:
+        type:
+          type: string
+        button_reply:
+          $ref: "#/components/schemas/WhatsAppButtonReply"
+
+    WhatsAppButtonReply:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
           type: string
 
     ChannelAccountResponse:

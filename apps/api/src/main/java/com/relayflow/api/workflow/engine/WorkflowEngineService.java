@@ -411,17 +411,35 @@ public class WorkflowEngineService {
             List<Map<String, Object>> options =
                     (List<Map<String, Object>>)
                             waitingNode.data().getOrDefault("options", List.of());
-            String lowerReply = replyText.trim().toLowerCase();
+            String responseVariable = (String) waitingNode.data().get("responseVariable");
+            String trimmedReply = replyText.trim();
+            String lowerReply = trimmedReply.toLowerCase();
 
-            for (Map<String, Object> option : options) {
+            // Try exact text match first, then positional number match (e.g. "1", "2").
+            for (int i = 0; i < options.size(); i++) {
+                Map<String, Object> option = options.get(i);
                 String text = (String) option.get("text");
 
-                if (text != null && text.trim().equalsIgnoreCase(lowerReply)) {
+                boolean matchedByText = text != null && text.trim().equalsIgnoreCase(lowerReply);
+                boolean matchedByNumber = trimmedReply.equals(String.valueOf(i + 1));
+
+                if (matchedByText || matchedByNumber) {
+                    if (responseVariable != null && !responseVariable.isBlank()) {
+                        // Save the canonical option text (not the raw reply).
+                        context.setVariable(
+                                responseVariable.trim(), text != null ? text.trim() : trimmedReply);
+                    }
+
                     return (String) option.get("id");
                 }
             }
 
-            return "default"; // no option matched → follow the "Other" edge
+            // No option matched — save the raw reply and follow the "Other" edge.
+            if (responseVariable != null && !responseVariable.isBlank()) {
+                context.setVariable(responseVariable.trim(), trimmedReply);
+            }
+
+            return "default";
         }
 
         return null;
@@ -467,7 +485,12 @@ public class WorkflowEngineService {
         WorkflowRunStep step = new WorkflowRunStep();
         step.setRun(run);
         step.setNodeId(node.id());
-        step.setNodeType(node.type());
+        step.setNodeType(
+                NodeType.fromValue(node.type())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Unknown node type: " + node.type())));
         step.setStatus(WorkflowRunStepStatus.COMPLETED);
         step.setInputSnapshot(context.snapshot());
 

@@ -34,7 +34,7 @@ public class WebhookService {
 
     @Transactional(readOnly = true)
     public Optional<WebhookConfigResponse> getWebhook(UUID workspaceId) {
-        return webhookRepository.findByWorkspaceId(workspaceId).map(this::toResponse);
+        return webhookRepository.findByWorkspace(workspaceId).map(this::toResponse);
     }
 
     /**
@@ -46,7 +46,7 @@ public class WebhookService {
      */
     @Transactional
     public WebhookConfigResponse saveWebhook(UUID workspaceId, SaveWebhookRequest request) {
-        WorkspaceWebhook webhook = webhookRepository.findByWorkspaceId(workspaceId).orElse(null);
+        WorkspaceWebhook webhook = webhookRepository.findByWorkspace(workspaceId).orElse(null);
 
         if (webhook == null) {
             if (request.secret() == null || request.secret().isBlank()) {
@@ -78,7 +78,7 @@ public class WebhookService {
     @Transactional
     public void deleteWebhook(UUID workspaceId) {
         webhookRepository
-                .findByWorkspaceId(workspaceId)
+                .findByWorkspace(workspaceId)
                 .ifPresentOrElse(
                         w -> {
                             webhookRepository.delete(w);
@@ -99,7 +99,7 @@ public class WebhookService {
     public RotateWebhookSecretResponse rotateSecret(UUID workspaceId) {
         WorkspaceWebhook webhook =
                 webhookRepository
-                        .findByWorkspaceId(workspaceId)
+                        .findByWorkspace(workspaceId)
                         .orElseThrow(
                                 () ->
                                         new ResponseStatusException(

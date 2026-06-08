@@ -131,7 +131,7 @@ function ProfileInfoSection({
             onChange={(e) => {
               setName(e.target.value);
             }}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
           />
         </div>
 
@@ -167,7 +167,7 @@ function ProfileInfoSection({
           <button
             type="submit"
             disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+            className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
           >
             {isPending && (
               <span
@@ -241,7 +241,7 @@ function ChangePasswordSection() {
             onChange={(e) => {
               setCurrentPassword(e.target.value);
             }}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
           />
         </div>
 
@@ -264,7 +264,7 @@ function ChangePasswordSection() {
               setNewPassword(e.target.value);
               setMismatch(false);
             }}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
           />
         </div>
 
@@ -289,7 +289,7 @@ function ChangePasswordSection() {
             className={`w-full rounded-lg border px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:ring-2 ${
               mismatch
                 ? "border-red-text bg-red-bg focus:border-red-text focus:ring-red-text/20"
-                : "border-neutral-300 bg-white focus:border-secondary focus:ring-secondary/20"
+                : "border-neutral-300 bg-neutral-100 focus:border-secondary focus:ring-secondary/20"
             }`}
           />
 
@@ -302,7 +302,7 @@ function ChangePasswordSection() {
           <button
             type="submit"
             disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+            className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
           >
             {isPending && (
               <span
@@ -393,7 +393,7 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
             twoFactorEnabled
-              ? "bg-green-100 text-green-700"
+              ? "bg-green-bg text-green-text"
               : "bg-neutral-200 text-neutral-500"
           }`}
         >
@@ -419,7 +419,7 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
               type="button"
               onClick={handleStartSetup}
               disabled={isSettingUp}
-              className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
             >
               {isSettingUp && (
                 <span
@@ -442,7 +442,7 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
               1. Scan this QR code with your authenticator app
             </p>
 
-            <div className="flex justify-center rounded-xl border border-neutral-200 bg-white p-4">
+            <div className="flex justify-center rounded-xl border border-neutral-200 bg-neutral-100 p-4">
               <QRCodeSVG value={otpauthUri} size={180} />
             </div>
           </div>
@@ -468,7 +468,7 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
                   setOtp(e.target.value.replace(/\D/g, ""));
                 }}
                 placeholder="000000"
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-center font-mono text-lg tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-center font-mono text-lg tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
             </div>
 
@@ -476,7 +476,7 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
               <button
                 type="submit"
                 disabled={isEnabling || otp.length !== 6}
-                className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60 sm:py-2"
+                className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60 sm:py-2"
               >
                 {isEnabling && (
                   <span
@@ -527,7 +527,7 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
                 setOtp(e.target.value.replace(/\D/g, ""));
               }}
               placeholder="000000"
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-center font-mono text-lg tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+              className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-center font-mono text-lg tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
             />
           </div>
 
@@ -628,7 +628,7 @@ function DangerZoneSection({ isEmailProvider, onDeleted }: DangerZoneProps) {
         >
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-neutral-900/40"
             onClick={() => {
               setShowConfirm(false);
             }}
@@ -636,7 +636,7 @@ function DangerZoneSection({ isEmailProvider, onDeleted }: DangerZoneProps) {
           />
 
           {/* Dialog */}
-          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+          <div className="relative w-full max-w-sm rounded-2xl bg-neutral-100 p-6 shadow-xl">
             <h2 className="text-base font-semibold text-primary">
               Delete account
             </h2>
@@ -694,7 +694,7 @@ function DangerZoneSection({ isEmailProvider, onDeleted }: DangerZoneProps) {
                 type="button"
                 onClick={handleDelete}
                 disabled={isPending}
-                className="rounded-lg bg-red-text px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-60"
+                className="rounded-lg bg-red-text px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:opacity-60"
               >
                 {isPending ? "Deleting…" : "Delete account"}
               </button>

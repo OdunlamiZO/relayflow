@@ -77,6 +77,63 @@ npm install
 npm run dev
 ```
 
+## Subscription & Plan Configuration
+
+Plan limits and pricing are stored in Redis and take effect immediately without restarting the API. Seed these keys before the API handles subscription or plan-limited requests.
+
+### Key schema
+
+Two separate Redis keys per plan — keeping limits/pricing provider-neutral and payment-provider config isolated:
+
+| Key | Value | Description |
+|---|---|---|
+| `relayflow:plan:{PLAN}:config` | JSON object | Limits and pricing. `{PLAN}` is `FREE`, `PRO_MONTHLY`, or `PRO_ANNUAL` (uppercase). |
+| `relayflow:plan:{PLAN}:provider` | string | Active payment provider for this plan (e.g. `PAYSTACK`). Defaults to `PAYSTACK` when absent. |
+| `relayflow:paystack:plan:{PLAN}:code` | string | Paystack plan code for recurring billing (e.g. `PLN_abc123`). |
+
+**`relayflow:plan:{PLAN}:config` fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `maxChannelAccounts` | integer | Maximum channel connections per workspace. Use `2147483647` for unlimited. |
+| `maxWorkflows` | integer | Maximum workflow definitions per workspace. Use `2147483647` for unlimited. |
+| `maxMembersPerWorkspace` | integer | Maximum members per workspace. Use `2147483647` for unlimited. |
+| `priceNgn` | number | Price in Nigerian naira for this plan's billing cycle. `0` for free plans. |
+| `billingInterval` | string \| null | `"monthly"` or `"annual"`. `null` for free plans. |
+
+### Set plan config
+
+```bash
+redis-cli SET relayflow:plan:FREE:config \
+  '{"maxChannelAccounts":1,"maxWorkflows":1,"maxMembersPerWorkspace":1,"priceNgn":0,"billingInterval":null}'
+
+redis-cli SET relayflow:plan:PRO_MONTHLY:config \
+  '{"maxChannelAccounts":2,"maxWorkflows":5,"maxMembersPerWorkspace":15,"priceNgn":5000,"billingInterval":"monthly"}'
+
+redis-cli SET relayflow:plan:PRO_ANNUAL:config \
+  '{"maxChannelAccounts":2,"maxWorkflows":5,"maxMembersPerWorkspace":15,"priceNgn":50000,"billingInterval":"annual"}'
+
+# Set the payment provider for paid plans (omit to keep the default of PAYSTACK)
+redis-cli SET relayflow:plan:PRO_MONTHLY:provider 'PAYSTACK'
+redis-cli SET relayflow:plan:PRO_ANNUAL:provider 'PAYSTACK'
+
+# Set the Paystack recurring plan codes
+redis-cli SET relayflow:paystack:plan:PRO_MONTHLY:code 'PLN_xxx'
+redis-cli SET relayflow:paystack:plan:PRO_ANNUAL:code 'PLN_yyy'
+```
+
+Replace `PLN_xxx` / `PLN_yyy` with the real Paystack plan codes from your dashboard (create one monthly plan and one annual plan). Changes apply on the next API call — no restart required.
+
+### Paystack setup
+
+1. Set `PAYSTACK_SECRET_KEY` to your Paystack secret key. The checkout and webhook endpoints are inactive when this variable is absent.
+2. Create recurring plans in the Paystack dashboard, copy the monthly and annual plan codes, and write them to `relayflow:paystack:plan:PRO_MONTHLY:code` and `relayflow:paystack:plan:PRO_ANNUAL:code` (see above).
+3. Register the webhook URL in your Paystack dashboard:
+
+```
+https://{your-api-domain}/api/paystack/webhook
+```
+
 ## API Reference
 
 ### Health
@@ -115,6 +172,7 @@ The app supports verified email/password login, Google OAuth, TOTP two-factor lo
 - `POST   /api/workspaces/{workspaceId}/members`
 - `PATCH  /api/workspaces/{workspaceId}/members/{memberId}`
 - `DELETE /api/workspaces/{workspaceId}/members/{memberId}`
+- `PUT    /api/workspaces/{workspaceId}/owner?memberId={memberId}`
 - `GET    /api/workspaces/{workspaceId}/invites`
 - `POST   /api/workspaces/{workspaceId}/invites`
 - `DELETE /api/workspaces/{workspaceId}/invites/{inviteId}`
@@ -162,6 +220,15 @@ Public API requests authenticate with `X-Api-Key`:
 - `PATCH  /api/workflows/{id}?workspaceId={workspaceId}`
 - `DELETE /api/workflows/{id}?workspaceId={workspaceId}`
 
+### Subscription
+
+- `GET  /api/plans` — public; returns all plans with live limits, pricing, and `upgradeAvailable`
+- `GET  /api/workspaces/{workspaceId}/subscription`
+- `POST /api/workspaces/{workspaceId}/subscription/checkout`
+- `DELETE /api/workspaces/{workspaceId}/subscription`
+
+`POST /checkout` returns a Paystack authorization URL. Redirect the user there to complete payment. `DELETE /subscription` schedules cancellation and keeps paid access until the current billing period ends. Recurring billing is handled automatically by Paystack; the API listens for `charge.success`, `subscription.create`, `subscription.not_renew`, `subscription.disable`, and `invoice.update` events at `/api/paystack/webhook`.
+
 ### Telegram
 
 - `POST /api/telegram/webhook/{channelAccountId}`
@@ -189,17 +256,18 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] REST endpoints for creating and reading core messaging records.
 - [x] Telegram adapter — inbound webhook ingestion, outbound relay, shared bot `/start {workspaceId}` deep-link flow.
 - [x] WhatsApp Business Cloud API adapter — channel connection form, webhook verification, inbound text ingestion, outbound text relay, and per-channel webhook URL display.
-- [x] Outbound message delivery guarantee — Telegram send retried once; final failure rolls back the transaction so the message is never saved and the caller receives a descriptive error.
+- [x] Outbound message delivery guarantee — Telegram and WhatsApp sends are retried once; final failure rolls back the transaction so the message is never saved and the caller receives a descriptive error.
 - [x] Shared bot message routing to the most-recently linked guest workspace.
 - [x] Channel account disconnect — sets status to `DISABLED`; inbound and outbound are gated on `ACTIVE` so messages stop immediately. History is preserved.
 - [x] Closed conversation reopening — when a contact messages a closed conversation it is set back to `OPEN` and workflow automation fires again.
 - [x] Contact management — paginated contacts list, detail panel, delete, and guarded contact merge that moves identities/conversations to the target contact.
 - [x] Per-channel-account identities — external identities are scoped to a channel account/bot so the same Telegram user can appear in separate connected bots without collision.
 - [x] Conversation workflow lock — active workflows own the conversation and agent replies return `409 Conflict` until the workflow finishes, fails, or closes the conversation.
-- [x] Workspace member permissions — owners manage members and grant granular access for inbox, contacts, workflows, channels, API keys, and webhooks.
+- [x] Workspace member permissions — owners manage members, transfer ownership, and grant granular access for inbox, contacts, workflows, channels, API keys, and webhooks.
 - [x] Workspace invites — owners create/revoke expiring email invites; authenticated users can preview and accept matching invites.
 - [x] API keys and public API — workspace API keys can list conversations/messages and send outbound agent messages through `/public/v1`.
 - [x] Workspace webhooks — configurable signed webhooks currently emit `contact.created` with retry/backoff delivery.
+- [x] Subscription billing foundation — FREE, PRO monthly, and PRO annual plans, Redis-backed plan limits/pricing, Paystack checkout, scheduled cancellation, Paystack webhooks, downgrade locking, and plan caps for channels, workflows, and workspace members.
 
 ### Authentication
 - [x] Email/password signup and login.
@@ -213,11 +281,11 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 ### Inbox UI
 - [x] Conversation list, message thread, and outbound composer.
 - [x] Contacts page with channel badges, contact detail panel, inbox deep link, delete confirmation, and merge modal.
-- [x] Settings UI for member permissions, invites, API keys, and webhook configuration.
+- [x] Settings UI for member permissions, invites, API keys, webhook configuration, and owner-only billing management.
 - [x] Channel settings can connect Telegram or WhatsApp and display provider-specific webhook URLs.
-- [x] Real-time updates via SSE — `message.created` and `workspace.updated` events pushed after commit.
+- [x] Real-time updates via SSE — `message.created`, `conversation.updated`, and `workspace.updated` events pushed after commit.
 - [x] Google login entry point and session status panel.
-- [x] Guest mode banner with "Create account" prompt and Telegram-connected empty state.
+- [x] Guest mode banner with a "Create account" prompt and Telegram-connected empty state.
 
 ### Workflow engine
 - [x] Workflow definition data model — `workflow_definitions`, `workflow_runs`, `workflow_run_steps`.
@@ -228,11 +296,12 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] **Condition node** — multi-branch with configurable variable, operator, and value per branch; `is_set` / `is_not_set` operators need no value.
 - [x] **HTTP Request node** — method, URL, headers, body, content-type, timeout; response status and JSON path mappings saved to workflow variables.
 - [x] **Set Variable node** — creates or overwrites a named workflow variable.
-- [x] **Ask Question node** — sends a question and pauses the run (`WAITING`); resumes when the contact replies. Two modes: open-ended (saves reply to a variable) or defined options (routes by exact match, falls back to "Other").
+- [x] **Ask Question node** — sends a question and pauses the run (`WAITING`); resumes when the contact replies. Two modes: open-ended (saves reply to a variable) or defined options (routes by exact match or option number, can save the selected value, falls back to "Other"). Telegram renders options as reply keyboards; WhatsApp uses native buttons for up to three options.
 - [x] **Jump To node** — redirects execution to another node by ID with a configurable max-jump limit to prevent loops.
 - [x] **End Conversation node** — sends an optional closing message and sets the conversation to `CLOSED`.
 - [x] Workflow graph validator — enforces structural rules at publish time (one trigger, no orphaned nodes, all condition and option branches connected, valid Jump To targets).
 - [x] Workflow run logs — every run and every step persisted with full observability data.
+- [x] Workspace membership authorization and permission checks on mutating workspace-scoped endpoints.
 
 ### Workflow builder UI
 - [x] React Flow drag-and-drop canvas.
@@ -241,8 +310,8 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Node palette: Trigger, Send Message, Condition, HTTP Request, Set Variable, Ask Question, Jump To, End Conversation.
 
 ### Planned
+- [ ] Decide upgrade proration policy for moving to a plan above PRO — wait for the current subscription to expire before switching, or start the new plan immediately and credit the unused balance from the current one.
 - [ ] Workflow run logs UI — list runs per workflow; step-by-step breakdown with input/output snapshots. Accessible to workspace members.
-- [x] Workspace membership authorization and permission checks on mutating workspace-scoped endpoints.
 - [ ] Telegram webhook verification (`X-Telegram-Bot-Api-Secret-Token`).
 - [ ] Broader role model beyond owner/member permissions.
 - [ ] Conversation assignment to workspace members.

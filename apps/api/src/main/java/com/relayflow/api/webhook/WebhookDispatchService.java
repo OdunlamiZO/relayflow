@@ -52,7 +52,7 @@ public class WebhookDispatchService {
     @Async("webhookExecutor")
     public void dispatch(UUID workspaceId, WebhookEventType eventType, Object data) {
         webhookRepository
-                .findByWorkspaceId(workspaceId)
+                .findByWorkspace(workspaceId)
                 .filter(WorkspaceWebhook::isEnabled)
                 .filter(w -> w.getEvents().contains(eventType))
                 .ifPresent(webhook -> deliver(webhook, eventType, data));

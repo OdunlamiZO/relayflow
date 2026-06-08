@@ -66,7 +66,7 @@ export function VariablePicker({ variables, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 shadow-lg">
           {variables.length === 0 && (
             <p className="px-3 py-2.5 text-[11px] text-neutral-400">
               No variables available yet.
@@ -127,7 +127,7 @@ function VariableGroup({
           key={v.name}
           type="button"
           onClick={() => onSelect(v.name)}
-          className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left transition-colors hover:bg-neutral-50"
+          className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left transition-colors hover:bg-neutral-200"
         >
           <span className="font-mono text-[11px] text-secondary">
             {"{{"}

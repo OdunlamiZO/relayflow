@@ -53,7 +53,7 @@ export function HttpRequestNode({
         id="success"
         isConnectable={isConnectable}
         style={{ left: "25%" }}
-        className="!border-2 !border-white !bg-green-border"
+        className="!border-2 !border-neutral-100 !bg-green-border"
       />
       <Handle
         type="source"
@@ -61,7 +61,7 @@ export function HttpRequestNode({
         id="error"
         isConnectable={isConnectable}
         style={{ left: "75%" }}
-        className="!border-2 !border-white !bg-red-border"
+        className="!border-2 !border-neutral-100 !bg-red-border"
       />
     </div>
   );

@@ -12,6 +12,9 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const rawReturnUrl = searchParams.get("returnUrl");
+  const redirectTo =
+    rawReturnUrl && rawReturnUrl.startsWith("/") ? rawReturnUrl : "/inbox";
 
   // Derive initial state from the token so we never call setState synchronously
   // inside an effect body (react-hooks/set-state-in-effect).
@@ -33,13 +36,13 @@ export default function VerifyEmailPage() {
     verifyEmail(token)
       .then(() => {
         setStatus("success");
-        router.push("/inbox");
+        router.push(redirectTo);
       })
       .catch((err: unknown) => {
         setError(errorMessage(err));
         setStatus("error");
       });
-  }, [token, router]);
+  }, [token, router, redirectTo]);
 
   if (status === "verifying") {
     return (

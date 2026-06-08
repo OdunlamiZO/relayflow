@@ -15,6 +15,8 @@ import com.relayflow.api.messaging.dto.WorkspaceInviteResponse;
 import com.relayflow.api.messaging.repository.WorkspaceInviteRepository;
 import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
+import com.relayflow.api.subscription.SubscriptionService;
+import com.relayflow.api.subscription.domain.LimitType;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -45,6 +47,8 @@ public class WorkspaceInviteService {
 
     private final EmailService emailService;
 
+    private final SubscriptionService subscriptionService;
+
     private final String webBaseUrl;
 
     public WorkspaceInviteService(
@@ -53,12 +57,14 @@ public class WorkspaceInviteService {
             WorkspaceMemberRepository memberRepository,
             UserRepository userRepository,
             EmailService emailService,
+            SubscriptionService subscriptionService,
             @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl) {
         this.inviteRepository = inviteRepository;
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.subscriptionService = subscriptionService;
         this.webBaseUrl = webBaseUrl;
     }
 
@@ -82,7 +88,7 @@ public class WorkspaceInviteService {
         // Guard: target must not already be a member.
         userRepository
                 .findByEmail(request.email())
-                .flatMap(u -> memberRepository.findByWorkspaceIdAndUserId(workspaceId, u.getId()))
+                .flatMap(u -> memberRepository.findByWorkspaceAndUser(workspaceId, u.getId()))
                 .ifPresent(
                         m -> {
                             throw new IllegalArgumentException(
@@ -137,7 +143,7 @@ public class WorkspaceInviteService {
 
     @Transactional(readOnly = true)
     public List<WorkspaceInviteResponse> listPendingInvites(UUID workspaceId) {
-        List<WorkspaceInvite> invites = inviteRepository.findPendingByWorkspaceId(workspaceId);
+        List<WorkspaceInvite> invites = inviteRepository.findPending(workspaceId);
 
         return invites.stream()
                 .filter(i -> i.status() == InviteStatus.PENDING)
@@ -156,7 +162,7 @@ public class WorkspaceInviteService {
     public void revokeInvite(UUID workspaceId, UUID inviteId) {
         WorkspaceInvite invite =
                 inviteRepository
-                        .findByWorkspaceIdAndId(workspaceId, inviteId)
+                        .findInWorkspace(workspaceId, inviteId)
                         .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
         if (invite.status() != InviteStatus.PENDING) {
@@ -235,9 +241,11 @@ public class WorkspaceInviteService {
         }
 
         // Guard: already a member (idempotent).
-        if (memberRepository
-                .findByWorkspaceIdAndUserId(invite.getWorkspaceId(), userId)
-                .isEmpty()) {
+        if (memberRepository.findByWorkspaceAndUser(invite.getWorkspaceId(), userId).isEmpty()) {
+            long count = memberRepository.countByWorkspace(invite.getWorkspaceId());
+            subscriptionService.enforceLimit(
+                    invite.getWorkspaceId(), LimitType.MEMBERS_PER_WORKSPACE, count);
+
             WorkspaceMember member = new WorkspaceMember();
             member.setWorkspaceId(invite.getWorkspaceId());
             member.setUserId(userId);

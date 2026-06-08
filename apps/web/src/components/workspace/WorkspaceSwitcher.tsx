@@ -134,7 +134,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 shadow-xl">
           {showCreate ? (
             <form onSubmit={handleCreate} className="p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -166,13 +166,13 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
                 <button
                   type="submit"
                   disabled={isCreating || !newName.trim()}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
                 >
                   Create
                   {isCreating && (
                     <Spinner
                       size="sm"
-                      className="border-white/40 border-t-white"
+                      className="border-neutral-100/40 border-t-neutral-100"
                     />
                   )}
                 </button>

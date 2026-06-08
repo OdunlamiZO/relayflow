@@ -203,7 +203,7 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
 
           <form
             onSubmit={handleInvite}
-            className="rounded-xl border border-neutral-200 bg-white p-5"
+            className="rounded-xl border border-neutral-200 bg-neutral-100 p-5"
           >
             <div className="mb-4">
               <label
@@ -242,10 +242,13 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
             <button
               type="submit"
               disabled={isInviting || !email.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               {isInviting && (
-                <Spinner size="sm" className="border-white/40 border-t-white" />
+                <Spinner
+                  size="sm"
+                  className="border-neutral-100/40 border-t-neutral-100"
+                />
               )}
               {isInviting ? "Sending…" : "Send invite"}
             </button>
@@ -436,7 +439,7 @@ function MemberRow({
 
   return (
     <>
-      <li className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+      <li className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
         {/* Member row */}
         <div className="flex items-center gap-3 p-4">
           {/* Avatar */}
@@ -552,12 +555,12 @@ function MemberRow({
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-50"
               >
                 {isSaving && (
                   <Spinner
                     size="sm"
-                    className="border-white/40 border-t-white"
+                    className="border-neutral-100/40 border-t-neutral-100"
                   />
                 )}
                 {isSaving ? "Saving…" : "Save"}
@@ -611,7 +614,7 @@ function PermissionEditor({
       {PERMISSION_GROUPS.map((group) => (
         <div
           key={group.section}
-          className="overflow-hidden rounded-xl border border-neutral-200 bg-white"
+          className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100"
         >
           {/* Section header */}
           <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50 px-3.5 py-2">
@@ -653,7 +656,7 @@ function PermissionEditor({
                     ? "cursor-not-allowed bg-secondary/5"
                     : isChecked
                       ? "bg-secondary/5 hover:bg-secondary/10"
-                      : "hover:bg-neutral-50"
+                      : "hover:bg-neutral-200"
                 }`}
               >
                 {/* Label */}
@@ -684,7 +687,7 @@ function PermissionEditor({
                     aria-hidden="true"
                   >
                     <div
-                      className={`absolute h-[16px] w-[16px] rounded-full bg-white shadow-sm transition-transform ${
+                      className={`absolute h-[16px] w-[16px] rounded-full bg-neutral-100 shadow-sm transition-transform ${
                         isChecked ? "translate-x-[18px]" : "translate-x-[3px]"
                       }`}
                     />

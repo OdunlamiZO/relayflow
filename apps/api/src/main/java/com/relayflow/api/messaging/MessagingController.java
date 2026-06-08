@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -123,6 +124,17 @@ public class MessagingController {
         authorizationService.assertOwner(workspaceId, authentication);
 
         messagingService.removeWorkspaceMember(workspaceId, memberId);
+    }
+
+    @PutMapping("/workspaces/{workspaceId}/owner")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void transferOwnership(
+            @PathVariable UUID workspaceId,
+            @RequestParam UUID memberId,
+            Authentication authentication) {
+        UUID callerId = authorizationService.getUser(authentication);
+
+        messagingService.transferOwnership(workspaceId, memberId, callerId);
     }
 
     // --- Channel Accounts ---

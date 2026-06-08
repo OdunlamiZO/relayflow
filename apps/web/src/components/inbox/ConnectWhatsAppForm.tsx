@@ -54,7 +54,7 @@ export function ConnectWhatsAppForm({
           placeholder="e.g. Support WhatsApp"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
+          className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
       </div>
 
@@ -72,7 +72,7 @@ export function ConnectWhatsAppForm({
           placeholder="EAABsbCS..."
           value={accessToken}
           onChange={(e) => setAccessToken(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
+          className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">
           Permanent system-user access token from your{" "}
@@ -102,7 +102,7 @@ export function ConnectWhatsAppForm({
           placeholder="106540352242922"
           value={phoneNumberId}
           onChange={(e) => setPhoneNumberId(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
+          className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">
           Found under your WhatsApp Business App → Phone numbers → ID.
@@ -123,7 +123,7 @@ export function ConnectWhatsAppForm({
           placeholder="my-secret-token"
           value={verifyToken}
           onChange={(e) => setVerifyToken(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
+          className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">
           A secret string you choose. Enter the same value in the Meta Developer
@@ -135,7 +135,7 @@ export function ConnectWhatsAppForm({
         <button
           type="submit"
           disabled={isPending || !canSubmit}
-          className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Connecting…" : "Connect WhatsApp"}
         </button>

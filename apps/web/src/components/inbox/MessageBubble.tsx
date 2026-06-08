@@ -20,7 +20,7 @@ export function MessageBubble({ message }: Props) {
       <div
         className={`max-w-[85%] break-words rounded-2xl px-4 py-2.5 sm:max-w-[70%] ${
           isOutbound
-            ? "rounded-br-sm bg-secondary text-white"
+            ? "rounded-br-sm bg-secondary text-neutral-100"
             : "rounded-bl-sm bg-neutral-300 text-neutral-800"
         }`}
       >
@@ -32,7 +32,7 @@ export function MessageBubble({ message }: Props) {
 
         <p
           className={`m-0 mt-1 text-right text-xs ${
-            isOutbound ? "text-white/70" : "text-neutral-500"
+            isOutbound ? "text-neutral-100/70" : "text-neutral-500"
           }`}
         >
           {time}

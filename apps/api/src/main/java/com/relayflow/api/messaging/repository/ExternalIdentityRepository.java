@@ -76,11 +76,11 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
 
     @Query(
             "select e from ExternalIdentity e where e.contact.id = :contactId order by e.createdAt asc")
-    List<ExternalIdentity> findByContactId(@Param("contactId") UUID contactId);
+    List<ExternalIdentity> findByContact(@Param("contactId") UUID contactId);
 
     @Query(
             "select e from ExternalIdentity e where e.contact.id in :contactIds order by e.createdAt asc")
-    List<ExternalIdentity> findByContactIds(@Param("contactIds") Collection<UUID> contactIds);
+    List<ExternalIdentity> findByContacts(@Param("contactIds") Collection<UUID> contactIds);
 
     @Modifying
     @Query("UPDATE ExternalIdentity e SET e.contact = :target WHERE e.contact.id = :sourceId")

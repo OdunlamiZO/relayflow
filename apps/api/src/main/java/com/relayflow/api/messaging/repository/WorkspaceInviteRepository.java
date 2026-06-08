@@ -21,7 +21,7 @@ public interface WorkspaceInviteRepository extends JpaRepository<WorkspaceInvite
               AND i.revokedAt  IS NULL
             ORDER BY i.createdAt DESC
             """)
-    List<WorkspaceInvite> findPendingByWorkspaceId(@Param("workspaceId") UUID workspaceId);
+    List<WorkspaceInvite> findPending(@Param("workspaceId") UUID workspaceId);
 
     /** Find any non-accepted, non-revoked invite for the given email in the workspace. */
     @Query(
@@ -35,5 +35,7 @@ public interface WorkspaceInviteRepository extends JpaRepository<WorkspaceInvite
     Optional<WorkspaceInvite> findActivePendingByWorkspaceAndEmail(
             @Param("workspaceId") UUID workspaceId, @Param("email") String email);
 
-    Optional<WorkspaceInvite> findByWorkspaceIdAndId(UUID workspaceId, UUID id);
+    @Query("SELECT i FROM WorkspaceInvite i WHERE i.workspaceId = :workspaceId AND i.id = :id")
+    Optional<WorkspaceInvite> findInWorkspace(
+            @Param("workspaceId") UUID workspaceId, @Param("id") UUID id);
 }

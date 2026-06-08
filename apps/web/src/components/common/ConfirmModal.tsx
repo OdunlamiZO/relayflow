@@ -41,13 +41,13 @@ export function ConfirmModal({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-neutral-900/40"
         onClick={onCancel}
         aria-hidden="true"
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-sm rounded-2xl bg-neutral-100 p-6 shadow-xl">
         <h2 className="text-base font-semibold text-primary">{title}</h2>
 
         {description && (
@@ -71,7 +71,7 @@ export function ConfirmModal({
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
               destructive
                 ? "bg-red-text text-neutral-100 hover:bg-red-text-hover"
-                : "bg-secondary text-white hover:opacity-90"
+                : "bg-secondary text-neutral-100 hover:opacity-90"
             }`}
           >
             {isPending ? "…" : confirmLabel}

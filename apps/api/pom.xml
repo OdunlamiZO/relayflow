@@ -76,6 +76,26 @@
             <version>1.5.1</version>
         </dependency>
 
+        <!-- Redis — plan configuration live-reload -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Paystack SDK -->
+        <dependency>
+            <groupId>io.github.odunlamizo</groupId>
+            <artifactId>java-paystack</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- OkHttp — required by java-paystack (declared optional there, so must be explicit here) -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

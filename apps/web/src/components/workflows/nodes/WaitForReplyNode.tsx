@@ -66,7 +66,7 @@ export function WaitForReplyNode({
           id={opt.id}
           isConnectable={isConnectable}
           style={{ left: `${((i + 1) / (totalHandles + 1)) * 100}%` }}
-          className="!border-2 !border-white !bg-blue-border"
+          className="!border-2 !border-neutral-100 !bg-blue-border"
         />
       ))}
 
@@ -77,7 +77,7 @@ export function WaitForReplyNode({
         id="default"
         isConnectable={isConnectable}
         style={{ left: `${(totalHandles / (totalHandles + 1)) * 100}%` }}
-        className="!border-2 !border-white !bg-neutral-500"
+        className="!border-2 !border-neutral-100 !bg-neutral-500"
       />
     </div>
   ) : undefined;
