@@ -74,8 +74,7 @@ Important methods:
 - `createGuestSession`: creates anonymous user, workspace, and shared Telegram channel when configured.
 - `getCurrentUser`: normalizes OAuth, email, and anonymous principals into `AuthenticatedUserResponse`.
 - `establishSession`: writes an authenticated security context into the session.
-- `establishSessionForUser`: creates a session for a verified user without requiring plaintext password.
-- `establishAnonymousSession`: creates a session for anonymous users.
+- `establishSessionForUser`: creates a session without requiring plaintext password after email verification, 2FA completion, or anonymous session creation.
 
 We need it to keep controller code thin and centralize session/user lifecycle rules.
 
@@ -131,7 +130,7 @@ Important methods:
 
 - `generateSecret`
 - `buildOtpauthUri`
-- `verifyCode`
+- `isInvalidCode`
 
 We need it to keep MFA cryptographic details out of controller/service workflow code.
 
@@ -339,7 +338,7 @@ Important methods:
 - `createWorkspace`: creates a workspace and owner membership.
 - `createGuestWorkspace`: guest-specific workspace creation behavior.
 - `listWorkspaces`: lists workspaces by membership.
-- `listWorkspaceMembers`, `inviteWorkspaceMember`, `updateWorkspaceMember`, `removeWorkspaceMember`: owner/member management.
+- `listWorkspaceMembers`, `inviteWorkspaceMember`, `updateWorkspaceMember`, `removeWorkspaceMember`, `transferOwnership`: owner/member management with single-owner safeguards.
 - `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook.
 - `createSharedBotChannelAccount`: creates a guest/shared Telegram channel account.
 - `disconnectChannelAccount` / `reconnectChannelAccount`: toggles channel availability without deleting history.
@@ -367,7 +366,9 @@ Handles:
 - `ConversationLockedException` as `409`.
 - `ResourceNotFoundException` as `404`.
 - `WorkflowValidationException` as `400`.
+- `IllegalArgumentException` as `409`.
 - validation errors as `400`.
+- unexpected exceptions as `500` with a generic message.
 
 We need it so frontend receives consistent `{ message, timestamp }` error responses.
 
@@ -385,6 +386,7 @@ Important methods:
 
 - `assertMember`: any workspace member can proceed.
 - `assertOwner`: only owners can proceed.
+- `getUser`: resolves the authenticated user ID for ownership-transfer checks.
 - `assertPermission`: owners bypass checks; members need the requested `WorkspacePermission`.
 
 We need it so mutating workspace-scoped endpoints can enforce ownership and delegated access.
@@ -492,9 +494,9 @@ We need them so invite delivery can be swapped or disabled without changing invi
 
 ### `OutboundMessageEvent`
 
-Application event carrying a saved outbound message and its channel account.
+Application event carrying a saved outbound message, its channel account, and optional button option labels.
 
-We need it to decouple message persistence from provider delivery. The messaging service saves the message; adapters deliver it.
+We need it to decouple message persistence from provider delivery. The messaging service saves the message; adapters deliver it, optionally rendering Ask Question options as provider-native controls.
 
 ### `ResourceNotFoundException`
 
@@ -522,13 +524,15 @@ Important fields:
 - `permissions`
 - `joinedAt`
 
-We need it for ownership and granular workspace authorization.
+We need it for ownership, ownership transfer, and granular workspace authorization.
 
 ### `WorkspaceRole`
 
 Enum for workspace roles: owner and member.
 
-We need it so membership can become permission-aware.
+There is exactly one owner per workspace. Direct owner promotion/demotion is blocked in member updates; ownership moves through the transfer-ownership endpoint.
+
+We need it so membership can become permission-aware while preserving a single workspace owner.
 
 ### `WorkspacePermission`
 
@@ -734,9 +738,145 @@ We need these records to keep frontend/backend data exchange explicit and stable
 - `MessageRepository`
 
 These are Spring Data persistence interfaces. Their custom query methods express workspace scoping, pagination, active channel filtering, conversation lookup, message cursors, and cleanup deletes.
-They also support invite lookup, API key lookup by hash, member permission lookup, contact merge reassignment, and public API filters.
+They also support invite lookup, API key lookup by hash, member permission lookup, plan-limit counts, contact merge reassignment, and public API filters.
 
 We need them so services do not contain SQL or persistence boilerplate.
+
+## Subscription Backend
+
+### `PlanController`
+
+Public controller for `GET /api/plans`.
+
+It returns every plan with live Redis-backed limits, NGN pricing, billing interval, and whether checkout is currently available.
+
+We need it so the frontend can render plan and upgrade UI without hardcoding commercial configuration.
+
+### `SubscriptionController`
+
+Workspace billing controller.
+
+Endpoints:
+
+- `getSubscription`: returns the workspace's current plan, status, limits, pricing, and upgrade flags.
+- `startCheckout`: owner-only endpoint that initializes checkout for a paid plan and returns an authorization URL.
+- `cancel`: owner-only endpoint that schedules cancellation at the end of the current billing period.
+
+We need it to keep billing operations workspace-scoped and owner-controlled.
+
+### `PaystackWebhookController`
+
+Public Paystack webhook receiver at `POST /api/paystack/webhook`.
+
+Handled events:
+
+- `charge.success`: activates or renews a paid subscription.
+- `subscription.create`: updates the current period end and stores Paystack's cancellation email token.
+- `subscription.not_renew`: marks cancellation scheduled while access continues until the period end.
+- `subscription.disable`: cancels and downgrades to FREE.
+- `invoice.update`: marks unpaid subscriptions past due.
+
+We need it because recurring billing state changes arrive asynchronously from Paystack.
+
+**Race condition between `charge.success` and `subscription.create`:** Paystack fires both events at the same millisecond as separate HTTP requests, which Tomcat processes on separate threads. `subscription.create` carries the `subscriptionCode` and `emailToken` (required for cancellation), but it looks up the workspace by customerCode before `charge.success` has committed the activation — so it finds nothing and the token is lost.
+
+Fix: the controller holds a `ConcurrentHashMap<String, PaystackSubscriptionData> pendingSubscriptionCreate` keyed by customerCode. When `subscription.create` cannot find a workspace, it caches the full payload instead of discarding it. After `charge.success` commits the activation, it checks the cache by customerCode, drains the entry, and immediately applies the `subscriptionCode` and `emailToken` via `setSubscriptionCode` + `renew`.
+
+If the API is ever scaled to multiple instances, migrate `pendingSubscriptionCreate` to Redis — the in-memory map is invisible across instances.
+
+### `SubscriptionService`
+
+Core service for workspace subscription state and limit enforcement.
+
+Important methods:
+
+- `createFreeSubscription`: creates a FREE subscription row when a workspace is created.
+- `getResponse`: builds the API response with live plan configuration.
+- `activate`, `renew`, `markPastDue`, `markCancellationScheduled`, `scheduleCancel`, `downgrade`: mutate billing lifecycle state from provider events, user cancellation, and downgrade processing.
+- `enforceLimit`: throws `PlanLimitExceededException` when a workspace has reached a plan cap.
+- `enforceLimitOnEnable`: checks limits before re-enabling disabled channels or workflows.
+- `findBySubscriptionCode`: locates subscriptions from provider subscription identifiers.
+- `findByCustomerCode`: fallback lookup when Paystack creates the subscription code after the initial charge.
+- `setSubscriptionCode`: stores a provider subscription code that arrives after activation.
+- `refreshPeriodEnd`: best-effort provider verification that replaces an approximated period end and stores the cancellation token.
+- `findDueForDowngrade`: finds scheduled cancellations and past-due subscriptions ready for downgrade.
+
+We need it so channel, member, and workflow limits are enforced consistently outside the individual feature services.
+
+### `SubscriptionCheckoutService`
+
+Selects the configured payment provider for a target plan and initializes checkout.
+
+It rejects FREE checkout, verifies the requester is the workspace owner, resolves the owner email, and delegates to a provider-specific `CheckoutProvider`.
+
+We need it so new payment providers can be added without rewriting workspace billing flow.
+
+### `PaystackCheckoutProvider`
+
+Paystack implementation of `CheckoutProvider`.
+
+It reads the plan code from Redis, sends workspace/plan metadata to Paystack, and returns Paystack's authorization URL.
+
+We need it to keep Paystack transaction construction isolated from subscription orchestration.
+
+### `BillingProvider` And `PaystackBillingProvider`
+
+Provider-agnostic interface and Paystack implementation for subscription management after checkout.
+
+Important methods:
+
+- `verify`: checks provider-side subscription activity and next payment date.
+- `cancel`: disables future provider charges using the provider subscription code and token.
+
+We need these so scheduled cancellations and past-due verification are not hardcoded directly into `SubscriptionService`.
+
+### `SubscriptionDowngradeScheduler`
+
+Hourly scheduled job that processes downgrades.
+
+It handles:
+
+- `CANCELLATION_SCHEDULED`: downgrades after `currentPeriodEnd`.
+- `PAST_DUE`: waits through a 7-day grace period, verifies with the billing provider, and downgrades if the subscription is still inactive.
+
+We need it so cancellation and payment-failure downgrades happen after the correct access period instead of immediately.
+
+### `PlanConfigurationService`
+
+Reads plan configuration from Redis.
+
+Important Redis keys:
+
+- `relayflow:plan:{PLAN}:config`
+- `relayflow:plan:{PLAN}:provider`
+- `relayflow:paystack:plan:{PLAN}:code`
+
+Plan values are `FREE`, `PRO_MONTHLY`, and `PRO_ANNUAL`. Billing interval values are `monthly` and `annual`. Configuration must be seeded in Redis before the API handles requests; missing config now raises an error instead of silently using hardcoded defaults.
+
+We need it so limits, pricing, provider selection, and Paystack plan codes are explicit runtime configuration.
+
+### `V21__workspace_subscriptions.sql`
+
+Creates the `workspace_subscriptions` table and backfills a FREE subscription row for existing workspaces.
+
+Important columns:
+
+- `payment_provider`, `payment_customer_code`, `payment_subscription_code`, and `payment_subscription_token`: provider-neutral billing identifiers.
+- `current_period_end`: period boundary used for scheduled cancellation and past-due downgrade timing.
+- `downgrade_locked_channels` and `downgrade_locked_workflows`: counts shown in the billing UI after downgrade locking.
+
+We need it so every workspace has explicit billing state while keeping payment-provider details nullable for free workspaces.
+
+### Subscription Domain And DTO Records
+
+- `WorkspaceSubscription`: JPA entity for the workspace's plan, status, provider codes, cancellation token, current period end, and downgrade lock counts.
+- `WorkspaceSubscriptionRepository`: Spring Data repository for lookup by workspace, provider subscription code, provider customer code, and downgrade-due subscription queries.
+- `Plan`, `SubscriptionStatus`, `BillingInterval`, `PaymentProvider`, `LimitType`: enums for billing tier, lifecycle, cadence, provider, and capped resources. `Plan` distinguishes FREE, monthly PRO, and annual PRO billing cycles.
+- `PlanConfiguration`, `PlanLimits`: value records for live plan config and resource caps.
+- `PlanLimitExceededException`: maps plan-cap violations to HTTP `402 Payment Required`.
+- `PlanInfo`, `SubscriptionResponse`, `StartCheckoutRequest`, `CheckoutResponse`: REST DTOs for plan catalog, subscription state, checkout, and downgrade notices.
+
+We need these to keep billing state explicit and separate from messaging/workflow entities.
 
 ## SSE Backend
 
@@ -788,7 +928,7 @@ Important methods:
 - `handleSharedBotStart`: links a Telegram user to a guest workspace via `/start {workspaceId}`.
 - `handleSharedBotMessage`: routes shared bot messages to the most recently linked guest workspace.
 - `onOutboundMessage`: listens for outbound messages and sends them through Telegram.
-- `sendTelegramMessage`: calls Telegram Bot API with retry.
+- `sendTelegramMessage`: calls Telegram Bot API with retry and attaches a one-time reply keyboard when button options are present.
 - `sendTelegramMessageQuietly`: best-effort bot replies for linking/error hints.
 - `createIdentity`, `createConversation`, `buildDisplayName`: helper methods for inbound normalization.
 
@@ -836,9 +976,10 @@ Important methods:
 
 - `verifyWebhook`: validates Meta verification mode/token and returns the challenge text.
 - `handleWebhook`: accepts inbound WhatsApp payloads.
-- `processInboundMessage`: normalizes supported text messages into contact, identity, conversation, and message records.
+- `processInboundMessage`: normalizes supported text or interactive button-reply messages into contact, identity, conversation, and message records.
 - `onOutboundMessage`: listens for outbound messages and sends them through WhatsApp.
-- `sendWhatsAppMessage`: calls Meta Graph API with retry.
+- `sendWhatsAppMessage`: calls Meta Graph API with retry, sending 1-3 options as native interactive buttons and 4+ options as numbered plain text.
+- `resolveMessageText`: extracts text from inbound plain text and interactive button replies.
 - `createIdentity`, `createConversation`, `resolveDisplayName`: helper methods for inbound normalization.
 
 We need it to keep WhatsApp-specific webhook, credential, and Graph API behavior out of the channel-agnostic messaging service.
@@ -871,6 +1012,8 @@ We need it so failed WhatsApp delivery can be surfaced to callers and avoid pret
 - `WhatsAppContactProfile`
 - `WhatsAppMessage`
 - `WhatsAppTextBody`
+- `WhatsAppInteractive`
+- `WhatsAppButtonReply`
 
 We need these records to deserialize Meta's webhook JSON into typed Java data.
 
@@ -1182,7 +1325,9 @@ Sends a question to the contact and returns a waiting result.
 Modes:
 
 - generic: save reply text into `responseVariable`.
-- defined: route based on exact option match, with default "Other" branch.
+- defined: route based on exact option match or option number, optionally saving the selected value into `responseVariable`, with default "Other" branch.
+
+It publishes option labels through `OutboundMessageEvent` so adapters can render Telegram reply keyboards or WhatsApp interactive buttons.
 
 We need it for interactive customer automations.
 
@@ -1333,6 +1478,14 @@ We need it for Google login/signup buttons without importing a large icon librar
 Banner warning anonymous users that guest data is temporary and prompting account creation.
 
 We need it to communicate guest-mode lifecycle.
+
+### `UpgradeBanner`
+
+Workspace-level plan prompt shown on core workspace pages when the current subscription recommends an upgrade.
+
+It links owners back to the billing section for the selected workspace.
+
+We need it so users who hit free-plan limits have a visible path to upgrade without leaving their current workflow.
 
 ### `Select`
 
@@ -1560,9 +1713,11 @@ We need it for WhatsApp channel setup in settings.
 
 ### `SettingsShell`
 
-Settings page layout with `WorkspaceNav`, settings subnav, and channel content.
+Settings page layout with `WorkspaceNav`, settings subnav, and channel, member, integration, and billing sections.
 
-We need it to create a stable place for channel, member, invite, API key, and webhook settings.
+It shows billing only to workspace owners.
+
+We need it to create a stable place for channel, member, invite, API key, webhook, and subscription settings.
 
 ### `ChannelsList`
 
@@ -1599,6 +1754,21 @@ We need it so owners can control who can operate the workspace.
 Settings panel that groups API keys and webhook configuration.
 
 We need it so external integration setup lives in one settings area.
+
+### `BillingPanel`
+
+Owner-only billing settings panel.
+
+Important helpers:
+
+- `StatusBanner`: explains past-due and scheduled-cancellation states.
+- `DowngradeBanner`: shows counts of channels/workflows disabled after downgrade.
+- `CurrentPlanCard`: renders current plan, limits, renewal/access date, and cancellation action.
+- `PlanCard`: lets owners choose monthly or annual PRO checkout.
+
+It uses the subscription hooks to load plan state, start checkout, and schedule cancellation.
+
+We need it so owners can inspect limits, upgrade, switch billing cycle, and cancel from inside workspace settings.
 
 ### `CreateApiKeyModal`
 
@@ -1878,6 +2048,15 @@ We need them for workspace-first navigation.
 
 We need them for settings/channel management.
 
+### Subscription Hooks
+
+- `usePlans`: fetches the public plan catalogue.
+- `useSubscription`: fetches the selected workspace's subscription state and limits.
+- `useStartCheckout`: initializes checkout and redirects to the returned authorization URL.
+- `useCancelSubscription`: schedules subscription cancellation and invalidates the subscription cache.
+
+We need them so billing UI can stay declarative and reuse the central API client.
+
 ### Contact Hooks
 
 - `useContacts`: infinite query for contact pages.
@@ -2066,7 +2245,7 @@ We need it to protect fetch URL construction and error handling.
 
 OpenAPI contract for backend REST endpoints.
 
-It documents health, auth, workspaces, members, invites, API keys, webhooks, public API, channels, contacts, external identities, conversations, messages, workflows, SSE, Telegram webhooks, and WhatsApp webhooks.
+It documents health, auth, workspaces, members, invites, API keys, webhooks, public API, channels, contacts, external identities, conversations, messages, workflows, subscriptions, Paystack webhooks, SSE, Telegram webhooks, and WhatsApp webhooks.
 
 We need it as the external API source of truth and future client-generation input.
 

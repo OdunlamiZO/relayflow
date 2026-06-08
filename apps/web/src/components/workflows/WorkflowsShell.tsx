@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { Spinner } from "@/components/common/Spinner";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
 import { useCreateWorkflow } from "@/hooks/use-create-workflow";
+import { errorMessage } from "@/lib/error-message";
 
 import { WorkflowsList } from "./WorkflowsList";
 
@@ -20,6 +21,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
 
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the input when the form opens.
@@ -35,6 +37,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
       if (e.key === "Escape") {
         setShowCreate(false);
         setName("");
+        setCreateError(null);
       }
     }
 
@@ -49,6 +52,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
 
     if (!trimmed) return;
 
+    setCreateError(null);
     createWorkflow(
       { workspaceId, name: trimmed },
       {
@@ -57,6 +61,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
           setName("");
           router.push(`/workflows/${workflow.id}?workspaceId=${workspaceId}`);
         },
+        onError: (err) => setCreateError(errorMessage(err)),
       }
     );
   }
@@ -76,6 +81,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
             onClick={() => {
               setShowCreate((prev) => !prev);
               setName("");
+              setCreateError(null);
             }}
             title="New workflow"
             className={`flex items-center rounded-md p-1 transition-colors hover:bg-neutral-200 hover:text-neutral-700 ${
@@ -104,8 +110,12 @@ export function WorkflowsShell({ workspaceId }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Workflow name"
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+              className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
             />
+
+            {createError && (
+              <p className="mb-2 mt-2 text-xs text-red-text">{createError}</p>
+            )}
 
             <div className="mt-2 flex gap-2">
               <button
@@ -113,6 +123,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
                 onClick={() => {
                   setShowCreate(false);
                   setName("");
+                  setCreateError(null);
                 }}
                 className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-200"
               >
@@ -122,13 +133,13 @@ export function WorkflowsShell({ workspaceId }: Props) {
               <button
                 type="submit"
                 disabled={isPending || !name.trim()}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
               >
                 Create
                 {isPending && (
                   <Spinner
                     size="sm"
-                    className="border-white/40 border-t-white"
+                    className="border-neutral-100/40 border-t-neutral-100"
                   />
                 )}
               </button>

@@ -1,5 +1,6 @@
 package com.relayflow.api.workflow.domain;
 
+import com.relayflow.api.workflow.NodeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,8 +39,9 @@ public class WorkflowRunStep {
     @Column(name = "node_id", nullable = false, length = 255)
     private String nodeId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "node_type", nullable = false, length = 50)
-    private String nodeType;
+    private NodeType nodeType;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

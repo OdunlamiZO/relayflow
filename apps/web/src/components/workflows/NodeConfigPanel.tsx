@@ -137,7 +137,7 @@ function Field({
 }
 
 const inputCls =
-  "w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20";
+  "w-full rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20";
 
 // ─── type-specific forms ──────────────────────────────────────────────────────
 
@@ -995,9 +995,20 @@ function WaitForReplyForm({
             Add option
           </button>
 
+          <Field label="Save selection to variable">
+            <input
+              type="text"
+              value={(data.responseVariable as string) ?? ""}
+              onChange={(e) => onChange({ responseVariable: e.target.value })}
+              placeholder="e.g. selectedOption"
+              className={inputCls}
+            />
+          </Field>
+
           <p className="text-xs text-neutral-400">
             Replies that don&apos;t match any option follow the{" "}
             <span className="font-medium text-neutral-500">Other</span> route.
+            Typing a number (1, 2…) also matches the corresponding option.
           </p>
         </>
       )}

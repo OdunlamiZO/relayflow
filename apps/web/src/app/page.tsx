@@ -121,16 +121,6 @@ export default async function Home() {
           <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 py-16 sm:px-8 sm:py-20 lg:grid-cols-2 lg:items-center lg:gap-16">
             {/* Left — copy */}
             <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-border bg-blue-bg px-3 py-1 text-xs font-semibold text-blue-text">
-                <span
-                  className="material-symbols-rounded text-[13px]"
-                  aria-hidden="true"
-                >
-                  bolt
-                </span>
-                Now in early access
-              </div>
-
               <h1 className="mt-5 text-[1.9rem] font-bold leading-[1.15] tracking-tight text-primary sm:text-[2.5rem] lg:text-5xl">
                 All your customer conversations.{" "}
                 <span className="text-secondary">One platform.</span>
@@ -145,7 +135,7 @@ export default async function Home() {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
                   href="/signup"
-                  className="inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+                  className="inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
                 >
                   Get started free
                   <span
@@ -172,7 +162,6 @@ export default async function Home() {
 
               <p className="mt-5 text-xs text-neutral-500">
                 No credit card required &nbsp;·&nbsp; Works with any channel
-                &nbsp;·&nbsp; Deploy in minutes
               </p>
             </div>
 
@@ -198,7 +187,7 @@ export default async function Home() {
                     inbox
                   </span>
                   <span className="text-sm font-bold text-primary">Inbox</span>
-                  <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-secondary px-1.5 text-[10px] font-bold text-white">
+                  <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-secondary px-1.5 text-[10px] font-bold text-neutral-100">
                     4
                   </span>
                 </div>
@@ -571,7 +560,7 @@ export default async function Home() {
                   className="mt-2 text-sm"
                   style={{ color: "var(--color-tertiary)" }}
                 >
-                  Set up in minutes. No credit card required.
+                  Set up in minutes. Free to get started.
                 </p>
               </div>
 
@@ -579,7 +568,7 @@ export default async function Home() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-shrink-0 sm:flex-wrap sm:items-center">
                   <Link
                     href="/signup"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-light sm:w-auto"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-light sm:w-auto"
                   >
                     Create free account
                   </Link>

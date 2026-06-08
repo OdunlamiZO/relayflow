@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -61,5 +62,22 @@ public class MessagingExceptionHandler {
 
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse("Request validation failed", Instant.now()));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<ErrorResponse> missingParameter(
+            MissingServletRequestParameterException exception) {
+        log.warn("Missing request parameter: {}", exception.getMessage());
+
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse(exception.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ErrorResponse> unexpected(Exception exception) {
+        log.error("Unhandled exception", exception);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse("An unexpected error occurred", Instant.now()));
     }
 }

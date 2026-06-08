@@ -95,6 +95,7 @@ public class SecurityConfiguration {
                                         .permitAll()
                                         .requestMatchers(
                                                 "/api/health",
+                                                "/api/plans",
                                                 "/api/auth/me",
                                                 "/api/auth/signup",
                                                 "/api/auth/verify-email",
@@ -104,6 +105,7 @@ public class SecurityConfiguration {
                                                 "/api/telegram/webhook/**",
                                                 "/api/telegram/webhook/shared",
                                                 "/api/whatsapp/webhook/**",
+                                                "/api/paystack/webhook",
                                                 "/oauth2/authorization/**",
                                                 "/login/oauth2/code/**",
                                                 "/v3/api-docs/**",
@@ -116,7 +118,7 @@ public class SecurityConfiguration {
                                         .permitAll()
                                         .anyRequest()
                                         .authenticated())
-                .httpBasic(Customizer.withDefaults());
+                .httpBasic(AbstractHttpConfigurer::disable);
 
         if (googleAuthEnabled) {
             http.oauth2Login(

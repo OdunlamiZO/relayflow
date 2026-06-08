@@ -71,11 +71,16 @@ public class WorkspaceAuthorizationService {
         }
     }
 
+    /** Returns the user ID of the authenticated principal. */
+    public UUID getUser(Authentication authentication) {
+        return securityUtils.resolveUserId(authentication);
+    }
+
     private WorkspaceMember resolveMember(UUID workspaceId, Authentication authentication) {
         UUID userId = securityUtils.resolveUserId(authentication);
 
         return workspaceMemberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, userId)
+                .findByWorkspaceAndUser(workspaceId, userId)
                 .orElseThrow(
                         () ->
                                 new ResponseStatusException(

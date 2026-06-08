@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AuthenticationPanel } from "@/app/authentication-panel";
 import { GuestBanner } from "@/components/common/GuestBanner";
+import { UpgradeBanner } from "@/components/common/UpgradeBanner";
 import { requireAuthentication } from "@/lib/server-authentication";
 
 type Props = {
@@ -28,6 +29,7 @@ export default async function InboxLayout({ children }: Props) {
       </header>
 
       <GuestBanner />
+      <UpgradeBanner />
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>
   );

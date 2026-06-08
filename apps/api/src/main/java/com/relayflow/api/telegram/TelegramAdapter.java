@@ -103,7 +103,7 @@ public class TelegramAdapter {
         this.webBaseUrl = webBaseUrl;
     }
 
-    // ── Inbound ──────────────────────────────────────────────────────────────
+    // ── Public ───────────────────────────────────────────────────────────────
 
     @Transactional
     public void handleWebhook(UUID channelAccountId, TelegramWebhookPayload payload) {
@@ -136,6 +136,92 @@ public class TelegramAdapter {
 
         processInboundMessage(channelAccount, payload.message());
     }
+
+    /**
+     * Handles updates received by the shared bot.
+     *
+     * <p>{@code /start {workspaceId}} — links the Telegram user to that guest workspace and replies
+     * with the inbox URL. Subsequent messages from the same Telegram user are routed automatically
+     * via their {@link com.relayflow.api.messaging.domain.ExternalIdentity}.
+     */
+    @Transactional
+    public void handleSharedBotWebhook(TelegramWebhookPayload webhook) {
+        if (webhook.message() == null || webhook.message().from() == null) {
+            return;
+        }
+
+        var msg = webhook.message();
+        String text = msg.text();
+        String chatId = String.valueOf(msg.chat().id());
+        String telegramUserId = String.valueOf(msg.from().id());
+
+        if (text == null) {
+            return;
+        }
+
+        if (text.startsWith("/start")) {
+            String param = text.length() > 7 ? text.substring(7).trim() : "";
+            handleSharedBotStart(param, msg.from(), telegramUserId, chatId);
+        } else {
+            handleSharedBotMessage(msg, telegramUserId, chatId);
+        }
+    }
+
+    @EventListener
+    public void onOutboundMessage(OutboundMessageEvent event) {
+        ChannelAccount channelAccount = event.channelAccount();
+
+        if (channelAccount.getProvider() != ChannelProvider.TELEGRAM) {
+            return;
+        }
+
+        Message message = event.message();
+
+        if (message.getDirection() != MessageDirection.OUTBOUND) {
+            return;
+        }
+
+        if (message.getText() == null || message.getText().isBlank()) {
+            return;
+        }
+
+        if (channelAccount.getStatus() != ChannelAccountStatus.ACTIVE) {
+            throw new TelegramSendException(
+                    "Telegram channel is disconnected — reconnect it from the channel settings",
+                    null);
+        }
+
+        String botToken =
+                credentialEncryptionService.decrypt(channelAccount.getEncryptedCredentials());
+
+        if (botToken == null || botToken.isBlank()) {
+            log.warn(
+                    "No bot token configured for Telegram channel account {} — skipping relay",
+                    channelAccount.getId());
+
+            return;
+        }
+
+        Contact contact = message.getConversation().getContact();
+
+        ExternalIdentity identity =
+                externalIdentityRepository
+                        .findForContact(channelAccount.getId(), contact.getId())
+                        .orElseThrow(
+                                () ->
+                                        new TelegramSendException(
+                                                "No Telegram identity for contact "
+                                                        + contact.getId(),
+                                                null));
+
+        sendTelegramMessage(
+                botToken,
+                identity.getExternalConversationId(),
+                message.getText(),
+                event.buttonOptions());
+    }
+
+    // ── Private ──────────────────────────────────────────────────────────────
 
     /**
      * Core inbound-message processing shared by both the per-workspace and shared-bot webhook
@@ -229,38 +315,6 @@ public class TelegramAdapter {
                         Map.of(
                                 "workspaceId", workspaceId.toString(),
                                 "conversationId", conversation.getId().toString())));
-    }
-
-    // ── Shared bot webhook ───────────────────────────────────────────────────
-
-    /**
-     * Handles updates received by the shared bot.
-     *
-     * <p>{@code /start {workspaceId}} — links the Telegram user to that guest workspace and replies
-     * with the inbox URL. Subsequent messages from the same Telegram user are routed automatically
-     * via their {@link com.relayflow.api.messaging.domain.ExternalIdentity}.
-     */
-    @Transactional
-    public void handleSharedBotWebhook(TelegramWebhookPayload webhook) {
-        if (webhook.message() == null || webhook.message().from() == null) {
-            return;
-        }
-
-        var msg = webhook.message();
-        String text = msg.text();
-        String chatId = String.valueOf(msg.chat().id());
-        String telegramUserId = String.valueOf(msg.from().id());
-
-        if (text == null) {
-            return;
-        }
-
-        if (text.startsWith("/start")) {
-            String param = text.length() > 7 ? text.substring(7).trim() : "";
-            handleSharedBotStart(param, msg.from(), telegramUserId, chatId);
-        } else {
-            handleSharedBotMessage(msg, telegramUserId, chatId);
-        }
     }
 
     private void handleSharedBotStart(
@@ -382,75 +436,44 @@ public class TelegramAdapter {
         processInboundMessage(sharedChannelAccount, msg);
     }
 
-    // ── Outbound relay ───────────────────────────────────────────────────────
-
-    @EventListener
-    public void onOutboundMessage(OutboundMessageEvent event) {
-        ChannelAccount channelAccount = event.channelAccount();
-
-        if (channelAccount.getProvider() != ChannelProvider.TELEGRAM) {
-            return;
-        }
-
-        Message message = event.message();
-
-        if (message.getDirection() != MessageDirection.OUTBOUND) {
-            return;
-        }
-
-        if (message.getText() == null || message.getText().isBlank()) {
-            return;
-        }
-
-        if (channelAccount.getStatus() != ChannelAccountStatus.ACTIVE) {
-            throw new TelegramSendException(
-                    "Telegram channel is disconnected — reconnect it from the channel settings",
-                    null);
-        }
-
-        String botToken =
-                credentialEncryptionService.decrypt(channelAccount.getEncryptedCredentials());
-
-        if (botToken == null || botToken.isBlank()) {
-            log.warn(
-                    "No bot token configured for Telegram channel account {} — skipping relay",
-                    channelAccount.getId());
-
-            return;
-        }
-
-        Contact contact = message.getConversation().getContact();
-
-        ExternalIdentity identity =
-                externalIdentityRepository
-                        .findForContact(channelAccount.getId(), contact.getId())
-                        .orElseThrow(
-                                () ->
-                                        new TelegramSendException(
-                                                "No Telegram identity for contact "
-                                                        + contact.getId(),
-                                                null));
-
-        sendTelegramMessage(botToken, identity.getExternalConversationId(), message.getText());
-    }
-
     // ── Telegram Bot API ─────────────────────────────────────────────────────
 
     /**
-     * Sends a message to the given Telegram chat. Retries once on failure.
+     * Sends a message to the given Telegram chat. When {@code buttons} is non-empty, attaches a
+     * one-time reply keyboard so the user can tap an option instead of typing. Retries once on
+     * failure.
      *
      * <p>Throws {@link TelegramSendException} if all attempts fail so the caller's transaction can
      * be rolled back and the HTTP client receives a proper error. Callers that want best-effort
-     * fire-and-forget behaviour (bot greetings, error hints) should use {@link
+     * fire-and-forget behavior (bot greetings, error hints) should use {@link
      * #sendTelegramMessageQuietly}.
      */
-    private void sendTelegramMessage(String botToken, String chatId, String text) {
+    private void sendTelegramMessage(
+            String botToken, String chatId, String text, List<String> buttons) {
         if (chatId == null || chatId.isBlank()) {
             throw new TelegramSendException("No chat ID available for Telegram send", null);
         }
 
         String url = String.format(SEND_MESSAGE_URL, botToken);
-        Map<String, String> body = Map.of("chat_id", chatId, "text", text, "parse_mode", "HTML");
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("chat_id", chatId);
+        body.put("text", text);
+        body.put("parse_mode", "HTML");
+
+        if (buttons != null && !buttons.isEmpty()) {
+            // Each button row contains a single button object so options stack vertically.
+            List<List<Map<String, String>>> keyboard =
+                    buttons.stream().map(label -> List.of(Map.of("text", label))).toList();
+
+            body.put(
+                    "reply_markup",
+                    Map.of(
+                            "keyboard", keyboard,
+                            "one_time_keyboard", true,
+                            "resize_keyboard", true));
+        }
+
         Exception lastEx = null;
 
         for (int attempt = 1; attempt <= 2; attempt++) {
@@ -479,7 +502,7 @@ public class TelegramAdapter {
      */
     private void sendTelegramMessageQuietly(String botToken, String chatId, String text) {
         try {
-            sendTelegramMessage(botToken, chatId, text);
+            sendTelegramMessage(botToken, chatId, text, List.of());
         } catch (TelegramSendException e) {
             log.warn(
                     "Bot reply to chat {} could not be delivered (non-fatal): {}",

@@ -16,6 +16,7 @@ import com.relayflow.api.workflow.engine.NodeExecutionResult;
 import com.relayflow.api.workflow.engine.NodeExecutor;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -101,10 +102,34 @@ public class WaitForReplyNodeExecutor implements NodeExecutor {
                                 "workspaceId", context.getWorkspaceId().toString(),
                                 "conversationId", context.getConversationId().toString())));
 
+        List<String> buttonOptions = extractButtonOptions(node);
+
         eventPublisher.publishEvent(
-                new OutboundMessageEvent(message, conversation.getChannelAccount()));
+                new OutboundMessageEvent(message, conversation.getChannelAccount(), buttonOptions));
 
         return NodeExecutionResult.waiting(
                 Map.of("questionMessageId", message.getId().toString(), "question", text));
+    }
+
+    /**
+     * Returns the list of option texts for a {@code defined} response node so channel adapters can
+     * render them as interactive buttons / keyboard shortcuts. Returns an empty list for {@code
+     * generic} nodes.
+     */
+    @SuppressWarnings("unchecked")
+    private List<String> extractButtonOptions(GraphNode node) {
+        String responseType = (String) node.data().getOrDefault("responseType", "generic");
+
+        if (!"defined".equals(responseType)) {
+            return List.of();
+        }
+
+        List<Map<String, Object>> options =
+                (List<Map<String, Object>>) node.data().getOrDefault("options", List.of());
+
+        return options.stream()
+                .map(o -> (String) o.get("text"))
+                .filter(t -> t != null && !t.isBlank())
+                .toList();
     }
 }

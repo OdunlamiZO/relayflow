@@ -178,7 +178,7 @@ function ProviderButton({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-dashed border-neutral-300 bg-white px-4 py-4 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+      className="flex w-full items-center gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-100 px-4 py-4 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-200"
     >
       <span
         className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${iconBg}`}
@@ -241,7 +241,7 @@ function ChannelItem({
 
   return (
     <>
-      <li className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4">
+      <li className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-100 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-100">

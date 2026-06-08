@@ -55,7 +55,7 @@ public class GuestCleanupScheduler {
         for (User user : expired) {
             try {
                 workspaceMemberRepository
-                        .findByUserId(user.getId())
+                        .findByUser(user.getId())
                         .forEach(
                                 member ->
                                         messagingService.deleteWorkspace(member.getWorkspaceId()));

@@ -2,6 +2,7 @@ export type SignupPayload = {
   name: string;
   email: string;
   password: string;
+  returnUrl?: string;
 };
 
 export type LoginPayload = {

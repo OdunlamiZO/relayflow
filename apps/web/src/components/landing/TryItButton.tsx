@@ -46,11 +46,14 @@ export function TryItButton({ fullWidth = false }: Props) {
       <button
         onClick={handleClick}
         disabled={isPending}
-        className={`flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60 ${fullWidth ? "w-full sm:w-auto" : ""}`}
+        className={`flex items-center justify-center gap-2 rounded-lg border border-neutral-100/20 bg-neutral-100/10 px-5 py-2.5 text-sm font-semibold text-neutral-100 backdrop-blur-sm transition-colors hover:bg-neutral-100/20 disabled:cursor-not-allowed disabled:opacity-60 ${fullWidth ? "w-full sm:w-auto" : ""}`}
       >
         See it live
         {isPending ? (
-          <Spinner size="sm" className="border-white/40 border-t-white" />
+          <Spinner
+            size="sm"
+            className="border-neutral-100/40 border-t-neutral-100"
+          />
         ) : (
           <span
             className="material-symbols-rounded text-[15px]"

@@ -52,7 +52,7 @@ export function WorkflowNode({
 
   return (
     <div
-      className={`w-52 rounded-xl border bg-white shadow-sm transition-shadow ${
+      className={`w-52 rounded-xl border bg-neutral-100 shadow-sm transition-shadow ${
         selected ? "border-accent shadow-md" : "border-neutral-200"
       }`}
     >
@@ -61,7 +61,7 @@ export function WorkflowNode({
           type="target"
           position={Position.Top}
           isConnectable={isConnectable}
-          className="!border-2 !border-white !bg-neutral-500"
+          className="!border-2 !border-neutral-100 !bg-neutral-500"
         />
       )}
 
@@ -106,7 +106,7 @@ export function WorkflowNode({
           type="source"
           position={Position.Bottom}
           isConnectable={isConnectable}
-          className="!border-2 !border-white !bg-neutral-500"
+          className="!border-2 !border-neutral-100 !bg-neutral-500"
         />
       )}
     </div>

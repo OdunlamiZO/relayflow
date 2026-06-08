@@ -55,19 +55,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     @Query("UPDATE Conversation c SET c.contact = :target WHERE c.contact.id = :sourceId")
     void reassignContact(@Param("target") Contact target, @Param("sourceId") UUID sourceId);
 
-    @Query(
-            """
-            select c from Conversation c
-            where c.workspace.id = :workspaceId
-              and c.channelAccount.id = :channelAccountId
-              and c.contact.id = :contactId
-              and c.status = com.relayflow.api.messaging.domain.ConversationStatus.OPEN
-            """)
-    Optional<Conversation> findOpenConversationForContact(
-            @Param("workspaceId") UUID workspaceId,
-            @Param("channelAccountId") UUID channelAccountId,
-            @Param("contactId") UUID contactId);
-
     /**
      * Returns the most recent conversation for a contact on a given channel, regardless of status.
      * Used to reopen a closed conversation when the contact sends a new message.

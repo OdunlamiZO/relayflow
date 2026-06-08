@@ -82,7 +82,7 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
   } = useContact(contactId, workspaceId);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l border-neutral-300 bg-white">
+    <div className="flex h-full flex-col overflow-hidden border-l border-neutral-300 bg-neutral-100">
       {/* Header */}
       <div className="flex flex-shrink-0 items-center justify-between border-b border-neutral-300 bg-neutral-100 px-4 py-3">
         <h2 className="text-sm font-semibold text-neutral-800">
@@ -127,7 +127,7 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
             {/* Avatar + name */}
             <div className="flex items-center gap-4">
               <div
-                className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xl font-semibold text-white"
+                className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xl font-semibold text-neutral-100"
                 aria-hidden="true"
               >
                 {contactInitial(contact.displayName)}
@@ -149,7 +149,7 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
             {/* Quick action */}
             <Link
               href={`/inbox?workspaceId=${workspaceId}&contactId=${contact.id}`}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-neutral-100 px-4 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200"
             >
               <span
                 className="material-symbols-rounded text-[16px] leading-none"

@@ -95,7 +95,10 @@ public class PublicApiController {
         return messagingService.createMessage(workspaceId, conversationId, createRequest);
     }
 
-    // --- Internal ---
+    /** Request body for the public send-message endpoint. */
+    public record SendMessageRequest(@NotBlank String text) {}
+
+    // ── Private ───────────────────────────────────────────────────────────────
 
     private UUID resolveWorkspace(Authentication authentication) {
         if (authentication instanceof ApiKeyAuthentication apiKeyAuth) {
@@ -104,7 +107,4 @@ public class PublicApiController {
 
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid API key");
     }
-
-    /** Request body for the public send-message endpoint. */
-    public record SendMessageRequest(@NotBlank String text) {}
 }

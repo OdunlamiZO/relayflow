@@ -71,11 +71,14 @@ export function CreateWorkspaceForm() {
           <button
             type="submit"
             disabled={isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             Create workspace
             {isPending ? (
-              <Spinner size="sm" className="border-white/40 border-t-white" />
+              <Spinner
+                size="sm"
+                className="border-neutral-100/40 border-t-neutral-100"
+              />
             ) : (
               <span
                 className="material-symbols-rounded text-[15px]"

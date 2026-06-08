@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { GoogleIcon } from "@/components/common/GoogleIcon";
@@ -10,6 +11,9 @@ const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export default function SignupPage() {
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl") ?? undefined;
+
   const { mutate: signup, isPending } = useSignup();
 
   const [name, setName] = useState("");
@@ -21,7 +25,7 @@ export default function SignupPage() {
     e.preventDefault();
 
     signup(
-      { name, email, password },
+      { name, email, password, returnUrl },
       {
         onSuccess: () => {
           setEmailSent(true);
@@ -160,7 +164,7 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={isPending}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? (
             <>

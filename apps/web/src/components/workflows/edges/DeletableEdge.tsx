@@ -39,7 +39,7 @@ export function DeletableEdge({
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
-            className="pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm transition-colors hover:border-red-bg-hover hover:text-red-border"
+            className="pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 shadow-sm transition-colors hover:border-red-bg-hover hover:text-red-border"
             title="Remove connection"
             onClick={() => void deleteElements({ edges: [{ id }] })}
           >

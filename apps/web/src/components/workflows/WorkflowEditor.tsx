@@ -309,13 +309,13 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               <button
                 onClick={handleSave}
                 disabled={!isDirty || isSaving}
-                className="flex h-7 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-semibold text-white transition-opacity disabled:opacity-40"
+                className="flex h-7 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-semibold text-neutral-100 transition-opacity disabled:opacity-40"
               >
                 Save
                 {isSaving && (
                   <Spinner
                     size="sm"
-                    className="border-white/40 border-t-white"
+                    className="border-neutral-100/40 border-t-neutral-100"
                   />
                 )}
               </button>
@@ -327,7 +327,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               className={`flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition-colors disabled:opacity-40 ${
                 workflow.enabled
                   ? "border-green-border bg-green-bg text-green-text hover:bg-green-bg-hover"
-                  : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-200"
+                  : "border-neutral-300 bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               }`}
             >
               <span

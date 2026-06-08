@@ -67,18 +67,14 @@ public class ApiKeyService {
 
     @Transactional(readOnly = true)
     public List<ApiKeyResponse> listApiKeys(UUID workspaceId) {
-        return apiKeyRepository
-                .findByWorkspaceIdAndRevokedAtIsNullOrderByCreatedAtDesc(workspaceId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        return apiKeyRepository.findActive(workspaceId).stream().map(this::toResponse).toList();
     }
 
     @Transactional
     public void revokeApiKey(UUID workspaceId, UUID keyId) {
         WorkspaceApiKey apiKey =
                 apiKeyRepository
-                        .findByIdAndWorkspaceId(keyId, workspaceId)
+                        .findInWorkspace(keyId, workspaceId)
                         .orElseThrow(
                                 () ->
                                         new ResponseStatusException(

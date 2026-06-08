@@ -21,4 +21,16 @@ public interface EmailService {
      * @param verifyUrl full URL the recipient should visit to verify their email
      */
     void sendEmailVerification(String to, String name, String verifyUrl);
+
+    /**
+     * Notifies the workspace owner that their subscription has ended and excess resources were
+     * locked.
+     *
+     * @param to owner's email address
+     * @param workspaceName name of the affected workspace
+     * @param lockedChannels number of channel accounts that were disabled
+     * @param lockedWorkflows number of workflows that were disabled
+     */
+    void sendDowngradeNotice(
+            String to, String workspaceName, int lockedChannels, int lockedWorkflows);
 }

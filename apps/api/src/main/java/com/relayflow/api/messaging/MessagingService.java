@@ -39,8 +39,9 @@ import com.relayflow.api.messaging.repository.MessageRepository;
 import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
 import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.subscription.SubscriptionService;
+import com.relayflow.api.subscription.domain.LimitType;
 import com.relayflow.api.telegram.TelegramWebhookRegistrar;
-import com.relayflow.api.webhook.WebhookDispatchService;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,8 +58,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class MessagingService {
@@ -91,7 +94,7 @@ public class MessagingService {
 
     private final WorkflowDefinitionRepository workflowDefinitionRepository;
 
-    private final WebhookDispatchService webhookDispatchService;
+    private final SubscriptionService subscriptionService;
 
     private final String sharedBotToken;
 
@@ -109,7 +112,7 @@ public class MessagingService {
             TelegramWebhookRegistrar telegramWebhookRegistrar,
             CredentialEncryptionService credentialEncryptionService,
             WorkflowDefinitionRepository workflowDefinitionRepository,
-            WebhookDispatchService webhookDispatchService,
+            SubscriptionService subscriptionService,
             @Value("${shared.telegram.bot-token:}") String sharedBotToken) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -124,7 +127,7 @@ public class MessagingService {
         this.telegramWebhookRegistrar = telegramWebhookRegistrar;
         this.credentialEncryptionService = credentialEncryptionService;
         this.workflowDefinitionRepository = workflowDefinitionRepository;
-        this.webhookDispatchService = webhookDispatchService;
+        this.subscriptionService = subscriptionService;
         this.sharedBotToken = sharedBotToken;
     }
 
@@ -139,6 +142,8 @@ public class MessagingService {
         member.setUserId(ownerId);
         member.setRole(WorkspaceRole.OWNER);
         workspaceMemberRepository.save(member);
+
+        subscriptionService.createFreeSubscription(workspace);
 
         log.info(
                 "Workspace created: id={}, name={}, owner={}",
@@ -167,6 +172,8 @@ public class MessagingService {
         member.setRole(WorkspaceRole.OWNER);
         workspaceMemberRepository.save(member);
 
+        subscriptionService.createFreeSubscription(workspace);
+
         if (sharedBotToken != null && !sharedBotToken.isBlank()) {
             ChannelAccount channelAccount = new ChannelAccount();
             channelAccount.setWorkspace(workspace);
@@ -192,7 +199,7 @@ public class MessagingService {
     @Transactional(readOnly = true)
     public List<WorkspaceResponse> listWorkspaces(UUID userId) {
         List<UUID> workspaceIds =
-                workspaceMemberRepository.findByUserId(userId).stream()
+                workspaceMemberRepository.findByUser(userId).stream()
                         .map(WorkspaceMember::getWorkspaceId)
                         .toList();
 
@@ -214,6 +221,10 @@ public class MessagingService {
     @Transactional
     public ChannelAccountResponse createChannelAccount(CreateChannelAccountRequest request) {
         Workspace workspace = getWorkspace(request.workspaceId());
+
+        // Enforce plan limit before creating the channel account.
+        long count = channelAccountRepository.countBillable(request.workspaceId(), null);
+        subscriptionService.enforceLimit(request.workspaceId(), LimitType.CHANNEL_ACCOUNTS, count);
 
         // Hold plaintext for webhook registration — encrypt before persisting.
         String plainTextCredential = request.encryptedCredentials();
@@ -291,6 +302,8 @@ public class MessagingService {
                         .orElseThrow(
                                 () -> new ResourceNotFoundException("Channel account not found"));
 
+        subscriptionService.enforceLimitOnEnable(workspaceId, LimitType.CHANNEL_ACCOUNTS);
+
         channelAccount.setStatus(ChannelAccountStatus.ACTIVE);
         channelAccountRepository.save(channelAccount);
 
@@ -331,7 +344,7 @@ public class MessagingService {
 
         List<UUID> contactIds = items.stream().map(Contact::getId).toList();
         Map<UUID, List<ExternalIdentityResponse>> identitiesByContact =
-                externalIdentityRepository.findByContactIds(contactIds).stream()
+                externalIdentityRepository.findByContacts(contactIds).stream()
                         .map(mapper::toDto)
                         .collect(
                                 java.util.stream.Collectors.groupingBy(
@@ -362,7 +375,7 @@ public class MessagingService {
         Contact contact = getContact(contactId, workspaceId);
 
         List<ExternalIdentityResponse> identities =
-                externalIdentityRepository.findByContactId(contactId).stream()
+                externalIdentityRepository.findByContact(contactId).stream()
                         .map(mapper::toDto)
                         .toList();
 
@@ -423,9 +436,9 @@ public class MessagingService {
         // that would mean two different external users on the same bot are being claimed
         // as the same person, which is never valid.
         List<ExternalIdentity> sourceIdentities =
-                externalIdentityRepository.findByContactId(sourceId);
+                externalIdentityRepository.findByContact(sourceId);
         List<ExternalIdentity> targetIdentities =
-                externalIdentityRepository.findByContactId(targetId);
+                externalIdentityRepository.findByContact(targetId);
 
         java.util.Set<UUID> targetChannelAccountIds =
                 targetIdentities.stream()
@@ -456,7 +469,7 @@ public class MessagingService {
         // Return the updated target with all newly merged identities.
         List<UUID> contactIds = List.of(targetId);
         Map<UUID, List<ExternalIdentityResponse>> identitiesByContact =
-                externalIdentityRepository.findByContactIds(contactIds).stream()
+                externalIdentityRepository.findByContacts(contactIds).stream()
                         .map(mapper::toDto)
                         .collect(
                                 java.util.stream.Collectors.groupingBy(
@@ -639,7 +652,7 @@ public class MessagingService {
 
     @Transactional(readOnly = true)
     public List<WorkspaceMemberResponse> listWorkspaceMembers(UUID workspaceId) {
-        List<WorkspaceMember> members = workspaceMemberRepository.findByWorkspaceId(workspaceId);
+        List<WorkspaceMember> members = workspaceMemberRepository.findByWorkspace(workspaceId);
 
         Map<UUID, User> userMap =
                 userRepository
@@ -662,12 +675,15 @@ public class MessagingService {
                                                 "No user found with email: " + email));
 
         if (workspaceMemberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, user.getId())
+                .findByWorkspaceAndUser(workspaceId, user.getId())
                 .isPresent()) {
             throw new IllegalArgumentException("User is already a member of this workspace");
         }
 
         WorkspacePermission.validateDependencies(permissions);
+
+        long count = workspaceMemberRepository.countByWorkspace(workspaceId);
+        subscriptionService.enforceLimit(workspaceId, LimitType.MEMBERS_PER_WORKSPACE, count);
 
         WorkspaceMember member = new WorkspaceMember();
         member.setWorkspaceId(workspaceId);
@@ -689,20 +705,18 @@ public class MessagingService {
             Set<WorkspacePermission> permissions) {
         WorkspaceMember member =
                 workspaceMemberRepository
-                        .findByWorkspaceIdAndId(workspaceId, memberId)
+                        .findInWorkspace(workspaceId, memberId)
                         .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
 
-        // Guard: cannot demote the last owner.
-        if (member.getRole() == WorkspaceRole.OWNER
-                && role != null
-                && role != WorkspaceRole.OWNER) {
-            long ownerCount =
-                    workspaceMemberRepository.countByWorkspaceIdAndRole(
-                            workspaceId, WorkspaceRole.OWNER);
+        // Guard: ownership can only be transferred, never set directly.
+        if (role == WorkspaceRole.OWNER) {
+            throw new IllegalArgumentException(
+                    "Ownership can only be transferred via the transfer-ownership endpoint");
+        }
 
-            if (ownerCount <= 1) {
-                throw new IllegalArgumentException("Cannot demote the last owner of the workspace");
-            }
+        // Guard: the owner cannot be demoted — workspaces have exactly one owner.
+        if (member.getRole() == WorkspaceRole.OWNER && role != null) {
+            throw new IllegalArgumentException("Cannot demote the owner of the workspace");
         }
 
         WorkspacePermission.validateDependencies(permissions);
@@ -723,23 +737,58 @@ public class MessagingService {
     public void removeWorkspaceMember(UUID workspaceId, UUID memberId) {
         WorkspaceMember member =
                 workspaceMemberRepository
-                        .findByWorkspaceIdAndId(workspaceId, memberId)
+                        .findInWorkspace(workspaceId, memberId)
                         .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
 
-        // Guard: cannot remove the last owner.
+        // Guard: the owner cannot be removed — workspaces have exactly one owner.
         if (member.getRole() == WorkspaceRole.OWNER) {
-            long ownerCount =
-                    workspaceMemberRepository.countByWorkspaceIdAndRole(
-                            workspaceId, WorkspaceRole.OWNER);
-
-            if (ownerCount <= 1) {
-                throw new IllegalArgumentException("Cannot remove the last owner of the workspace");
-            }
+            throw new IllegalArgumentException("Cannot remove the owner of the workspace");
         }
 
         workspaceMemberRepository.delete(member);
 
         log.info("Member removed: id={}, workspace={}", memberId, workspaceId);
+    }
+
+    /**
+     * Transfers ownership of the workspace to another member. The current owner is demoted to
+     * {@link WorkspaceRole#MEMBER}; the target member becomes {@link WorkspaceRole#OWNER}.
+     *
+     * <p>Only the current owner can call this; {@code callerId} must be their user ID.
+     */
+    @Transactional
+    public void transferOwnership(UUID workspaceId, UUID newOwnerMemberId, UUID callerId) {
+        WorkspaceMember currentOwner =
+                workspaceMemberRepository
+                        .findByWorkspaceAndUser(workspaceId, callerId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
+
+        if (currentOwner.getRole() != WorkspaceRole.OWNER) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Only the workspace owner can transfer ownership");
+        }
+
+        WorkspaceMember newOwner =
+                workspaceMemberRepository
+                        .findInWorkspace(workspaceId, newOwnerMemberId)
+                        .orElseThrow(
+                                () -> new ResourceNotFoundException("Target member not found"));
+
+        if (newOwner.getId().equals(currentOwner.getId())) {
+            throw new IllegalArgumentException("Cannot transfer ownership to yourself");
+        }
+
+        currentOwner.setRole(WorkspaceRole.MEMBER);
+        newOwner.setRole(WorkspaceRole.OWNER);
+
+        workspaceMemberRepository.save(currentOwner);
+        workspaceMemberRepository.save(newOwner);
+
+        log.info(
+                "Ownership transferred: workspace={}, from={}, to={}",
+                workspaceId,
+                currentOwner.getId(),
+                newOwner.getId());
     }
 
     /**

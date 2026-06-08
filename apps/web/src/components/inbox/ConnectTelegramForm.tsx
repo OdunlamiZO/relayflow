@@ -43,7 +43,7 @@ export function ConnectTelegramForm({
           placeholder="e.g. Support Bot"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
+          className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
       </div>
 
@@ -61,7 +61,7 @@ export function ConnectTelegramForm({
           placeholder="1234567890:ABCdef..."
           value={botToken}
           onChange={(e) => setBotToken(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
+          className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">
           Create a bot via{" "}
@@ -82,7 +82,7 @@ export function ConnectTelegramForm({
         <button
           type="submit"
           disabled={isPending || !botToken.trim()}
-          className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Connecting…" : "Connect bot"}
         </button>
