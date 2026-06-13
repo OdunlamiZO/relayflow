@@ -84,7 +84,8 @@ public class SubscriptionService {
 
         boolean upgradeAvailable =
                 planConfigurationService.isUpgradeAvailable()
-                        && subscription.getStatus() != SubscriptionStatus.CANCELLATION_SCHEDULED;
+                        && subscription.getStatus() != SubscriptionStatus.CANCELLATION_SCHEDULED
+                        && memberRepository.countByWorkspace(workspaceId, true) == 0;
         boolean upgradeRecommended = subscription.getPlan() == Plan.FREE && upgradeAvailable;
 
         return new SubscriptionResponse(
@@ -291,6 +292,35 @@ public class SubscriptionService {
                 lockedWorkflows);
     }
 
+    /**
+     * Disables channel accounts and workflows over the FREE plan limits and records the locked
+     * counts on the workspace's (already-FREE) subscription.
+     *
+     * <p>Guest workspaces are exempt from plan limits while the owner is anonymous (see {@link
+     * #enforceLimit}), so a guest may accumulate more resources than FREE allows. Called once the
+     * owner converts to a real account, so the workspace ends up in the same state a normal FREE
+     * workspace would be in.
+     */
+    @Transactional
+    public void lockExcessFreeResources(UUID workspaceId) {
+        WorkspaceSubscription subscription = findForUpdate(workspaceId);
+        PlanLimits freeLimits = planConfigurationService.getLimits(Plan.FREE);
+
+        int lockedChannels = disableExcessChannels(workspaceId, freeLimits.maxChannelAccounts());
+        int lockedWorkflows = disableExcessWorkflows(workspaceId, freeLimits.maxWorkflows());
+
+        subscription.setDowngradeLockedChannels(lockedChannels);
+        subscription.setDowngradeLockedWorkflows(lockedWorkflows);
+        subscriptionRepository.save(subscription);
+
+        log.info(
+                "Locked excess resources after guest conversion: workspaceId={}, lockedChannels={},"
+                        + " lockedWorkflows={}",
+                workspaceId,
+                lockedChannels,
+                lockedWorkflows);
+    }
+
     // ── Limit enforcement ─────────────────────────────────────────────────────
 
     /**
@@ -299,8 +329,15 @@ public class SubscriptionService {
      *
      * <p>Limits are read live from Redis so changes take effect without a restart. Call this
      * <em>before</em> persisting the new resource.
+     *
+     * <p>Guest workspaces are exempt — their data is deleted within {@code
+     * relayflow.guest.expiry-hours} regardless, so plan limits don't apply.
      */
     public void enforceLimit(UUID workspaceId, LimitType limitType, long count) {
+        if (memberRepository.countByWorkspace(workspaceId, true) > 0) {
+            return;
+        }
+
         Plan plan = findPlan(workspaceId);
         PlanLimits limits = planConfigurationService.getLimits(plan);
 
@@ -310,8 +347,14 @@ public class SubscriptionService {
     /**
      * Checks the active-resource count before re-enabling a channel account or workflow. Uses the
      * enabled count (not total) so users can swap disabled ↔ enabled freely within the plan limit.
+     *
+     * <p>Guest workspaces are exempt — see {@link #enforceLimit}.
      */
     public void enforceLimitOnEnable(UUID workspaceId, LimitType limitType) {
+        if (memberRepository.countByWorkspace(workspaceId, true) > 0) {
+            return;
+        }
+
         Plan plan = findPlan(workspaceId);
         PlanLimits limits = planConfigurationService.getLimits(plan);
 
@@ -426,8 +469,6 @@ public class SubscriptionService {
                 SubscriptionStatus.CANCELLATION_SCHEDULED,
                 SubscriptionStatus.PAST_DUE);
     }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
 
     private void enforce(PlanLimits limits, Plan plan, LimitType limitType, long count) {
         int max =

@@ -15,6 +15,6 @@ public record ConversationResponse(
         String channelAccountName,
         ConversationStatus status,
         boolean lockedByWorkflow,
-        UUID assignedUserId,
+        UUID assigneeId,
         Instant lastMessageAt,
         Instant createdAt) {}

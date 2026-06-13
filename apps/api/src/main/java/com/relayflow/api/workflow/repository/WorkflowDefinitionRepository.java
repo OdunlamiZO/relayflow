@@ -26,7 +26,7 @@ public interface WorkflowDefinitionRepository extends JpaRepository<WorkflowDefi
 
     @Modifying
     @Query("UPDATE WorkflowDefinition w SET w.deletedAt = :now WHERE w.workspace.id = :workspaceId")
-    void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
+    void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
 
     /** Counts non-deleted workflow definitions in a workspace for plan limit enforcement. */
     @Query("select count(w) from WorkflowDefinition w where w.workspace.id = :workspaceId")

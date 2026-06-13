@@ -2,9 +2,12 @@ package com.relayflow.api.workflow;
 
 import com.relayflow.api.messaging.WorkspaceAuthorizationService;
 import com.relayflow.api.messaging.domain.WorkspacePermission;
+import com.relayflow.api.messaging.dto.PageResponse;
 import com.relayflow.api.workflow.dto.CreateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.UpdateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.WorkflowDefinitionResponse;
+import com.relayflow.api.workflow.dto.WorkflowRunDetailResponse;
+import com.relayflow.api.workflow.dto.WorkflowRunResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
@@ -25,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping("/api/workflows")
+@RequestMapping("/workflows")
 public class WorkflowController {
 
     private final WorkflowService workflowService;
@@ -82,5 +85,28 @@ public class WorkflowController {
                 workspaceId, authentication, WorkspacePermission.WORKFLOWS_DELETE);
 
         workflowService.deleteWorkflow(id, workspaceId);
+    }
+
+    @GetMapping("/{id}/runs")
+    PageResponse<WorkflowRunResponse> listRuns(
+            @PathVariable UUID id,
+            @RequestParam @NotNull UUID workspaceId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
+        return workflowService.listRuns(id, workspaceId, page, size);
+    }
+
+    @GetMapping("/{id}/runs/{runId}")
+    WorkflowRunDetailResponse getRun(
+            @PathVariable UUID id,
+            @PathVariable UUID runId,
+            @RequestParam @NotNull UUID workspaceId,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
+        return workflowService.getRun(id, runId, workspaceId);
     }
 }

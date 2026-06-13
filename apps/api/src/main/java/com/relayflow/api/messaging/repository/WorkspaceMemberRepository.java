@@ -28,12 +28,19 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
             @Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId);
 
     /**
-     * Total members (all roles) in a workspace — used to enforce the per-workspace member limit.
+     * Count of members in a workspace, optionally filtered by the {@code anonymous} flag (pass
+     * {@code null} for the total across all roles — used to enforce the per-workspace member
+     * limit). Guest workspaces have exactly one member — their anonymous owner — so {@code
+     * countByWorkspace(id, true) > 0} doubles as "is this a guest workspace".
      */
-    @Query("select count(m) from WorkspaceMember m where m.workspaceId = :workspaceId")
-    long countByWorkspace(@Param("workspaceId") UUID workspaceId);
+    @Query(
+            "select count(m) from WorkspaceMember m, User u "
+                    + "where m.workspaceId = :workspaceId and m.userId = u.id "
+                    + "and (:anonymous is null or u.anonymous = :anonymous)")
+    long countByWorkspace(
+            @Param("workspaceId") UUID workspaceId, @Param("anonymous") Boolean anonymous);
 
     @Modifying
     @Query("UPDATE WorkspaceMember m SET m.deletedAt = :now WHERE m.workspaceId = :workspaceId")
-    void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
+    void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
 }

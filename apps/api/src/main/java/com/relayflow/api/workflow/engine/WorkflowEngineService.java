@@ -37,9 +37,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Parses the {@code draftGraph}, initialises the execution context from conversation data, and
  * walks the node graph — executing each node and following the appropriate outgoing edge.
  *
- * <p>When a node returns {@link NodeExecutionResult#waiting()}, the run is persisted with status
- * {@link WorkflowRunStatus#WAITING} and the current context snapshot is saved. Execution resumes
- * via {@link #resumeWorkflow} when the contact replies.
+ * <p>When a node returns {@link NodeExecutionResult#waiting(Map, long)}, the run is persisted with
+ * status {@link WorkflowRunStatus#WAITING} and the current context snapshot is saved. Execution
+ * resumes via {@link #resumeWorkflow} when the contact replies.
  */
 @Service
 public class WorkflowEngineService {
@@ -234,6 +234,7 @@ public class WorkflowEngineService {
         run.setStatus(WorkflowRunStatus.RUNNING);
         run.setWaitingAtNodeId(null);
         run.setContextSnapshot(null);
+        run.setExpiresAt(null);
 
         GraphNode nextNode = resolveNextNode(waitingNode, nextHandle, adjacency, nodeMap);
 
@@ -266,6 +267,31 @@ public class WorkflowEngineService {
 
             log.error("Resumed workflow run failed: runId={}, error={}", runId, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Fails a {@code WAITING} run that has exceeded its "Wait for Reply" timeout, releasing the
+     * conversation lock. Called by {@link com.relayflow.api.workflow.WorkflowRunCleanupScheduler}.
+     */
+    @Transactional
+    public void expireWaitingRun(UUID runId) {
+        WorkflowRun run = runRepository.findWithDefinitionById(runId).orElse(null);
+
+        if (run == null || run.getStatus() != WorkflowRunStatus.WAITING) {
+            return;
+        }
+
+        run.setStatus(WorkflowRunStatus.FAILED);
+        run.setFinishedAt(Instant.now());
+        run.setErrorMessage("Timed out waiting for a reply");
+        run.setWaitingAtNodeId(null);
+        run.setContextSnapshot(null);
+        run.setExpiresAt(null);
+        runRepository.save(run);
+
+        setConversationLock(run.getConversation().getId(), false);
+
+        log.info("Workflow run timed out waiting for a reply: runId={}", runId);
     }
 
     // ── graph walking ──────────────────────────────────────────────────────────
@@ -327,6 +353,7 @@ public class WorkflowEngineService {
                 run.setStatus(WorkflowRunStatus.WAITING);
                 run.setWaitingAtNodeId(node.id());
                 run.setContextSnapshot(context.snapshot());
+                run.setExpiresAt(Instant.now().plusSeconds(result.timeoutSeconds()));
 
                 log.debug(
                         "Workflow run paused waiting for reply: runId={}, nodeId={}",
@@ -472,7 +499,7 @@ public class WorkflowEngineService {
 
         // Populated only when the workflow is triggered by conversation_opened.
         if (triggeringMessage != null) {
-            vars.put("customer.intent", nullSafe(triggeringMessage.getText()));
+            vars.put("contact.message", nullSafe(triggeringMessage.getText()));
         }
 
         return new ExecutionContext(
@@ -547,8 +574,6 @@ public class WorkflowEngineService {
                                         (String) raw.get("sourceHandle")))
                 .toList();
     }
-
-    // ── helpers ────────────────────────────────────────────────────────────────
 
     private Map<String, List<GraphEdge>> buildAdjacency(List<GraphEdge> edges) {
         Map<String, List<GraphEdge>> adjacency = new HashMap<>();

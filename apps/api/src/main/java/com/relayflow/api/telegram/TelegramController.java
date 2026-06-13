@@ -6,12 +6,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/telegram")
+@RequestMapping("/telegram")
 public class TelegramController {
 
     private final TelegramAdapter telegramAdapter;
@@ -22,15 +23,19 @@ public class TelegramController {
 
     /**
      * Telegram calls this URL for every update when a webhook is registered. The URL to register
-     * with Telegram is: https://{your-domain}/api/telegram/webhook/{channelAccountId}
+     * with Telegram is: https://{your-domain}/telegram/webhook/{channelAccountId}
      *
      * <p>Register it via the Telegram Bot API: POST https://api.telegram.org/bot{token}/setWebhook
-     * Body: { "url": "https://{your-domain}/api/telegram/webhook/{channelAccountId}" }
+     * Body: { "url": "https://{your-domain}/telegram/webhook/{channelAccountId}" }
      */
     @PostMapping("/webhook/{channelAccountId}")
     @ResponseStatus(HttpStatus.OK)
-    void webhook(@PathVariable UUID channelAccountId, @RequestBody TelegramWebhookPayload payload) {
-        telegramAdapter.handleWebhook(channelAccountId, payload);
+    void webhook(
+            @PathVariable UUID channelAccountId,
+            @RequestHeader(value = "X-Telegram-Bot-Api-Secret-Token", required = false)
+                    String secretToken,
+            @RequestBody TelegramWebhookPayload payload) {
+        telegramAdapter.handleWebhook(channelAccountId, secretToken, payload);
     }
 
     /**
@@ -39,7 +44,10 @@ public class TelegramController {
      */
     @PostMapping("/webhook/shared")
     @ResponseStatus(HttpStatus.OK)
-    void sharedBotWebhook(@RequestBody TelegramWebhookPayload payload) {
-        telegramAdapter.handleSharedBotWebhook(payload);
+    void sharedBotWebhook(
+            @RequestHeader(value = "X-Telegram-Bot-Api-Secret-Token", required = false)
+                    String secretToken,
+            @RequestBody TelegramWebhookPayload payload) {
+        telegramAdapter.handleSharedBotWebhook(secretToken, payload);
     }
 }

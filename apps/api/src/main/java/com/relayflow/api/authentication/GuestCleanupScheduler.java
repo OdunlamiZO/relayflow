@@ -1,6 +1,7 @@
 package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.domain.User;
+import com.relayflow.api.authentication.repository.GuestRecoveryTokenRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
 import com.relayflow.api.messaging.MessagingService;
 import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
@@ -22,6 +23,8 @@ public class GuestCleanupScheduler {
 
     private final WorkspaceMemberRepository workspaceMemberRepository;
 
+    private final GuestRecoveryTokenRepository guestRecoveryTokenRepository;
+
     private final MessagingService messagingService;
 
     private final long guestExpiryHours;
@@ -29,10 +32,12 @@ public class GuestCleanupScheduler {
     public GuestCleanupScheduler(
             UserRepository userRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
+            GuestRecoveryTokenRepository guestRecoveryTokenRepository,
             MessagingService messagingService,
             @Value("${relayflow.guest.expiry-hours}") long guestExpiryHours) {
         this.userRepository = userRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.guestRecoveryTokenRepository = guestRecoveryTokenRepository;
         this.messagingService = messagingService;
         this.guestExpiryHours = guestExpiryHours;
     }
@@ -60,6 +65,7 @@ public class GuestCleanupScheduler {
                                 member ->
                                         messagingService.deleteWorkspace(member.getWorkspaceId()));
 
+                guestRecoveryTokenRepository.deleteByUser(user.getId());
                 userRepository.delete(user);
             } catch (Exception e) {
                 log.warn("Failed to clean up guest user {}: {}", user.getId(), e.getMessage());

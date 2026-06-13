@@ -1,7 +1,7 @@
 package com.relayflow.api.webhook;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.relayflow.api.configuration.CredentialEncryptionService;
+import com.relayflow.api.security.CredentialEncryptionService;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -16,6 +16,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -32,21 +33,26 @@ public class WebhookDispatchService {
     private static final Logger log = LoggerFactory.getLogger(WebhookDispatchService.class);
     private static final String SIGNATURE_HEADER = "X-RelayFlow-Signature";
     private static final int[] RETRY_DELAYS_SECONDS = {1, 5, 30};
-    private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(10);
 
     private final WorkspaceWebhookRepository webhookRepository;
     private final CredentialEncryptionService encryptionService;
+    private final WebhookUrlValidator urlValidator;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+    private final Duration httpTimeout;
 
     public WebhookDispatchService(
             WorkspaceWebhookRepository webhookRepository,
             CredentialEncryptionService encryptionService,
-            ObjectMapper objectMapper) {
+            WebhookUrlValidator urlValidator,
+            ObjectMapper objectMapper,
+            @Value("${relayflow.webhook.timeout-ms}") long timeoutMs) {
         this.webhookRepository = webhookRepository;
         this.encryptionService = encryptionService;
+        this.urlValidator = urlValidator;
         this.objectMapper = objectMapper;
-        this.httpClient = HttpClient.newBuilder().connectTimeout(HTTP_TIMEOUT).build();
+        this.httpTimeout = Duration.ofMillis(timeoutMs);
+        this.httpClient = HttpClient.newBuilder().connectTimeout(httpTimeout).build();
     }
 
     @Async("webhookExecutor")
@@ -59,6 +65,16 @@ public class WebhookDispatchService {
     }
 
     private void deliver(WorkspaceWebhook webhook, WebhookEventType eventType, Object data) {
+        if (!urlValidator.isSafe(webhook.getUrl())) {
+            log.error(
+                    "Webhook delivery skipped — URL no longer resolves to a public address:"
+                            + " event={}, workspace={}",
+                    eventType,
+                    webhook.getWorkspaceId());
+
+            return;
+        }
+
         String payload;
 
         try {
@@ -83,7 +99,7 @@ public class WebhookDispatchService {
                 HttpRequest request =
                         HttpRequest.newBuilder()
                                 .uri(URI.create(webhook.getUrl()))
-                                .timeout(HTTP_TIMEOUT)
+                                .timeout(httpTimeout)
                                 .header("Content-Type", "application/json")
                                 .header(SIGNATURE_HEADER, "sha256=" + signature)
                                 .POST(

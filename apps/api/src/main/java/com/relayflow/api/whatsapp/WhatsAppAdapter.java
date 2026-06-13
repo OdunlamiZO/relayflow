@@ -2,7 +2,6 @@ package com.relayflow.api.whatsapp;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.relayflow.api.configuration.CredentialEncryptionService;
 import com.relayflow.api.messaging.OutboundMessageEvent;
 import com.relayflow.api.messaging.ResourceNotFoundException;
 import com.relayflow.api.messaging.domain.ChannelAccount;
@@ -21,6 +20,7 @@ import com.relayflow.api.messaging.repository.ContactRepository;
 import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.repository.MessageRepository;
+import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.webhook.WebhookDispatchService;
 import com.relayflow.api.webhook.WebhookEventType;
@@ -111,7 +111,7 @@ public class WhatsAppAdapter {
      * Developer Console. Meta sends:
      *
      * <pre>
-     * GET /api/whatsapp/webhook/{id}?hub.mode=subscribe&amp;hub.verify_token=...&amp;hub.challenge=...
+     * GET /whatsapp/webhook/{id}?hub.mode=subscribe&amp;hub.verify_token=...&amp;hub.challenge=...
      * </pre>
      *
      * <p>We verify the token against the stored credential and, on match, echo back {@code
@@ -129,9 +129,9 @@ public class WhatsAppAdapter {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Channel account not found");
         }
 
-        WhatsAppCredentials creds = decryptCredentials(channelAccount);
+        WhatsAppCredentials credentials = decryptCredentials(channelAccount);
 
-        if (!"subscribe".equals(mode) || !creds.verifyToken().equals(verifyToken)) {
+        if (!"subscribe".equals(mode) || !credentials.verifyToken().equals(verifyToken)) {
             log.warn(
                     "WhatsApp webhook verification failed for channel account {} — token mismatch or bad mode",
                     channelAccountId);
@@ -143,8 +143,6 @@ public class WhatsAppAdapter {
 
         return challenge;
     }
-
-    // ── Public ───────────────────────────────────────────────────────────────
 
     @Transactional
     public void handleWebhook(UUID channelAccountId, WhatsAppWebhookPayload payload) {
@@ -266,8 +264,6 @@ public class WhatsAppAdapter {
                 message.getText(),
                 event.buttonOptions());
     }
-
-    // ── Private ──────────────────────────────────────────────────────────────
 
     private void processInboundMessage(
             ChannelAccount channelAccount,

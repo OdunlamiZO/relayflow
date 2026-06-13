@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { GoogleIcon } from "@/components/common/GoogleIcon";
+import { Spinner } from "@/components/common/Spinner";
+import { useGuestRecovery } from "@/hooks/use-guest-recovery";
 import { useLogin } from "@/hooks/use-login";
 import { useLogin2FA } from "@/hooks/use-login-2fa";
 
@@ -16,6 +18,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl");
 
+  const guestRecovery = useGuestRecovery();
   const { mutate: login, isPending: isLoginPending } = useLogin();
   const { mutate: login2FA, isPending: is2FAPending } = useLogin2FA();
 
@@ -29,6 +32,26 @@ export default function LoginPage() {
 
   const destination =
     returnUrl && returnUrl.startsWith("/") ? returnUrl : "/inbox";
+
+  useEffect(() => {
+    if (guestRecovery.status === "recovered") {
+      router.replace(`/inbox?workspaceId=${guestRecovery.workspaceId}`);
+    }
+  }, [guestRecovery, router]);
+
+  // ── Guest session recovery ───────────────────────────────────────────────
+
+  if (
+    guestRecovery.status === "pending" ||
+    guestRecovery.status === "recovered"
+  ) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8">
+        <Spinner size="lg" />
+        <p className="text-sm text-neutral-600">Restoring your session…</p>
+      </div>
+    );
+  }
 
   function handleLoginSubmit(e: React.FormEvent) {
     e.preventDefault();

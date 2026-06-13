@@ -39,6 +39,12 @@ mvn flyway:migrate \
   -Dflyway.password=relayflow
 ```
 
+Set a credential encryption key (required — the API refuses to start without it):
+
+```bash
+export RELAYFLOW_ENCRYPTION_KEY=$(openssl rand -base64 32)
+```
+
 Run the API:
 
 ```bash
@@ -59,8 +65,13 @@ Enable the shared Telegram demo bot locally:
 
 ```bash
 export SHARED_TELEGRAM_BOT_TOKEN=your-telegram-bot-token
-export SHARED_TELEGRAM_BOT_USERNAME=your_bot_username
 export RELAYFLOW_API_BASE_URL=http://localhost:8080
+```
+
+Per-channel-account Telegram bots are registered with a generated `secret_token` and verified automatically via the `X-Telegram-Bot-Api-Secret-Token` header. To verify the shared bot's webhook, set `SHARED_TELEGRAM_WEBHOOK_SECRET` to the same value passed as `secret_token` when calling Telegram's `setWebhook` for the shared bot:
+
+```bash
+export SHARED_TELEGRAM_WEBHOOK_SECRET=your-shared-webhook-secret
 ```
 
 Configure this redirect URI in Google Cloud:
@@ -75,6 +86,12 @@ Run the web app:
 cd apps/web
 npm install
 npm run dev
+```
+
+Set the shared Telegram demo bot's username (used to build the guest deep link, e.g. `https://t.me/your_bot_username?start=...`) in `apps/web/.env.local`:
+
+```bash
+NEXT_PUBLIC_SHARED_BOT_USERNAME=your_bot_username
 ```
 
 ## Subscription & Plan Configuration
@@ -131,79 +148,80 @@ Replace `PLN_xxx` / `PLN_yyy` with the real Paystack plan codes from your dashbo
 3. Register the webhook URL in your Paystack dashboard:
 
 ```
-https://{your-api-domain}/api/paystack/webhook
+https://{your-api-domain}/paystack/webhook
 ```
 
 ## API Reference
 
 ### Health
 
-- `GET /api/health`
+- `GET /health`
 
 ### Authentication
 
-- `GET  /api/auth/me`
-- `POST /api/auth/signup`
-- `POST /api/auth/verify-email`
-- `POST /api/auth/login`
-- `POST /api/auth/login/2fa`
-- `POST /api/auth/logout`
-- `POST /api/auth/guest`
+- `GET  /auth/me`
+- `POST /auth/signup`
+- `POST /auth/verify-email`
+- `POST /auth/login`
+- `POST /auth/login/2fa`
+- `POST /auth/logout`
+- `POST /auth/guest`
 - `GET  /oauth2/authorization/google`
 - `GET  /login/oauth2/code/google`
 
-The app supports verified email/password login, Google OAuth, TOTP two-factor login, and temporary anonymous guest sessions. Guest sessions create a workspace automatically and can use the shared Telegram bot when `SHARED_TELEGRAM_BOT_TOKEN` is configured.
+The app supports verified email/password login, Google OAuth, TOTP two-factor login, and temporary anonymous guest sessions. Guest sessions create a workspace automatically and can use the shared Telegram bot when `SHARED_TELEGRAM_BOT_TOKEN` is configured. Guest workspaces cannot connect additional channels — `POST /channel-accounts` returns `403` for them. When a guest account signs up and converts to a real account, the shared Telegram channel account and everything that happened over it (conversations, messages, workflow runs, external identities, and any contacts left with no other channel) are dropped; workflow definitions are preserved.
 
 ### Profile
 
-- `GET    /api/profile`
-- `PATCH  /api/profile`
-- `POST   /api/profile/change-password`
-- `DELETE /api/profile`
-- `POST   /api/profile/2fa/setup`
-- `POST   /api/profile/2fa/enable`
-- `POST   /api/profile/2fa/disable`
+- `GET    /profile`
+- `PATCH  /profile`
+- `POST   /profile/change-password`
+- `DELETE /profile`
+- `POST   /profile/2fa/setup`
+- `POST   /profile/2fa/enable`
+- `POST   /profile/2fa/disable`
 
 ### Messaging
 
-- `GET    /api/workspaces`
-- `POST   /api/workspaces`
-- `GET    /api/workspaces/{workspaceId}/members`
-- `POST   /api/workspaces/{workspaceId}/members`
-- `PATCH  /api/workspaces/{workspaceId}/members/{memberId}`
-- `DELETE /api/workspaces/{workspaceId}/members/{memberId}`
-- `PUT    /api/workspaces/{workspaceId}/owner?memberId={memberId}`
-- `GET    /api/workspaces/{workspaceId}/invites`
-- `POST   /api/workspaces/{workspaceId}/invites`
-- `DELETE /api/workspaces/{workspaceId}/invites/{inviteId}`
-- `GET    /api/invites/{token}`
-- `POST   /api/invites/{token}/accept`
-- `GET    /api/channel-accounts?workspaceId={workspaceId}`
-- `POST   /api/channel-accounts`
-- `DELETE /api/channel-accounts/{id}?workspaceId={workspaceId}`
-- `POST   /api/channel-accounts/{id}/reconnect?workspaceId={workspaceId}`
-- `GET    /api/contacts?workspaceId={workspaceId}`
-- `POST   /api/contacts`
-- `GET    /api/contacts/{id}?workspaceId={workspaceId}`
-- `POST   /api/contacts/{id}/merge?workspaceId={workspaceId}`
-- `DELETE /api/contacts/{id}?workspaceId={workspaceId}`
-- `POST   /api/external-identities`
-- `POST   /api/conversations`
-- `GET    /api/conversations?workspaceId={workspaceId}`
-- `GET    /api/conversations/{id}?workspaceId={workspaceId}`
-- `PATCH  /api/conversations/{id}?workspaceId={workspaceId}`
-- `GET    /api/conversations/{id}/messages?workspaceId={workspaceId}`
-- `POST   /api/conversations/{id}/messages?workspaceId={workspaceId}`
+- `GET    /workspaces`
+- `POST   /workspaces`
+- `GET    /workspaces/{workspaceId}/members`
+- `POST   /workspaces/{workspaceId}/members`
+- `PATCH  /workspaces/{workspaceId}/members/{memberId}`
+- `DELETE /workspaces/{workspaceId}/members/{memberId}`
+- `PUT    /workspaces/{workspaceId}/owner?memberId={memberId}`
+- `GET    /workspaces/{workspaceId}/invites`
+- `POST   /workspaces/{workspaceId}/invites`
+- `DELETE /workspaces/{workspaceId}/invites/{inviteId}`
+- `GET    /invites/{token}`
+- `POST   /invites/{token}/accept`
+- `GET    /channel-accounts?workspaceId={workspaceId}`
+- `POST   /channel-accounts` — `403` for guest workspaces (guests are limited to the shared Telegram bot).
+- `DELETE /channel-accounts/{id}?workspaceId={workspaceId}`
+- `POST   /channel-accounts/{id}/reconnect?workspaceId={workspaceId}`
+- `GET    /contacts?workspaceId={workspaceId}`
+- `POST   /contacts`
+- `GET    /contacts/{id}?workspaceId={workspaceId}`
+- `POST   /contacts/{id}/merge?workspaceId={workspaceId}`
+- `DELETE /contacts/{id}?workspaceId={workspaceId}`
+- `POST   /external-identities`
+- `POST   /conversations`
+- `GET    /conversations?workspaceId={workspaceId}`
+- `GET    /conversations/{id}?workspaceId={workspaceId}`
+- `PATCH  /conversations/{id}?workspaceId={workspaceId}`
+- `PATCH  /conversations/{id}/assignee?workspaceId={workspaceId}` — assign or unassign (`assigneeId: null`) a conversation to a workspace member.
+- `GET    /conversations/{id}/messages?workspaceId={workspaceId}`
+- `POST   /conversations/{id}/messages?workspaceId={workspaceId}`
 
 ### Integrations
 
-- `GET    /api/workspaces/{workspaceId}/api-keys`
-- `POST   /api/workspaces/{workspaceId}/api-keys`
-- `DELETE /api/workspaces/{workspaceId}/api-keys/{keyId}`
-- `GET    /api/workspaces/{workspaceId}/webhook`
-- `PUT    /api/workspaces/{workspaceId}/webhook`
-- `DELETE /api/workspaces/{workspaceId}/webhook`
-- `POST   /api/workspaces/{workspaceId}/webhook/rotate-secret`
+- `GET    /workspaces/{workspaceId}/api-keys`
+- `POST   /workspaces/{workspaceId}/api-keys`
+- `DELETE /workspaces/{workspaceId}/api-keys/{keyId}`
+- `GET    /workspaces/{workspaceId}/webhook`
+- `PUT    /workspaces/{workspaceId}/webhook`
+- `DELETE /workspaces/{workspaceId}/webhook`
+- `POST   /workspaces/{workspaceId}/webhook/rotate-secret`
 
 Public API requests authenticate with `X-Api-Key`:
 
@@ -214,38 +232,40 @@ Public API requests authenticate with `X-Api-Key`:
 
 ### Workflows
 
-- `GET    /api/workflows?workspaceId={workspaceId}`
-- `POST   /api/workflows`
-- `GET    /api/workflows/{id}?workspaceId={workspaceId}`
-- `PATCH  /api/workflows/{id}?workspaceId={workspaceId}`
-- `DELETE /api/workflows/{id}?workspaceId={workspaceId}`
+- `GET    /workflows?workspaceId={workspaceId}`
+- `POST   /workflows`
+- `GET    /workflows/{id}?workspaceId={workspaceId}`
+- `PATCH  /workflows/{id}?workspaceId={workspaceId}`
+- `DELETE /workflows/{id}?workspaceId={workspaceId}`
+- `GET    /workflows/{id}/runs?workspaceId={workspaceId}` — paginated run history.
+- `GET    /workflows/{id}/runs/{runId}?workspaceId={workspaceId}` — run detail with per-step input/output snapshots.
 
 ### Subscription
 
-- `GET  /api/plans` — public; returns all plans with live limits, pricing, and `upgradeAvailable`
-- `GET  /api/workspaces/{workspaceId}/subscription`
-- `POST /api/workspaces/{workspaceId}/subscription/checkout`
-- `DELETE /api/workspaces/{workspaceId}/subscription`
+- `GET  /plans` — public; returns all plans with live limits, pricing, and `upgradeAvailable`
+- `GET  /workspaces/{workspaceId}/subscription`
+- `POST /workspaces/{workspaceId}/subscription/checkout`
+- `DELETE /workspaces/{workspaceId}/subscription`
 
-`POST /checkout` returns a Paystack authorization URL. Redirect the user there to complete payment. `DELETE /subscription` schedules cancellation and keeps paid access until the current billing period ends. Recurring billing is handled automatically by Paystack; the API listens for `charge.success`, `subscription.create`, `subscription.not_renew`, `subscription.disable`, and `invoice.update` events at `/api/paystack/webhook`.
+`POST /checkout` returns a Paystack authorization URL. Redirect the user there to complete payment. `DELETE /subscription` schedules cancellation and keeps paid access until the current billing period ends. Recurring billing is handled automatically by Paystack; the API listens for `charge.success`, `subscription.create`, `subscription.not_renew`, `subscription.disable`, and `invoice.update` events at `/paystack/webhook`.
 
 ### Telegram
 
-- `POST /api/telegram/webhook/{channelAccountId}`
-- `POST /api/telegram/webhook/shared`
+- `POST /telegram/webhook/{channelAccountId}`
+- `POST /telegram/webhook/shared`
 
-The regular webhook path is for a dedicated bot token per channel account. The shared webhook path handles the guest bot flow using a Telegram `/start {workspaceId}` deep link.
+The regular webhook path is for a dedicated bot token per channel account. The shared webhook path handles the guest bot flow using a Telegram `/start {workspaceId}` deep link. Both paths verify the `X-Telegram-Bot-Api-Secret-Token` header before processing the payload.
 
 ### WhatsApp
 
-- `GET  /api/whatsapp/webhook/{channelAccountId}`
-- `POST /api/whatsapp/webhook/{channelAccountId}`
+- `GET  /whatsapp/webhook/{channelAccountId}`
+- `POST /whatsapp/webhook/{channelAccountId}`
 
 The `GET` path handles Meta webhook verification using the channel account's stored verify token. The `POST` path receives WhatsApp Business Cloud API message events.
 
 ### SSE
 
-- `GET /api/sse/workspace/{workspaceId}` — real-time event stream for the inbox
+- `GET /sse/workspace/{workspaceId}` — real-time event stream for the inbox
 
 Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 
@@ -254,7 +274,7 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 ### Messaging core
 - [x] Channel-agnostic persistence model — workspaces, channel accounts, contacts, external identities, conversations, messages.
 - [x] REST endpoints for creating and reading core messaging records.
-- [x] Telegram adapter — inbound webhook ingestion, outbound relay, shared bot `/start {workspaceId}` deep-link flow.
+- [x] Telegram adapter — inbound webhook ingestion, outbound relay, shared bot `/start {workspaceId}` deep-link flow, and webhook authenticity verification via `X-Telegram-Bot-Api-Secret-Token`.
 - [x] WhatsApp Business Cloud API adapter — channel connection form, webhook verification, inbound text ingestion, outbound text relay, and per-channel webhook URL display.
 - [x] Outbound message delivery guarantee — Telegram and WhatsApp sends are retried once; final failure rolls back the transaction so the message is never saved and the caller receives a descriptive error.
 - [x] Shared bot message routing to the most-recently linked guest workspace.
@@ -263,10 +283,11 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Contact management — paginated contacts list, detail panel, delete, and guarded contact merge that moves identities/conversations to the target contact.
 - [x] Per-channel-account identities — external identities are scoped to a channel account/bot so the same Telegram user can appear in separate connected bots without collision.
 - [x] Conversation workflow lock — active workflows own the conversation and agent replies return `409 Conflict` until the workflow finishes, fails, or closes the conversation.
+- [x] Conversation assignment — conversations can be assigned to (or unassigned from) a workspace member via a dropdown in the message thread.
 - [x] Workspace member permissions — owners manage members, transfer ownership, and grant granular access for inbox, contacts, workflows, channels, API keys, and webhooks.
 - [x] Workspace invites — owners create/revoke expiring email invites; authenticated users can preview and accept matching invites.
 - [x] API keys and public API — workspace API keys can list conversations/messages and send outbound agent messages through `/public/v1`.
-- [x] Workspace webhooks — configurable signed webhooks currently emit `contact.created` with retry/backoff delivery.
+- [x] Workspace webhooks — configurable signed webhooks currently emit `contact.created` with retry/backoff delivery. SSRF protection rejects webhook URLs that resolve to loopback, link-local, private, multicast, or wildcard addresses, both when saving the URL and at delivery time.
 - [x] Subscription billing foundation — FREE, PRO monthly, and PRO annual plans, Redis-backed plan limits/pricing, Paystack checkout, scheduled cancellation, Paystack webhooks, downgrade locking, and plan caps for channels, workflows, and workspace members.
 
 ### Authentication
@@ -277,6 +298,10 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] TOTP two-factor authentication — setup QR code, enable/disable, and 2FA login challenge.
 - [x] Split user model — identities, preferences, and MFA methods live outside the core `users` table.
 - [x] Anonymous guest session flow with auto-created workspace. Guest data purged after 24 hours (configurable via `relayflow.guest.expiry-hours`).
+- [x] Credential encryption — bot tokens, MFA secrets, and webhook secrets are encrypted at rest with AES-256-GCM (`RELAYFLOW_ENCRYPTION_KEY`, required at startup).
+- [x] Session cookie hardening — configurable cookie name, `HttpOnly`, `Secure`, `SameSite`, and idle timeout (`SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_SAME_SITE`, `SESSION_TIMEOUT`); logout expires the cookie with matching attributes.
+- [x] Swagger UI / OpenAPI docs can be disabled outside of development via `SWAGGER_ENABLED=false`.
+- [x] Rate limiting — Redis-backed, fixed-window, returns `429` with a `Retry-After` header. Covers auth endpoints (`/auth/login`, `/login/2fa`, `/signup`, `/guest`, `/verify-email`, keyed by client IP), the public API (`/public/v1/**`, keyed by API key), and inbound webhooks (Telegram, WhatsApp, Paystack, keyed by client IP). Configurable via `RATE_LIMIT_ENABLED`, `RATE_LIMIT_LOGIN_LIMIT`/`RATE_LIMIT_LOGIN_WINDOW_SECONDS`, `RATE_LIMIT_SIGNUP_LIMIT`/`RATE_LIMIT_SIGNUP_WINDOW_SECONDS`, `RATE_LIMIT_PUBLIC_API_LIMIT`/`RATE_LIMIT_PUBLIC_API_WINDOW_SECONDS`, and `RATE_LIMIT_WEBHOOK_LIMIT`/`RATE_LIMIT_WEBHOOK_WINDOW_SECONDS`.
 
 ### Inbox UI
 - [x] Conversation list, message thread, and outbound composer.
@@ -286,6 +311,7 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Real-time updates via SSE — `message.created`, `conversation.updated`, and `workspace.updated` events pushed after commit.
 - [x] Google login entry point and session status panel.
 - [x] Guest mode banner with a "Create account" prompt and Telegram-connected empty state.
+- [x] Channel settings show the shared Telegram bot with a "Guest mode only" badge, plus a persistent deep link and copy button (`https://t.me/{bot}?start={workspaceId}`) so it can be reshared with additional testers. Non-shared channels also get a copy button for their webhook URL. "Telegram"/"WhatsApp" brand colors are defined as `telegram`/`whatsapp` design tokens.
 
 ### Workflow engine
 - [x] Workflow definition data model — `workflow_definitions`, `workflow_runs`, `workflow_run_steps`.
@@ -300,7 +326,7 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] **Jump To node** — redirects execution to another node by ID with a configurable max-jump limit to prevent loops.
 - [x] **End Conversation node** — sends an optional closing message and sets the conversation to `CLOSED`.
 - [x] Workflow graph validator — enforces structural rules at publish time (one trigger, no orphaned nodes, all condition and option branches connected, valid Jump To targets).
-- [x] Workflow run logs — every run and every step persisted with full observability data.
+- [x] Workflow run logs — every run and every step persisted with full observability data, exposed via `GET /workflows/{id}/runs` and `GET /workflows/{id}/runs/{runId}`. Runs older than `relayflow.workflow.run-retention-days` (default 90, configurable via `WORKFLOW_RUN_RETENTION_DAYS`) are purged hourly.
 - [x] Workspace membership authorization and permission checks on mutating workspace-scoped endpoints.
 
 ### Workflow builder UI
@@ -308,13 +334,11 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Per-node config panel with variable picker (`{{…}}` button) supporting both built-in and user-defined variables.
 - [x] Save draft and Publish / Unpublish toggle with validation error banner.
 - [x] Node palette: Trigger, Send Message, Condition, HTTP Request, Set Variable, Ask Question, Jump To, End Conversation.
+- [x] Run logs UI — `/workflows/{id}/runs` lists run history with status, error preview, and a step-by-step breakdown of input/output snapshots and durations.
 
 ### Planned
+- [ ] AI agent — an LLM-powered agent that can manage conversations directly (read history, draft/send replies) and trigger a workflow when needed.
 - [ ] Decide upgrade proration policy for moving to a plan above PRO — wait for the current subscription to expire before switching, or start the new plan immediately and credit the unused balance from the current one.
-- [ ] Workflow run logs UI — list runs per workflow; step-by-step breakdown with input/output snapshots. Accessible to workspace members.
-- [ ] Telegram webhook verification (`X-Telegram-Bot-Api-Secret-Token`).
-- [ ] Broader role model beyond owner/member permissions.
-- [ ] Conversation assignment to workspace members.
 - [ ] Backend integration tests (Testcontainers, existing IT profile).
 - [ ] Frontend component tests for inbox states and composer.
 - [ ] Playwright end-to-end tests (CI only, not pre-commit).
@@ -331,6 +355,7 @@ The repository includes `hooks/pre-commit`. It runs:
 - Frontend typecheck: `npm run typecheck`
 - Frontend format check: `npm run format:check`
 - Frontend unit/component tests: `npm run test`
+- Marketing lint, typecheck, and format check (`apps/marketing`)
 
 Install with:
 

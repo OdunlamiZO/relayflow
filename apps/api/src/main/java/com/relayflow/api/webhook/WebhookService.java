@@ -1,6 +1,6 @@
 package com.relayflow.api.webhook;
 
-import com.relayflow.api.configuration.CredentialEncryptionService;
+import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.webhook.dto.RotateWebhookSecretResponse;
 import com.relayflow.api.webhook.dto.SaveWebhookRequest;
 import com.relayflow.api.webhook.dto.WebhookConfigResponse;
@@ -25,11 +25,15 @@ public class WebhookService {
 
     private final CredentialEncryptionService encryptionService;
 
+    private final WebhookUrlValidator urlValidator;
+
     public WebhookService(
             WorkspaceWebhookRepository webhookRepository,
-            CredentialEncryptionService encryptionService) {
+            CredentialEncryptionService encryptionService,
+            WebhookUrlValidator urlValidator) {
         this.webhookRepository = webhookRepository;
         this.encryptionService = encryptionService;
+        this.urlValidator = urlValidator;
     }
 
     @Transactional(readOnly = true)
@@ -46,6 +50,8 @@ public class WebhookService {
      */
     @Transactional
     public WebhookConfigResponse saveWebhook(UUID workspaceId, SaveWebhookRequest request) {
+        urlValidator.validate(request.url());
+
         WorkspaceWebhook webhook = webhookRepository.findByWorkspace(workspaceId).orElse(null);
 
         if (webhook == null) {

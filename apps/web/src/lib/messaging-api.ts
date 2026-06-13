@@ -17,6 +17,7 @@ export type Workspace = {
   id: string;
   name: string;
   createdAt: string;
+  telegramLinked: boolean;
 };
 
 export type ChannelAccount = {
@@ -64,7 +65,7 @@ export type Conversation = {
   channelAccountName: string;
   status: ConversationStatus;
   lockedByWorkflow: boolean;
-  assignedUserId: string | null;
+  assigneeId: string | null;
   lastMessageAt: string | null;
   createdAt: string;
 };
@@ -82,6 +83,10 @@ export type Message = {
 };
 
 export type CreateWorkspaceRequest = {
+  name: string;
+};
+
+export type UpdateWorkspaceRequest = {
   name: string;
 };
 
@@ -118,11 +123,15 @@ export type CreateConversationRequest = {
   contactId: string;
   channelAccountId: string;
   status?: ConversationStatus;
-  assignedUserId?: string;
+  assigneeId?: string;
 };
 
 export type UpdateConversationRequest = {
   status: ConversationStatus;
+};
+
+export type UpdateAssigneeRequest = {
+  assigneeId: string | null;
 };
 
 export type CreateMessageRequest = {
@@ -264,6 +273,37 @@ export type UpdateWorkflowRequest = {
   draftGraph?: JsonObject;
 };
 
+export type WorkflowRunStatus = "RUNNING" | "WAITING" | "COMPLETED" | "FAILED";
+export type WorkflowRunStepStatus = "COMPLETED" | "FAILED" | "SKIPPED";
+
+export type WorkflowRun = {
+  id: string;
+  workflowDefinitionId: string;
+  conversationId: string;
+  status: WorkflowRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  errorMessage: string | null;
+  waitingAtNodeId: string | null;
+};
+
+export type WorkflowRunStep = {
+  id: string;
+  nodeId: string;
+  nodeType: string;
+  status: WorkflowRunStepStatus;
+  inputSnapshot: JsonObject;
+  outputSnapshot: JsonObject;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+};
+
+export type WorkflowRunDetail = WorkflowRun & {
+  steps: WorkflowRunStep[];
+};
+
 export type Plan = "FREE" | "PRO_MONTHLY" | "PRO_ANNUAL";
 
 export type BillingInterval = "monthly" | "annual";
@@ -305,7 +345,7 @@ export type Subscription = {
   downgradeLockedWorkflows: number | null;
 };
 
-/** A single entry from the public plan catalogue — GET /api/plans. */
+/** A single entry from the public plan catalogue — GET /plans. */
 export type PlanInfo = {
   plan: Plan;
   /** Maximum channel accounts allowed. null means unlimited. */
@@ -357,24 +397,34 @@ export class MessagingApiClient {
   }
 
   listWorkspaces() {
-    return this.request<Workspace[]>("/api/workspaces");
+    return this.request<Workspace[]>("/workspaces");
   }
 
   createWorkspace(request: CreateWorkspaceRequest) {
-    return this.request<Workspace>("/api/workspaces", {
+    return this.request<Workspace>("/workspaces", {
       method: "POST",
       body: request,
     });
   }
 
+  updateWorkspace(workspaceId: string, request: UpdateWorkspaceRequest) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}`,
+      {
+        method: "PATCH",
+        body: request,
+      }
+    );
+  }
+
   listChannelAccounts(workspaceId: string) {
     return this.request<ChannelAccount[]>(
-      `/api/channel-accounts?workspaceId=${encodeURIComponent(workspaceId)}`
+      `/channel-accounts?workspaceId=${encodeURIComponent(workspaceId)}`
     );
   }
 
   createChannelAccount(request: CreateChannelAccountRequest) {
-    return this.request<ChannelAccount>("/api/channel-accounts", {
+    return this.request<ChannelAccount>("/channel-accounts", {
       method: "POST",
       body: request,
     });
@@ -382,26 +432,26 @@ export class MessagingApiClient {
 
   deleteChannelAccount(id: string, workspaceId: string) {
     return this.request<void>(
-      `/api/channel-accounts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      `/channel-accounts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
       { method: "DELETE" }
     );
   }
 
   reconnectChannelAccount(id: string, workspaceId: string) {
     return this.request<ChannelAccount>(
-      `/api/channel-accounts/${id}/reconnect?workspaceId=${encodeURIComponent(workspaceId)}`,
+      `/channel-accounts/${id}/reconnect?workspaceId=${encodeURIComponent(workspaceId)}`,
       { method: "POST" }
     );
   }
 
   listContacts(workspaceId: string, page = 0, size = 50) {
     return this.request<PageResponse<Contact>>(
-      `/api/contacts?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`
+      `/contacts?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`
     );
   }
 
   createContact(request: CreateContactRequest) {
-    return this.request<Contact>("/api/contacts", {
+    return this.request<Contact>("/contacts", {
       method: "POST",
       body: request,
     });
@@ -409,7 +459,7 @@ export class MessagingApiClient {
 
   getContact(id: string, workspaceId: string) {
     return this.request<ContactDetail>(
-      `/api/contacts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
+      `/contacts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
     );
   }
 
@@ -419,27 +469,27 @@ export class MessagingApiClient {
     request: MergeContactRequest
   ) {
     return this.request<Contact>(
-      `/api/contacts/${targetId}/merge?workspaceId=${encodeURIComponent(workspaceId)}`,
+      `/contacts/${targetId}/merge?workspaceId=${encodeURIComponent(workspaceId)}`,
       { method: "POST", body: request }
     );
   }
 
   deleteContact(id: string, workspaceId: string) {
     return this.request<void>(
-      `/api/contacts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      `/contacts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
       { method: "DELETE" }
     );
   }
 
   createExternalIdentity(request: CreateExternalIdentityRequest) {
-    return this.request<ExternalIdentity>("/api/external-identities", {
+    return this.request<ExternalIdentity>("/external-identities", {
       method: "POST",
       body: request,
     });
   }
 
   createConversation(request: CreateConversationRequest) {
-    return this.request<Conversation>("/api/conversations", {
+    return this.request<Conversation>("/conversations", {
       method: "POST",
       body: request,
     });
@@ -451,7 +501,7 @@ export class MessagingApiClient {
     size = 30,
     contactId?: string
   ) {
-    let url = `/api/conversations?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`;
+    let url = `/conversations?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`;
 
     if (contactId) {
       url += `&contactId=${encodeURIComponent(contactId)}`;
@@ -462,7 +512,7 @@ export class MessagingApiClient {
 
   getConversation(workspaceId: string, conversationId: string) {
     return this.request<Conversation>(
-      `/api/conversations/${conversationId}?workspaceId=${encodeURIComponent(workspaceId)}`
+      `/conversations/${conversationId}?workspaceId=${encodeURIComponent(workspaceId)}`
     );
   }
 
@@ -472,7 +522,18 @@ export class MessagingApiClient {
     request: UpdateConversationRequest
   ) {
     return this.request<Conversation>(
-      `/api/conversations/${conversationId}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      `/conversations/${conversationId}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "PATCH", body: request }
+    );
+  }
+
+  updateConversationAssignee(
+    workspaceId: string,
+    conversationId: string,
+    request: UpdateAssigneeRequest
+  ) {
+    return this.request<Conversation>(
+      `/conversations/${conversationId}/assignee?workspaceId=${encodeURIComponent(workspaceId)}`,
       { method: "PATCH", body: request }
     );
   }
@@ -482,7 +543,7 @@ export class MessagingApiClient {
     conversationId: string,
     params?: { before?: string; limit?: number }
   ) {
-    let url = `/api/conversations/${conversationId}/messages?workspaceId=${encodeURIComponent(workspaceId)}`;
+    let url = `/conversations/${conversationId}/messages?workspaceId=${encodeURIComponent(workspaceId)}`;
 
     if (params?.before) {
       url += `&before=${encodeURIComponent(params.before)}`;
@@ -501,7 +562,7 @@ export class MessagingApiClient {
     request: CreateMessageRequest
   ) {
     return this.request<Message>(
-      `/api/conversations/${conversationId}/messages?workspaceId=${encodeURIComponent(
+      `/conversations/${conversationId}/messages?workspaceId=${encodeURIComponent(
         workspaceId
       )}`,
       {
@@ -513,33 +574,31 @@ export class MessagingApiClient {
 
   listInvites(workspaceId: string) {
     return this.request<WorkspaceInvite[]>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/invites`
+      `/workspaces/${encodeURIComponent(workspaceId)}/invites`
     );
   }
 
   createInvite(workspaceId: string, request: CreateInviteRequest) {
     return this.request<WorkspaceInvite>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/invites`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/invites`,
       { method: "POST", body: request }
     );
   }
 
   revokeInvite(workspaceId: string, inviteId: string) {
     return this.request<void>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}`,
       { method: "DELETE" }
     );
   }
 
   getInvitePreview(token: string) {
-    return this.request<InvitePreview>(
-      `/api/invites/${encodeURIComponent(token)}`
-    );
+    return this.request<InvitePreview>(`/invites/${encodeURIComponent(token)}`);
   }
 
   acceptInvite(token: string) {
     return this.request<{ workspaceId: string }>(
-      `/api/invites/${encodeURIComponent(token)}/accept`,
+      `/invites/${encodeURIComponent(token)}/accept`,
       {
         method: "POST",
       }
@@ -548,13 +607,13 @@ export class MessagingApiClient {
 
   listMembers(workspaceId: string) {
     return this.request<WorkspaceMember[]>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/members`
+      `/workspaces/${encodeURIComponent(workspaceId)}/members`
     );
   }
 
   inviteMember(workspaceId: string, request: InviteMemberRequest) {
     return this.request<WorkspaceMember>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/members`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/members`,
       { method: "POST", body: request }
     );
   }
@@ -565,26 +624,26 @@ export class MessagingApiClient {
     request: UpdateMemberRequest
   ) {
     return this.request<WorkspaceMember>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
       { method: "PATCH", body: request }
     );
   }
 
   removeMember(workspaceId: string, memberId: string) {
     return this.request<void>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
       { method: "DELETE" }
     );
   }
 
   listWorkflows(workspaceId: string) {
     return this.request<WorkflowDefinition[]>(
-      `/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`
+      `/workflows?workspaceId=${encodeURIComponent(workspaceId)}`
     );
   }
 
   createWorkflow(request: CreateWorkflowRequest) {
-    return this.request<WorkflowDefinition>("/api/workflows", {
+    return this.request<WorkflowDefinition>("/workflows", {
       method: "POST",
       body: request,
     });
@@ -592,7 +651,7 @@ export class MessagingApiClient {
 
   getWorkflow(id: string, workspaceId: string) {
     return this.request<WorkflowDefinition>(
-      `/api/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
+      `/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
     );
   }
 
@@ -602,14 +661,31 @@ export class MessagingApiClient {
     request: UpdateWorkflowRequest
   ) {
     return this.request<WorkflowDefinition>(
-      `/api/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      `/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
       { method: "PATCH", body: request }
+    );
+  }
+
+  listWorkflowRuns(
+    workflowId: string,
+    workspaceId: string,
+    page = 0,
+    size = 30
+  ) {
+    return this.request<PageResponse<WorkflowRun>>(
+      `/workflows/${workflowId}/runs?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`
+    );
+  }
+
+  getWorkflowRun(workflowId: string, runId: string, workspaceId: string) {
+    return this.request<WorkflowRunDetail>(
+      `/workflows/${workflowId}/runs/${runId}?workspaceId=${encodeURIComponent(workspaceId)}`
     );
   }
 
   deleteWorkflow(id: string, workspaceId: string) {
     return this.request<void>(
-      `/api/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      `/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
       { method: "DELETE" }
     );
   }
@@ -618,20 +694,20 @@ export class MessagingApiClient {
 
   listApiKeys(workspaceId: string) {
     return this.request<ApiKey[]>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/api-keys`
+      `/workspaces/${encodeURIComponent(workspaceId)}/api-keys`
     );
   }
 
   createApiKey(workspaceId: string, request: CreateApiKeyRequest) {
     return this.request<CreateApiKeyResponse>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/api-keys`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/api-keys`,
       { method: "POST", body: request }
     );
   }
 
   revokeApiKey(workspaceId: string, keyId: string) {
     return this.request<void>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/api-keys/${encodeURIComponent(keyId)}`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/api-keys/${encodeURIComponent(keyId)}`,
       { method: "DELETE" }
     );
   }
@@ -640,27 +716,27 @@ export class MessagingApiClient {
 
   getWebhook(workspaceId: string) {
     return this.request<WebhookConfig>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/webhook`
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhook`
     );
   }
 
   saveWebhook(workspaceId: string, request: SaveWebhookRequest) {
     return this.request<WebhookConfig>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/webhook`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhook`,
       { method: "PUT", body: request }
     );
   }
 
   deleteWebhook(workspaceId: string) {
     return this.request<void>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/webhook`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhook`,
       { method: "DELETE" }
     );
   }
 
   rotateWebhookSecret(workspaceId: string) {
     return this.request<RotateWebhookSecretResponse>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/webhook/rotate-secret`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhook/rotate-secret`,
       { method: "POST" }
     );
   }
@@ -669,12 +745,12 @@ export class MessagingApiClient {
 
   /** Returns the public plan catalogue with live limits, pricing, and availability. */
   getPlans() {
-    return this.request<PlanInfo[]>("/api/plans");
+    return this.request<PlanInfo[]>("/plans");
   }
 
   getSubscription(workspaceId: string) {
     return this.request<Subscription>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/subscription`
+      `/workspaces/${encodeURIComponent(workspaceId)}/subscription`
     );
   }
 
@@ -684,7 +760,7 @@ export class MessagingApiClient {
    */
   startCheckout(workspaceId: string, plan: Plan) {
     return this.request<{ authorizationUrl: string }>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/subscription/checkout`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/subscription/checkout`,
       { method: "POST", body: { plan } }
     );
   }
@@ -695,7 +771,7 @@ export class MessagingApiClient {
    */
   cancelSubscription(workspaceId: string) {
     return this.request<void>(
-      `/api/workspaces/${encodeURIComponent(workspaceId)}/subscription`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/subscription`,
       { method: "DELETE" }
     );
   }

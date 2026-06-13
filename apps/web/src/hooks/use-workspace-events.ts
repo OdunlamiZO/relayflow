@@ -34,7 +34,7 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
       return;
     }
 
-    const url = `${API_BASE_URL}/api/sse/workspace/${workspaceId}`;
+    const url = `${API_BASE_URL}/sse/workspace/${workspaceId}`;
     const es = new EventSource(url, { withCredentials: true });
 
     esRef.current = es;

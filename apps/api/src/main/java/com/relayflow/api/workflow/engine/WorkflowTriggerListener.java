@@ -1,5 +1,6 @@
 package com.relayflow.api.workflow.engine;
 
+import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import java.util.List;
@@ -101,7 +102,7 @@ public class WorkflowTriggerListener {
                 (List<Map<String, Object>>) graph.getOrDefault("nodes", List.of());
 
         return nodes.stream()
-                .filter(n -> "trigger".equals(n.get("type")))
+                .filter(n -> NodeType.TRIGGER.getValue().equals(n.get("type")))
                 .anyMatch(
                         n -> {
                             Map<String, Object> data =

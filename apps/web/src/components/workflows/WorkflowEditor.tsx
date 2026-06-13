@@ -29,6 +29,8 @@ import "@xyflow/react/dist/style.css";
 
 import { Spinner } from "@/components/common/Spinner";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
+import { useAuthentication } from "@/hooks/use-authentication";
+import { useCurrentMember } from "@/hooks/use-current-member";
 import { useSaveWorkflow } from "@/hooks/use-save-workflow";
 import { useWorkflow } from "@/hooks/use-workflow";
 
@@ -130,11 +132,25 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
   );
   const { screenToFlowPosition } = useReactFlow();
 
+  const { user, isAnonymous } = useAuthentication();
+  const currentMember = useCurrentMember(workspaceId, user?.userId);
+
+  // While currentMember is loading (undefined), default to allowing edits so
+  // owners don't see a flash of a read-only editor.
+  const canEdit =
+    isAnonymous ||
+    !currentMember ||
+    currentMember.role === "OWNER" ||
+    currentMember.permissions.includes("WORKFLOWS_WRITE");
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [name, setName] = useState("");
   const [isDirty, setIsDirty] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Track which workflow we've initialised local state for.
   const [seenWorkflowId, setSeenWorkflowId] = useState<string | undefined>();
@@ -162,13 +178,16 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
 
   const isLocked = workflow?.enabled ?? false;
 
+  // Read-only when published, or when the user lacks WORKFLOWS_WRITE.
+  const readOnly = isLocked || !canEdit;
+
   const onConnect = useCallback(
     (connection: Connection) => {
-      if (isLocked) return;
+      if (readOnly) return;
       setEdges((eds) => addEdge(connection, eds));
       setIsDirty(true);
     },
-    [setEdges, isLocked]
+    [setEdges, readOnly]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -180,11 +199,16 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      if (isLocked) return;
+      if (readOnly) return;
 
       const type = event.dataTransfer.getData("application/reactflow");
 
       if (!type) return;
+
+      // Only one trigger node is allowed per workflow.
+      if (type === "trigger" && nodes.some((n) => n.type === "trigger")) {
+        return;
+      }
 
       const position = screenToFlowPosition({
         x: event.clientX,
@@ -206,8 +230,10 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
       setNodes((nds) => [...nds, newNode]);
       setIsDirty(true);
     },
-    [screenToFlowPosition, setNodes, isLocked]
+    [screenToFlowPosition, setNodes, readOnly, nodes]
   );
+
+  const hasTrigger = nodes.some((n) => n.type === "trigger");
 
   function handleSave() {
     setPublishError(null);
@@ -215,6 +241,73 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
       { name, draftGraph: { nodes, edges } as Record<string, unknown> },
       { onSuccess: () => setIsDirty(false) }
     );
+  }
+
+  function handleExport() {
+    const payload = { name, nodes, edges };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${name || "workflow"}.json`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportClick() {
+    importInputRef.current?.click();
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) return;
+
+    setImportError(null);
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string) as {
+          name?: unknown;
+          nodes?: unknown;
+          edges?: unknown;
+        };
+
+        if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+          throw new Error("File is missing nodes/edges.");
+        }
+
+        const importedNodes = parsed.nodes as Node[];
+        const importedEdges = parsed.edges as Edge[];
+
+        setNodes(importedNodes);
+        setEdges(importedEdges);
+        setIsDirty(true);
+
+        if (typeof parsed.name === "string" && parsed.name.trim()) {
+          setName(parsed.name);
+        }
+
+        // Keep future-generated node ids unique relative to the imported graph.
+        const maxId = importedNodes.reduce((max, node) => {
+          const match = /-(\d+)$/.exec(node.id);
+
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        nodeIdRef.current = Math.max(nodeIdRef.current, maxId);
+      } catch {
+        setImportError("Couldn't import workflow: invalid file.");
+      }
+    };
+
+    reader.readAsText(file);
   }
 
   function handlePublishToggle() {
@@ -262,7 +355,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     );
   }
 
-  const selectedNode = (!isLocked && nodes.find((n) => n.selected)) ?? null;
+  const selectedNode = (!readOnly && nodes.find((n) => n.selected)) ?? null;
 
   function closeConfigPanel() {
     setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
@@ -292,20 +385,20 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
             <input
               type="text"
               value={name}
-              readOnly={isLocked}
+              readOnly={readOnly}
               onChange={(e) => {
-                if (isLocked) return;
+                if (readOnly) return;
                 setName(e.target.value);
                 setIsDirty(true);
               }}
               className={`flex-1 bg-transparent text-sm font-semibold text-neutral-800 outline-none placeholder:text-neutral-400 focus:text-neutral-900 ${
-                isLocked ? "cursor-default select-none" : ""
+                readOnly ? "cursor-default select-none" : ""
               }`}
               aria-label="Workflow name"
               placeholder="Untitled workflow"
             />
 
-            {!isLocked && (
+            {!readOnly && (
               <button
                 onClick={handleSave}
                 disabled={!isDirty || isSaving}
@@ -321,23 +414,76 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               </button>
             )}
 
-            <button
-              onClick={handlePublishToggle}
-              disabled={isSaving}
-              className={`flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition-colors disabled:opacity-40 ${
-                workflow.enabled
-                  ? "border-green-border bg-green-bg text-green-text hover:bg-green-bg-hover"
-                  : "border-neutral-300 bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
+            <Link
+              href={`/workflows/${workflowId}/runs?workspaceId=${workspaceId}`}
+              className="flex h-7 items-center gap-1.5 rounded-md border border-neutral-300 bg-neutral-100 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
             >
               <span
                 className="material-symbols-rounded text-[12px] leading-none"
                 aria-hidden="true"
               >
-                {workflow.enabled ? "stop_circle" : "play_arrow"}
+                history
               </span>
-              {workflow.enabled ? "Unpublish" : "Publish"}
+              Runs
+            </Link>
+
+            <button
+              onClick={handleExport}
+              className="flex h-7 items-center gap-1.5 rounded-md border border-neutral-300 bg-neutral-100 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
+            >
+              <span
+                className="material-symbols-rounded text-[12px] leading-none"
+                aria-hidden="true"
+              >
+                download
+              </span>
+              Export
             </button>
+
+            {!readOnly && (
+              <>
+                <button
+                  onClick={handleImportClick}
+                  className="flex h-7 items-center gap-1.5 rounded-md border border-neutral-300 bg-neutral-100 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
+                >
+                  <span
+                    className="material-symbols-rounded text-[12px] leading-none"
+                    aria-hidden="true"
+                  >
+                    upload
+                  </span>
+                  Import
+                </button>
+
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json"
+                  onChange={handleImportFile}
+                  className="hidden"
+                />
+              </>
+            )}
+
+            {canEdit && (
+              <button
+                onClick={handlePublishToggle}
+                disabled={isSaving}
+                className={`flex h-7 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition-colors disabled:opacity-40 ${
+                  workflow.enabled
+                    ? "border-green-border bg-green-bg text-green-text hover:bg-green-bg-hover"
+                    : "border-neutral-300 bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                }`}
+              >
+                <span
+                  className="material-symbols-rounded text-[12px] leading-none"
+                  aria-hidden="true"
+                >
+                  {workflow.enabled ? "stop_circle" : "play_arrow"}
+                </span>
+                {workflow.enabled ? "Unpublish" : "Publish"}
+              </button>
+            )}
           </div>
 
           {isLocked && (
@@ -365,30 +511,56 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               <p className="text-xs text-red-text">{publishError}</p>
             </div>
           )}
+
+          {importError && (
+            <div className="flex items-center gap-2 border-t border-red-border/30 bg-red-bg px-4 py-2">
+              <span
+                className="material-symbols-rounded mt-px flex-shrink-0 text-[14px] leading-none text-red-text"
+                aria-hidden="true"
+              >
+                error
+              </span>
+              <p className="text-xs text-red-text">{importError}</p>
+            </div>
+          )}
         </div>
 
         {/* Node palette — horizontal scroll on mobile */}
-        {!isLocked && (
+        {!readOnly && (
           <div className="flex flex-shrink-0 gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-100 p-2 md:hidden">
-            {palette.map(({ type, label, icon, color }) => (
-              <div
-                key={type}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("application/reactflow", type);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                className={`flex flex-shrink-0 cursor-grab items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium select-none active:cursor-grabbing ${color}`}
-              >
-                <span
-                  className="material-symbols-rounded text-[13px] leading-none"
-                  aria-hidden="true"
+            {palette.map(({ type, label, icon, color }) => {
+              const isTriggerDisabled = type === "trigger" && hasTrigger;
+
+              return (
+                <div
+                  key={type}
+                  draggable={!isTriggerDisabled}
+                  onDragStart={(e) => {
+                    if (isTriggerDisabled) return;
+                    e.dataTransfer.setData("application/reactflow", type);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  title={
+                    isTriggerDisabled
+                      ? "Only one trigger is allowed per workflow"
+                      : undefined
+                  }
+                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium select-none ${color} ${
+                    isTriggerDisabled
+                      ? "cursor-not-allowed opacity-40"
+                      : "cursor-grab active:cursor-grabbing"
+                  }`}
                 >
-                  {icon}
-                </span>
-                {label}
-              </div>
-            ))}
+                  <span
+                    className="material-symbols-rounded text-[13px] leading-none"
+                    aria-hidden="true"
+                  >
+                    {icon}
+                  </span>
+                  {label}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -400,30 +572,40 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               Nodes
             </p>
 
-            {palette.map(({ type, label, icon, color }) => (
-              <div
-                key={type}
-                draggable={!isLocked}
-                onDragStart={(e) => {
-                  if (isLocked) return;
-                  e.dataTransfer.setData("application/reactflow", type);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium select-none ${color} ${
-                  isLocked
-                    ? "cursor-not-allowed opacity-40"
-                    : "cursor-grab active:cursor-grabbing"
-                }`}
-              >
-                <span
-                  className="material-symbols-rounded text-[14px] leading-none"
-                  aria-hidden="true"
+            {palette.map(({ type, label, icon, color }) => {
+              const isTriggerDisabled = type === "trigger" && hasTrigger;
+              const disabled = readOnly || isTriggerDisabled;
+
+              return (
+                <div
+                  key={type}
+                  draggable={!disabled}
+                  onDragStart={(e) => {
+                    if (disabled) return;
+                    e.dataTransfer.setData("application/reactflow", type);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  title={
+                    isTriggerDisabled
+                      ? "Only one trigger is allowed per workflow"
+                      : undefined
+                  }
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium select-none ${color} ${
+                    disabled
+                      ? "cursor-not-allowed opacity-40"
+                      : "cursor-grab active:cursor-grabbing"
+                  }`}
                 >
-                  {icon}
-                </span>
-                {label}
-              </div>
-            ))}
+                  <span
+                    className="material-symbols-rounded text-[14px] leading-none"
+                    aria-hidden="true"
+                  >
+                    {icon}
+                  </span>
+                  {label}
+                </div>
+              );
+            })}
           </aside>
 
           {/* React Flow canvas */}
@@ -436,7 +618,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               // not user edits. Only position, add, remove, and replace changes
               // mean the graph actually changed.
               if (
-                !isLocked &&
+                !readOnly &&
                 changes.some(
                   (c) => c.type !== "select" && c.type !== "dimensions"
                 )
@@ -446,7 +628,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
             }}
             onEdgesChange={(changes) => {
               onEdgesChange(changes);
-              if (!isLocked && changes.some((c) => c.type !== "select")) {
+              if (!readOnly && changes.some((c) => c.type !== "select")) {
                 setIsDirty(true);
               }
             }}
@@ -455,10 +637,10 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
             onDragOver={onDragOver}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            nodesDraggable={!isLocked}
-            nodesConnectable={!isLocked}
-            elementsSelectable={!isLocked}
-            deleteKeyCode={isLocked ? null : "Backspace"}
+            nodesDraggable={!readOnly}
+            nodesConnectable={!readOnly}
+            elementsSelectable={!readOnly}
+            deleteKeyCode={readOnly ? null : "Backspace"}
             fitView
             proOptions={{ hideAttribution: true }}
             className="bg-neutral-200"

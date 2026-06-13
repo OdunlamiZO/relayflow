@@ -38,6 +38,17 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Node / Next.js (marketing)
+apps/marketing/node_modules/
+apps/marketing/.next/
+apps/marketing/out/
+apps/marketing/build/
+apps/marketing/dist/
+apps/marketing/.turbo/
+apps/marketing/.vercel/
+apps/marketing/tsconfig.tsbuildinfo
+apps/marketing/.eslintcache
+
 # Environment files
 .env
 .env.*
@@ -50,6 +61,9 @@ apps/api/src/main/resources/.env
 apps/web/.env
 apps/web/.env.*
 !apps/web/.env.example
+apps/marketing/.env
+apps/marketing/.env.*
+!apps/marketing/.env.example
 
 # Local runtime data
 postgres_data/

@@ -12,27 +12,36 @@ import java.util.Map;
  *     will mark the run {@code WAITING} and stop walking
  * @param jumpToNodeId when non-null, the engine skips edge resolution entirely and jumps directly
  *     to the node with this id
+ * @param timeoutSeconds when {@code waiting} is {@code true}, the number of seconds after which the
+ *     run should be failed if no reply arrives; {@code null} means no timeout
  */
 public record NodeExecutionResult(
-        String nextHandle, Map<String, Object> output, boolean waiting, String jumpToNodeId) {
+        String nextHandle,
+        Map<String, Object> output,
+        boolean waiting,
+        String jumpToNodeId,
+        Long timeoutSeconds) {
 
     /** Use when the node has a single output and no branching. */
     public static NodeExecutionResult next(Map<String, Object> output) {
-        return new NodeExecutionResult(null, output, false, null);
+        return new NodeExecutionResult(null, output, false, null, null);
     }
 
     /** Use when the node branches via a named handle. */
     public static NodeExecutionResult handle(String handle, Map<String, Object> output) {
-        return new NodeExecutionResult(handle, output, false, null);
+        return new NodeExecutionResult(handle, output, false, null, null);
     }
 
-    /** Use when the node pauses the run and waits for the contact to reply. */
-    public static NodeExecutionResult waiting(Map<String, Object> output) {
-        return new NodeExecutionResult(null, output, true, null);
+    /**
+     * Use when the node pauses the run and waits for the contact to reply, failing the run after
+     * {@code timeoutSeconds} if no reply arrives.
+     */
+    public static NodeExecutionResult waiting(Map<String, Object> output, long timeoutSeconds) {
+        return new NodeExecutionResult(null, output, true, null, timeoutSeconds);
     }
 
     /** Use when the node must redirect execution directly to another node by id. */
     public static NodeExecutionResult jumpTo(String nodeId, Map<String, Object> output) {
-        return new NodeExecutionResult(null, output, false, nodeId);
+        return new NodeExecutionResult(null, output, false, nodeId, null);
     }
 }

@@ -1,4 +1,4 @@
-package com.relayflow.api.configuration;
+package com.relayflow.api.security;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -14,13 +14,9 @@ import org.springframework.stereotype.Service;
 /**
  * AES-256-GCM encryption for sensitive credentials stored in the database (e.g. bot tokens).
  *
- * <p>Encrypted values are stored as {@code ENC:{iv_base64}:{ciphertext_base64}}. If no encryption
- * key is configured the service passes values through unchanged — this is backward compatible and
- * allows the key to be introduced without a data migration.
- *
- * <p>Legacy plaintext values (no {@code ENC:} prefix) are returned as-is from {@link #decrypt},
- * which supports a rolling migration: any plaintext token that was stored before the key was
- * configured will continue to work until it is re-saved.
+ * <p>Encrypted values are stored as {@code ENC:{iv_base64}:{ciphertext_base64}}. A {@code
+ * relayflow.encryption.key} must always be configured — the application refuses to start otherwise,
+ * so credentials can never be silently stored as plaintext.
  *
  * <p>Generate a suitable key with: {@code openssl rand -base64 32}
  */
@@ -36,34 +32,22 @@ public class CredentialEncryptionService {
 
     private final SecretKeySpec secretKey;
 
-    private final boolean enabled;
-
     public CredentialEncryptionService(@Value("${relayflow.encryption.key:}") String base64Key) {
         if (base64Key == null || base64Key.isBlank()) {
-            log.warn(
-                    "relayflow.encryption.key is not set"
-                            + " — credentials will be stored as plaintext. "
+            throw new IllegalStateException(
+                    "relayflow.encryption.key is required but was not set. "
                             + "Set RELAYFLOW_ENCRYPTION_KEY (generate with: openssl rand -base64 32)");
-            this.secretKey = null;
-            this.enabled = false;
-        } else {
-            byte[] keyBytes = Base64.getDecoder().decode(base64Key);
-            this.secretKey = new SecretKeySpec(keyBytes, "AES");
-            this.enabled = true;
-            log.info("Credential encryption enabled (AES-256-GCM)");
         }
+
+        byte[] keyBytes = Base64.getDecoder().decode(base64Key);
+        this.secretKey = new SecretKeySpec(keyBytes, "AES");
+        log.info("Credential encryption enabled (AES-256-GCM)");
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    /**
-     * Encrypts {@code plaintext}. Returns {@code plaintext} unchanged if encryption is disabled.
-     */
+    /** Encrypts {@code plaintext}. Returns {@code null} unchanged. */
     public String encrypt(String plaintext) {
-        if (!enabled || plaintext == null) {
-            return plaintext;
+        if (plaintext == null) {
+            return null;
         }
 
         try {
@@ -85,16 +69,12 @@ public class CredentialEncryptionService {
     }
 
     /**
-     * Decrypts a value previously produced by {@link #encrypt}. Returns {@code value} unchanged if:
-     *
-     * <ul>
-     *   <li>encryption is disabled
-     *   <li>{@code value} is {@code null}
-     *   <li>{@code value} lacks the {@code ENC:} prefix (legacy plaintext — backward compatible)
-     * </ul>
+     * Decrypts a value previously produced by {@link #encrypt}. Returns {@code value} unchanged if
+     * it is {@code null} or lacks the {@code ENC:} prefix (legacy plaintext stored before
+     * encryption was mandatory — supports a rolling re-save migration).
      */
     public String decrypt(String value) {
-        if (!enabled || value == null || !value.startsWith(PREFIX)) {
+        if (value == null || !value.startsWith(PREFIX)) {
             return value;
         }
 

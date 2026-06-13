@@ -1,0 +1,78 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  darkMode: "class",
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+      },
+      colors: {
+        primary: {
+          DEFAULT: "var(--color-primary, #0E2456)",
+          light: "var(--color-primary-light, #1B3A7A)",
+          dark: "var(--color-primary-dark, #091840)",
+        },
+        secondary: {
+          DEFAULT: "var(--color-secondary, #2E69FF)",
+          light: "var(--color-secondary-light, #5585FF)",
+          dark: "var(--color-secondary-dark, #1A50E8)",
+        },
+        tertiary: {
+          DEFAULT: "var(--color-tertiary, #E1ECFF)",
+          light: "var(--color-tertiary-light, #F0F5FF)",
+          dark: "var(--color-tertiary-dark, #C5D8FF)",
+        },
+        accent: {
+          DEFAULT: "var(--color-accent, #2E69FF)",
+          light: "var(--color-accent-light, #5585FF)",
+          dark: "var(--color-accent-dark, #1A50E8)",
+        },
+        neutral: {
+          100: "var(--color-neutral-100, #FFFFFF)",
+          200: "var(--color-neutral-200, #FCFCFC)",
+          300: "var(--color-neutral-300, #E8EAED)",
+          400: "var(--color-neutral-400, #C4C9D1)",
+          500: "var(--color-neutral-500, #8A92A0)",
+          600: "var(--color-neutral-600, #5A6272)",
+          700: "var(--color-neutral-700, #3A4255)",
+          800: "var(--color-neutral-800, #2C2C2C)",
+          900: "var(--color-neutral-900, #000000)",
+        },
+        "green-bg": "var(--color-green-bg, #D1FAE5)",
+        "green-text": "var(--color-green-text, #065F46)",
+        "green-border": "var(--color-green-border, #34D399)",
+        "blue-bg": "var(--color-blue-bg, #E1ECFF)",
+        "blue-text": "var(--color-blue-text, #0E2456)",
+        "blue-border": "var(--color-blue-border, #2E69FF)",
+        "yellow-bg": "var(--color-yellow-bg, #FEF3C7)",
+        "yellow-text": "var(--color-yellow-text, #78350F)",
+        "yellow-border": "var(--color-yellow-border, #FBBF24)",
+        "red-bg": "var(--color-red-bg, #FEE2E2)",
+        "red-text": "var(--color-red-text, #991B1B)",
+        "red-border": "var(--color-red-border, #F87171)",
+        "purple-bg": "var(--color-purple-bg, #EDE9FE)",
+        "purple-text": "var(--color-purple-text, #6D28D9)",
+        "purple-border": "var(--color-purple-border, #A78BFA)",
+        "teal-bg": "var(--color-teal-bg, #CCFBF1)",
+        "teal-text": "var(--color-teal-text, #134E4A)",
+        "teal-border": "var(--color-teal-border, #2DD4BF)",
+      },
+    },
+    screens: {
+      sm: "480px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1440px",
+    },
+  },
+  plugins: [],
+};
+
+export default config;

@@ -63,7 +63,9 @@ export function Select({
         aria-expanded={isOpen}
         className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 transition-colors hover:border-neutral-300 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20"
       >
-        <span className={selected ? "text-neutral-800" : "text-neutral-400"}>
+        <span
+          className={`truncate ${selected ? "text-neutral-800" : "text-neutral-400"}`}
+        >
           {selected?.label ?? placeholder}
         </span>
 
@@ -96,11 +98,11 @@ export function Select({
                     : "text-neutral-700"
                 }`}
               >
-                {option.label}
+                <span className="min-w-0 truncate">{option.label}</span>
 
                 {option.value === value && (
                   <span
-                    className="material-symbols-rounded text-[15px] leading-none text-secondary"
+                    className="material-symbols-rounded ml-2 flex-shrink-0 text-[15px] leading-none text-secondary"
                     aria-hidden="true"
                   >
                     check

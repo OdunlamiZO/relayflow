@@ -28,17 +28,14 @@ describe("MessagingApiClient", () => {
     const workspace = await client.createWorkspace({ name: "RelayFlow" });
 
     expect(workspace.name).toBe("RelayFlow");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8080/api/workspaces",
-      {
-        body: JSON.stringify({ name: "RelayFlow" }),
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      }
-    );
+    expect(fetchMock).toHaveBeenCalledWith("http://localhost:8080/workspaces", {
+      body: JSON.stringify({ name: "RelayFlow" }),
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
   });
 
   it("builds message list requests with the workspace query parameter", async () => {
@@ -56,7 +53,7 @@ describe("MessagingApiClient", () => {
     await client.listMessages("workspace 1", "conversation-1");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8080/api/conversations/conversation-1/messages?workspaceId=workspace%201",
+      "http://localhost:8080/conversations/conversation-1/messages?workspaceId=workspace%201",
       {
         credentials: "include",
         headers: undefined,

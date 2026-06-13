@@ -16,12 +16,20 @@ export type ConditionOperator =
   | "is_set"
   | "is_not_set";
 
-export type ConditionBranch = {
+export type ConditionRule = {
   id: string;
-  label: string;
+  label?: string;
   variable?: string;
   operator?: ConditionOperator;
   value?: string;
+};
+
+export type ConditionBranch = {
+  id: string;
+  label: string;
+  /** How the branch's conditions are combined. Defaults to "and". Ignored with a single condition. */
+  combinator?: "and" | "or";
+  conditions?: ConditionRule[];
 };
 
 export type ConditionNodeData = {
@@ -47,21 +55,22 @@ export function ConditionNode({
 
   const branchFooter = (
     <div className="relative pb-5 pt-1">
+      {/* Branch numbers — full labels are listed in the body above instead, so
+          long or numerous branches don't overlap here. */}
       {branches.map((branch, i) => {
         const pct = ((i + 1) / (branchCount + 1)) * 100;
 
         return (
           <span
             key={branch.id}
-            className="absolute -translate-x-1/2 truncate text-[10px] text-neutral-400"
+            className="absolute -translate-x-1/2 text-[10px] font-semibold leading-none text-yellow-text"
             style={{ left: `${pct}%`, bottom: 8 }}
           >
-            {branch.label}
+            {i + 1}
           </span>
         );
       })}
 
-      {/* Dynamic source handles — same percentage origin as labels */}
       {branches.map((branch, i) => {
         const pct = ((i + 1) / (branchCount + 1)) * 100;
 
@@ -90,6 +99,19 @@ export function ConditionNode({
       isConnectable={isConnectable}
       selected={selected}
       footer={branchFooter}
-    />
+    >
+      <ul className="space-y-1">
+        {branches.map((branch, i) => (
+          <li key={branch.id} className="flex gap-1.5 text-neutral-500">
+            <span className="flex-shrink-0 font-semibold text-yellow-text">
+              {i + 1}.
+            </span>
+            <span className="line-clamp-2 break-words">
+              {branch.label || `Branch ${i + 1}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </WorkflowNode>
   );
 }

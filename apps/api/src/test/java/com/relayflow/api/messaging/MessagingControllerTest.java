@@ -68,9 +68,10 @@ class MessagingControllerTest {
                                 new WorkspaceResponse(
                                         workspaceId,
                                         "Acme",
-                                        Instant.parse("2026-05-26T10:00:00Z"))));
+                                        Instant.parse("2026-05-26T10:00:00Z"),
+                                        false)));
 
-        mockMvc.perform(get("/api/workspaces"))
+        mockMvc.perform(get("/workspaces"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(workspaceId.toString()))
                 .andExpect(jsonPath("$[0].name").value("Acme"));
@@ -84,10 +85,13 @@ class MessagingControllerTest {
         when(messagingService.createWorkspace(any(CreateWorkspaceRequest.class), eq(userId)))
                 .thenReturn(
                         new WorkspaceResponse(
-                                workspaceId, "RelayFlow", Instant.parse("2026-05-26T10:00:00Z")));
+                                workspaceId,
+                                "RelayFlow",
+                                Instant.parse("2026-05-26T10:00:00Z"),
+                                false));
 
         mockMvc.perform(
-                        post("/api/workspaces")
+                        post("/workspaces")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         objectMapper.writeValueAsString(
@@ -116,7 +120,7 @@ class MessagingControllerTest {
                                         Map.of(),
                                         Instant.parse("2026-05-26T10:00:00Z"))));
 
-        mockMvc.perform(get("/api/channel-accounts").param("workspaceId", workspaceId.toString()))
+        mockMvc.perform(get("/channel-accounts").param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(channelId.toString()))
                 .andExpect(jsonPath("$[0].name").value("My Bot"))
@@ -144,7 +148,7 @@ class MessagingControllerTest {
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(
-                        post("/api/channel-accounts")
+                        post("/channel-accounts")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -158,7 +162,7 @@ class MessagingControllerTest {
         UUID channelId = UUID.randomUUID();
 
         mockMvc.perform(
-                        delete("/api/channel-accounts/{id}", channelId)
+                        delete("/channel-accounts/{id}", channelId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isNoContent());
 
@@ -182,7 +186,7 @@ class MessagingControllerTest {
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(
-                        post("/api/channel-accounts/{id}/reconnect", channelId)
+                        post("/channel-accounts/{id}/reconnect", channelId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
@@ -197,7 +201,7 @@ class MessagingControllerTest {
                 .disconnectChannelAccount(channelId, workspaceId);
 
         mockMvc.perform(
-                        delete("/api/channel-accounts/{id}", channelId)
+                        delete("/channel-accounts/{id}", channelId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Channel account not found"));
@@ -232,7 +236,7 @@ class MessagingControllerTest {
                                 false,
                                 null));
 
-        mockMvc.perform(get("/api/conversations").param("workspaceId", workspaceId.toString()))
+        mockMvc.perform(get("/conversations").param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].id").value(conversationId.toString()))
                 .andExpect(jsonPath("$.items[0].contactDisplayName").value("Ada"))
@@ -263,7 +267,7 @@ class MessagingControllerTest {
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(
-                        get("/api/conversations/{conversationId}", conversationId)
+                        get("/conversations/{conversationId}", conversationId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(conversationId.toString()))
@@ -278,7 +282,7 @@ class MessagingControllerTest {
                 .thenThrow(new ResourceNotFoundException("Conversation not found"));
 
         mockMvc.perform(
-                        get("/api/conversations/{conversationId}", conversationId)
+                        get("/conversations/{conversationId}", conversationId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Conversation not found"));
@@ -309,7 +313,7 @@ class MessagingControllerTest {
                                 null));
 
         mockMvc.perform(
-                        get("/api/conversations/{conversationId}/messages", conversationId)
+                        get("/conversations/{conversationId}/messages", conversationId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].id").value(messageId.toString()))
@@ -331,7 +335,10 @@ class MessagingControllerTest {
                         "telegram-1",
                         Map.of("source", "test"));
         when(messagingService.createMessage(
-                        eq(workspaceId), eq(conversationId), any(CreateMessageRequest.class)))
+                        eq(workspaceId),
+                        eq(conversationId),
+                        any(CreateMessageRequest.class),
+                        any()))
                 .thenReturn(
                         new MessageResponse(
                                 messageId,
@@ -345,7 +352,7 @@ class MessagingControllerTest {
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(
-                        post("/api/conversations/{conversationId}/messages", conversationId)
+                        post("/conversations/{conversationId}/messages", conversationId)
                                 .param("workspaceId", workspaceId.toString())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
@@ -356,7 +363,10 @@ class MessagingControllerTest {
 
         verify(messagingService)
                 .createMessage(
-                        eq(workspaceId), eq(conversationId), any(CreateMessageRequest.class));
+                        eq(workspaceId),
+                        eq(conversationId),
+                        any(CreateMessageRequest.class),
+                        any());
     }
 
     // ── Validation ────────────────────────────────────────────────────────────
@@ -367,7 +377,7 @@ class MessagingControllerTest {
                 new CreateConversationRequest(null, null, null, null, null);
 
         mockMvc.perform(
-                        post("/api/conversations")
+                        post("/conversations")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -375,11 +385,11 @@ class MessagingControllerTest {
 
     @Test
     void requiresWorkspaceIdForChannelAccounts() throws Exception {
-        mockMvc.perform(get("/api/channel-accounts")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/channel-accounts")).andExpect(status().isBadRequest());
     }
 
     @Test
     void requiresWorkspaceIdForConversations() throws Exception {
-        mockMvc.perform(get("/api/conversations")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/conversations")).andExpect(status().isBadRequest());
     }
 }

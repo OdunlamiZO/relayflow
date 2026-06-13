@@ -17,7 +17,7 @@ public interface ChannelAccountRepository extends JpaRepository<ChannelAccount, 
 
     @Modifying
     @Query("UPDATE ChannelAccount ca SET ca.deletedAt = :now WHERE ca.workspace.id = :workspaceId")
-    void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
+    void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
 
     @Query("select ca from ChannelAccount ca where ca.workspace.id = :workspaceId")
     List<ChannelAccount> findByWorkspace(@Param("workspaceId") UUID workspaceId);
@@ -57,4 +57,8 @@ public interface ChannelAccountRepository extends JpaRepository<ChannelAccount, 
     @Query(
             "select ca from ChannelAccount ca where ca.workspace.id = :workspaceId and ca.shared = false")
     List<ChannelAccount> findBillable(@Param("workspaceId") UUID workspaceId, Sort sort);
+
+    @Query(
+            "select ca from ChannelAccount ca where ca.workspace.id = :workspaceId and ca.shared = true")
+    List<ChannelAccount> findSharedByWorkspace(@Param("workspaceId") UUID workspaceId);
 }

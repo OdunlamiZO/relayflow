@@ -56,6 +56,10 @@ public class ChannelAccount {
     @Column(name = "encrypted_credentials")
     private String encryptedCredentials;
 
+    /** Secret Telegram echoes back in the {@code X-Telegram-Bot-Api-Secret-Token} header. */
+    @Column(name = "webhook_secret")
+    private String webhookSecret;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> metadata = new LinkedHashMap<>();

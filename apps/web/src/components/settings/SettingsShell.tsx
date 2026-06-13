@@ -10,6 +10,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 
 import { BillingPanel } from "./BillingPanel";
 import { ChannelsList } from "./ChannelsList";
+import { GeneralPanel } from "./GeneralPanel";
 import { IntegrationsPanel } from "./IntegrationsPanel";
 import { MembersList } from "./MembersList";
 
@@ -46,6 +47,9 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
 
   const isOwner = !isAnonymous && currentMember?.role === "OWNER";
 
+  // Guests always own their own (single-member) workspace.
+  const canRenameWorkspace = isAnonymous || isOwner;
+
   const { data: plans } = usePlans();
   const { data: subscription } = useSubscription(isOwner ? workspaceId : "");
 
@@ -55,6 +59,9 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
   const showBilling = isOwner && (hasPaidPlans || isOnPaidPlan);
 
   const navItems = [
+    ...(canRenameWorkspace
+      ? [{ href: "#general", icon: "settings", label: "General" }]
+      : []),
     ...(canSeeChannels
       ? [{ href: "#channels", icon: "hub", label: "Channels" }]
       : []),
@@ -176,8 +183,19 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
             ref={mainRef}
             className="flex-1 scroll-smooth overflow-y-auto pb-14 md:pb-0"
           >
+            {canRenameWorkspace && (
+              <div id="general">
+                <GeneralPanel workspaceId={workspaceId} />
+              </div>
+            )}
+
             {canSeeChannels && (
-              <div id="channels">
+              <div
+                id="channels"
+                className={
+                  canRenameWorkspace ? "border-t border-neutral-200" : ""
+                }
+              >
                 <ChannelsList workspaceId={workspaceId} />
               </div>
             )}
@@ -185,7 +203,11 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
             {!isAnonymous && (
               <div
                 id="members"
-                className={canSeeChannels ? "border-t border-neutral-200" : ""}
+                className={
+                  canSeeChannels || canRenameWorkspace
+                    ? "border-t border-neutral-200"
+                    : ""
+                }
               >
                 <MembersList
                   workspaceId={workspaceId}

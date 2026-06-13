@@ -10,13 +10,13 @@ import com.relayflow.api.authentication.repository.UserIdentityRepository;
 import com.relayflow.api.authentication.repository.UserMfaMethodRepository;
 import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
-import com.relayflow.api.configuration.CredentialEncryptionService;
 import com.relayflow.api.profile.dto.ChangePasswordRequest;
 import com.relayflow.api.profile.dto.DeleteAccountRequest;
 import com.relayflow.api.profile.dto.OtpRequest;
 import com.relayflow.api.profile.dto.ProfileResponse;
 import com.relayflow.api.profile.dto.Setup2FAResponse;
 import com.relayflow.api.profile.dto.UpdateProfileRequest;
+import com.relayflow.api.security.CredentialEncryptionService;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -231,8 +231,6 @@ public class ProfileService {
 
         log.info("2FA disabled: userId={}", userId);
     }
-
-    // ── helpers ───────────────────────────────────────────────────────────────
 
     private User requireUser(UUID userId) {
         return userRepository

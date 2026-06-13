@@ -45,7 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
  * charge.success} events and are processed the same way as the initial charge.
  */
 @RestController
-@RequestMapping("/api/paystack/webhook")
+@RequestMapping("/paystack/webhook")
 public class PaystackWebhookController {
 
     private static final Logger log = LoggerFactory.getLogger(PaystackWebhookController.class);

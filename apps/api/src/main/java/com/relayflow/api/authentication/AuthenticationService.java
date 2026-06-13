@@ -8,17 +8,21 @@ import com.relayflow.api.authentication.dto.LoginRequest;
 import com.relayflow.api.authentication.dto.SignupRequest;
 import com.relayflow.api.authentication.dto.SignupResponse;
 import com.relayflow.api.authentication.repository.EmailVerificationTokenRepository;
+import com.relayflow.api.authentication.repository.GuestRecoveryTokenRepository;
 import com.relayflow.api.authentication.repository.TwoFactorChallengeRepository;
 import com.relayflow.api.authentication.repository.UserIdentityRepository;
 import com.relayflow.api.authentication.repository.UserMfaMethodRepository;
 import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
-import com.relayflow.api.configuration.CredentialEncryptionService;
 import com.relayflow.api.email.EmailService;
 import com.relayflow.api.messaging.MessagingService;
+import com.relayflow.api.messaging.domain.WorkspaceMember;
 import com.relayflow.api.messaging.dto.CreateWorkspaceRequest;
 import com.relayflow.api.messaging.dto.WorkspaceResponse;
+import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.profile.TwoFactorService;
+import com.relayflow.api.security.CredentialEncryptionService;
+import com.relayflow.api.subscription.SubscriptionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.net.URLEncoder;
@@ -29,6 +33,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +69,10 @@ public class AuthenticationService {
 
     private final TwoFactorChallengeRepository challengeRepository;
 
+    private final GuestRecoveryTokenRepository guestRecoveryTokenRepository;
+
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+
     private final PasswordEncoder passwordEncoder;
 
     private final AuthenticationManager authenticationManager;
@@ -78,6 +87,8 @@ public class AuthenticationService {
 
     private final CredentialEncryptionService encryptionService;
 
+    private final SubscriptionService subscriptionService;
+
     private final String webBaseUrl;
 
     private final String sharedBotToken;
@@ -89,6 +100,8 @@ public class AuthenticationService {
             UserMfaMethodRepository mfaMethodRepository,
             EmailVerificationTokenRepository verificationTokenRepository,
             TwoFactorChallengeRepository challengeRepository,
+            GuestRecoveryTokenRepository guestRecoveryTokenRepository,
+            WorkspaceMemberRepository workspaceMemberRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             HttpSessionSecurityContextRepository securityContextRepository,
@@ -96,6 +109,7 @@ public class AuthenticationService {
             EmailService emailService,
             TwoFactorService twoFactorService,
             CredentialEncryptionService encryptionService,
+            SubscriptionService subscriptionService,
             @Value("${relayflow.web.base-url}") String webBaseUrl,
             @Value("${shared.telegram.bot-token:}") String sharedBotToken) {
         this.userRepository = userRepository;
@@ -104,6 +118,8 @@ public class AuthenticationService {
         this.mfaMethodRepository = mfaMethodRepository;
         this.verificationTokenRepository = verificationTokenRepository;
         this.challengeRepository = challengeRepository;
+        this.guestRecoveryTokenRepository = guestRecoveryTokenRepository;
+        this.workspaceMemberRepository = workspaceMemberRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
@@ -111,21 +127,59 @@ public class AuthenticationService {
         this.emailService = emailService;
         this.twoFactorService = twoFactorService;
         this.encryptionService = encryptionService;
+        this.subscriptionService = subscriptionService;
         this.webBaseUrl = webBaseUrl;
         this.sharedBotToken = sharedBotToken;
     }
 
     @Transactional
-    public SignupResponse signup(SignupRequest request) {
+    public SignupResponse signup(
+            SignupRequest request,
+            Authentication authentication,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "An account with this email already exists");
         }
 
-        User user = new User();
-        user.setEmail(request.email());
-        user.setDisplayName(request.name());
-        user = userRepository.save(user);
+        User user = currentAnonymousUser(authentication).orElse(null);
+
+        if (user != null) {
+            // Convert the guest account in place — the existing workspace, channels,
+            // conversations etc. stay linked to this user ID.
+            user.setEmail(request.email());
+            user.setDisplayName(request.name());
+            user.setAnonymous(false);
+            user = userRepository.save(user);
+
+            identityRepository.deleteAllByUser(user);
+            guestRecoveryTokenRepository.deleteByUser(user.getId());
+
+            // The guest workspace was exempt from plan limits — now that the owner is no
+            // longer anonymous, bring it in line with a normal FREE workspace.
+            workspaceMemberRepository
+                    .findByUser(user.getId())
+                    .forEach(
+                            member -> {
+                                subscriptionService.lockExcessFreeResources(
+                                        member.getWorkspaceId());
+                                messagingService.dropSharedTelegramChannel(member.getWorkspaceId());
+                            });
+
+            // Re-establish the session under the new email — the session principal is
+            // keyed by email, which just changed.
+            establishSessionForUser(user, httpRequest, httpResponse);
+        } else {
+            user = new User();
+            user.setEmail(request.email());
+            user.setDisplayName(request.name());
+            user = userRepository.save(user);
+
+            UserPreferences prefs = new UserPreferences();
+            prefs.setUser(user);
+            prefsRepository.save(prefs);
+        }
 
         UserIdentity identity = new UserIdentity();
         identity.setUser(user);
@@ -134,10 +188,6 @@ public class AuthenticationService {
         identity.setCredential(passwordEncoder.encode(request.password()));
         identity.setVerified(false);
         identityRepository.save(identity);
-
-        UserPreferences prefs = new UserPreferences();
-        prefs.setUser(user);
-        prefsRepository.save(prefs);
 
         String rawToken = generateToken();
         EmailVerificationToken verificationToken = new EmailVerificationToken();
@@ -374,7 +424,67 @@ public class AuthenticationService {
 
         establishSessionForUser(user, httpRequest, httpResponse);
 
-        return new GuestSessionResponse(workspace.id());
+        String recoveryToken = generateToken();
+        GuestRecoveryToken recovery = new GuestRecoveryToken();
+        recovery.setUserId(user.getId());
+        recovery.setToken(recoveryToken);
+        guestRecoveryTokenRepository.save(recovery);
+
+        return new GuestSessionResponse(workspace.id(), recoveryToken);
+    }
+
+    /**
+     * Re-establishes a session for a guest whose session expired or was lost (e.g. server restart,
+     * 30-minute idle timeout), using the recovery token issued at guest session creation. The token
+     * itself remains valid for reuse until the guest workspace is cleaned up by {@link
+     * GuestCleanupScheduler}.
+     */
+    @Transactional
+    public GuestSessionResponse recoverGuestSession(
+            String recoveryToken,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        GuestRecoveryToken recovery =
+                guestRecoveryTokenRepository
+                        .findByToken(recoveryToken)
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.GONE,
+                                                "This guest session no longer exists"));
+
+        User user =
+                userRepository
+                        .findById(recovery.getUserId())
+                        .filter(User::isAnonymous)
+                        .orElseThrow(
+                                () -> {
+                                    guestRecoveryTokenRepository.delete(recovery);
+
+                                    return new ResponseStatusException(
+                                            HttpStatus.GONE, "This guest session no longer exists");
+                                });
+
+        WorkspaceMember member =
+                workspaceMemberRepository.findByUser(user.getId()).stream()
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.GONE,
+                                                "This guest session no longer exists"));
+
+        user.setLastActiveAt(Instant.now());
+        userRepository.save(user);
+
+        establishSessionForUser(user, httpRequest, httpResponse);
+
+        log.info(
+                "Guest session recovered: userId={}, workspaceId={}",
+                user.getId(),
+                member.getWorkspaceId());
+
+        return new GuestSessionResponse(member.getWorkspaceId(), recoveryToken);
     }
 
     public AuthenticatedUserResponse getCurrentUser(Authentication authentication) {
@@ -435,7 +545,21 @@ public class AuthenticationService {
         return new AuthenticatedUserResponse(false, false, null, null, null, null, false, null);
     }
 
-    // ── private helpers ────────────────────────────────────────────────────────
+    /**
+     * Resolves the current session to its {@link User} if it belongs to an anonymous guest account,
+     * so {@link #signup} can convert it instead of creating a new account.
+     */
+    private Optional<User> currentAnonymousUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Optional.empty();
+        }
+
+        if (!(authentication.getPrincipal() instanceof UserDetails userDetails)) {
+            return Optional.empty();
+        }
+
+        return userRepository.findByEmail(userDetails.getUsername()).filter(User::isAnonymous);
+    }
 
     private void establishSession(
             String email,
