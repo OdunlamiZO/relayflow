@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Spinner } from "@/components/common/Spinner";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
+import { useAuthentication } from "@/hooks/use-authentication";
 import { useCreateWorkflow } from "@/hooks/use-create-workflow";
+import { useCurrentMember } from "@/hooks/use-current-member";
 import { errorMessage } from "@/lib/error-message";
 
 import { WorkflowsList } from "./WorkflowsList";
@@ -18,6 +20,17 @@ type Props = {
 export function WorkflowsShell({ workspaceId }: Props) {
   const router = useRouter();
   const { mutate: createWorkflow, isPending } = useCreateWorkflow();
+
+  const { user, isAnonymous } = useAuthentication();
+  const currentMember = useCurrentMember(workspaceId, user?.userId);
+
+  // While currentMember is loading (undefined), default to allowing creation
+  // so owners don't see a flash of a missing button.
+  const canCreateWorkflow =
+    isAnonymous ||
+    !currentMember ||
+    currentMember.role === "OWNER" ||
+    currentMember.permissions.includes("WORKFLOWS_WRITE");
 
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
@@ -77,28 +90,30 @@ export function WorkflowsShell({ workspaceId }: Props) {
             Workflows
           </span>
 
-          <button
-            onClick={() => {
-              setShowCreate((prev) => !prev);
-              setName("");
-              setCreateError(null);
-            }}
-            title="New workflow"
-            className={`flex items-center rounded-md p-1 transition-colors hover:bg-neutral-200 hover:text-neutral-700 ${
-              showCreate ? "text-neutral-700" : "text-neutral-400"
-            }`}
-          >
-            <span
-              className="material-symbols-rounded text-[16px] leading-none"
-              aria-hidden="true"
+          {canCreateWorkflow && (
+            <button
+              onClick={() => {
+                setShowCreate((prev) => !prev);
+                setName("");
+                setCreateError(null);
+              }}
+              title="New workflow"
+              className={`flex items-center rounded-md p-1 transition-colors hover:bg-neutral-200 hover:text-neutral-700 ${
+                showCreate ? "text-neutral-700" : "text-neutral-400"
+              }`}
             >
-              {showCreate ? "close" : "add"}
-            </span>
-          </button>
+              <span
+                className="material-symbols-rounded text-[16px] leading-none"
+                aria-hidden="true"
+              >
+                {showCreate ? "close" : "add"}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Inline create form */}
-        {showCreate && (
+        {canCreateWorkflow && showCreate && (
           <form
             onSubmit={handleSubmit}
             className="border-b border-neutral-300 p-3"

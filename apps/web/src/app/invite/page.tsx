@@ -17,7 +17,7 @@ const apiBaseUrl =
 
 async function fetchInvitePreview(token: string) {
   try {
-    const res = await fetch(`${apiBaseUrl}/api/invites/${token}`, {
+    const res = await fetch(`${apiBaseUrl}/invites/${token}`, {
       cache: "no-store",
     });
 

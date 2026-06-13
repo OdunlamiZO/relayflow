@@ -65,6 +65,10 @@ public class WorkflowRun {
     @Column(name = "waiting_at_node_id", length = 255)
     private String waitingAtNodeId;
 
+    /** When a WAITING run should be failed if no reply has arrived. Null when not waiting. */
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
     /** Snapshot of the execution context variables saved when the run entered WAITING state. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "context_snapshot", columnDefinition = "jsonb")

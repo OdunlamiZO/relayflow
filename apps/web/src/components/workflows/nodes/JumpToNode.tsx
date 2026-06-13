@@ -29,7 +29,6 @@ export function JumpToNode({
       icon="redo"
       label={data.label ?? "Jump To"}
       headerColor="bg-orange-bg text-orange-text"
-      hasSource={false}
       isConnectable={isConnectable}
       selected={selected}
     >
@@ -40,6 +39,10 @@ export function JumpToNode({
 
         <span className="text-neutral-400">
           Max {maxJumps} jump{maxJumps !== 1 ? "s" : ""}
+        </span>
+
+        <span className="text-neutral-400">
+          After the limit, continue to the node connected below
         </span>
       </div>
     </WorkflowNode>

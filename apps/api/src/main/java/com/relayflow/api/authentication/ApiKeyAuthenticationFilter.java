@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -33,7 +34,9 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain chain)
             throws ServletException, IOException {
         String rawKey = request.getHeader(HEADER);
 
@@ -42,14 +45,14 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
             apiKeyRepository
                     .findByKeyHash(hash)
-                    .filter(k -> !k.isRevoked())
-                    .filter(k -> !k.isExpired())
+                    .filter(key -> !key.isRevoked())
+                    .filter(key -> !key.isExpired())
                     .ifPresent(
-                            k -> {
-                                maybeUpdateLastUsed(k);
+                            key -> {
+                                maybeUpdateLastUsed(key);
                                 SecurityContextHolder.getContext()
                                         .setAuthentication(
-                                                new ApiKeyAuthentication(k.getWorkspaceId()));
+                                                new ApiKeyAuthentication(key.getWorkspaceId()));
                             });
         }
 

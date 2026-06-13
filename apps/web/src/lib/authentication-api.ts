@@ -27,6 +27,7 @@ export type SignupResponse = {
 
 export type GuestSessionResponse = {
   workspaceId: string;
+  recoveryToken: string;
 };
 
 export type ProfileResponse = {
@@ -149,11 +150,11 @@ async function apiDelete(path: string, body?: unknown): Promise<void> {
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 export function signup(payload: SignupPayload): Promise<SignupResponse> {
-  return apiPost<SignupResponse>("/api/auth/signup", payload);
+  return apiPost<SignupResponse>("/auth/signup", payload);
 }
 
 export function verifyEmail(token: string): Promise<AuthenticatedUserResponse> {
-  return apiPost<AuthenticatedUserResponse>("/api/auth/verify-email", {
+  return apiPost<AuthenticatedUserResponse>("/auth/verify-email", {
     token,
   });
 }
@@ -161,30 +162,38 @@ export function verifyEmail(token: string): Promise<AuthenticatedUserResponse> {
 export function login(
   payload: LoginPayload
 ): Promise<AuthenticatedUserResponse> {
-  return apiPost<AuthenticatedUserResponse>("/api/auth/login", payload);
+  return apiPost<AuthenticatedUserResponse>("/auth/login", payload);
 }
 
 export function login2FA(
   payload: Login2FAPayload
 ): Promise<AuthenticatedUserResponse> {
-  return apiPost<AuthenticatedUserResponse>("/api/auth/login/2fa", payload);
+  return apiPost<AuthenticatedUserResponse>("/auth/login/2fa", payload);
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${apiBaseUrl}/api/auth/logout`, {
+  await fetch(`${apiBaseUrl}/auth/logout`, {
     method: "POST",
     credentials: "include",
   });
 }
 
 export function createGuestSession(): Promise<GuestSessionResponse> {
-  return apiPost<GuestSessionResponse>("/api/auth/guest", {});
+  return apiPost<GuestSessionResponse>("/auth/guest", {});
+}
+
+export function recoverGuestSession(
+  recoveryToken: string
+): Promise<GuestSessionResponse> {
+  return apiPost<GuestSessionResponse>("/auth/guest/recover", {
+    recoveryToken,
+  });
 }
 
 // ── Profile ─────────────────────────────────────────────────────────────────
 
 export async function getProfile(): Promise<ProfileResponse> {
-  const response = await fetch(`${apiBaseUrl}/api/profile`, {
+  const response = await fetch(`${apiBaseUrl}/profile`, {
     credentials: "include",
   });
 
@@ -198,25 +207,25 @@ export async function getProfile(): Promise<ProfileResponse> {
 export function updateProfile(
   payload: UpdateProfilePayload
 ): Promise<ProfileResponse> {
-  return apiPatch<ProfileResponse>("/api/profile", payload);
+  return apiPatch<ProfileResponse>("/profile", payload);
 }
 
 export function changePassword(payload: ChangePasswordPayload): Promise<void> {
-  return apiPost<void>("/api/profile/change-password", payload);
+  return apiPost<void>("/profile/change-password", payload);
 }
 
 export function deleteAccount(payload: DeleteAccountPayload): Promise<void> {
-  return apiDelete("/api/profile", payload);
+  return apiDelete("/profile", payload);
 }
 
 export function setup2FA(): Promise<Setup2FAResponse> {
-  return apiPost<Setup2FAResponse>("/api/profile/2fa/setup", {});
+  return apiPost<Setup2FAResponse>("/profile/2fa/setup", {});
 }
 
 export function enable2FA(payload: OtpPayload): Promise<void> {
-  return apiPost<void>("/api/profile/2fa/enable", payload);
+  return apiPost<void>("/profile/2fa/enable", payload);
 }
 
 export function disable2FA(payload: OtpPayload): Promise<void> {
-  return apiPost<void>("/api/profile/2fa/disable", payload);
+  return apiPost<void>("/profile/2fa/disable", payload);
 }

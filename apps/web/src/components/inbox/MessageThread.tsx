@@ -3,10 +3,13 @@
 import { useEffect, useRef } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";
+import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
 import { useConversations } from "@/hooks/use-conversations";
 import { useMessages } from "@/hooks/use-messages";
 import { useUpdateConversation } from "@/hooks/use-update-conversation";
+import { useUpdateConversationAssignee } from "@/hooks/use-update-conversation-assignee";
+import { useWorkspaceMembers } from "@/hooks/use-workspace-members";
 
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
@@ -32,6 +35,8 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
   const { data: conversationsData } = useConversations(workspaceId);
   const { mutate: updateConversation, isPending: isUpdating } =
     useUpdateConversation(workspaceId);
+  const { mutate: updateAssignee } = useUpdateConversationAssignee(workspaceId);
+  const { data: members = [] } = useWorkspaceMembers(workspaceId);
   const {
     data,
     isLoading,
@@ -100,7 +105,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-neutral-300 bg-neutral-100 px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-neutral-300 bg-neutral-100 px-4 py-3 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-4">
         {/* Back button — mobile only, only when a handler is wired */}
         {onBack && (
           <button
@@ -140,41 +145,78 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
         </div>
 
         {conversation && (
-          <span
-            className={`flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${chipClass}`}
-          >
-            {conversation.status}
-          </span>
-        )}
+          <div className="flex w-full flex-shrink-0 items-center justify-end gap-2 sm:w-auto">
+            <span
+              className={`flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${chipClass}`}
+            >
+              {conversation.status}
+            </span>
 
-        {conversation && (
-          <button
-            type="button"
-            disabled={isUpdating}
-            onClick={() =>
-              updateConversation({
-                conversationId: conversationId,
-                status: conversation.status === "CLOSED" ? "OPEN" : "CLOSED",
-              })
-            }
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              conversation.status === "CLOSED"
-                ? "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
-                : "bg-green-bg text-green-text hover:bg-green-bg/70"
-            }`}
-          >
-            {isUpdating ? (
-              <Spinner size="sm" />
-            ) : (
-              <span
-                className="material-symbols-rounded text-[14px] leading-none"
-                aria-hidden="true"
+            {conversation.lockedByWorkflow ? (
+              <div
+                className="flex w-28 min-w-0 flex-shrink items-center gap-1.5 rounded-lg border border-purple-border bg-purple-bg px-3 py-2 text-xs font-medium text-purple-text sm:w-36"
+                title="A workflow is currently running and owns this conversation"
               >
-                {conversation.status === "CLOSED" ? "refresh" : "done_all"}
-              </span>
+                <span
+                  className="material-symbols-rounded text-[14px] leading-none"
+                  aria-hidden="true"
+                >
+                  bolt
+                </span>
+                <span className="truncate">Workflow</span>
+              </div>
+            ) : (
+              <div className="w-28 min-w-0 flex-shrink sm:w-36">
+                <Select
+                  value={conversation.assigneeId ?? ""}
+                  onChange={(value) =>
+                    updateAssignee({
+                      conversationId,
+                      assigneeId: value || null,
+                    })
+                  }
+                  options={[
+                    { value: "", label: "Unassigned" },
+                    ...members.map((member) => ({
+                      value: member.userId,
+                      label:
+                        member.displayName ??
+                        member.email?.split("@")[0] ??
+                        member.userId,
+                    })),
+                  ]}
+                />
+              </div>
             )}
-            {conversation.status === "CLOSED" ? "Reopen" : "Close"}
-          </button>
+
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={() =>
+                updateConversation({
+                  conversationId: conversationId,
+                  status: conversation.status === "CLOSED" ? "OPEN" : "CLOSED",
+                })
+              }
+              className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                conversation.status === "CLOSED"
+                  ? "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
+                  : "bg-green-bg text-green-text hover:bg-green-bg/70"
+              }`}
+            >
+              {isUpdating ? (
+                <Spinner size="sm" />
+              ) : (
+                <span
+                  className="material-symbols-rounded text-[14px] leading-none"
+                  aria-hidden="true"
+                >
+                  {conversation.status === "CLOSED" ? "refresh" : "done_all"}
+                </span>
+              )}
+              {conversation.status === "CLOSED" ? "Reopen" : "Close"}
+            </button>
+          </div>
         )}
       </div>
 

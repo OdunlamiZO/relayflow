@@ -1,0 +1,182 @@
+:root {
+  --font-inter: Inter;
+  --font-jetbrains-mono: "JetBrains Mono";
+  --color-primary: #0e2456;
+  --color-primary-light: #1b3a7a;
+  --color-primary-dark: #091840;
+  --color-secondary: #2e69ff;
+  --color-secondary-light: #5585ff;
+  --color-secondary-dark: #1a50e8;
+  --color-tertiary: #e1ecff;
+  --color-tertiary-light: #f0f5ff;
+  --color-tertiary-dark: #c5d8ff;
+  --color-accent: #2e69ff;
+  --color-accent-light: #5585ff;
+  --color-accent-dark: #1a50e8;
+  --color-neutral-100: #ffffff;
+  --color-neutral-200: #fcfcfc;
+  --color-neutral-300: #e8eaed;
+  --color-neutral-400: #c4c9d1;
+  --color-neutral-500: #8a92a0;
+  --color-neutral-600: #5a6272;
+  --color-neutral-700: #3a4255;
+  --color-neutral-800: #2c2c2c;
+  --color-neutral-900: #000000;
+  --color-green-bg: #d1fae5;
+  --color-green-text: #065f46;
+  --color-green-border: #34d399;
+  --color-green-bg-hover: #bbf7d0;
+  --color-green-text-hover: #047857;
+  --color-green-border-hover: #059669;
+  --color-blue-bg: #e1ecff;
+  --color-blue-text: #0e2456;
+  --color-blue-border: #2e69ff;
+  --color-blue-bg-hover: #c5d8ff;
+  --color-blue-text-hover: #091840;
+  --color-blue-border-hover: #1a50e8;
+  --color-yellow-bg: #fef3c7;
+  --color-yellow-text: #78350f;
+  --color-yellow-border: #fbbf24;
+  --color-yellow-bg-hover: #fde68a;
+  --color-yellow-text-hover: #b45309;
+  --color-yellow-border-hover: #d97706;
+  --color-red-bg: #fee2e2;
+  --color-red-text: #991b1b;
+  --color-red-border: #f87171;
+  --color-red-bg-hover: #fecaca;
+  --color-red-text-hover: #b91c1c;
+  --color-red-border-hover: #ef4444;
+  --color-purple-bg: #ede9fe;
+  --color-purple-text: #6d28d9;
+  --color-purple-border: #a78bfa;
+  --color-purple-bg-hover: #ddd6fe;
+  --color-purple-text-hover: #7c3aed;
+  --color-purple-border-hover: #8b5cf6;
+  --color-teal-bg: #ccfbf1;
+  --color-teal-text: #134e4a;
+  --color-teal-border: #2dd4bf;
+  --color-teal-bg-hover: #99f6e4;
+  --color-teal-text-hover: #0f766e;
+  --color-teal-border-hover: #14b8a6;
+  --color-orange-bg: #ffedd5;
+  --color-orange-text: #7c2d12;
+  --color-orange-border: #fb923c;
+  --color-orange-bg-hover: #fed7aa;
+  --color-orange-text-hover: #9a3412;
+  --color-orange-border-hover: #f97316;
+}
+
+.dark {
+  --color-primary: #e1ecff;
+  --color-primary-light: #2e69ff;
+  --color-primary-dark: #c5d8ff;
+  --color-secondary: #5585ff;
+  --color-secondary-light: #7ba3ff;
+  --color-secondary-dark: #2e69ff;
+  --color-tertiary: #1b3a7a;
+  --color-tertiary-light: #243f80;
+  --color-tertiary-dark: #122060;
+  --color-accent: #5585ff;
+  --color-accent-light: #7ba3ff;
+  --color-accent-dark: #2e69ff;
+  --color-neutral-100: #0e1825;
+  --color-neutral-200: #131f2e;
+  --color-neutral-300: #1b2a3e;
+  --color-neutral-400: #253550;
+  --color-neutral-500: #3a4d6a;
+  --color-neutral-600: #8a9ab5;
+  --color-neutral-700: #b8c5d8;
+  --color-neutral-800: #d8e1ee;
+  --color-neutral-900: #f0f4fb;
+  --color-green-bg: #123c2f;
+  --color-green-text: #cfeadf;
+  --color-green-border: #3aa886;
+  --color-green-bg-hover: #174737;
+  --color-green-text-hover: #daf2e8;
+  --color-green-border-hover: #53bc9a;
+  --color-blue-bg: #0e2456;
+  --color-blue-text: #e1ecff;
+  --color-blue-border: #2e69ff;
+  --color-blue-bg-hover: #1b3a7a;
+  --color-blue-text-hover: #f0f5ff;
+  --color-blue-border-hover: #5585ff;
+  --color-yellow-bg: #4b2b13;
+  --color-yellow-text: #f3e5bd;
+  --color-yellow-border: #d39b40;
+  --color-yellow-bg-hover: #5a3517;
+  --color-yellow-text-hover: #f7eccb;
+  --color-yellow-border-hover: #e2ad58;
+  --color-red-bg: #4a1f1f;
+  --color-red-text: #f4d6d6;
+  --color-red-border: #d66a6a;
+  --color-red-bg-hover: #5a2626;
+  --color-red-text-hover: #f7dede;
+  --color-red-border-hover: #e27b7b;
+  --color-purple-bg: #3d2c66;
+  --color-purple-text: #e4def8;
+  --color-purple-border: #8f74d6;
+  --color-purple-bg-hover: #473475;
+  --color-purple-text-hover: #ece7fb;
+  --color-purple-border-hover: #a187e2;
+  --color-teal-bg: #0f3530;
+  --color-teal-text: #c7f0eb;
+  --color-teal-border: #2dd4bf;
+  --color-teal-bg-hover: #134040;
+  --color-teal-text-hover: #d6f4f0;
+  --color-teal-border-hover: #5de0d2;
+  --color-orange-bg: #4a2000;
+  --color-orange-text: #ffd5a8;
+  --color-orange-border: #e07832;
+  --color-orange-bg-hover: #5a2800;
+  --color-orange-text-hover: #ffe0bc;
+  --color-orange-border-hover: #f08848;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-neutral-200, #fcfcfc);
+  color: var(--color-neutral-800, #2c2c2c);
+  font-family: var(--font-inter, Inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.material-symbols-rounded {
+  direction: ltr;
+  display: inline-block;
+  font-family: "Material Symbols Rounded", sans-serif;
+  font-feature-settings: "liga" 1;
+  font-size: 20px;
+  font-style: normal;
+  font-weight: normal;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+  letter-spacing: normal;
+  line-height: 1;
+  text-rendering: optimizeLegibility;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+}

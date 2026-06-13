@@ -13,7 +13,8 @@ export function GuestBanner() {
     <div className="flex flex-shrink-0 items-center justify-between border-b border-yellow-bg-hover bg-yellow-bg px-4 py-2.5">
       <p className="text-xs text-yellow-text-hover">
         <span className="font-semibold">Guest mode</span> — your data is
-        temporary and will be removed after 24 hours.
+        temporary and will be removed after 24 hours. Sign up to keep your
+        workflows and connect your own channels.
       </p>
 
       <Link

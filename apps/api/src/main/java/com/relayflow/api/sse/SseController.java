@@ -15,13 +15,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * Provides a Server-Sent Events stream for real-time workspace updates.
  *
- * <p>Clients connect to {@code GET /api/sse/workspace/{workspaceId}} and receive events as they are
+ * <p>Clients connect to {@code GET /sse/workspace/{workspaceId}} and receive events as they are
  * broadcast by {@link WorkspaceSseService}. The caller must be a member of the workspace; guest
  * (anonymous) sessions are also accepted — membership is checked via {@link
  * MessagingService#listWorkspaces}.
  */
 @RestController
-@RequestMapping("/api/sse")
+@RequestMapping("/sse")
 public class SseController {
 
     private final WorkspaceSseService sseService;

@@ -55,10 +55,29 @@ public class ConditionNodeExecutor implements NodeExecutor {
         return NodeExecutionResult.next(Map.of("result", "no branch matched"));
     }
 
+    /**
+     * Evaluates a branch's conditions, combined with its {@code combinator} ("and"/"or", default
+     * "and").
+     */
+    @SuppressWarnings("unchecked")
     private boolean evaluate(Map<String, Object> branch, ExecutionContext context) {
-        String variable = (String) branch.get("variable");
-        String operator = (String) branch.get("operator");
-        String value = (String) branch.get("value");
+        List<Map<String, Object>> conditions = (List<Map<String, Object>>) branch.get("conditions");
+
+        if (conditions == null || conditions.isEmpty()) {
+            return false;
+        }
+
+        boolean isOr = "or".equals(branch.get("combinator"));
+
+        return isOr
+                ? conditions.stream().anyMatch(c -> evaluateCondition(c, context))
+                : conditions.stream().allMatch(c -> evaluateCondition(c, context));
+    }
+
+    private boolean evaluateCondition(Map<String, Object> condition, ExecutionContext context) {
+        String variable = (String) condition.get("variable");
+        String operator = (String) condition.get("operator");
+        String value = (String) condition.get("value");
 
         if (variable == null || variable.isBlank() || operator == null) {
             return false;

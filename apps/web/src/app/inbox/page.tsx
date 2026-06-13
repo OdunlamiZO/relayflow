@@ -23,7 +23,7 @@ async function fetchWorkspaces(): Promise<WorkspaceItem[]> {
     .join("; ");
 
   try {
-    const res = await fetch(`${apiBaseUrl}/api/workspaces`, {
+    const res = await fetch(`${apiBaseUrl}/workspaces`, {
       headers: { Cookie: cookieHeader },
       cache: "no-store",
     });

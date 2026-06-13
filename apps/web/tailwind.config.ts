@@ -87,6 +87,8 @@ const config: Config = {
         "orange-bg-hover": "var(--color-orange-bg-hover, #FED7AA)",
         "orange-text-hover": "var(--color-orange-text-hover, #9A3412)",
         "orange-border-hover": "var(--color-orange-border-hover, #F97316)",
+        telegram: "var(--color-telegram, #229ED9)",
+        whatsapp: "var(--color-whatsapp, #25D366)",
       },
     },
     screens: {

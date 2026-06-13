@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/whatsapp")
+@RequestMapping("/whatsapp")
 public class WhatsAppController {
 
     private final WhatsAppAdapter whatsAppAdapter;
@@ -27,7 +27,7 @@ public class WhatsAppController {
      * Meta calls this URL (GET) when you register or update a webhook in the Developer Console.
      * Responds with {@code hub.challenge} as plain text on a token match; 403 otherwise.
      *
-     * <p>Register this URL in Meta: https://{your-domain}/api/whatsapp/webhook/{channelAccountId}
+     * <p>Register this URL in Meta: https://{your-domain}/whatsapp/webhook/{channelAccountId}
      */
     @GetMapping(value = "/webhook/{channelAccountId}", produces = MediaType.TEXT_PLAIN_VALUE)
     String verifyWebhook(

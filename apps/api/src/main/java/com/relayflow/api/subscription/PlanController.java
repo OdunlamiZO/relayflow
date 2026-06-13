@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * authentication required — used by the landing page and the upgrade modal.
  */
 @RestController
-@RequestMapping("/api/plans")
+@RequestMapping("/plans")
 public class PlanController {
 
     private final PlanConfigurationService planConfigurationService;

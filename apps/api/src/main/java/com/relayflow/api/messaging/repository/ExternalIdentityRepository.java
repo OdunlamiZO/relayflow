@@ -17,7 +17,7 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
 
     @Modifying
     @Query("UPDATE ExternalIdentity e SET e.deletedAt = :now WHERE e.workspace.id = :workspaceId")
-    void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
+    void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
 
     /**
      * Finds the identity for a given external user on a specific channel account (bot). Uniqueness
@@ -85,4 +85,22 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
     @Modifying
     @Query("UPDATE ExternalIdentity e SET e.contact = :target WHERE e.contact.id = :sourceId")
     void reassignContact(@Param("target") Contact target, @Param("sourceId") UUID sourceId);
+
+    /**
+     * Whether someone has linked to this workspace's shared Telegram bot (i.e. sent {@code /start}
+     * to it), used to drive the "Telegram connected!" empty state in the inbox across page
+     * refreshes.
+     */
+    @Query(
+            """
+            select count(e) > 0 from ExternalIdentity e
+            where e.channelAccount.workspace.id = :workspaceId
+              and e.channelAccount.shared = true
+              and e.channelAccount.provider = com.relayflow.api.messaging.domain.ChannelProvider.TELEGRAM
+            """)
+    boolean existsSharedTelegramLinkForWorkspace(@Param("workspaceId") UUID workspaceId);
+
+    @Modifying
+    @Query("delete from ExternalIdentity e where e.channelAccount.id = :channelAccountId")
+    void deleteByChannelAccount(@Param("channelAccountId") UUID channelAccountId);
 }

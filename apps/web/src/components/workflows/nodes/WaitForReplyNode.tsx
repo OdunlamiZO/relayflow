@@ -13,7 +13,24 @@ export type WaitForReplyNodeData = {
   responseType?: "generic" | "defined";
   responseVariable?: string;
   options?: WaitForReplyOption[];
+  /** Minutes to wait for a reply before failing the run. Defaults to 1440 (24 hours). */
+  timeoutMinutes?: number;
 };
+
+export const DEFAULT_TIMEOUT_MINUTES = 60 * 24;
+
+/** Formats a duration in minutes as a human-readable string (e.g. "24h", "90m", "2d"). */
+function formatTimeout(minutes: number): string {
+  if (minutes % (60 * 24) === 0) {
+    return `${minutes / (60 * 24)}d`;
+  }
+
+  if (minutes % 60 === 0) {
+    return `${minutes / 60}h`;
+  }
+
+  return `${minutes}m`;
+}
 
 type WaitForReplyNodeType = Node<WaitForReplyNodeData, "waitForReply">;
 
@@ -31,28 +48,30 @@ export function WaitForReplyNode({
 
   const definedFooter = !isGeneric ? (
     <div className="relative pb-5 pt-1">
-      {/* Option labels */}
+      {/* Option numbers — full text is listed in the body above instead, so
+          long or numerous options don't overlap here. */}
       {options.map((opt, i) => {
         const pct = ((i + 1) / (totalHandles + 1)) * 100;
 
         return (
           <span
             key={opt.id}
-            className="absolute -translate-x-1/2 truncate text-[10px] text-blue-text"
+            className="absolute -translate-x-1/2 text-[10px] font-semibold leading-none text-blue-text"
             style={{ left: `${pct}%`, bottom: 8 }}
           >
-            {opt.text || `Option ${i + 1}`}
+            {i + 1}
           </span>
         );
       })}
 
-      {/* "Other" label */}
+      {/* "Other" label — fallback branch when no option matches the reply */}
       <span
-        className="absolute -translate-x-1/2 truncate text-[10px] text-neutral-400"
+        className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-neutral-400"
         style={{
           left: `${(totalHandles / (totalHandles + 1)) * 100}%`,
           bottom: 8,
         }}
+        title="No option matched"
       >
         Other
       </span>
@@ -96,6 +115,29 @@ export function WaitForReplyNode({
       <span className="line-clamp-2 text-neutral-400">
         {data.question ?? "No question configured"}
       </span>
+
+      <p className="m-0 mt-1.5 text-[10px] text-neutral-400">
+        Times out after{" "}
+        {formatTimeout(data.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES)}
+      </p>
+
+      {!isGeneric && options.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {options.map((opt, i) => (
+            <li key={opt.id} className="flex gap-1.5 text-blue-text">
+              <span className="flex-shrink-0 font-semibold">{i + 1}.</span>
+              <span className="line-clamp-2 break-words">
+                {opt.text || `Option ${i + 1}`}
+              </span>
+            </li>
+          ))}
+
+          <li className="flex gap-1.5 text-neutral-400">
+            <span className="flex-shrink-0 font-semibold">•</span>
+            <span>Other — no option matched</span>
+          </li>
+        </ul>
+      )}
     </WorkflowNode>
   );
 }

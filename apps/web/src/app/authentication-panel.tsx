@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Spinner } from "@/components/common/Spinner";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useLogout } from "@/hooks/use-logout";
@@ -23,7 +24,16 @@ export function AuthenticationPanel() {
     () => false
   );
   const [isOpen, setIsOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  function handleLogout() {
+    logout(undefined, {
+      onSuccess: () => {
+        router.push("/login");
+      },
+    });
+  }
 
   // Close dropdown on outside click.
   useEffect(() => {
@@ -136,11 +146,14 @@ export function AuthenticationPanel() {
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
-                  logout(undefined, {
-                    onSuccess: () => {
-                      router.push("/login");
-                    },
-                  });
+
+                  if (user.anonymous) {
+                    setShowLogoutConfirm(true);
+
+                    return;
+                  }
+
+                  handleLogout();
                 }}
                 disabled={isLoggingOut}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-red-bg hover:text-red-text disabled:opacity-60"
@@ -155,6 +168,18 @@ export function AuthenticationPanel() {
               </button>
             </div>
           </div>
+        )}
+
+        {showLogoutConfirm && (
+          <ConfirmModal
+            title="Sign out of guest mode?"
+            description="Your guest workspace and its data can't be recovered after you sign out. To keep access, create an account first."
+            confirmLabel="Sign out"
+            destructive
+            isPending={isLoggingOut}
+            onConfirm={handleLogout}
+            onCancel={() => setShowLogoutConfirm(false)}
+          />
         )}
 
         {isLoggingOut && (

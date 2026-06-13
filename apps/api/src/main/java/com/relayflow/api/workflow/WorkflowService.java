@@ -2,20 +2,29 @@ package com.relayflow.api.workflow;
 
 import com.relayflow.api.messaging.ResourceNotFoundException;
 import com.relayflow.api.messaging.domain.Workspace;
+import com.relayflow.api.messaging.dto.PageResponse;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
 import com.relayflow.api.subscription.SubscriptionService;
 import com.relayflow.api.subscription.domain.LimitType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
+import com.relayflow.api.workflow.domain.WorkflowRun;
+import com.relayflow.api.workflow.domain.WorkflowRunStep;
 import com.relayflow.api.workflow.dto.CreateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.UpdateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.WorkflowDefinitionResponse;
+import com.relayflow.api.workflow.dto.WorkflowRunDetailResponse;
+import com.relayflow.api.workflow.dto.WorkflowRunResponse;
+import com.relayflow.api.workflow.dto.WorkflowRunStepResponse;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
+import com.relayflow.api.workflow.repository.WorkflowRunRepository;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,15 +41,19 @@ public class WorkflowService {
 
     private final SubscriptionService subscriptionService;
 
+    private final WorkflowRunRepository workflowRunRepository;
+
     public WorkflowService(
             WorkflowDefinitionRepository workflowRepository,
             WorkspaceRepository workspaceRepository,
             WorkflowGraphValidator graphValidator,
-            SubscriptionService subscriptionService) {
+            SubscriptionService subscriptionService,
+            WorkflowRunRepository workflowRunRepository) {
         this.workflowRepository = workflowRepository;
         this.workspaceRepository = workspaceRepository;
         this.graphValidator = graphValidator;
         this.subscriptionService = subscriptionService;
+        this.workflowRunRepository = workflowRunRepository;
     }
 
     @Transactional(readOnly = true)
@@ -127,6 +140,50 @@ public class WorkflowService {
         return toDto(workflow);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<WorkflowRunResponse> listRuns(
+            UUID workflowId, UUID workspaceId, int page, int size) {
+        getDefinition(workflowId, workspaceId);
+
+        int pageSize = Math.clamp(size, 1, 100);
+
+        List<WorkflowRun> results =
+                workflowRunRepository.findByWorkflowAndWorkspace(
+                        workflowId, workspaceId, PageRequest.of(page, pageSize + 1));
+
+        boolean hasMore = results.size() > pageSize;
+        List<WorkflowRun> items = hasMore ? results.subList(0, pageSize) : results;
+
+        return new PageResponse<>(items.stream().map(this::toRunDto).toList(), hasMore, null);
+    }
+
+    @Transactional(readOnly = true)
+    public WorkflowRunDetailResponse getRun(UUID workflowId, UUID runId, UUID workspaceId) {
+        getDefinition(workflowId, workspaceId);
+
+        WorkflowRun run =
+                workflowRunRepository
+                        .findRunWithSteps(runId, workflowId, workspaceId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Workflow run not found"));
+
+        List<WorkflowRunStepResponse> steps =
+                run.getSteps().stream()
+                        .sorted(Comparator.comparing(WorkflowRunStep::getStartedAt))
+                        .map(this::toStepDto)
+                        .toList();
+
+        return new WorkflowRunDetailResponse(
+                run.getId(),
+                run.getWorkflowDefinition().getId(),
+                run.getConversation().getId(),
+                run.getStatus(),
+                run.getStartedAt(),
+                run.getFinishedAt(),
+                run.getErrorMessage(),
+                run.getWaitingAtNodeId(),
+                steps);
+    }
+
     @Transactional
     public void deleteWorkflow(UUID id, UUID workspaceId) {
         WorkflowDefinition workflow = getDefinition(id, workspaceId);
@@ -135,8 +192,6 @@ public class WorkflowService {
 
         log.info("Workflow deleted: id={}, workspace={}", id, workspaceId);
     }
-
-    // ── helpers ───────────────────────────────────────────────────────────────
 
     private WorkflowDefinition getDefinition(UUID id, UUID workspaceId) {
         return workflowRepository
@@ -150,17 +205,45 @@ public class WorkflowService {
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
     }
 
-    private WorkflowDefinitionResponse toDto(WorkflowDefinition w) {
+    private WorkflowDefinitionResponse toDto(WorkflowDefinition definition) {
         Map<String, Object> graph =
-                w.getDraftGraph() != null ? w.getDraftGraph() : new LinkedHashMap<>();
+                definition.getDraftGraph() != null
+                        ? definition.getDraftGraph()
+                        : new LinkedHashMap<>();
 
         return new WorkflowDefinitionResponse(
-                w.getId(),
-                w.getWorkspace().getId(),
-                w.getName(),
-                w.isEnabled(),
+                definition.getId(),
+                definition.getWorkspace().getId(),
+                definition.getName(),
+                definition.isEnabled(),
                 graph,
-                w.getCreatedAt(),
-                w.getUpdatedAt());
+                definition.getCreatedAt(),
+                definition.getUpdatedAt());
+    }
+
+    private WorkflowRunResponse toRunDto(WorkflowRun run) {
+        return new WorkflowRunResponse(
+                run.getId(),
+                run.getWorkflowDefinition().getId(),
+                run.getConversation().getId(),
+                run.getStatus(),
+                run.getStartedAt(),
+                run.getFinishedAt(),
+                run.getErrorMessage(),
+                run.getWaitingAtNodeId());
+    }
+
+    private WorkflowRunStepResponse toStepDto(WorkflowRunStep step) {
+        return new WorkflowRunStepResponse(
+                step.getId(),
+                step.getNodeId(),
+                step.getNodeType(),
+                step.getStatus(),
+                step.getInputSnapshot(),
+                step.getOutputSnapshot(),
+                step.getErrorMessage(),
+                step.getStartedAt(),
+                step.getFinishedAt(),
+                step.getDurationMs());
     }
 }

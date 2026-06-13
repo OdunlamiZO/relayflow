@@ -339,8 +339,9 @@ Important methods:
 - `createGuestWorkspace`: guest-specific workspace creation behavior.
 - `listWorkspaces`: lists workspaces by membership.
 - `listWorkspaceMembers`, `inviteWorkspaceMember`, `updateWorkspaceMember`, `removeWorkspaceMember`, `transferOwnership`: owner/member management with single-owner safeguards.
-- `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook.
+- `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook; rejects guest workspaces with `403` (guests are limited to the shared Telegram bot).
 - `createSharedBotChannelAccount`: creates a guest/shared Telegram channel account.
+- `dropSharedTelegramChannel`: called on guest-to-real account conversion — hard-deletes the workspace's shared Telegram channel account along with its conversations, messages, external identities, and workflow runs/steps, then drops any contacts left with no remaining conversations or identities. Workflow definitions are preserved.
 - `disconnectChannelAccount` / `reconnectChannelAccount`: toggles channel availability without deleting history.
 - `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
 - `createExternalIdentity`, `createConversation`
@@ -368,6 +369,7 @@ Handles:
 - `WorkflowValidationException` as `400`.
 - `IllegalArgumentException` as `409`.
 - validation errors as `400`.
+- missing required request parameters as `400`.
 - unexpected exceptions as `500` with a generic message.
 
 We need it so frontend receives consistent `{ message, timestamp }` error responses.
@@ -746,7 +748,7 @@ We need them so services do not contain SQL or persistence boilerplate.
 
 ### `PlanController`
 
-Public controller for `GET /api/plans`.
+Public controller for `GET /plans`.
 
 It returns every plan with live Redis-backed limits, NGN pricing, billing interval, and whether checkout is currently available.
 
@@ -766,7 +768,7 @@ We need it to keep billing operations workspace-scoped and owner-controlled.
 
 ### `PaystackWebhookController`
 
-Public Paystack webhook receiver at `POST /api/paystack/webhook`.
+Public Paystack webhook receiver at `POST /paystack/webhook`.
 
 Handled events:
 
@@ -882,7 +884,7 @@ We need these to keep billing state explicit and separate from messaging/workflo
 
 ### `SseController`
 
-Exposes `GET /api/sse/workspace/{workspaceId}` as a text/event-stream endpoint.
+Exposes `GET /sse/workspace/{workspaceId}` as a text/event-stream endpoint.
 
 We need it for real-time inbox updates without polling every second.
 
@@ -1475,9 +1477,15 @@ We need it for Google login/signup buttons without importing a large icon librar
 
 ### `GuestBanner`
 
-Banner warning anonymous users that guest data is temporary and prompting account creation.
+Banner warning anonymous users that guest data is temporary and prompting account creation. Copy also nudges that signing up keeps workflows and unlocks connecting your own channels.
 
 We need it to communicate guest-mode lifecycle.
+
+### `CopyButton`
+
+Small button that copies a given `text` prop to the clipboard via `navigator.clipboard`, showing a checkmark for 2 seconds after copying.
+
+We need it for webhook URLs and the shared Telegram bot deep link in `ChannelsList`.
 
 ### `UpgradeBanner`
 
@@ -1721,16 +1729,17 @@ We need it to create a stable place for channel, member, invite, API key, webhoo
 
 ### `ChannelsList`
 
-Lists connected channel accounts and provides the connect/disconnect/reconnect UI.
+Lists connected channel accounts and provides the connect/disconnect/reconnect UI. The "Add channel" section is hidden entirely for guest workspaces (`isAnonymous`), since they're limited to the shared Telegram bot.
 
 Important constants:
 
 - `PROVIDER_LABEL`: provider display names.
 - `PROVIDER_ICON`: provider icon names.
+- `sharedBotUsername`: from `NEXT_PUBLIC_SHARED_BOT_USERNAME`, used to build the shared bot's deep link.
 
 Important helper:
 
-- `ChannelItem`: renders one channel, provider-specific webhook URL, and disconnect confirmation.
+- `ChannelItem`: renders one channel, provider-specific webhook URL with a `CopyButton`, a "Guest mode only" badge plus a persistent deep link + `CopyButton` for shared channels, and disconnect confirmation.
 - `ProviderButton`: selects Telegram or WhatsApp connection flow.
 
 We need it because channel setup should live in workspace settings rather than the inbox conversation list.
@@ -2004,7 +2013,7 @@ We need it to simplify imports in `WorkflowEditor`.
 - `useAuthentication`: fetches current session user.
 - `useLogin`: login mutation with error toast support and 2FA challenge handling.
 - `useLogin2FA`: completes the OTP challenge after password login.
-- `useSignup`: signup mutation with error toast support.
+- `useSignup`: signup mutation with error toast support; clears a stale `guestRecoveryToken` from localStorage on success (a guest account that signs up is converted in place, so its recovery token is no longer valid).
 - `useLogout`: logout mutation and cache cleanup.
 
 We need them to keep auth forms/components declarative.

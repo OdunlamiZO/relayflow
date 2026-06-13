@@ -47,8 +47,8 @@ public class Conversation {
     @Column(nullable = false, length = 40)
     private ConversationStatus status = ConversationStatus.OPEN;
 
-    @Column(name = "assigned_user_id")
-    private UUID assignedUserId;
+    @Column(name = "assignee_id")
+    private UUID assigneeId;
 
     @Column(name = "locked_by_workflow", nullable = false)
     private boolean lockedByWorkflow = false;

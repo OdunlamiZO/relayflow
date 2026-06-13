@@ -92,13 +92,13 @@ public class PublicApiController {
                         null,
                         null);
 
-        return messagingService.createMessage(workspaceId, conversationId, createRequest);
+        // Public API sends (including future AI-agent-driven sends) have no human workspace
+        // member to auto-assign the conversation to.
+        return messagingService.createMessage(workspaceId, conversationId, createRequest, null);
     }
 
     /** Request body for the public send-message endpoint. */
     public record SendMessageRequest(@NotBlank String text) {}
-
-    // ── Private ───────────────────────────────────────────────────────────────
 
     private UUID resolveWorkspace(Authentication authentication) {
         if (authentication instanceof ApiKeyAuthentication apiKeyAuth) {

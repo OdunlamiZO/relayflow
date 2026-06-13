@@ -5,7 +5,7 @@ import com.relayflow.api.subscription.domain.Plan;
 import java.math.BigDecimal;
 
 /**
- * Public plan catalogue entry — returned by {@code GET /api/plans}.
+ * Public plan catalogue entry — returned by {@code GET /plans}.
  *
  * <p>Limit fields use {@code null} to mean "unlimited" so the frontend can render "∞". Price is
  * {@code null} for the FREE plan. {@code upgradeAvailable} tells the frontend whether this plan can

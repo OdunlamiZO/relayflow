@@ -29,20 +29,29 @@ public class TelegramWebhookRegistrar {
     }
 
     /**
-     * Registers a per-workspace webhook with Telegram for the given bot token. Throws {@link
+     * Registers a per-workspace webhook with Telegram for the given bot token, including a freshly
+     * generated {@code secret_token}. Telegram echoes this secret back in the {@code
+     * X-Telegram-Bot-Api-Secret-Token} header on every webhook call, allowing the caller to verify
+     * requests genuinely originate from Telegram.
+     *
+     * <p>Returns the generated secret so the caller can persist it. Throws {@link
      * ResponseStatusException} with 502 if Telegram rejects the call, so the caller can surface a
      * meaningful error to the user.
      */
-    public void register(String botToken, UUID channelAccountId) {
-        String webhookUrl = apiBaseUrl + "/api/telegram/webhook/" + channelAccountId;
+    public String register(String botToken, UUID channelAccountId) {
+        String webhookUrl = apiBaseUrl + "/telegram/webhook/" + channelAccountId;
         String url = String.format(SET_WEBHOOK_URL, botToken);
+        String secretToken = UUID.randomUUID().toString().replace("-", "");
 
         try {
-            restTemplate.postForObject(url, Map.of("url", webhookUrl), String.class);
+            restTemplate.postForObject(
+                    url, Map.of("url", webhookUrl, "secret_token", secretToken), String.class);
             log.info(
                     "Registered Telegram webhook: channelAccountId={}, url={}",
                     channelAccountId,
                     webhookUrl);
+
+            return secretToken;
         } catch (Exception e) {
             log.error(
                     "Failed to register Telegram webhook for channel account {}: {}",

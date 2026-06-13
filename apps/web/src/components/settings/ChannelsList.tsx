@@ -3,13 +3,17 @@
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { CopyButton } from "@/components/common/CopyButton";
 import { Spinner } from "@/components/common/Spinner";
 import { ConnectTelegramForm } from "@/components/inbox/ConnectTelegramForm";
 import { ConnectWhatsAppForm } from "@/components/inbox/ConnectWhatsAppForm";
+import { useAuthentication } from "@/hooks/use-authentication";
 import { useChannelAccounts } from "@/hooks/use-channel-accounts";
 import { useDeleteChannelAccount } from "@/hooks/use-delete-channel-account";
 import { useReconnectChannelAccount } from "@/hooks/use-reconnect-channel-account";
 import { type ChannelAccount } from "@/lib/messaging-api";
+
+const sharedBotUsername = process.env.NEXT_PUBLIC_SHARED_BOT_USERNAME ?? "";
 
 const PROVIDER_LABEL: Record<string, string> = {
   TELEGRAM: "Telegram",
@@ -39,6 +43,7 @@ type Props = {
 
 export function ChannelsList({ workspaceId }: Props) {
   const { data: channels, isLoading } = useChannelAccounts(workspaceId);
+  const { isAnonymous } = useAuthentication();
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
 
   return (
@@ -85,77 +90,79 @@ export function ChannelsList({ workspaceId }: Props) {
       </section>
 
       {/* Add channel */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-          Add channel
-        </h2>
+      {!isAnonymous && (
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            Add channel
+          </h2>
 
-        {activeForm === "TELEGRAM" && (
-          <div className="rounded-xl border border-neutral-300 bg-neutral-100 p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <span
-                className="material-symbols-rounded text-[18px] text-[#229ED9]"
-                aria-hidden="true"
-              >
-                send
-              </span>
-              <span className="text-sm font-semibold text-primary">
-                Telegram
-              </span>
+          {activeForm === "TELEGRAM" && (
+            <div className="rounded-xl border border-neutral-300 bg-neutral-100 p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <span
+                  className="material-symbols-rounded text-[18px] text-telegram"
+                  aria-hidden="true"
+                >
+                  send
+                </span>
+                <span className="text-sm font-semibold text-primary">
+                  Telegram
+                </span>
+              </div>
+
+              <ConnectTelegramForm
+                workspaceId={workspaceId}
+                onSuccess={() => setActiveForm(null)}
+                onCancel={() => setActiveForm(null)}
+              />
             </div>
+          )}
 
-            <ConnectTelegramForm
-              workspaceId={workspaceId}
-              onSuccess={() => setActiveForm(null)}
-              onCancel={() => setActiveForm(null)}
-            />
-          </div>
-        )}
+          {activeForm === "WHATSAPP" && (
+            <div className="rounded-xl border border-neutral-300 bg-neutral-100 p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <span
+                  className="material-symbols-rounded text-[18px] text-whatsapp"
+                  aria-hidden="true"
+                >
+                  chat
+                </span>
+                <span className="text-sm font-semibold text-primary">
+                  WhatsApp
+                </span>
+              </div>
 
-        {activeForm === "WHATSAPP" && (
-          <div className="rounded-xl border border-neutral-300 bg-neutral-100 p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <span
-                className="material-symbols-rounded text-[18px] text-[#25D366]"
-                aria-hidden="true"
-              >
-                chat
-              </span>
-              <span className="text-sm font-semibold text-primary">
-                WhatsApp
-              </span>
+              <ConnectWhatsAppForm
+                workspaceId={workspaceId}
+                onSuccess={() => setActiveForm(null)}
+                onCancel={() => setActiveForm(null)}
+              />
             </div>
+          )}
 
-            <ConnectWhatsAppForm
-              workspaceId={workspaceId}
-              onSuccess={() => setActiveForm(null)}
-              onCancel={() => setActiveForm(null)}
-            />
-          </div>
-        )}
+          {activeForm === null && (
+            <div className="flex flex-col gap-2">
+              <ProviderButton
+                icon="send"
+                iconColor="text-telegram"
+                iconBg="bg-telegram/10"
+                label="Connect Telegram"
+                description="Receive messages from your own Telegram bot"
+                onClick={() => setActiveForm("TELEGRAM")}
+              />
 
-        {activeForm === null && (
-          <div className="flex flex-col gap-2">
-            <ProviderButton
-              icon="send"
-              iconColor="text-[#229ED9]"
-              iconBg="bg-[#229ED9]/10"
-              label="Connect Telegram"
-              description="Receive messages from your own Telegram bot"
-              onClick={() => setActiveForm("TELEGRAM")}
-            />
-
-            <ProviderButton
-              icon="chat"
-              iconColor="text-[#25D366]"
-              iconBg="bg-[#25D366]/10"
-              label="Connect WhatsApp"
-              description="Receive messages via the WhatsApp Business Cloud API"
-              onClick={() => setActiveForm("WHATSAPP")}
-            />
-          </div>
-        )}
-      </section>
+              <ProviderButton
+                icon="chat"
+                iconColor="text-whatsapp"
+                iconBg="bg-whatsapp/10"
+                label="Connect WhatsApp"
+                description="Receive messages via the WhatsApp Business Cloud API"
+                onClick={() => setActiveForm("WHATSAPP")}
+              />
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -229,10 +236,10 @@ function ChannelItem({
   const webhookUrl = (() => {
     if (!channel.shared && channel.status === "ACTIVE") {
       if (channel.provider === "TELEGRAM") {
-        return `${apiBaseUrl}/api/telegram/webhook/${channel.id}`;
+        return `${apiBaseUrl}/telegram/webhook/${channel.id}`;
       }
       if (channel.provider === "WHATSAPP") {
-        return `${apiBaseUrl}/api/whatsapp/webhook/${channel.id}`;
+        return `${apiBaseUrl}/whatsapp/webhook/${channel.id}`;
       }
     }
 
@@ -274,6 +281,12 @@ function ChannelItem({
               {channel.status === "ACTIVE" ? "Active" : "Disabled"}
             </span>
 
+            {channel.shared && (
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                Guest mode only
+              </span>
+            )}
+
             {channel.status === "ACTIVE" ? (
               <button
                 onClick={() => setShowConfirm(true)}
@@ -312,6 +325,34 @@ function ChannelItem({
                 </p>
               )}
             </div>
+
+            <CopyButton
+              text={webhookUrl}
+              className="mt-0.5 flex-shrink-0 text-neutral-400 transition-colors hover:text-secondary"
+            />
+          </div>
+        )}
+
+        {channel.shared && sharedBotUsername && (
+          <div className="flex items-center gap-2 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 text-[11px] font-medium text-neutral-500">
+            <a
+              href={`https://t.me/${sharedBotUsername}?start=${workspaceId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-w-0 flex-1 items-center gap-2 transition-colors hover:text-secondary"
+            >
+              <span
+                className="material-symbols-rounded flex-shrink-0 text-[13px] text-telegram"
+                aria-hidden="true"
+              >
+                send
+              </span>
+              Open @{sharedBotUsername} on Telegram to test this channel
+            </a>
+
+            <CopyButton
+              text={`https://t.me/${sharedBotUsername}?start=${workspaceId}`}
+            />
           </div>
         )}
       </li>

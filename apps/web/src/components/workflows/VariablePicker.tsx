@@ -8,6 +8,54 @@ export type WorkflowVariable = {
   group: "built-in" | "workflow";
 };
 
+/** Transforms supported by the `{{variable | filter}}` pipe syntax — mirrors VariableInterpolator on the backend. */
+export const VARIABLE_FILTERS = {
+  UPPER: "upper",
+  LOWER: "lower",
+  TITLE: "title",
+} as const;
+
+export type VariableFilter =
+  (typeof VARIABLE_FILTERS)[keyof typeof VARIABLE_FILTERS];
+
+const KNOWN_FILTERS: ReadonlySet<string> = new Set(
+  Object.values(VARIABLE_FILTERS)
+);
+
+/** Returns the distinct, unrecognised `{{variable | filter}}` filter names used in `text`. */
+export function findUnknownFilters(text: string | undefined): string[] {
+  if (!text) return [];
+
+  const unknown = new Set<string>();
+
+  for (const match of text.matchAll(/\{\{([^}]+)}}/g)) {
+    for (const part of match[1].split("|").slice(1)) {
+      const filter = part.trim().toLowerCase();
+
+      if (filter && !KNOWN_FILTERS.has(filter)) {
+        unknown.add(filter);
+      }
+    }
+  }
+
+  return Array.from(unknown);
+}
+
+/** Inline warning shown below a field when it contains an unrecognised `{{variable | filter}}`. */
+export function FilterWarning({ text }: { text: string | undefined }) {
+  const unknown = findUnknownFilters(text);
+
+  if (unknown.length === 0) return null;
+
+  return (
+    <p className="text-xs text-red-text">
+      Unknown filter{unknown.length > 1 ? "s" : ""}:{" "}
+      {unknown.map((f) => `"${f}"`).join(", ")}. Supported:{" "}
+      {Object.values(VARIABLE_FILTERS).join(", ")}.
+    </p>
+  );
+}
+
 /** Variables seeded into every workflow run — contact.id and internal IDs are intentionally excluded. */
 export const BUILT_IN_VARIABLES: WorkflowVariable[] = [
   { name: "contact.name", label: "Contact name", group: "built-in" },
@@ -18,16 +66,20 @@ export const BUILT_IN_VARIABLES: WorkflowVariable[] = [
     group: "built-in",
   },
   {
-    name: "customer.intent",
-    label: "Customer's opening message",
+    name: "contact.message",
+    label: "Contact's opening message",
     group: "built-in",
   },
 ];
 
 type Props = {
   variables: WorkflowVariable[];
-  /** Called with the raw variable name (no braces). The caller decides how to format it. */
-  onSelect: (name: string) => void;
+  /**
+   * Called with the placeholder expression (no braces) — either the raw variable name, or
+   * `name | upper` / `name | lower` if a transform was picked. The caller decides how to format
+   * it (e.g. wrapping in `{{...}}`).
+   */
+  onSelect: (expression: string) => void;
 };
 
 export function VariablePicker({ variables, onSelect }: Props) {
@@ -66,7 +118,7 @@ export function VariablePicker({ variables, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 shadow-lg">
           {variables.length === 0 && (
             <p className="px-3 py-2.5 text-[11px] text-neutral-400">
               No variables available yet.
@@ -123,22 +175,57 @@ function VariableGroup({
       </div>
 
       {items.map((v) => (
-        <button
+        <div
           key={v.name}
-          type="button"
-          onClick={() => onSelect(v.name)}
-          className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left transition-colors hover:bg-neutral-200"
+          className="flex items-center justify-between gap-1 px-3 py-1.5 transition-colors hover:bg-neutral-200"
         >
-          <span className="font-mono text-[11px] text-secondary">
-            {"{{"}
-            {v.name}
-            {"}}"}
-          </span>
+          <button
+            type="button"
+            onClick={() => onSelect(v.name)}
+            className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+          >
+            <span className="truncate font-mono text-[11px] text-secondary">
+              {"{{"}
+              {v.name}
+              {"}}"}
+            </span>
 
-          {v.label !== v.name && (
-            <span className="text-[11px] text-neutral-400">{v.label}</span>
-          )}
-        </button>
+            {v.label !== v.name && (
+              <span className="truncate text-[11px] text-neutral-400">
+                {v.label}
+              </span>
+            )}
+          </button>
+
+          <div className="flex flex-shrink-0 gap-0.5">
+            <button
+              type="button"
+              title="Insert as UPPERCASE"
+              onClick={() => onSelect(`${v.name} | ${VARIABLE_FILTERS.UPPER}`)}
+              className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
+            >
+              AA
+            </button>
+
+            <button
+              type="button"
+              title="Insert as lowercase"
+              onClick={() => onSelect(`${v.name} | ${VARIABLE_FILTERS.LOWER}`)}
+              className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
+            >
+              aa
+            </button>
+
+            <button
+              type="button"
+              title="Insert as Title Case"
+              onClick={() => onSelect(`${v.name} | ${VARIABLE_FILTERS.TITLE}`)}
+              className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
+            >
+              Aa
+            </button>
+          </div>
+        </div>
       ))}
     </>
   );

@@ -15,7 +15,7 @@ const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 async function fetchCurrentUser(): Promise<AuthenticatedUser> {
-  const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+  const response = await fetch(`${apiBaseUrl}/auth/me`, {
     credentials: "include",
   });
 

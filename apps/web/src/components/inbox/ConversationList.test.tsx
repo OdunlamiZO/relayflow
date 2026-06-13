@@ -25,7 +25,7 @@ const mockConversation = {
   channelProvider: "TELEGRAM" as const,
   channelAccountName: "My Bot",
   status: "OPEN" as const,
-  assignedUserId: null,
+  assigneeId: null,
   lastMessageAt: "2026-05-26T10:00:00Z",
   createdAt: "2026-05-26T09:00:00Z",
 };

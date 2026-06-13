@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 type Props = {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;

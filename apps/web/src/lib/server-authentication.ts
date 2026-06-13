@@ -18,7 +18,7 @@ export async function getServerAuthenticationStatus(): Promise<AuthenticationSta
     .join("; ");
 
   try {
-    const res = await fetch(`${apiBaseUrl}/api/auth/me`, {
+    const res = await fetch(`${apiBaseUrl}/auth/me`, {
       headers: { Cookie: cookieHeader },
       cache: "no-store",
     });
@@ -45,13 +45,16 @@ export async function requireAuthentication(): Promise<void> {
 /**
  * Redirects to {@code destination} (default: /inbox) if the user is already authenticated.
  * Pass a validated returnUrl to preserve the post-login destination.
+ *
+ * <p>Anonymous (guest) sessions are exempt — they're "authenticated" but still need to reach
+ * /signup or /login to convert into a real account.
  */
 export async function redirectIfAuthenticated(
   destination = "/inbox"
 ): Promise<void> {
-  const { authenticated } = await getServerAuthenticationStatus();
+  const { authenticated, anonymous } = await getServerAuthenticationStatus();
 
-  if (authenticated) {
+  if (authenticated && !anonymous) {
     redirect(destination);
   }
 }

@@ -1,11 +1,15 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+
+import { useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
 import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
 import { useWorkspaceEvents } from "@/hooks/use-workspace-events";
+import { useWorkspace } from "@/hooks/use-workspaces";
 
 import { ConversationList } from "./ConversationList";
 import { MessageThread } from "./MessageThread";
@@ -17,10 +21,30 @@ type Props = {
 export function InboxShell({ workspaceId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const conversationId = searchParams.get("conversationId") ?? undefined;
   const contactId = searchParams.get("contactId") ?? undefined;
+  const recoveryToken = searchParams.get("recoveryToken");
 
-  const { telegramLinked } = useWorkspaceEvents(workspaceId);
+  // Cross-app handoff from the marketing site's "See it live" button: the
+  // guest session cookie is already set (same-site), but the recovery token
+  // is passed via the URL since localStorage is per-origin.
+  useEffect(() => {
+    if (!recoveryToken) return;
+
+    localStorage.setItem("guestRecoveryToken", recoveryToken);
+    void queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("recoveryToken");
+    router.replace(`?${params.toString()}`);
+  }, [recoveryToken, searchParams, router, queryClient]);
+
+  const workspace = useWorkspace(workspaceId);
+  const { telegramLinked: telegramLinkedThisSession } =
+    useWorkspaceEvents(workspaceId);
+  const telegramLinked =
+    telegramLinkedThisSession || (workspace?.telegramLinked ?? false);
 
   function selectConversation(id: string) {
     const params = new URLSearchParams(searchParams.toString());

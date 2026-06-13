@@ -19,6 +19,7 @@ import org.mapstruct.MappingConstants;
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface MessagingMapper {
 
+    @Mapping(target = "telegramLinked", ignore = true)
     WorkspaceResponse toDto(Workspace workspace);
 
     @Mapping(source = "workspace.id", target = "workspaceId")

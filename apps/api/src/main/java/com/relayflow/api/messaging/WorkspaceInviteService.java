@@ -35,8 +35,6 @@ public class WorkspaceInviteService {
 
     private static final Logger log = LoggerFactory.getLogger(WorkspaceInviteService.class);
 
-    private static final int INVITE_EXPIRY_DAYS = 7;
-
     private final WorkspaceInviteRepository inviteRepository;
 
     private final WorkspaceRepository workspaceRepository;
@@ -51,6 +49,8 @@ public class WorkspaceInviteService {
 
     private final String webBaseUrl;
 
+    private final int inviteExpiryDays;
+
     public WorkspaceInviteService(
             WorkspaceInviteRepository inviteRepository,
             WorkspaceRepository workspaceRepository,
@@ -58,7 +58,8 @@ public class WorkspaceInviteService {
             UserRepository userRepository,
             EmailService emailService,
             SubscriptionService subscriptionService,
-            @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl) {
+            @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl,
+            @Value("${relayflow.invite.expiry-days}") int inviteExpiryDays) {
         this.inviteRepository = inviteRepository;
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
@@ -66,6 +67,7 @@ public class WorkspaceInviteService {
         this.emailService = emailService;
         this.subscriptionService = subscriptionService;
         this.webBaseUrl = webBaseUrl;
+        this.inviteExpiryDays = inviteExpiryDays;
     }
 
     // --- Create / resend ---
@@ -77,6 +79,11 @@ public class WorkspaceInviteService {
                 workspaceRepository
                         .findById(workspaceId)
                         .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+
+        if (memberRepository.countByWorkspace(workspaceId, true) > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Guest workspaces cannot invite members");
+        }
 
         User inviter =
                 userRepository
@@ -96,7 +103,7 @@ public class WorkspaceInviteService {
                         });
 
         Instant now = Instant.now();
-        Instant expiry = now.plus(INVITE_EXPIRY_DAYS, ChronoUnit.DAYS);
+        Instant expiry = now.plus(inviteExpiryDays, ChronoUnit.DAYS);
 
         // If a pending invite already exists for this email, refresh it instead of creating a
         // duplicate.
@@ -242,7 +249,7 @@ public class WorkspaceInviteService {
 
         // Guard: already a member (idempotent).
         if (memberRepository.findByWorkspaceAndUser(invite.getWorkspaceId(), userId).isEmpty()) {
-            long count = memberRepository.countByWorkspace(invite.getWorkspaceId());
+            long count = memberRepository.countByWorkspace(invite.getWorkspaceId(), null);
             subscriptionService.enforceLimit(
                     invite.getWorkspaceId(), LimitType.MEMBERS_PER_WORKSPACE, count);
 

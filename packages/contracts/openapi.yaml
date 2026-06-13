@@ -10,7 +10,7 @@ paths:
 
   # ── Health ───────────────────────────────────────────────────────────────────
 
-  /api/health:
+  /health:
     get:
       operationId: getHealth
       summary: Check API health
@@ -26,7 +26,7 @@ paths:
 
   # ── Authentication ────────────────────────────────────────────────────────────
 
-  /api/auth/me:
+  /auth/me:
     get:
       operationId: getCurrentUser
       summary: Get the authenticated user
@@ -40,7 +40,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthenticatedUserResponse"
 
-  /api/auth/signup:
+  /auth/signup:
     post:
       operationId: signup
       summary: Register a new email/password account and send verification email
@@ -66,7 +66,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/auth/verify-email:
+  /auth/verify-email:
     post:
       operationId: verifyEmail
       summary: Verify an email address and establish a session
@@ -86,7 +86,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthenticatedUserResponse"
 
-  /api/auth/login:
+  /auth/login:
     post:
       operationId: login
       summary: Log in with email and password
@@ -112,7 +112,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/auth/login/2fa:
+  /auth/login/2fa:
     post:
       operationId: login2FA
       summary: Complete a two-factor login challenge
@@ -132,7 +132,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthenticatedUserResponse"
 
-  /api/auth/logout:
+  /auth/logout:
     post:
       operationId: logout
       summary: Invalidate the current session
@@ -141,7 +141,7 @@ paths:
         "204":
           description: Session invalidated
 
-  /api/auth/guest:
+  /auth/guest:
     post:
       operationId: createGuestSession
       summary: Create an anonymous guest session with a pre-built workspace
@@ -157,7 +157,7 @@ paths:
 
   # ── Profile ─────────────────────────────────────────────────────────────────
 
-  /api/profile:
+  /profile:
     get:
       operationId: getProfile
       summary: Get the current user's profile and security settings
@@ -200,7 +200,7 @@ paths:
         "204":
           description: Account deleted
 
-  /api/profile/change-password:
+  /profile/change-password:
     post:
       operationId: changePassword
       summary: Change password for an email/password account
@@ -215,7 +215,7 @@ paths:
         "204":
           description: Password changed
 
-  /api/profile/2fa/setup:
+  /profile/2fa/setup:
     post:
       operationId: setup2FA
       summary: Start TOTP two-factor setup
@@ -228,7 +228,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Setup2FAResponse"
 
-  /api/profile/2fa/enable:
+  /profile/2fa/enable:
     post:
       operationId: enable2FA
       summary: Enable TOTP two-factor authentication after OTP verification
@@ -243,7 +243,7 @@ paths:
         "204":
           description: Two-factor authentication enabled
 
-  /api/profile/2fa/disable:
+  /profile/2fa/disable:
     post:
       operationId: disable2FA
       summary: Disable TOTP two-factor authentication after OTP verification
@@ -260,7 +260,7 @@ paths:
 
   # ── Workspaces ────────────────────────────────────────────────────────────────
 
-  /api/workspaces:
+  /workspaces:
     get:
       operationId: listWorkspaces
       summary: List workspaces the authenticated user is a member of
@@ -292,7 +292,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkspaceResponse"
 
-  /api/workspaces/{workspaceId}/members:
+  /workspaces/{workspaceId}/members:
     get:
       operationId: listWorkspaceMembers
       summary: List members of a workspace
@@ -340,13 +340,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/workspaces/{workspaceId}/members/{memberId}:
+  /workspaces/{workspaceId}/members/{memberId}:
     patch:
       operationId: updateWorkspaceMember
       summary: Update a workspace member role or permissions
       description: >
         Owner-only endpoint. Direct promotion to OWNER is rejected; ownership must be
-        transferred through `/api/workspaces/{workspaceId}/owner`.
+        transferred through `/workspaces/{workspaceId}/owner`.
       tags: [WorkspaceMembers]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
@@ -397,7 +397,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/workspaces/{workspaceId}/owner:
+  /workspaces/{workspaceId}/owner:
     put:
       operationId: transferWorkspaceOwnership
       summary: Transfer workspace ownership to another member
@@ -436,7 +436,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/workspaces/{workspaceId}/invites:
+  /workspaces/{workspaceId}/invites:
     get:
       operationId: listWorkspaceInvites
       summary: List pending workspace invites
@@ -472,7 +472,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkspaceInviteResponse"
 
-  /api/workspaces/{workspaceId}/invites/{inviteId}:
+  /workspaces/{workspaceId}/invites/{inviteId}:
     delete:
       operationId: revokeWorkspaceInvite
       summary: Revoke a pending workspace invite
@@ -489,7 +489,7 @@ paths:
         "204":
           description: Invite revoked
 
-  /api/invites/{token}:
+  /invites/{token}:
     get:
       operationId: previewWorkspaceInvite
       summary: Preview a workspace invite
@@ -510,7 +510,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/InvitePreviewResponse"
 
-  /api/invites/{token}/accept:
+  /invites/{token}/accept:
     post:
       operationId: acceptWorkspaceInvite
       summary: Accept a workspace invite
@@ -530,7 +530,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/InviteAcceptedResponse"
 
-  /api/workspaces/{workspaceId}/api-keys:
+  /workspaces/{workspaceId}/api-keys:
     get:
       operationId: listApiKeys
       summary: List workspace API keys
@@ -566,7 +566,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreateApiKeyResponse"
 
-  /api/workspaces/{workspaceId}/api-keys/{keyId}:
+  /workspaces/{workspaceId}/api-keys/{keyId}:
     delete:
       operationId: revokeApiKey
       summary: Revoke a workspace API key
@@ -583,7 +583,7 @@ paths:
         "204":
           description: API key revoked
 
-  /api/workspaces/{workspaceId}/webhook:
+  /workspaces/{workspaceId}/webhook:
     get:
       operationId: getWorkspaceWebhook
       summary: Get workspace webhook configuration
@@ -628,7 +628,7 @@ paths:
         "204":
           description: Webhook configuration deleted
 
-  /api/workspaces/{workspaceId}/webhook/rotate-secret:
+  /workspaces/{workspaceId}/webhook/rotate-secret:
     post:
       operationId: rotateWorkspaceWebhookSecret
       summary: Rotate workspace webhook signing secret
@@ -645,7 +645,7 @@ paths:
 
   # ── Channel Accounts ──────────────────────────────────────────────────────────
 
-  /api/channel-accounts:
+  /channel-accounts:
     get:
       operationId: listChannelAccounts
       summary: List channel accounts for a workspace
@@ -684,8 +684,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Guest workspaces cannot connect additional channels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  /api/channel-accounts/{id}:
+  /channel-accounts/{id}:
     delete:
       operationId: disconnectChannelAccount
       summary: Disconnect a channel account (sets status to DISABLED; data is preserved)
@@ -708,7 +714,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/channel-accounts/{id}/reconnect:
+  /channel-accounts/{id}/reconnect:
     post:
       operationId: reconnectChannelAccount
       summary: Re-enable a disconnected channel account (sets status back to ACTIVE)
@@ -737,7 +743,7 @@ paths:
 
   # ── Contacts ────────────────────────────────────────────────────────────────
 
-  /api/contacts:
+  /contacts:
     get:
       operationId: listContacts
       summary: List contacts for a workspace, newest first
@@ -779,7 +785,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ContactResponse"
 
-  /api/contacts/{id}:
+  /contacts/{id}:
     get:
       operationId: getContact
       summary: Get a contact with linked channel identities
@@ -827,7 +833,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/contacts/{id}/merge:
+  /contacts/{id}/merge:
     post:
       operationId: mergeContacts
       summary: Merge a source contact into a target contact
@@ -867,7 +873,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/external-identities:
+  /external-identities:
     post:
       operationId: createExternalIdentity
       summary: Link a contact to an external channel identity
@@ -888,7 +894,7 @@ paths:
 
   # ── Conversations ─────────────────────────────────────────────────────────────
 
-  /api/conversations:
+  /conversations:
     get:
       operationId: listConversations
       summary: List conversations for a workspace, newest first
@@ -937,7 +943,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ConversationResponse"
 
-  /api/conversations/{conversationId}:
+  /conversations/{conversationId}:
     get:
       operationId: getConversation
       summary: Get a single conversation
@@ -981,7 +987,7 @@ paths:
 
   # ── Messages ──────────────────────────────────────────────────────────────────
 
-  /api/conversations/{conversationId}/messages:
+  /conversations/{conversationId}/messages:
     get:
       operationId: listMessages
       summary: List messages in a conversation (cursor-based, newest first)
@@ -1043,7 +1049,7 @@ paths:
 
   # ── Workflows ────────────────────────────────────────────────────────────────
 
-  /api/workflows:
+  /workflows:
     get:
       operationId: listWorkflows
       summary: List workflow definitions for a workspace
@@ -1083,7 +1089,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/workflows/{id}:
+  /workflows/{id}:
     get:
       operationId: getWorkflow
       summary: Get a workflow definition
@@ -1158,7 +1164,7 @@ paths:
 
   # ── Subscriptions ─────────────────────────────────────────────────────────────
 
-  /api/plans:
+  /plans:
     get:
       operationId: listPlans
       summary: List public plan catalogue
@@ -1174,7 +1180,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/PlanInfo"
 
-  /api/workspaces/{workspaceId}/subscription:
+  /workspaces/{workspaceId}/subscription:
     get:
       operationId: getWorkspaceSubscription
       summary: Get a workspace subscription
@@ -1225,7 +1231,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/workspaces/{workspaceId}/subscription/checkout:
+  /workspaces/{workspaceId}/subscription/checkout:
     post:
       operationId: startSubscriptionCheckout
       summary: Start checkout for a paid workspace plan
@@ -1264,7 +1270,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/paystack/webhook:
+  /paystack/webhook:
     post:
       operationId: paystackWebhook
       summary: Receive Paystack subscription webhook events
@@ -1297,7 +1303,7 @@ paths:
 
   # ── SSE ───────────────────────────────────────────────────────────────────────
 
-  /api/sse/workspace/{workspaceId}:
+  /sse/workspace/{workspaceId}:
     get:
       operationId: subscribeWorkspaceEvents
       summary: Subscribe to real-time workspace events over SSE
@@ -1323,7 +1329,7 @@ paths:
 
   # ── Telegram Webhooks ─────────────────────────────────────────────────────────
 
-  /api/telegram/webhook/{channelAccountId}:
+  /telegram/webhook/{channelAccountId}:
     post:
       operationId: telegramWebhook
       summary: Receive a Telegram update for a dedicated bot channel account
@@ -1346,7 +1352,7 @@ paths:
         "200":
           description: Update accepted
 
-  /api/telegram/webhook/shared:
+  /telegram/webhook/shared:
     post:
       operationId: telegramSharedWebhook
       summary: Receive a Telegram update for the shared guest bot
@@ -1364,7 +1370,7 @@ paths:
 
   # ── WhatsApp Webhooks ────────────────────────────────────────────────────────
 
-  /api/whatsapp/webhook/{channelAccountId}:
+  /whatsapp/webhook/{channelAccountId}:
     get:
       operationId: verifyWhatsAppWebhook
       summary: Verify a WhatsApp Business Cloud API webhook
@@ -1995,7 +2001,7 @@ components:
         challengeToken:
           type: string
           nullable: true
-          description: Short-lived token passed to `/api/auth/login/2fa`.
+          description: Short-lived token passed to `/auth/login/2fa`.
 
     SignupResponse:
       type: object

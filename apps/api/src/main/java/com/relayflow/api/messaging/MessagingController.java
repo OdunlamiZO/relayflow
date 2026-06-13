@@ -17,8 +17,10 @@ import com.relayflow.api.messaging.dto.InviteMemberRequest;
 import com.relayflow.api.messaging.dto.MergeContactRequest;
 import com.relayflow.api.messaging.dto.MessageResponse;
 import com.relayflow.api.messaging.dto.PageResponse;
+import com.relayflow.api.messaging.dto.UpdateAssigneeRequest;
 import com.relayflow.api.messaging.dto.UpdateConversationRequest;
 import com.relayflow.api.messaging.dto.UpdateMemberRequest;
+import com.relayflow.api.messaging.dto.UpdateWorkspaceRequest;
 import com.relayflow.api.messaging.dto.WorkspaceMemberResponse;
 import com.relayflow.api.messaging.dto.WorkspaceResponse;
 import jakarta.validation.Valid;
@@ -36,14 +38,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping("/api")
 public class MessagingController {
 
     private final MessagingService messagingService;
@@ -79,6 +79,16 @@ public class MessagingController {
         }
 
         return messagingService.createWorkspace(request, userId);
+    }
+
+    @PatchMapping("/workspaces/{workspaceId}")
+    WorkspaceResponse updateWorkspace(
+            @PathVariable UUID workspaceId,
+            @Valid @RequestBody UpdateWorkspaceRequest request,
+            Authentication authentication) {
+        authorizationService.assertOwner(workspaceId, authentication);
+
+        return messagingService.updateWorkspace(workspaceId, request.name());
     }
 
     // --- Workspace Members ---
@@ -269,6 +279,19 @@ public class MessagingController {
                 workspaceId, conversationId, request.status());
     }
 
+    @PatchMapping("/conversations/{conversationId}/assignee")
+    ConversationResponse updateAssignee(
+            @RequestParam @NotNull UUID workspaceId,
+            @PathVariable UUID conversationId,
+            @RequestBody UpdateAssigneeRequest request,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.INBOX);
+
+        return messagingService.updateConversationAssignee(
+                workspaceId, conversationId, request.assigneeId());
+    }
+
     // --- Messages ---
 
     @GetMapping("/conversations/{conversationId}/messages")
@@ -290,6 +313,7 @@ public class MessagingController {
         authorizationService.assertPermission(
                 workspaceId, authentication, WorkspacePermission.INBOX);
 
-        return messagingService.createMessage(workspaceId, conversationId, request);
+        return messagingService.createMessage(
+                workspaceId, conversationId, request, authorizationService.getUser(authentication));
     }
 }

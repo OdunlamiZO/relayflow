@@ -99,9 +99,10 @@ public class EndConversationNodeExecutor implements NodeExecutor {
             output.put("text", text);
         }
 
-        // Close the conversation and release workflow ownership.
+        // Close the conversation, release workflow ownership, and unassign it.
         conversation.setStatus(ConversationStatus.CLOSED);
         conversation.setLockedByWorkflow(false);
+        conversation.setAssigneeId(null);
         conversationRepository.save(conversation);
 
         eventPublisher.publishEvent(

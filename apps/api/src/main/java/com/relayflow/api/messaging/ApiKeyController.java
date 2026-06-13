@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping("/api/workspaces/{workspaceId}/api-keys")
+@RequestMapping("/workspaces/{workspaceId}/api-keys")
 public class ApiKeyController {
 
     private final ApiKeyService apiKeyService;

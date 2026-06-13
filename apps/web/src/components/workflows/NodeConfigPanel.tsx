@@ -10,15 +10,20 @@ import { type SelectOption } from "@/components/common/Select";
 
 import {
   BUILT_IN_VARIABLES,
+  FilterWarning,
   VariablePicker,
   type WorkflowVariable,
 } from "./VariablePicker";
 import {
   type ConditionBranch,
   type ConditionOperator,
+  type ConditionRule,
   DEFAULT_CONDITION_BRANCHES,
 } from "./nodes/ConditionNode";
-import { type WaitForReplyOption } from "./nodes/WaitForReplyNode";
+import {
+  DEFAULT_TIMEOUT_MINUTES,
+  type WaitForReplyOption,
+} from "./nodes/WaitForReplyNode";
 
 type Props = {
   node: Node;
@@ -68,10 +73,7 @@ function extractWorkflowVariables(nodes: Node[]): WorkflowVariable[] {
       }
     }
 
-    if (
-      node.type === "waitForReply" &&
-      (data.responseType as string | undefined) !== "defined"
-    ) {
+    if (node.type === "waitForReply") {
       const responseVar = (data.responseVariable as string | undefined)?.trim();
 
       if (responseVar && !seen.has(responseVar)) {
@@ -197,6 +199,8 @@ function SendMessageForm({
         rows={4}
         className={`${inputCls} resize-none`}
       />
+
+      <FilterWarning text={message} />
     </Field>
   );
 }
@@ -218,6 +222,9 @@ const CONDITION_OPERATORS: { value: ConditionOperator; label: string }[] = [
 
 /** Operators that compare against a value — the value field is hidden for the rest. */
 const NO_VALUE_OPERATORS = new Set<ConditionOperator>(["is_set", "is_not_set"]);
+
+/** Combined "Wait for Reply" timeout budget across an entire workflow. */
+const MAX_TOTAL_TIMEOUT_MINUTES = 7 * 24 * 60;
 
 function ConditionForm({
   nodeId,
@@ -259,12 +266,41 @@ function ConditionForm({
     );
   }
 
+  function getConditions(branch: ConditionBranch): ConditionRule[] {
+    return branch.conditions && branch.conditions.length > 0
+      ? branch.conditions
+      : [{ id: "cond-0" }];
+  }
+
+  function updateCondition(
+    branch: ConditionBranch,
+    conditionId: string,
+    patch: Partial<ConditionRule>
+  ) {
+    const conditions = getConditions(branch).map((c) =>
+      c.id === conditionId ? { ...c, ...patch } : c
+    );
+
+    updateBranch(branch.id, { conditions });
+  }
+
+  function addCondition(branch: ConditionBranch) {
+    updateBranch(branch.id, {
+      conditions: [...getConditions(branch), { id: `cond-${Date.now()}` }],
+    });
+  }
+
+  function removeCondition(branch: ConditionBranch, conditionId: string) {
+    updateBranch(branch.id, {
+      conditions: getConditions(branch).filter((c) => c.id !== conditionId),
+    });
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {branches.map((branch, idx) => {
-        const hideValue = branch.operator
-          ? NO_VALUE_OPERATORS.has(branch.operator)
-          : false;
+        const conditions = getConditions(branch);
+        const combinator = branch.combinator ?? "and";
 
         return (
           <div
@@ -302,46 +338,137 @@ function ConditionForm({
               />
             </Field>
 
-            {/* Variable field — stores raw name, no braces; picker inserts without wrapping */}
-            <Field
-              label="Variable"
-              action={
-                <VariablePicker
-                  variables={variables}
-                  onSelect={(name) =>
-                    updateBranch(branch.id, { variable: name })
-                  }
-                />
-              }
+            {conditions.map((condition, ci) => {
+              const hideValue = condition.operator
+                ? NO_VALUE_OPERATORS.has(condition.operator)
+                : false;
+
+              return (
+                <div key={condition.id} className="flex flex-col gap-2">
+                  {ci > 0 && (
+                    <div className="flex items-center justify-center">
+                      <div className="flex rounded-full border border-neutral-200 bg-white p-0.5 text-[10px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateBranch(branch.id, { combinator: "and" })
+                          }
+                          className={`rounded-full px-2 py-0.5 transition-colors ${
+                            combinator === "and"
+                              ? "bg-secondary text-white"
+                              : "text-neutral-400 hover:text-neutral-600"
+                          }`}
+                        >
+                          AND
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateBranch(branch.id, { combinator: "or" })
+                          }
+                          className={`rounded-full px-2 py-0.5 transition-colors ${
+                            combinator === "or"
+                              ? "bg-secondary text-white"
+                              : "text-neutral-400 hover:text-neutral-600"
+                          }`}
+                        >
+                          OR
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <input
+                        type="text"
+                        value={condition.label ?? ""}
+                        onChange={(e) =>
+                          updateCondition(branch, condition.id, {
+                            label: e.target.value,
+                          })
+                        }
+                        placeholder={`Condition ${ci + 1}`}
+                        className="flex-1 border-none bg-transparent p-0 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 placeholder:text-neutral-400 focus:outline-none"
+                      />
+
+                      {conditions.length > 1 && (
+                        <button
+                          onClick={() => removeCondition(branch, condition.id)}
+                          className="text-neutral-300 transition-colors hover:text-red-border"
+                          title="Remove condition"
+                        >
+                          <span className="material-symbols-rounded text-[14px] leading-none">
+                            delete
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                    <Field
+                      label="Variable"
+                      action={
+                        <VariablePicker
+                          variables={variables}
+                          onSelect={(name) =>
+                            updateCondition(branch, condition.id, {
+                              variable: name,
+                            })
+                          }
+                        />
+                      }
+                    >
+                      <input
+                        type="text"
+                        value={condition.variable ?? ""}
+                        onChange={(e) =>
+                          updateCondition(branch, condition.id, {
+                            variable: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. contact.name"
+                        className={inputCls}
+                      />
+                    </Field>
+
+                    <Field label="Operator">
+                      <Select
+                        value={condition.operator ?? "eq"}
+                        onChange={(v) =>
+                          updateCondition(branch, condition.id, {
+                            operator: v as ConditionOperator,
+                          })
+                        }
+                        options={CONDITION_OPERATORS}
+                      />
+                    </Field>
+
+                    {!hideValue && (
+                      <ConditionValueField
+                        value={condition.value ?? ""}
+                        onChange={(v) =>
+                          updateCondition(branch, condition.id, { value: v })
+                        }
+                        variables={variables}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            <button
+              onClick={() => addCondition(branch)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
             >
-              <input
-                type="text"
-                value={branch.variable ?? ""}
-                onChange={(e) =>
-                  updateBranch(branch.id, { variable: e.target.value })
-                }
-                placeholder="e.g. contact.name"
-                className={inputCls}
-              />
-            </Field>
-
-            <Field label="Operator">
-              <Select
-                value={branch.operator ?? "eq"}
-                onChange={(v) =>
-                  updateBranch(branch.id, { operator: v as ConditionOperator })
-                }
-                options={CONDITION_OPERATORS}
-              />
-            </Field>
-
-            {!hideValue && (
-              <ConditionValueField
-                value={branch.value ?? ""}
-                onChange={(v) => updateBranch(branch.id, { value: v })}
-                variables={variables}
-              />
-            )}
+              <span
+                className="material-symbols-rounded text-[14px] leading-none"
+                aria-hidden="true"
+              >
+                add
+              </span>
+              Add condition
+            </button>
           </div>
         );
       })}
@@ -394,6 +521,8 @@ function ConditionValueField({
         placeholder="e.g. hello or {{variable}}"
         className={inputCls}
       />
+
+      <FilterWarning text={value} />
     </Field>
   );
 }
@@ -498,46 +627,53 @@ function HeaderRow({
   const valueRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex items-center gap-1.5">
-      <input
-        type="text"
-        value={row.key}
-        onChange={(e) => onUpdate({ key: e.target.value })}
-        placeholder={keyPlaceholder}
-        className={`${inputCls} min-w-0 flex-1`}
-      />
-
-      <div className="relative flex min-w-0 flex-1 items-center">
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5">
         <input
-          ref={valueRef}
           type="text"
-          value={row.value}
-          onChange={(e) => onUpdate({ value: e.target.value })}
-          placeholder={valuePlaceholder}
-          className={`${inputCls} pr-8`}
+          value={row.key}
+          onChange={(e) => onUpdate({ key: e.target.value })}
+          placeholder={keyPlaceholder}
+          className={`${inputCls} min-w-0 flex-1`}
         />
 
-        <div className="absolute right-1">
-          <VariablePicker
-            variables={variables}
-            onSelect={(name) =>
-              insertAtCursor(valueRef.current, row.value, `{{${name}}}`, (v) =>
-                onUpdate({ value: v })
-              )
-            }
+        <div className="relative flex min-w-0 flex-1 items-center">
+          <input
+            ref={valueRef}
+            type="text"
+            value={row.value}
+            onChange={(e) => onUpdate({ value: e.target.value })}
+            placeholder={valuePlaceholder}
+            className={`${inputCls} pr-8`}
           />
+
+          <div className="absolute right-1">
+            <VariablePicker
+              variables={variables}
+              onSelect={(name) =>
+                insertAtCursor(
+                  valueRef.current,
+                  row.value,
+                  `{{${name}}}`,
+                  (v) => onUpdate({ value: v })
+                )
+              }
+            />
+          </div>
         </div>
+
+        <button
+          onClick={onRemove}
+          className="flex-shrink-0 text-neutral-300 transition-colors hover:text-red-border"
+          title="Remove"
+        >
+          <span className="material-symbols-rounded text-[14px] leading-none">
+            delete
+          </span>
+        </button>
       </div>
 
-      <button
-        onClick={onRemove}
-        className="flex-shrink-0 text-neutral-300 transition-colors hover:text-red-border"
-        title="Remove"
-      >
-        <span className="material-symbols-rounded text-[14px] leading-none">
-          delete
-        </span>
-      </button>
+      <FilterWarning text={row.value} />
     </div>
   );
 }
@@ -666,6 +802,8 @@ function HttpRequestForm({
           placeholder="https://example.com/api"
           className={inputCls}
         />
+
+        <FilterWarning text={url} />
       </Field>
 
       <Field label="Headers">
@@ -713,6 +851,8 @@ function HttpRequestForm({
               rows={5}
               className={`${inputCls} resize-none font-mono text-xs`}
             />
+
+            <FilterWarning text={body} />
           </Field>
         </>
       )}
@@ -815,6 +955,8 @@ function SetVariableForm({
           placeholder="e.g. {{contact.name}} or a static value"
           className={inputCls}
         />
+
+        <FilterWarning text={value} />
       </Field>
     </>
   );
@@ -855,6 +997,8 @@ function EndConversationForm({
           rows={4}
           className={`${inputCls} resize-none`}
         />
+
+        <FilterWarning text={message} />
       </Field>
 
       <p className="text-xs text-neutral-400">
@@ -880,13 +1024,29 @@ function WaitForReplyForm({
   onChange: (u: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
-  const { setEdges } = useReactFlow();
+  const { setEdges, getNodes } = useReactFlow();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const question = (data.question as string) ?? "";
   const responseType = (data.responseType as string) ?? "generic";
   const options: WaitForReplyOption[] =
     (data.options as WaitForReplyOption[]) ?? [];
+
+  // The combined timeout of every "Wait for Reply" node in the workflow may not
+  // exceed MAX_TOTAL_TIMEOUT_MINUTES — this node's max is whatever's left over.
+  const otherWaitTimeoutTotal = getNodes()
+    .filter((n) => n.type === "waitForReply" && n.id !== nodeId)
+    .reduce(
+      (sum, n) =>
+        sum +
+        (((n.data as Record<string, unknown>).timeoutMinutes as number) ??
+          DEFAULT_TIMEOUT_MINUTES),
+      0
+    );
+  const maxTimeoutMinutes = Math.max(
+    1,
+    MAX_TOTAL_TIMEOUT_MINUTES - otherWaitTimeoutTotal
+  );
 
   function updateOption(id: string, text: string) {
     onChange({
@@ -932,6 +1092,8 @@ function WaitForReplyForm({
           rows={3}
           className={`${inputCls} resize-none`}
         />
+
+        <FilterWarning text={question} />
       </Field>
 
       <Field label="Expected response">
@@ -1012,6 +1174,29 @@ function WaitForReplyForm({
           </p>
         </>
       )}
+
+      <Field label="Reply timeout (minutes)">
+        <input
+          type="number"
+          min={1}
+          max={maxTimeoutMinutes}
+          value={(data.timeoutMinutes as number | undefined) ?? ""}
+          onChange={(e) =>
+            onChange({
+              timeoutMinutes: e.target.value
+                ? Math.min(Number(e.target.value), maxTimeoutMinutes)
+                : undefined,
+            })
+          }
+          className={inputCls}
+        />
+        <p className="mt-1 text-xs text-neutral-400">
+          If the contact doesn&apos;t reply within this time, the run fails and
+          the conversation is released. The combined timeout across all
+          &quot;Wait for Reply&quot; nodes in this workflow can&apos;t exceed 7
+          days — up to {maxTimeoutMinutes} minutes left for this node.
+        </p>
+      </Field>
     </>
   );
 }

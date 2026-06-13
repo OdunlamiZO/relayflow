@@ -2,7 +2,6 @@ package com.relayflow.api.telegram;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.relayflow.api.configuration.CredentialEncryptionService;
 import com.relayflow.api.messaging.OutboundMessageEvent;
 import com.relayflow.api.messaging.ResourceNotFoundException;
 import com.relayflow.api.messaging.domain.ChannelAccount;
@@ -21,6 +20,7 @@ import com.relayflow.api.messaging.repository.ContactRepository;
 import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.repository.MessageRepository;
+import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.telegram.dto.TelegramMessage;
 import com.relayflow.api.telegram.dto.TelegramUser;
@@ -41,9 +41,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class TelegramAdapter {
@@ -74,6 +76,8 @@ public class TelegramAdapter {
 
     private final String sharedBotToken;
 
+    private final String sharedWebhookSecret;
+
     private final String webBaseUrl;
 
     public TelegramAdapter(
@@ -88,6 +92,7 @@ public class TelegramAdapter {
             ObjectMapper objectMapper,
             WebhookDispatchService webhookDispatchService,
             @Value("${shared.telegram.bot-token:}") String sharedBotToken,
+            @Value("${shared.telegram.webhook-secret:}") String sharedWebhookSecret,
             @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl) {
         this.channelAccountRepository = channelAccountRepository;
         this.contactRepository = contactRepository;
@@ -100,13 +105,13 @@ public class TelegramAdapter {
         this.objectMapper = objectMapper;
         this.webhookDispatchService = webhookDispatchService;
         this.sharedBotToken = sharedBotToken;
+        this.sharedWebhookSecret = sharedWebhookSecret;
         this.webBaseUrl = webBaseUrl;
     }
 
-    // ── Public ───────────────────────────────────────────────────────────────
-
     @Transactional
-    public void handleWebhook(UUID channelAccountId, TelegramWebhookPayload payload) {
+    public void handleWebhook(
+            UUID channelAccountId, String secretToken, TelegramWebhookPayload payload) {
         if (payload.message() == null || payload.message().text() == null) {
             return;
         }
@@ -116,6 +121,11 @@ public class TelegramAdapter {
                         .findById(channelAccountId)
                         .orElseThrow(
                                 () -> new ResourceNotFoundException("Channel account not found"));
+
+        String expectedSecret = channelAccount.getWebhookSecret();
+        if (expectedSecret != null && !expectedSecret.equals(secretToken)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid webhook secret");
+        }
 
         if (channelAccount.getProvider() != ChannelProvider.TELEGRAM) {
             log.warn(
@@ -145,7 +155,11 @@ public class TelegramAdapter {
      * via their {@link com.relayflow.api.messaging.domain.ExternalIdentity}.
      */
     @Transactional
-    public void handleSharedBotWebhook(TelegramWebhookPayload webhook) {
+    public void handleSharedBotWebhook(String secretToken, TelegramWebhookPayload webhook) {
+        if (!sharedWebhookSecret.isBlank() && !sharedWebhookSecret.equals(secretToken)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid webhook secret");
+        }
+
         if (webhook.message() == null || webhook.message().from() == null) {
             return;
         }
@@ -220,8 +234,6 @@ public class TelegramAdapter {
                 message.getText(),
                 event.buttonOptions());
     }
-
-    // ── Private ──────────────────────────────────────────────────────────────
 
     /**
      * Core inbound-message processing shared by both the per-workspace and shared-bot webhook
@@ -510,8 +522,6 @@ public class TelegramAdapter {
                     e.getMessage());
         }
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private ExternalIdentity createIdentity(
             ChannelAccount channelAccount,

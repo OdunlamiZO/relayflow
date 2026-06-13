@@ -9,4 +9,4 @@ public record CreateConversationRequest(
         @NotNull UUID contactId,
         @NotNull UUID channelAccountId,
         ConversationStatus status,
-        UUID assignedUserId) {}
+        UUID assigneeId) {}

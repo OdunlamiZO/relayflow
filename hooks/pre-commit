@@ -17,5 +17,11 @@ npm run typecheck
 npm run format:check
 npm run test
 
+printf "Running marketing checks...\n"
+cd "$repo_root/apps/marketing"
+npm run lint
+npm run typecheck
+npm run format:check
+
 cd "$repo_root"
 git add .

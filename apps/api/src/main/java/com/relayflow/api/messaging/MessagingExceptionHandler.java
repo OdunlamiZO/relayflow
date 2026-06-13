@@ -12,6 +12,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class MessagingExceptionHandler {
@@ -71,6 +73,30 @@ public class MessagingExceptionHandler {
 
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
+    }
+
+    /**
+     * Preserves the status and reason of {@link ResponseStatusException}s thrown by services (e.g.
+     * authentication failures) — without this, they would fall through to {@link #unexpected} and
+     * surface as a generic 500.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    ResponseEntity<ErrorResponse> responseStatus(ResponseStatusException exception) {
+        log.warn("Request rejected: {}", exception.getReason());
+
+        return ResponseEntity.status(exception.getStatusCode())
+                .body(new ErrorResponse(exception.getReason(), Instant.now()));
+    }
+
+    /**
+     * SSE emitters time out after {@code WorkspaceSseService.EMITTER_TIMEOUT_MS} by design — the
+     * client reconnects automatically. Returning a bodiless response avoids {@code
+     * HttpMessageNotWritableException} from writing a JSON {@link ErrorResponse} onto a response
+     * already committed as {@code text/event-stream}.
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    ResponseEntity<Void> asyncTimeout() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
     @ExceptionHandler(Exception.class)

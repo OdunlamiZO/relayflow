@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping("/api/workspaces/{workspaceId}/webhook")
+@RequestMapping("/workspaces/{workspaceId}/webhook")
 public class WebhookController {
 
     private final WebhookService webhookService;

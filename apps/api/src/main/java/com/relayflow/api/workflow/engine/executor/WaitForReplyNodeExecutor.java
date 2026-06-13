@@ -41,6 +41,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class WaitForReplyNodeExecutor implements NodeExecutor {
 
+    private static final long DEFAULT_TIMEOUT_MINUTES = 60 * 24;
+
+    private static final long MAX_TIMEOUT_MINUTES = 7 * 24 * 60;
+
     private final ConversationRepository conversationRepository;
 
     private final MessageRepository messageRepository;
@@ -107,8 +111,15 @@ public class WaitForReplyNodeExecutor implements NodeExecutor {
         eventPublisher.publishEvent(
                 new OutboundMessageEvent(message, conversation.getChannelAccount(), buttonOptions));
 
+        long timeoutMinutes =
+                node.data().get("timeoutMinutes") instanceof Number n
+                        ? n.longValue()
+                        : DEFAULT_TIMEOUT_MINUTES;
+        timeoutMinutes = Math.min(timeoutMinutes, MAX_TIMEOUT_MINUTES);
+
         return NodeExecutionResult.waiting(
-                Map.of("questionMessageId", message.getId().toString(), "question", text));
+                Map.of("questionMessageId", message.getId().toString(), "question", text),
+                timeoutMinutes * 60);
     }
 
     /**
