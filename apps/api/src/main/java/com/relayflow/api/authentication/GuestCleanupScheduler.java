@@ -1,10 +1,7 @@
 package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.domain.User;
-import com.relayflow.api.authentication.repository.GuestRecoveryTokenRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
-import com.relayflow.api.messaging.MessagingService;
-import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -21,24 +18,16 @@ public class GuestCleanupScheduler {
 
     private final UserRepository userRepository;
 
-    private final WorkspaceMemberRepository workspaceMemberRepository;
-
-    private final GuestRecoveryTokenRepository guestRecoveryTokenRepository;
-
-    private final MessagingService messagingService;
+    private final GuestCleanupService guestCleanupService;
 
     private final long guestExpiryHours;
 
     public GuestCleanupScheduler(
             UserRepository userRepository,
-            WorkspaceMemberRepository workspaceMemberRepository,
-            GuestRecoveryTokenRepository guestRecoveryTokenRepository,
-            MessagingService messagingService,
+            GuestCleanupService guestCleanupService,
             @Value("${relayflow.guest.expiry-hours}") long guestExpiryHours) {
         this.userRepository = userRepository;
-        this.workspaceMemberRepository = workspaceMemberRepository;
-        this.guestRecoveryTokenRepository = guestRecoveryTokenRepository;
-        this.messagingService = messagingService;
+        this.guestCleanupService = guestCleanupService;
         this.guestExpiryHours = guestExpiryHours;
     }
 
@@ -59,14 +48,7 @@ public class GuestCleanupScheduler {
 
         for (User user : expired) {
             try {
-                workspaceMemberRepository
-                        .findByUser(user.getId())
-                        .forEach(
-                                member ->
-                                        messagingService.deleteWorkspace(member.getWorkspaceId()));
-
-                guestRecoveryTokenRepository.deleteByUser(user.getId());
-                userRepository.delete(user);
+                guestCleanupService.cleanupGuestUser(user);
             } catch (Exception e) {
                 log.warn("Failed to clean up guest user {}: {}", user.getId(), e.getMessage());
             }
