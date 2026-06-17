@@ -1,1 +1,1 @@
-ALTER TABLE conversations RENAME COLUMN assigned_user_id TO assignee_id;
+alter table conversations rename column assigned_user_id to assignee_id;

@@ -140,7 +140,7 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://your-app.com/webhooks/relayflow"
             required
-            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
+            className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
           />
         </div>
 
@@ -164,7 +164,7 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
             onChange={(e) => setSecret(e.target.value)}
             placeholder={isNew ? "Min. 16 characters" : "••••••••••••"}
             autoComplete="new-password"
-            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
+            className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
           />
           <p className="mt-1 text-xs text-neutral-400">
             Used to sign payloads with HMAC-SHA256 (

@@ -96,7 +96,7 @@ public class PlanConfigurationService {
     public boolean isUpgradeAvailable() {
 
         return Arrays.stream(Plan.values())
-                .filter(p -> p != Plan.FREE)
+                .filter(plan -> plan != Plan.FREE)
                 .anyMatch(this::isPurchasable);
     }
 

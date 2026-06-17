@@ -60,7 +60,7 @@ public class WebhookDispatchService {
         webhookRepository
                 .findByWorkspace(workspaceId)
                 .filter(WorkspaceWebhook::isEnabled)
-                .filter(w -> w.getEvents().contains(eventType))
+                .filter(webhook -> webhook.getEvents().contains(eventType))
                 .ifPresent(webhook -> deliver(webhook, eventType, data));
     }
 

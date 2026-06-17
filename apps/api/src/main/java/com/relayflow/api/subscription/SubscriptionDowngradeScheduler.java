@@ -102,7 +102,10 @@ public class SubscriptionDowngradeScheduler {
 
         BillingProvider provider =
                 billingProviders.stream()
-                        .filter(p -> p.provider() == subscription.getPaymentProvider())
+                        .filter(
+                                billingProvider ->
+                                        billingProvider.provider()
+                                                == subscription.getPaymentProvider())
                         .findFirst()
                         .orElse(null);
 

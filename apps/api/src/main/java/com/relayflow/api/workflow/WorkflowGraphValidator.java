@@ -25,7 +25,7 @@ public class WorkflowGraphValidator {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowGraphValidator.class);
 
-    private static final Set<String> KNOWN_TRIGGER_EVENTS = Set.of("conversation_opened");
+    private static final Set<String> KNOWN_TRIGGER_EVENTS = Set.of("conversation_opened", "manual");
 
     /**
      * Validates the graph structure. Throws {@link WorkflowValidationException} with a descriptive
@@ -44,7 +44,7 @@ public class WorkflowGraphValidator {
         // 1. Exactly one trigger node
         List<Map<String, Object>> triggerNodes =
                 nodes.stream()
-                        .filter(n -> NodeType.TRIGGER.getValue().equals(n.get("type")))
+                        .filter(node -> NodeType.TRIGGER.getValue().equals(node.get("type")))
                         .toList();
 
         if (triggerNodes.isEmpty()) {
@@ -122,6 +122,19 @@ public class WorkflowGraphValidator {
                         node, "targetNodeId", "Jump To node has no target configured");
                 validateJumpToTarget(node, nodes);
             }
+
+            if (NodeType.HTTP_REQUEST.getValue().equals(type)) {
+                validateRequiredField(node, "url", "HTTP Request node has no URL configured");
+            }
+
+            if (NodeType.SET_VARIABLE.getValue().equals(type)) {
+                validateRequiredField(
+                        node, "variableName", "Set Variable node has no variable name configured");
+            }
+
+            if (NodeType.CONDITION.getValue().equals(type)) {
+                validateConditionRows(node);
+            }
         }
 
         log.debug("Workflow graph validation passed: {} node(s)", nodes.size());
@@ -141,8 +154,8 @@ public class WorkflowGraphValidator {
 
         Set<String> connectedHandles =
                 edges.stream()
-                        .filter(e -> nodeId.equals(e.get("source")))
-                        .map(e -> (String) e.get("sourceHandle"))
+                        .filter(edge -> nodeId.equals(edge.get("source")))
+                        .map(edge -> (String) edge.get("sourceHandle"))
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
@@ -186,8 +199,8 @@ public class WorkflowGraphValidator {
 
         Set<String> connectedHandles =
                 edges.stream()
-                        .filter(e -> nodeId.equals(e.get("source")))
-                        .map(e -> (String) e.get("sourceHandle"))
+                        .filter(edge -> nodeId.equals(edge.get("source")))
+                        .map(edge -> (String) edge.get("sourceHandle"))
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
@@ -225,6 +238,53 @@ public class WorkflowGraphValidator {
         if (!targetExists) {
             throw new WorkflowValidationException(
                     "Jump To node " + labelOf(node) + " references a node that no longer exists");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void validateConditionRows(Map<String, Object> node) {
+        List<Map<String, Object>> branches = branches(node);
+
+        for (int i = 0; i < branches.size() - 1; i++) {
+            Map<String, Object> branch = branches.get(i);
+            List<Map<String, Object>> conditions =
+                    (List<Map<String, Object>>) branch.getOrDefault("conditions", List.of());
+            String branchLabel =
+                    branch.get("label") != null
+                            ? (String) branch.get("label")
+                            : "branch " + (i + 1);
+
+            if (conditions.isEmpty()) {
+                throw new WorkflowValidationException(
+                        "Condition branch '"
+                                + branchLabel
+                                + "' on node "
+                                + labelOf(node)
+                                + " has no conditions configured");
+            }
+
+            for (Map<String, Object> condition : conditions) {
+                String variable = (String) condition.get("variable");
+                String operator = (String) condition.get("operator");
+
+                if (variable == null || variable.isBlank()) {
+                    throw new WorkflowValidationException(
+                            "A condition in branch '"
+                                    + branchLabel
+                                    + "' on node "
+                                    + labelOf(node)
+                                    + " has no variable selected");
+                }
+
+                if (operator == null || operator.isBlank()) {
+                    throw new WorkflowValidationException(
+                            "A condition in branch '"
+                                    + branchLabel
+                                    + "' on node "
+                                    + labelOf(node)
+                                    + " has no operator selected");
+                }
+            }
         }
     }
 

@@ -258,6 +258,37 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     URL.revokeObjectURL(url);
   }
 
+  function handleLoadSample() {
+    setNodes([
+      {
+        id: "trigger-1",
+        type: "trigger",
+        position: { x: 250, y: 50 },
+        data: { label: "Trigger", event: "manual" },
+      },
+      {
+        id: "msg-1",
+        type: "sendMessage",
+        position: { x: 250, y: 220 },
+        data: {
+          label: "Say Hello",
+          message: "Hello! Welcome to our store. We are happy to have you.",
+        },
+      },
+      {
+        id: "end-1",
+        type: "endConversation",
+        position: { x: 250, y: 390 },
+        data: { label: "Close Conversation" },
+      },
+    ] as Node[]);
+    setEdges([
+      { id: "e1", source: "trigger-1", target: "msg-1" },
+      { id: "e2", source: "msg-1", target: "end-1" },
+    ] as Edge[]);
+    setIsDirty(true);
+  }
+
   function handleImportClick() {
     importInputRef.current?.click();
   }
@@ -442,6 +473,21 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
 
             {!readOnly && (
               <>
+                {nodes.length === 0 && (
+                  <button
+                    onClick={handleLoadSample}
+                    className="flex h-7 items-center gap-1.5 rounded-md border border-neutral-300 bg-neutral-100 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
+                  >
+                    <span
+                      className="material-symbols-rounded text-[12px] leading-none"
+                      aria-hidden="true"
+                    >
+                      bolt
+                    </span>
+                    Load sample
+                  </button>
+                )}
+
                 <button
                   onClick={handleImportClick}
                   className="flex h-7 items-center gap-1.5 rounded-md border border-neutral-300 bg-neutral-100 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"

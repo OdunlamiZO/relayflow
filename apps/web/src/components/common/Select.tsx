@@ -61,7 +61,7 @@ export function Select({
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className="flex w-full items-center justify-between rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 transition-colors hover:border-neutral-300 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20"
+        className="flex w-full items-center justify-between rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 transition-colors hover:border-neutral-400 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20"
       >
         <span
           className={`truncate ${selected ? "text-neutral-800" : "text-neutral-400"}`}

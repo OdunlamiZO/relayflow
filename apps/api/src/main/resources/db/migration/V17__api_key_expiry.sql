@@ -1,2 +1,2 @@
-ALTER TABLE workspace_api_keys
-    ADD COLUMN expires_at timestamptz;
+alter table workspace_api_keys
+    add column expires_at timestamptz;

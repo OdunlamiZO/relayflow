@@ -114,7 +114,7 @@ export function CreateApiKeyModal({
               Copy this key now — it will not be shown again.
             </p>
 
-            <div className="mb-4 flex items-stretch gap-2 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
+            <div className="mb-4 flex items-stretch gap-2 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
               <code className="flex-1 overflow-x-auto p-3 text-xs text-neutral-700 select-all">
                 {createdKey.key}
               </code>
@@ -176,7 +176,7 @@ export function CreateApiKeyModal({
                 placeholder="e.g. Production integration"
                 maxLength={100}
                 required
-                className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
+                className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
               />
             </div>
 

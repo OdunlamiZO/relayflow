@@ -548,6 +548,7 @@ Values:
 - `WORKFLOWS_DELETE`
 - `CHANNELS_WRITE`
 - `CHANNELS_DELETE`
+- `AI_AGENT_WRITE`
 - `API_KEYS_WRITE`
 - `WEBHOOKS_WRITE`
 
@@ -672,11 +673,13 @@ Important fields:
 - `contact`
 - `channelAccount`
 - `status`
-- `lockedByWorkflow`
-- `assignedUserId`
+- `lockedByWorkflow`: true while a workflow run owns the conversation.
+- `lockedByAiAgent`: true during an active AI agent invocation pipeline run.
+- `assigneeId`
 - `lastMessageAt`
+- `sessionStartedAt`: reset to `now()` whenever the conversation is reopened. Used by `AiAgentContextAssembler` to scope history to the current session only, preventing old closed-conversation messages from polluting the LLM context.
 
-We need it as the inbox unit users read, select, and reply to. `lockedByWorkflow` prevents agents from interrupting an active workflow-owned interaction.
+We need it as the inbox unit users read, select, and reply to. `lockedByWorkflow` and `lockedByAiAgent` prevent agents from interrupting active automation.
 
 ### `ConversationStatus`
 
@@ -1067,6 +1070,9 @@ Important validation rules:
 - the required node content exists.
 - defined Ask Question options and "Other" branch are connected.
 - Jump To nodes have a configured target, cannot target themselves, and reference an existing node.
+- HTTP Request nodes have a non-blank URL.
+- Set Variable nodes have a non-blank variable name.
+- Condition nodes: every non-fallback branch has at least one condition row with both `variable` and `operator` set. The last branch is always the fallback and is exempt.
 
 We need it because draft graphs can be incomplete, but published workflows must be executable.
 
@@ -1618,6 +1624,12 @@ Important values:
 
 - `STATUS_CHIP`: maps conversation state to chip styles.
 
+Important state:
+
+- `composerPrefill`: lifted state that pre-fills the composer when the agent clicks Edit on a draft.
+
+Renders `AiDraftBanner` above the composer when an AI draft exists for the conversation.
+
 We need it as the main reading/reply surface.
 
 ### `MessageBubble`
@@ -1637,6 +1649,7 @@ Form for sending outbound agent messages.
 Important behavior:
 
 - disables itself and shows a workflow-ownership notice when `lockedByWorkflow` is true.
+- accepts `prefillText` and `onPrefillConsumed` props; a `useEffect` syncs the text and focuses the textarea when `prefillText` changes. Used when an agent clicks Edit on an AI draft.
 
 We need it to let agents reply from the inbox without interrupting active workflow runs.
 
@@ -1721,11 +1734,11 @@ We need it for WhatsApp channel setup in settings.
 
 ### `SettingsShell`
 
-Settings page layout with `WorkspaceNav`, settings subnav, and channel, member, integration, and billing sections.
+Settings page layout with `WorkspaceNav`, settings subnav, and channel, member, AI agent, integration, and billing sections.
 
-It shows billing only to workspace owners.
+It shows the AI Agent section to owners and members with `AI_AGENT_WRITE`. It shows billing only to workspace owners.
 
-We need it to create a stable place for channel, member, invite, API key, webhook, and subscription settings.
+We need it to create a stable place for channel, member, invite, AI agent, API key, webhook, and subscription settings.
 
 ### `ChannelsList`
 
@@ -2081,7 +2094,7 @@ We need them for contact-management screens.
 - `useMessages`: infinite query for messages.
 - `useSendMessage`: creates outbound messages and invalidates conversation/message caches.
 - `useUpdateConversation`: changes conversation status.
-- `useWorkspaceEvents`: opens SSE and invalidates React Query caches on events.
+- `useWorkspaceEvents`: opens SSE and invalidates React Query caches on `message.created`, `workspace.updated`, `ai.draft.created`, and `ai.escalated` events.
 
 Important constants:
 
@@ -2090,6 +2103,17 @@ Important constants:
 - `API_BASE_URL`: SSE base URL.
 
 We need them for real-time inbox state.
+
+### AI Agent Hooks
+
+- `useAiAgentConfig(workspaceId)`: fetches workspace AI agent config; query key `["ai-agent-config", workspaceId]`.
+- `useUpdateAiAgentConfig(workspaceId)`: mutation that PUTs config and updates the cached config via `setQueryData` on success.
+- `useConversationAiDraft(workspaceId, conversationId)`: fetches the active AI draft; `retry: false`; enabled only when both IDs are truthy.
+- `useSendAiDraft(workspaceId, conversationId)`: POSTs to `/ai-draft/send`; invalidates draft, messages, and conversations on success.
+- `useDiscardAiDraft(workspaceId, conversationId)`: DELETEs the draft; invalidates the draft query.
+- `useTriggerWorkflowFromDraft(workspaceId, conversationId)`: mutation that POSTs to `/ai-draft/trigger-workflow/{workflowId}`; invalidates the draft and conversations queries on success. Used by `AiDraftBanner` in workflow suggestion mode.
+
+We need them to keep AI agent API access outside UI components and consistent with the hook-as-service-layer pattern.
 
 ### Workflow Hooks
 
@@ -2327,3 +2351,244 @@ We need it to bind Tailwind base styles, fonts, body background, text color, and
 Tooling configuration for Next, Tailwind/PostCSS, ESLint, and Vitest.
 
 We need them to keep local development, linting, tests, and builds predictable.
+
+## AI Agent Backend
+
+### `AiAgentConfiguration`
+
+JPA entity mapped to `ai_agent_configs`. One row per workspace (unique constraint enforced at DB level).
+
+Important fields:
+
+- `workspace`
+- `name`: display name shown in the AI Agent settings panel (default `"AI Agent"`).
+- `enabled`
+- `autonomyCeiling`: `DRAFT_ONLY` or `AUTO_SEND`
+- `instructions`: free-text system prompt for the LLM
+- `knowledgeBase`: `List<KnowledgeEntry>` stored as JSONB — Q&A pairs injected into the system prompt
+- `escalationKeywords`: `List<String>` JSONB — deterministic pre-LLM keyword check
+- `workflowMappings`: `List<WorkflowMapping>` JSONB — maps workflow IDs to trigger descriptions shown to the LLM
+
+We need it to give each workspace a customizable agent persona and routing configuration.
+
+### `AiAgentInvocationLog`
+
+JPA entity mapped to `ai_agent_invocation_log`. One row per agent pipeline run.
+
+Important fields:
+
+- `workspace`, `conversation`
+- `status`: `RUNNING`, `CLARIFYING`, `ESCALATED`, `DRAFTED`, `SENT`, `FAILED`
+- `inputSnapshot`, `outputSnapshot`: JSONB observability snapshots
+- `escalationReason`
+- `startedAt`, `finishedAt`
+
+A unique partial index `uq_ai_invocation_conversation_active` on `(conversation_id) WHERE status IN ('RUNNING', 'CLARIFYING')` is the primary race-condition fence — only one active invocation per conversation is allowed.
+
+We need it for observability and to prevent concurrent agent invocations on the same conversation.
+
+### `ConversationAiDraft`
+
+JPA entity mapped to `conversation_ai_drafts`. One row per conversation (unique constraint).
+
+Important fields:
+
+- `workspace`, `conversation`
+- `invocationLogId`
+- `proposedReply`
+- `suggestedActions`: `List<String>` JSONB
+
+We need it to hold the AI-proposed reply until an agent sends, edits, or discards it.
+
+### `AiAgentConfigurationService`
+
+Business service for AI agent configuration CRUD and draft actions.
+
+Important methods:
+
+- `getOrCreateConfig(workspaceId)`: fetches or creates a default disabled config.
+- `updateConfig(workspaceId, request)`: applies partial updates.
+- `getDraft(workspaceId, conversationId)`: returns the active draft for a conversation.
+- `sendDraft(workspaceId, conversationId)`: sends the draft as an outbound `SYSTEM` message via `MessagingService` and deletes it.
+- `discardDraft(workspaceId, conversationId)`: deletes the draft without sending.
+- `triggerWorkflowFromDraft(workspaceId, conversationId, workflowId)`: validates that the draft's `suggestedActions` contains `trigger_workflow:<workflowId>`, deletes the draft, and calls `WorkflowEngineService.executeWorkflow()`.
+
+We need it to keep controller code thin.
+
+### `AiAgentConfigurationController`
+
+REST controller at `/workspaces/{workspaceId}/ai-agent-config`.
+
+- `GET`: any workspace member.
+- `PUT`: requires `AI_AGENT_WRITE` permission or owner role.
+
+### `ConversationAiDraftController`
+
+REST controller at `/workspaces/{workspaceId}/conversations/{conversationId}/ai-draft`.
+
+All endpoints require `INBOX` permission. Endpoints: `GET`, `POST /send`, `DELETE`, `POST /trigger-workflow/{workflowId}`.
+
+`POST /trigger-workflow/{workflowId}` validates that `workflowId` is in the draft's `suggestedActions`, discards the draft, and triggers the workflow — used when `DRAFT_ONLY` mode holds a workflow suggestion for human approval.
+
+### `AiAgentInvocationSlotClaimer`
+
+Package-private `@Component` with a `@Transactional(REQUIRES_NEW)` method `tryClaim(conversation, triggeringMessage)`.
+
+Inserts an `AiAgentInvocationLog(RUNNING)` via `saveAndFlush()`. Returns `Optional.empty()` on `DataIntegrityViolationException` (unique slot already held). The inner transaction is isolated so a constraint failure only rolls back the claim attempt, not the outer pipeline transaction.
+
+We need it because catching a constraint violation inside the same `@Transactional` method marks the outer transaction rollback-only; the separate bean with `REQUIRES_NEW` cleanly isolates the failure.
+
+### `AiAgentInvocationService`
+
+Core agent pipeline service. Runs `@Async` after the inbound message transaction commits.
+
+Important method: `invoke(conversation, triggeringMessage)`
+
+Flow:
+
+1. Load enabled `AiAgentConfiguration`; abort if absent.
+2. Close any prior `CLARIFYING` log for this conversation (frees the unique slot).
+3. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
+4. Re-check for an active `WorkflowRun` committed in the race window since step 3.
+5. Deterministic keyword escalation check.
+6. Assemble context via `AiAgentContextAssembler` and call LLM.
+7. Decision:
+   - `escalate` → broadcast SSE + ESCALATED.
+   - `trigger_workflow:` in `suggestedActions` and autonomy ceiling is `AUTO_SEND` → `WorkflowEngineService.executeWorkflow()` + SENT.
+   - `trigger_workflow:` action and `DRAFT_ONLY` ceiling → save draft with the action in `suggestedActions` + broadcast + DRAFTED (human approves via `POST /trigger-workflow/{workflowId}`).
+   - `draftOnly` OR `confidence == "low"` OR `needsClarification` → save draft + broadcast + DRAFTED.
+   - else → send reply + SENT.
+
+We need it to handle the full agent decision loop safely with an isolated slot-claim mechanism.
+
+### `AiAgentTriggerListener`
+
+Spring event listener with `@Async @TransactionalEventListener(phase = AFTER_COMMIT)`.
+
+Listens for `ConversationOpenedEvent` and `ConversationMessageReceivedEvent`. On each event, checks that the workspace has an enabled config and no active `WorkflowRun` before calling `AiAgentInvocationService.invoke()`.
+
+We need it to run the agent asynchronously after the inbound message transaction commits.
+
+### `AiAgentContextAssembler`
+
+Builds the `AgentLlmRequest` from config and conversation history.
+
+Important behavior:
+
+- Fetches the last 20 messages created at or after `conversation.sessionStartedAt` (newest-first), reverses to chronological order. This scopes history to the current session so prior closed-conversation messages never pollute the context.
+- Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from `workflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from `knowledgeBase`).
+- Appends a `[Contact: name | Channel: PROVIDER]` footer to the last inbound message only.
+
+We need it to keep LLM prompt construction separate from the invocation pipeline.
+
+### `AiAgentInvocationCleanupScheduler`
+
+Hourly `@Scheduled` job that deletes invocation logs older than `relayflow.agent.invocation-log-retention-days` (default 90, configured via `AGENT_INVOCATION_LOG_RETENTION_DAYS`).
+
+We need it to prevent the invocation log table from growing without bound.
+
+### LLM Abstraction
+
+#### `LlmClient`
+
+Interface: `provider()` returns `LlmProvider`; `complete(AgentLlmRequest)` returns `AgentLlmResponse`.
+
+#### `LlmProvider`
+
+Enum: `ANTHROPIC`, `OPENAI`, `OLLAMA`, `GROQ`.
+
+#### `AgentLlmRequest`
+
+Record: `systemPrompt`, `messages: List<LlmMessage>`, `model` (nullable — overrides Redis default when set).
+
+#### `LlmMessage`
+
+Record: `role` (`"user"` / `"assistant"`), `content`. Factory methods: `LlmMessage.user(content)`, `LlmMessage.assistant(content)`.
+
+#### `AgentLlmResponse`
+
+Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`, `escalate`, `needsClarification`.
+
+#### `LlmPrompts`
+
+Package-private constants class holding the shared `JSON_FORMAT_INSTRUCTION` string appended to every LLM system prompt. Shared by all three client implementations.
+
+#### `AnthropicLlmClient`
+
+Implements `LlmClient` via the Anthropic Java SDK (`anthropic-java:0.8.2`). Built in `@PostConstruct` using `ANTHROPIC_API_KEY`. Model read from Redis `platform:llm:anthropic:model`, default `claude-haiku-4-5`.
+
+#### `AbstractOpenAiCompatibleLlmClient`
+
+Package-private abstract base for `OpenAiLlmClient` and `OllamaLlmClient`. Implements the OpenAI-compatible chat completions contract: builds the JSON payload, POSTs to `/v1/chat/completions` via Spring `RestClient`, extracts `choices[0].message.content`, and parses it into `AgentLlmResponse`.
+
+#### `OpenAiLlmClient`
+
+Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built once in `@PostConstruct` with `Authorization: Bearer {OPENAI_API_KEY}`. Model from Redis `platform:llm:openai:model`, default `gpt-4o-mini`.
+
+#### `OllamaLlmClient`
+
+Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built per call with URL from Redis `platform:llm:ollama:url` (default `http://localhost:11434`). Model from Redis `platform:llm:ollama:model`, default `llama3.2`.
+
+#### `GroqLlmClient`
+
+Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built in `@PostConstruct` using `GROQ_API_KEY`, base URL `https://api.groq.com/openai`. Model from Redis `platform:llm:groq:model`.
+
+#### `LlmPlatformConfigService`
+
+Reads the active `LlmProvider` from Redis key `platform:llm:provider`. Falls back to `ANTHROPIC` on missing/invalid values. Also exposes `getConfigValue(key, default)` — a generic Redis read with a fallback — used by all three clients for per-provider model and URL config.
+
+#### `LlmClientFactory`
+
+Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getActiveClient()` resolves the provider at call-time so a Redis update takes effect immediately without restart.
+
+### AI Agent DTO Records
+
+- `AiAgentConfigurationResponse`: full config including `name` and all JSONB fields.
+- `UpdateAiAgentConfigurationRequest`: partial update record; compact constructor normalizes null lists to empty.
+- `ConversationAiDraftResponse`: draft fields including `proposedReply` and `suggestedActions`.
+
+### AI Agent Repositories
+
+- `AiAgentConfigurationRepository`: `findByWorkspaceId`, `findByWorkspaceIdAndEnabledTrue`.
+- `AiAgentInvocationLogRepository`: `findByConversationIdAndStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query).
+- `ConversationAiDraftRepository`: `findByConversationId`, `deleteByConversationId`.
+
+## AI Agent Frontend Components
+
+### `AiAgentPanel`
+
+Settings panel under `#ai-agent` in `SettingsShell`.
+
+Sections:
+
+- Enable toggle.
+- Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
+- Instructions textarea pre-filled with a skeleton template when empty.
+- Knowledge base: list of `{question, answer}` pairs.
+- Escalation keywords: tag-style list.
+- Workflow mappings: workflow dropdown + trigger description rows.
+
+Uses `useAiAgentConfig` and `useUpdateAiAgentConfig`. Follows the `GeneralPanel` save-button pattern.
+
+We need it so workspace owners can configure the agent persona, routing, and escalation behavior.
+
+### `AiDraftBanner`
+
+Banner rendered above the `MessageComposer` in `MessageThread` when `useConversationAiDraft` returns data.
+
+It detects whether the draft carries a `trigger_workflow:<id>` entry in `suggestedActions` and renders one of two modes:
+
+**Draft mode** (no workflow action):
+- **Send** — calls `useSendAiDraft`.
+- **Edit** — calls `onEdit(draft.proposedReply)` to pre-fill the composer, then `useDiscardAiDraft`.
+- **Discard** — calls `useDiscardAiDraft`.
+
+**Workflow suggestion mode** (`trigger_workflow:` present):
+- Header reads "AI workflow suggestion".
+- Body reads "The AI suggests running a workflow to handle this conversation."
+- **Run Workflow** button — calls `useTriggerWorkflowFromDraft(workflowId)`.
+- **Discard** — calls `useDiscardAiDraft`.
+
+Button row uses `flex-wrap` for mobile responsiveness. All buttons disabled while any mutation is pending.
+
+We need it so agents can send AI replies, trigger AI-suggested workflows, or discard — all from the inbox without leaving the conversation.

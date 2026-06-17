@@ -36,7 +36,7 @@ public class MessagingExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     ResponseEntity<ErrorResponse> notFound(ResourceNotFoundException exception) {
-        log.warn("Resource not found: {}", exception.getMessage());
+        log.debug("Resource not found: {}", exception.getMessage());
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));

@@ -1,5 +1,6 @@
 package com.relayflow.api.workflow.engine;
 
+import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
@@ -34,11 +35,15 @@ public class WorkflowTriggerListener {
 
     private final WorkflowEngineService workflowEngineService;
 
+    private final AiAgentInvocationLogRepository aiAgentInvocationLogRepository;
+
     public WorkflowTriggerListener(
             WorkflowDefinitionRepository workflowDefinitionRepository,
-            WorkflowEngineService workflowEngineService) {
+            WorkflowEngineService workflowEngineService,
+            AiAgentInvocationLogRepository aiAgentInvocationLogRepository) {
         this.workflowDefinitionRepository = workflowDefinitionRepository;
         this.workflowEngineService = workflowEngineService;
+        this.aiAgentInvocationLogRepository = aiAgentInvocationLogRepository;
     }
 
     /**
@@ -54,9 +59,20 @@ public class WorkflowTriggerListener {
         var conversation = event.conversation();
         var workspaceId = conversation.getWorkspace().getId();
 
+        if (aiAgentInvocationLogRepository.existsActiveForConversation(conversation.getId())) {
+            log.debug(
+                    "Skipping workflow trigger for conversation={} — AI agent is already active",
+                    conversation.getId());
+
+            return;
+        }
+
         List<WorkflowDefinition> workflows =
                 workflowDefinitionRepository.findEnabledByWorkspace(workspaceId).stream()
-                        .filter(w -> hasTriggerEvent(w, TRIGGER_EVENT_CONVERSATION_OPENED))
+                        .filter(
+                                definition ->
+                                        hasTriggerEvent(
+                                                definition, TRIGGER_EVENT_CONVERSATION_OPENED))
                         .toList();
 
         if (workflows.isEmpty()) {
@@ -102,11 +118,11 @@ public class WorkflowTriggerListener {
                 (List<Map<String, Object>>) graph.getOrDefault("nodes", List.of());
 
         return nodes.stream()
-                .filter(n -> NodeType.TRIGGER.getValue().equals(n.get("type")))
+                .filter(node -> NodeType.TRIGGER.getValue().equals(node.get("type")))
                 .anyMatch(
-                        n -> {
+                        node -> {
                             Map<String, Object> data =
-                                    (Map<String, Object>) n.getOrDefault("data", Map.of());
+                                    (Map<String, Object>) node.getOrDefault("data", Map.of());
 
                             return event.equals(data.get("event"));
                         });

@@ -34,7 +34,7 @@ public class SecurityUtils {
 
         return resolveEmail(authentication)
                 .flatMap(userRepository::findByEmail)
-                .map(u -> u.getId())
+                .map(user -> user.getId())
                 .orElseThrow(
                         () ->
                                 new IllegalStateException(

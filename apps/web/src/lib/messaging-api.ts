@@ -65,6 +65,7 @@ export type Conversation = {
   channelAccountName: string;
   status: ConversationStatus;
   lockedByWorkflow: boolean;
+  lockedByAiAgent: boolean;
   assigneeId: string | null;
   lastMessageAt: string | null;
   createdAt: string;
@@ -149,6 +150,7 @@ export type WorkspacePermission =
   | "WORKFLOWS_DELETE"
   | "CHANNELS_WRITE"
   | "CHANNELS_DELETE"
+  | "AI_AGENT_WRITE"
   | "API_KEYS_WRITE"
   | "WEBHOOKS_WRITE";
 export type WorkspaceRole = "OWNER" | "MEMBER";
@@ -360,6 +362,53 @@ export type PlanInfo = {
   billingInterval: BillingInterval | null;
   /** True when this plan is currently available for purchase. Always false for FREE. */
   upgradeAvailable: boolean;
+};
+
+export type AutonomyCeiling = "DRAFT_ONLY" | "AUTO_SEND";
+
+export type KnowledgeEntry = {
+  question: string;
+  answer: string;
+};
+
+export type WorkflowMapping = {
+  workflowId: string;
+  name: string;
+  triggerDescription: string;
+};
+
+export type AiAgentConfiguration = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  enabled: boolean;
+  autonomyCeiling: AutonomyCeiling;
+  instructions: string | null;
+  knowledgeBase: KnowledgeEntry[];
+  escalationKeywords: string[];
+  workflowMappings: WorkflowMapping[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpdateAiAgentConfigurationRequest = {
+  name?: string;
+  enabled: boolean;
+  autonomyCeiling: AutonomyCeiling;
+  instructions?: string | null;
+  knowledgeBase?: KnowledgeEntry[];
+  escalationKeywords?: string[];
+  workflowMappings?: WorkflowMapping[];
+};
+
+export type ConversationAiDraft = {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  invocationLogId: string | null;
+  proposedReply: string;
+  suggestedActions: string[];
+  createdAt: string;
 };
 
 export type PageResponse<T> = {
@@ -773,6 +822,53 @@ export class MessagingApiClient {
     return this.request<void>(
       `/workspaces/${encodeURIComponent(workspaceId)}/subscription`,
       { method: "DELETE" }
+    );
+  }
+
+  getAiAgentConfiguration(workspaceId: string) {
+    return this.request<AiAgentConfiguration>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-config`
+    );
+  }
+
+  updateAiAgentConfiguration(
+    workspaceId: string,
+    request: UpdateAiAgentConfigurationRequest
+  ) {
+    return this.request<AiAgentConfiguration>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-config`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  getConversationAiDraft(workspaceId: string, conversationId: string) {
+    return this.request<ConversationAiDraft>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft`
+    );
+  }
+
+  sendAiDraft(workspaceId: string, conversationId: string) {
+    return this.request<Message>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft/send`,
+      { method: "POST" }
+    );
+  }
+
+  discardAiDraft(workspaceId: string, conversationId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft`,
+      { method: "DELETE" }
+    );
+  }
+
+  triggerWorkflowFromDraft(
+    workspaceId: string,
+    conversationId: string,
+    workflowId: string
+  ) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft/trigger-workflow/${encodeURIComponent(workflowId)}`,
+      { method: "POST" }
     );
   }
 

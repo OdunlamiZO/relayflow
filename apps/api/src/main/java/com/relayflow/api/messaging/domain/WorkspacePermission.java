@@ -46,6 +46,11 @@ public enum WorkspacePermission {
     /** Disconnect channels. Requires {@code CHANNELS_WRITE}. */
     CHANNELS_DELETE,
 
+    // --- AI Agent (Settings) ---
+
+    /** View and configure the workspace AI agent. */
+    AI_AGENT_WRITE,
+
     // --- Integrations ---
 
     /** Create and revoke API keys. */

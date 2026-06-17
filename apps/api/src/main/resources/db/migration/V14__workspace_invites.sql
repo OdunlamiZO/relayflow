@@ -1,24 +1,24 @@
 -- Workspace invite tokens sent to users before they become members.
 -- State is tracked via accepted_at / revoked_at rather than a soft-delete column.
 
-CREATE TABLE workspace_invites (
-    id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id uuid       NOT NULL REFERENCES workspaces(id),
-    email       varchar(320) NOT NULL,
-    invited_by  uuid        NOT NULL REFERENCES users(id),
-    token       uuid        NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-    created_at  timestamptz NOT NULL DEFAULT now(),
-    expires_at  timestamptz NOT NULL,
-    accepted_at timestamptz,
-    revoked_at  timestamptz
+create table workspace_invites (
+    id           uuid         primary key default gen_random_uuid(),
+    workspace_id uuid         not null references workspaces(id),
+    email        varchar(320) not null,
+    invited_by   uuid         not null references users(id),
+    token        uuid         not null unique default gen_random_uuid(),
+    created_at   timestamptz  not null default now(),
+    expires_at   timestamptz  not null,
+    accepted_at  timestamptz,
+    revoked_at   timestamptz
 );
 
-CREATE INDEX idx_workspace_invites_token       ON workspace_invites(token);
-CREATE INDEX idx_workspace_invites_workspace_id ON workspace_invites(workspace_id);
+create index idx_workspace_invites_token        on workspace_invites(token);
+create index idx_workspace_invites_workspace_id on workspace_invites(workspace_id);
 
 -- Granular permissions that will be copied to workspace_members on accept.
-CREATE TABLE workspace_invite_permissions (
-    workspace_invite_id uuid       NOT NULL REFERENCES workspace_invites(id),
-    permission          varchar(40) NOT NULL,
-    PRIMARY KEY (workspace_invite_id, permission)
+create table workspace_invite_permissions (
+    workspace_invite_id uuid        not null references workspace_invites(id),
+    permission          varchar(40) not null,
+    primary key (workspace_invite_id, permission)
 );

@@ -1,15 +1,15 @@
-CREATE TABLE workspace_webhooks (
-    id             uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id   uuid          NOT NULL UNIQUE REFERENCES workspaces(id),
-    url            varchar(2048) NOT NULL,
-    secret         varchar(512)  NOT NULL,
-    enabled        boolean       NOT NULL DEFAULT true,
-    created_at     timestamptz   NOT NULL DEFAULT now(),
-    updated_at     timestamptz   NOT NULL DEFAULT now()
+create table workspace_webhooks (
+    id           uuid          primary key default gen_random_uuid(),
+    workspace_id uuid          not null unique references workspaces(id),
+    url          varchar(2048) not null,
+    secret       varchar(512)  not null,
+    enabled      boolean       not null default true,
+    created_at   timestamptz   not null default now(),
+    updated_at   timestamptz   not null default now()
 );
 
-CREATE TABLE workspace_webhook_events (
-    workspace_webhook_id uuid        NOT NULL REFERENCES workspace_webhooks(id) ON DELETE CASCADE,
-    event_type           varchar(50) NOT NULL,
-    PRIMARY KEY (workspace_webhook_id, event_type)
+create table workspace_webhook_events (
+    workspace_webhook_id uuid        not null references workspace_webhooks(id) on delete cascade,
+    event_type           varchar(50) not null,
+    primary key (workspace_webhook_id, event_type)
 );

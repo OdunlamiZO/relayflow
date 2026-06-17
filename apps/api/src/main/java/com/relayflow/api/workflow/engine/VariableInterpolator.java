@@ -55,7 +55,9 @@ public final class VariableInterpolator {
      * unchanged.
      */
     private static String applyFilter(String value, String filter) {
-        return VariableFilter.fromToken(filter).map(f -> f.transform.apply(value)).orElse(value);
+        return VariableFilter.fromToken(filter)
+                .map(variableFilter -> variableFilter.transform.apply(value))
+                .orElse(value);
     }
 
     /** Transforms supported by the {@code {{variable | filter}}} pipe syntax. */

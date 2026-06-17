@@ -8,6 +8,7 @@ import { useCurrentMember } from "@/hooks/use-current-member";
 import { usePlans } from "@/hooks/use-plans";
 import { useSubscription } from "@/hooks/use-subscription";
 
+import { AiAgentPanel } from "./AiAgentPanel";
 import { BillingPanel } from "./BillingPanel";
 import { ChannelsList } from "./ChannelsList";
 import { GeneralPanel } from "./GeneralPanel";
@@ -32,6 +33,10 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
     currentMember.role === "OWNER" ||
     currentMember.permissions.includes("CHANNELS_WRITE") ||
     currentMember.permissions.includes("CHANNELS_DELETE");
+
+  const canManageAiAgent =
+    currentMember?.role === "OWNER" ||
+    currentMember?.permissions.includes("AI_AGENT_WRITE") === true;
 
   const canManageApiKeys =
     !isAnonymous &&
@@ -67,6 +72,9 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
       : []),
     ...(!isAnonymous
       ? [{ href: "#members", icon: "group", label: "Members" }]
+      : []),
+    ...(canManageAiAgent
+      ? [{ href: "#ai-agent", icon: "smart_toy", label: "AI Agent" }]
       : []),
     ...(canSeeIntegrations
       ? [{ href: "#integrations", icon: "api", label: "Integrations" }]
@@ -213,6 +221,12 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
                   workspaceId={workspaceId}
                   currentUserId={user?.userId ?? undefined}
                 />
+              </div>
+            )}
+
+            {canManageAiAgent && (
+              <div id="ai-agent" className="border-t border-neutral-200">
+                <AiAgentPanel workspaceId={workspaceId} />
               </div>
             )}
 

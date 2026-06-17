@@ -21,6 +21,9 @@ export function useSendMessage(workspaceId: string, conversationId: string) {
       void queryClient.invalidateQueries({
         queryKey: ["conversations", workspaceId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["ai-draft", workspaceId, conversationId],
+      });
     },
   });
 }

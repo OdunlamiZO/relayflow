@@ -307,7 +307,7 @@ function ChannelItem({
         </div>
 
         {webhookUrl && (
-          <div className="flex items-start gap-2 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
+          <div className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
             <span
               className="material-symbols-rounded mt-0.5 flex-shrink-0 text-[13px] text-neutral-400"
               aria-hidden="true"
@@ -334,7 +334,7 @@ function ChannelItem({
         )}
 
         {channel.shared && sharedBotUsername && (
-          <div className="flex items-center gap-2 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 text-[11px] font-medium text-neutral-500">
+          <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-[11px] font-medium text-neutral-500">
             <a
               href={`https://t.me/${sharedBotUsername}?start=${workspaceId}`}
               target="_blank"

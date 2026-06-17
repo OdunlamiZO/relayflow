@@ -4,6 +4,6 @@ The detailed PRD is maintained as:
 
 - `RelayFlow_PRD_Technical_Strategy.docx`
 
-Last refreshed: June 13, 2026.
+Last refreshed: June 17, 2026.
 
 Keep this document aligned with the implementation status in the root `README.md`, the OpenAPI contract, and the workflow/message JSON schemas.

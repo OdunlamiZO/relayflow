@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Spinner } from "@/components/common/Spinner";
 import { useSendMessage } from "@/hooks/use-send-message";
@@ -9,15 +9,27 @@ type Props = {
   workspaceId: string;
   conversationId: string;
   lockedByWorkflow?: boolean;
+  prefillText?: string;
+  onPrefillConsumed?: () => void;
 };
 
 export function MessageComposer({
   workspaceId,
   conversationId,
   lockedByWorkflow = false,
+  prefillText,
+  onPrefillConsumed,
 }: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!prefillText) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setText(prefillText);
+    onPrefillConsumed?.();
+    textareaRef.current?.focus();
+  }, [prefillText, onPrefillConsumed]);
 
   const { mutate: sendMessage, isPending } = useSendMessage(
     workspaceId,

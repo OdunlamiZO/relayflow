@@ -49,7 +49,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
                     .filter(key -> !key.isExpired())
                     .ifPresent(
                             key -> {
-                                maybeUpdateLastUsed(key);
+                                updateLastUsedIfStale(key);
                                 SecurityContextHolder.getContext()
                                         .setAuthentication(
                                                 new ApiKeyAuthentication(key.getWorkspaceId()));
@@ -59,7 +59,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private void maybeUpdateLastUsed(WorkspaceApiKey key) {
+    private void updateLastUsedIfStale(WorkspaceApiKey key) {
         Instant now = Instant.now();
         Instant lastUsed = key.getLastUsedAt();
 
