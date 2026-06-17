@@ -16,6 +16,10 @@ type WorkspaceUpdatedEvent = {
   workspaceId: string;
 };
 
+type AiDraftCreatedEvent = {
+  conversationId: string;
+};
+
 /**
  * Opens a Server-Sent Events connection for the given workspace and invalidates
  * the relevant React Query caches whenever a {@code message.created} or
@@ -64,6 +68,18 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
 
         void queryClient.invalidateQueries({
           queryKey: ["conversations", data.workspaceId],
+        });
+      } catch {
+        // Malformed event data — ignore.
+      }
+    });
+
+    es.addEventListener("ai.draft.created", (event) => {
+      try {
+        const data = JSON.parse(event.data) as AiDraftCreatedEvent;
+
+        void queryClient.invalidateQueries({
+          queryKey: ["ai-draft", workspaceId, data.conversationId],
         });
       } catch {
         // Malformed event data — ignore.

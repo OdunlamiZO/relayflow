@@ -300,6 +300,7 @@ public class WhatsAppAdapter {
         } else if (latestConversation.get().getStatus() == ConversationStatus.CLOSED) {
             conversation = latestConversation.get();
             conversation.setStatus(ConversationStatus.OPEN);
+            conversation.setSessionStartedAt(Instant.now());
             conversationRepository.save(conversation);
             triggersWorkflow = true;
         } else {
@@ -490,9 +491,9 @@ public class WhatsAppAdapter {
 
     private String resolveDisplayName(String waId, List<WhatsAppContactEntry> contacts) {
         return contacts.stream()
-                .filter(c -> waId.equals(c.waId()))
+                .filter(contact -> waId.equals(contact.waId()))
                 .findFirst()
-                .map(c -> c.profile() != null ? c.profile().name() : null)
+                .map(contact -> contact.profile() != null ? contact.profile().name() : null)
                 .filter(name -> name != null && !name.isBlank())
                 .orElse("+" + waId);
     }

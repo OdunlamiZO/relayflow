@@ -1162,6 +1162,138 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # ── AI Agent ─────────────────────────────────────────────────────────────────
+
+  /workspaces/{workspaceId}/ai-agent-config:
+    get:
+      operationId: getAiAgentConfig
+      summary: Get the AI agent configuration for a workspace
+      description: Returns the config, creating a default (disabled) one if none exists yet.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: AI agent configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAgentConfigResponse"
+    put:
+      operationId: updateAiAgentConfig
+      summary: Update the AI agent configuration for a workspace
+      description: Requires the `AI_AGENT_WRITE` permission.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAiAgentConfigRequest"
+      responses:
+        "200":
+          description: Updated AI agent configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAgentConfigResponse"
+        "403":
+          description: Missing AI_AGENT_WRITE permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft:
+    get:
+      operationId: getConversationAiDraft
+      summary: Get the active AI draft for a conversation
+      description: Returns 404 when no draft exists. Requires the `INBOX` permission.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/conversationIdPath"
+      responses:
+        "200":
+          description: Active AI draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationAiDraftResponse"
+        "404":
+          description: No draft exists for this conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: discardConversationAiDraft
+      summary: Discard the active AI draft for a conversation
+      description: Requires the `INBOX` permission.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/conversationIdPath"
+      responses:
+        "204":
+          description: Draft discarded
+
+  /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/trigger-workflow/{workflowId}:
+    post:
+      operationId: triggerWorkflowFromDraft
+      summary: Approve and execute the AI-suggested workflow
+      description: >
+        Deletes the draft and immediately executes the workflow referenced by the
+        `trigger_workflow:<workflowId>` action in `suggestedActions`. Used when
+        `DRAFT_ONLY` mode holds a workflow suggestion for human approval.
+        Requires the `INBOX` permission.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/conversationIdPath"
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Workflow triggered and draft discarded
+        "404":
+          description: No draft exists, or the workflow action is not in the draft's suggestedActions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/send:
+    post:
+      operationId: sendConversationAiDraft
+      summary: Send the active AI draft as an outbound message
+      description: >
+        Sends the draft reply to the contact, deletes the draft, and returns the created message.
+        Requires the `INBOX` permission.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/conversationIdPath"
+      responses:
+        "200":
+          description: Draft sent and message created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: No draft exists for this conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── Subscriptions ─────────────────────────────────────────────────────────────
 
   /plans:
@@ -1322,6 +1454,10 @@ paths:
             - `message.created` — `{ workspaceId, conversationId }`
             - `conversation.updated` — `{ workspaceId, conversationId }`
             - `workspace.updated` — `{ workspaceId }`
+            - `ai.draft.created` — `{ conversationId }` — AI agent produced a draft reply or workflow suggestion (DRAFT_ONLY ceiling, low confidence, or workflow mapped but requires approval)
+            - `ai.escalated` — `{ conversationId }` — AI agent escalated the conversation to a human agent
+
+            When `ai.draft.created` fires, fetch `GET /ai-draft` to get the draft; if `suggestedActions` contains `trigger_workflow:<id>`, render a "Run Workflow" approval button instead of a reply draft.
           content:
             text/event-stream:
               schema:
@@ -1621,6 +1757,7 @@ components:
         - CHANNELS_DELETE
         - API_KEYS_WRITE
         - WEBHOOKS_WRITE
+        - AI_AGENT_WRITE
 
     InviteStatus:
       type: string
@@ -2523,7 +2660,7 @@ components:
 
     ConversationResponse:
       type: object
-      required: [id, workspaceId, contactId, channelAccountId, channelProvider, status, lockedByWorkflow, createdAt]
+      required: [id, workspaceId, contactId, channelAccountId, channelProvider, status, lockedByWorkflow, lockedByAiAgent, createdAt]
       properties:
         id:
           type: string
@@ -2550,7 +2687,10 @@ components:
         lockedByWorkflow:
           type: boolean
           description: True while an active workflow run owns the conversation and agent replies are blocked.
-        assignedUserId:
+        lockedByAiAgent:
+          type: boolean
+          description: True while the AI agent invocation pipeline is running for this conversation.
+        assigneeId:
           type: string
           format: uuid
           nullable: true
@@ -2620,6 +2760,138 @@ components:
         nextCursor:
           type: string
           nullable: true
+
+    # ── AI Agent ────────────────────────────────────────────────────────────────
+
+    AutonomyCeiling:
+      type: string
+      enum: [DRAFT_ONLY, AUTO_SEND]
+      description: >
+        Controls how the AI agent acts on its response. `DRAFT_ONLY` always saves a
+        draft for a human to review; `AUTO_SEND` sends replies directly when confidence
+        is high.
+
+    KnowledgeEntry:
+      type: object
+      required: [question, answer]
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+
+    WorkflowMapping:
+      type: object
+      required: [workflowId, name, triggerDescription]
+      properties:
+        workflowId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Workflow display name (denormalized for display in config UI).
+        triggerDescription:
+          type: string
+          description: Free-text description of when this workflow should be triggered (used in the agent system prompt).
+
+    UpdateAiAgentConfigRequest:
+      type: object
+      required: [enabled, autonomyCeiling]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Display name for this agent configuration (shown in the AI Agent settings panel).
+        enabled:
+          type: boolean
+        autonomyCeiling:
+          $ref: "#/components/schemas/AutonomyCeiling"
+        instructions:
+          type: string
+          nullable: true
+          description: Freeform instructions injected into the agent system prompt.
+        knowledgeBase:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeEntry"
+        escalationKeywords:
+          type: array
+          items:
+            type: string
+          description: If any keyword matches the inbound message text the agent escalates immediately (Layer 1 fast-path).
+        workflowMappings:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowMapping"
+
+    AiAgentConfigResponse:
+      type: object
+      required: [id, workspaceId, name, enabled, autonomyCeiling, knowledgeBase, escalationKeywords, workflowMappings, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Display name for this agent configuration.
+        enabled:
+          type: boolean
+        autonomyCeiling:
+          $ref: "#/components/schemas/AutonomyCeiling"
+        instructions:
+          type: string
+          nullable: true
+        knowledgeBase:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeEntry"
+        escalationKeywords:
+          type: array
+          items:
+            type: string
+        workflowMappings:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowMapping"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationAiDraftResponse:
+      type: object
+      required: [id, workspaceId, conversationId, proposedReply, suggestedActions, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        invocationLogId:
+          type: string
+          format: uuid
+          nullable: true
+        proposedReply:
+          type: string
+        suggestedActions:
+          type: array
+          items:
+            type: string
+          description: >
+            Actions the agent suggested alongside the draft.
+            Values: `mark_resolved`, `trigger_workflow:<workflowId>`.
+        createdAt:
+          type: string
+          format: date-time
 
     WorkflowDefinitionResponse:
       type: object

@@ -95,7 +95,7 @@ public class WorkspaceInviteService {
         // Guard: target must not already be a member.
         userRepository
                 .findByEmail(request.email())
-                .flatMap(u -> memberRepository.findByWorkspaceAndUser(workspaceId, u.getId()))
+                .flatMap(user -> memberRepository.findByWorkspaceAndUser(workspaceId, user.getId()))
                 .ifPresent(
                         m -> {
                             throw new IllegalArgumentException(
@@ -153,7 +153,7 @@ public class WorkspaceInviteService {
         List<WorkspaceInvite> invites = inviteRepository.findPending(workspaceId);
 
         return invites.stream()
-                .filter(i -> i.status() == InviteStatus.PENDING)
+                .filter(invite -> invite.status() == InviteStatus.PENDING)
                 .map(
                         i -> {
                             String inviterName = resolveDisplayName(i.getInvitedBy());
@@ -278,7 +278,11 @@ public class WorkspaceInviteService {
     private String resolveDisplayName(UUID userId) {
         return userRepository
                 .findById(userId)
-                .map(u -> u.getDisplayName() != null ? u.getDisplayName() : u.getEmail())
+                .map(
+                        user ->
+                                user.getDisplayName() != null
+                                        ? user.getDisplayName()
+                                        : user.getEmail())
                 .orElse("Unknown");
     }
 

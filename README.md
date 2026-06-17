@@ -26,7 +26,11 @@ Prerequisites:
 Start infrastructure:
 
 ```bash
+# Core (postgres + redis)
 docker compose up -d postgres redis
+
+# Core + Ollama (self-hosted LLM, pulls llama3.2 on first run)
+docker compose --profile ollama up -d
 ```
 
 Flyway is disabled at runtime, so migrations do not run automatically when the API starts. Run migrations manually before starting the API against a fresh or changed database:
@@ -263,11 +267,20 @@ The regular webhook path is for a dedicated bot token per channel account. The s
 
 The `GET` path handles Meta webhook verification using the channel account's stored verify token. The `POST` path receives WhatsApp Business Cloud API message events.
 
+### AI Agent
+
+- `GET    /workspaces/{workspaceId}/ai-agent-config` — get (or auto-create) workspace AI agent config
+- `PUT    /workspaces/{workspaceId}/ai-agent-config` — update config; requires `AI_AGENT_WRITE` permission or owner role
+- `GET    /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — get active AI draft for a conversation
+- `POST   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/send` — send the draft as an outbound message
+- `DELETE /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — discard the draft
+- `POST   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/trigger-workflow/{workflowId}` — approve and execute an AI-suggested workflow (DRAFT_ONLY mode); validates the workflow ID is in `suggestedActions`, discards the draft, and starts the workflow
+
 ### SSE
 
 - `GET /sse/workspace/{workspaceId}` — real-time event stream for the inbox
 
-Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
+Events pushed: `message.created`, `conversation.updated`, `workspace.updated`, `ai.draft.created`, `ai.escalated`.
 
 ## Implementation Status
 
@@ -325,7 +338,7 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] **Ask Question node** — sends a question and pauses the run (`WAITING`); resumes when the contact replies. Two modes: open-ended (saves reply to a variable) or defined options (routes by exact match or option number, can save the selected value, falls back to "Other"). Telegram renders options as reply keyboards; WhatsApp uses native buttons for up to three options.
 - [x] **Jump To node** — redirects execution to another node by ID with a configurable max-jump limit to prevent loops.
 - [x] **End Conversation node** — sends an optional closing message and sets the conversation to `CLOSED`.
-- [x] Workflow graph validator — enforces structural rules at publish time (one trigger, no orphaned nodes, all condition and option branches connected, valid Jump To targets).
+- [x] Workflow graph validator — enforces structural rules at publish time (one trigger, no orphaned nodes, all condition and option branches connected, valid Jump To targets, HTTP Request has URL, Set Variable has name, condition branch rows have variable and operator).
 - [x] Workflow run logs — every run and every step persisted with full observability data, exposed via `GET /workflows/{id}/runs` and `GET /workflows/{id}/runs/{runId}`. Runs older than `relayflow.workflow.run-retention-days` (default 90, configurable via `WORKFLOW_RUN_RETENTION_DAYS`) are purged hourly.
 - [x] Workspace membership authorization and permission checks on mutating workspace-scoped endpoints.
 
@@ -336,14 +349,102 @@ Events pushed: `message.created`, `conversation.updated`, `workspace.updated`.
 - [x] Node palette: Trigger, Send Message, Condition, HTTP Request, Set Variable, Ask Question, Jump To, End Conversation.
 - [x] Run logs UI — `/workflows/{id}/runs` lists run history with status, error preview, and a step-by-step breakdown of input/output snapshots and durations.
 
+### AI Agent
+- [x] Per-workspace AI agent config — enabled toggle, autonomy ceiling (`DRAFT_ONLY` / `AUTO_SEND`), free-text instructions, knowledge base Q&A pairs, escalation keywords, and workflow mappings.
+- [x] Multi-provider LLM layer — Anthropic, OpenAI, Groq (free tier), and Ollama (self-hosted). Provider and model are platform-level Redis config; switching takes effect without restart. See [AI Agent Configuration](#ai-agent-configuration) below.
+- [x] Decision pipeline — deterministic keyword escalation → LLM call → escalate → workflow action (auto-trigger on `AUTO_SEND`, draft for approval on `DRAFT_ONLY`) → low-confidence / `DRAFT_ONLY` / `needsClarification` → draft → else auto-send.
+- [x] Race-condition prevention — `AiAgentInvocationSlotClaimer` (`REQUIRES_NEW`) uses a unique partial index on active invocation logs to serialize concurrent invocations; symmetric guard in `WorkflowTriggerListener`.
+- [x] Session-scoped LLM history — `conversation.sessionStartedAt` is reset on reopen; `AiAgentContextAssembler` scopes message history to the current session to prevent past closed-conversation messages from polluting the context.
+- [x] AI draft inbox banner — `DRAFT_ONLY` ceiling or low-confidence replies create a draft; inbox shows **Send / Edit / Discard** for text replies and **Run Workflow / Discard** for AI-suggested workflows. SSE pushes `ai.draft.created` for instant updates.
+- [x] Invocation log retention — hourly cleanup, configurable via `AGENT_INVOCATION_LOG_RETENTION_DAYS` (default 90 days).
+
 ### Planned
-- [ ] AI agent — an LLM-powered agent that can manage conversations directly (read history, draft/send replies) and trigger a workflow when needed.
 - [ ] Decide upgrade proration policy for moving to a plan above PRO — wait for the current subscription to expire before switching, or start the new plan immediately and credit the unused balance from the current one.
 - [ ] Backend integration tests (Testcontainers, existing IT profile).
 - [ ] Frontend component tests for inbox states and composer.
 - [ ] Playwright end-to-end tests (CI only, not pre-commit).
 - [ ] Structured request/run ID logging and Sentry integration.
 - [ ] Deployment configuration (Render / Fly.io / Railway).
+
+## AI Agent Configuration
+
+The AI agent is off by default. Enable it per workspace in **Settings → AI Agent**.
+
+### LLM provider
+
+The active provider is a platform-level Redis key — not a per-workspace setting. Switch at any time without restarting:
+
+```bash
+redis-cli SET platform:llm:provider 'GROQ'        # free tier — recommended default
+redis-cli SET platform:llm:provider 'ANTHROPIC'
+redis-cli SET platform:llm:provider 'OPENAI'
+redis-cli SET platform:llm:provider 'OLLAMA'
+```
+
+Set the model per provider (optional — sensible defaults apply):
+
+```bash
+redis-cli SET 'platform:llm:groq:model'      'llama-3.1-8b-instant'  # default
+redis-cli SET 'platform:llm:anthropic:model' 'claude-haiku-4-5'      # default
+redis-cli SET 'platform:llm:openai:model'    'gpt-4o-mini'           # default
+redis-cli SET 'platform:llm:ollama:model'    'llama3.2'              # default
+```
+
+### Groq (free tier — recommended)
+
+Sign up at [console.groq.com](https://console.groq.com), create an API key, then:
+
+```bash
+export GROQ_API_KEY=gsk_...
+redis-cli SET platform:llm:provider 'GROQ'
+```
+
+Groq's free tier supports Llama models with generous daily limits — no credit card required. To use a different model:
+
+```bash
+redis-cli SET 'platform:llm:groq:model' 'llama-3.3-70b-versatile'
+```
+
+### Anthropic
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### OpenAI
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+### Ollama (self-hosted, free)
+
+The easiest way is Docker — Ollama is included in `docker-compose.yml` as an opt-in profile:
+
+```bash
+# Starts postgres + redis + ollama; pulls llama3.2 automatically (~2 GB on first run)
+docker compose --profile ollama up -d
+
+# Switch RelayFlow to use it
+redis-cli SET platform:llm:provider 'OLLAMA'
+```
+
+Alternatively, install the Ollama binary directly:
+
+```bash
+# macOS
+brew install ollama
+ollama serve          # terminal 1 — starts server at http://localhost:11434
+ollama pull llama3.2  # terminal 2
+
+redis-cli SET platform:llm:provider 'OLLAMA'
+```
+
+Ollama exposes an OpenAI-compatible `/v1/chat/completions` endpoint. Any model that supports `response_format: json_object` works with RelayFlow. To change the model (no restart required):
+
+```bash
+redis-cli SET 'platform:llm:ollama:model' 'qwen2.5:3b'
+```
 
 ## Git Hooks
 

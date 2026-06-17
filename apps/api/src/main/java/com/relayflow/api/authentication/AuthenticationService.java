@@ -167,9 +167,9 @@ public class AuthenticationService {
                                 messagingService.dropSharedTelegramChannel(member.getWorkspaceId());
                             });
 
-            // Re-establish the session under the new email — the session principal is
-            // keyed by email, which just changed.
-            establishSessionForUser(user, httpRequest, httpResponse);
+            // Clear the guest session — the user must verify their email before
+            // logging in, same as the regular signup path.
+            invalidateSession(httpRequest, httpResponse);
         } else {
             user = new User();
             user.setEmail(request.email());
@@ -306,7 +306,7 @@ public class AuthenticationService {
         String rawSecret =
                 mfaMethodRepository
                         .findByUserAndType(user, MfaMethodType.TOTP)
-                        .map(m -> encryptionService.decrypt(m.getCredential()))
+                        .map(mfaMethod -> encryptionService.decrypt(mfaMethod.getCredential()))
                         .orElseThrow(
                                 () ->
                                         new ResponseStatusException(

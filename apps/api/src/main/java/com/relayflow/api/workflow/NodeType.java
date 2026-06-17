@@ -32,6 +32,6 @@ public enum NodeType {
 
     /** Returns the {@link NodeType} whose {@link #getValue()} matches {@code value}, if any. */
     public static Optional<NodeType> fromValue(String value) {
-        return Arrays.stream(values()).filter(t -> t.value.equals(value)).findFirst();
+        return Arrays.stream(values()).filter(nodeType -> nodeType.value.equals(value)).findFirst();
     }
 }

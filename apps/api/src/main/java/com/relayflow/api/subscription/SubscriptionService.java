@@ -519,7 +519,7 @@ public class SubscriptionService {
         }
 
         return billingProviders.stream()
-                .filter(p -> p.provider() == provider)
+                .filter(billingProvider -> billingProvider.provider() == provider)
                 .findFirst()
                 .orElse(null);
     }

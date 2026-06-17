@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
+import { useConversationAiDraft } from "@/hooks/use-conversation-ai-draft";
 import { useConversations } from "@/hooks/use-conversations";
 import { useMessages } from "@/hooks/use-messages";
 import { useUpdateConversation } from "@/hooks/use-update-conversation";
 import { useUpdateConversationAssignee } from "@/hooks/use-update-conversation-assignee";
 import { useWorkspaceMembers } from "@/hooks/use-workspace-members";
 
+import { AiDraftBanner } from "./AiDraftBanner";
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
 
@@ -28,6 +30,9 @@ const STATUS_CHIP: Record<string, string> = {
 
 export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [composerPrefill, setComposerPrefill] = useState("");
+
+  const { data: aiDraft } = useConversationAiDraft(workspaceId, conversationId);
 
   // Track the previous scrollHeight so we can restore position after prepending older messages.
   const prevScrollHeightRef = useRef<number>(0);
@@ -259,10 +264,21 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
         ))}
       </div>
 
+      {aiDraft && (
+        <AiDraftBanner
+          workspaceId={workspaceId}
+          conversationId={conversationId}
+          draft={aiDraft}
+          onEdit={(text) => setComposerPrefill(text)}
+        />
+      )}
+
       <MessageComposer
         workspaceId={workspaceId}
         conversationId={conversationId}
         lockedByWorkflow={conversation?.lockedByWorkflow ?? false}
+        prefillText={composerPrefill}
+        onPrefillConsumed={() => setComposerPrefill("")}
       />
     </div>
   );

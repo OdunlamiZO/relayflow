@@ -1,5 +1,8 @@
 package com.relayflow.api.messaging;
 
+import com.relayflow.api.agent.repository.AiAgentConfigurationRepository;
+import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
+import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.authentication.domain.User;
 import com.relayflow.api.authentication.repository.UserRepository;
 import com.relayflow.api.messaging.domain.ChannelAccount;
@@ -103,6 +106,12 @@ public class MessagingService {
 
     private final SubscriptionService subscriptionService;
 
+    private final AiAgentConfigurationRepository aiAgentConfigurationRepository;
+
+    private final AiAgentInvocationLogRepository aiAgentInvocationLogRepository;
+
+    private final ConversationAiDraftRepository conversationAiDraftRepository;
+
     private final String sharedBotToken;
 
     public MessagingService(
@@ -122,6 +131,9 @@ public class MessagingService {
             WorkflowRunRepository workflowRunRepository,
             WorkflowRunStepRepository workflowRunStepRepository,
             SubscriptionService subscriptionService,
+            AiAgentConfigurationRepository aiAgentConfigurationRepository,
+            AiAgentInvocationLogRepository aiAgentInvocationLogRepository,
+            ConversationAiDraftRepository conversationAiDraftRepository,
             @Value("${shared.telegram.bot-token:}") String sharedBotToken) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -139,6 +151,9 @@ public class MessagingService {
         this.workflowRunRepository = workflowRunRepository;
         this.workflowRunStepRepository = workflowRunStepRepository;
         this.subscriptionService = subscriptionService;
+        this.aiAgentConfigurationRepository = aiAgentConfigurationRepository;
+        this.aiAgentInvocationLogRepository = aiAgentInvocationLogRepository;
+        this.conversationAiDraftRepository = conversationAiDraftRepository;
         this.sharedBotToken = sharedBotToken;
     }
 
@@ -337,7 +352,7 @@ public class MessagingService {
                                     conversations.stream().map(Conversation::getId).toList();
                             List<UUID> contactIds =
                                     conversations.stream()
-                                            .map(c -> c.getContact().getId())
+                                            .map(conversation -> conversation.getContact().getId())
                                             .distinct()
                                             .toList();
 
@@ -523,8 +538,8 @@ public class MessagingService {
 
         java.util.Set<UUID> targetChannelAccountIds =
                 targetIdentities.stream()
-                        .filter(e -> e.getChannelAccount() != null)
-                        .map(e -> e.getChannelAccount().getId())
+                        .filter(identity -> identity.getChannelAccount() != null)
+                        .map(identity -> identity.getChannelAccount().getId())
                         .collect(java.util.stream.Collectors.toSet());
 
         for (ExternalIdentity identity : sourceIdentities) {
@@ -708,6 +723,8 @@ public class MessagingService {
 
         if (conversation.getStatus() == ConversationStatus.CLOSED) {
             conversation.setStatus(ConversationStatus.OPEN);
+            conversation.setAssigneeId(null);
+            conversation.setSessionStartedAt(Instant.now());
             reopened = true;
         }
 
@@ -762,6 +779,11 @@ public class MessagingService {
 
             eventPublisher.publishEvent(
                     new OutboundMessageEvent(message, conversation.getChannelAccount()));
+
+            if (message.getSenderType() == MessageSenderType.AGENT) {
+                conversationAiDraftRepository.deleteByConversationId(conversationId);
+                conversation.setLockedByAiAgent(false);
+            }
         }
 
         return mapper.toDto(message);
@@ -777,7 +799,9 @@ public class MessagingService {
                         .stream()
                         .collect(Collectors.toMap(User::getId, u -> u));
 
-        return members.stream().map(m -> toMemberResponse(m, userMap.get(m.getUserId()))).toList();
+        return members.stream()
+                .map(member -> toMemberResponse(member, userMap.get(member.getUserId())))
+                .toList();
     }
 
     @Transactional
@@ -929,6 +953,9 @@ public class MessagingService {
         channelAccountRepository.softDeleteByWorkspace(workspaceId, now);
         workflowDefinitionRepository.softDeleteByWorkspace(workspaceId, now);
         workspaceMemberRepository.softDeleteByWorkspace(workspaceId, now);
+        conversationAiDraftRepository.deleteByWorkspaceId(workspaceId);
+        aiAgentInvocationLogRepository.deleteByWorkspaceId(workspaceId);
+        aiAgentConfigurationRepository.deleteByWorkspaceId(workspaceId);
         workspaceRepository.deleteById(workspaceId);
     }
 

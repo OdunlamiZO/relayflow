@@ -139,8 +139,8 @@ public class WaitForReplyNodeExecutor implements NodeExecutor {
                 (List<Map<String, Object>>) node.data().getOrDefault("options", List.of());
 
         return options.stream()
-                .map(o -> (String) o.get("text"))
-                .filter(t -> t != null && !t.isBlank())
+                .map(option -> (String) option.get("text"))
+                .filter(text -> text != null && !text.isBlank())
                 .toList();
     }
 }

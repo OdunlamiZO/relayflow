@@ -70,8 +70,8 @@ public class ConditionNodeExecutor implements NodeExecutor {
         boolean isOr = "or".equals(branch.get("combinator"));
 
         return isOr
-                ? conditions.stream().anyMatch(c -> evaluateCondition(c, context))
-                : conditions.stream().allMatch(c -> evaluateCondition(c, context));
+                ? conditions.stream().anyMatch(condition -> evaluateCondition(condition, context))
+                : conditions.stream().allMatch(condition -> evaluateCondition(condition, context));
     }
 
     private boolean evaluateCondition(Map<String, Object> condition, ExecutionContext context) {

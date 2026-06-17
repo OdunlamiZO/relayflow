@@ -1,1 +1,1 @@
-ALTER TABLE channel_accounts ADD COLUMN webhook_secret VARCHAR(128);
+alter table channel_accounts add column webhook_secret varchar(128);

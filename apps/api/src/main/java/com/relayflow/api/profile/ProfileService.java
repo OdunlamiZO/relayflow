@@ -263,7 +263,7 @@ public class ProfileService {
         List<String> providers =
                 identityRepository.findAllByUser(user).stream()
                         .map(UserIdentity::getProvider)
-                        .filter(p -> p != AuthenticationProvider.ANONYMOUS)
+                        .filter(authProvider -> authProvider != AuthenticationProvider.ANONYMOUS)
                         .map(AuthenticationProvider::name)
                         .toList();
 

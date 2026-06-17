@@ -281,6 +281,7 @@ public class TelegramAdapter {
         } else if (latestConversation.get().getStatus() == ConversationStatus.CLOSED) {
             conversation = latestConversation.get();
             conversation.setStatus(ConversationStatus.OPEN);
+            conversation.setSessionStartedAt(Instant.now());
             conversationRepository.save(conversation);
             triggersWorkflow = true;
         } else {
@@ -332,6 +333,9 @@ public class TelegramAdapter {
     private void handleSharedBotStart(
             String workspaceIdParam, TelegramUser from, String telegramUserId, String chatId) {
         if (workspaceIdParam.isEmpty()) {
+            log.info(
+                    "Shared bot /start received without workspace ID from telegramUserId={}",
+                    telegramUserId);
             sendTelegramMessageQuietly(
                     sharedBotToken,
                     chatId,
@@ -345,10 +349,17 @@ public class TelegramAdapter {
         try {
             workspaceId = UUID.fromString(workspaceIdParam);
         } catch (IllegalArgumentException e) {
+            log.warn(
+                    "Shared bot /start received invalid workspace ID '{}' from telegramUserId={}",
+                    workspaceIdParam,
+                    telegramUserId);
             sendTelegramMessageQuietly(sharedBotToken, chatId, "Invalid workspace link.");
 
             return;
         }
+
+        log.info(
+                "Shared bot /start: telegramUserId={} workspaceId={}", telegramUserId, workspaceId);
 
         List<ChannelAccount> accounts =
                 channelAccountRepository.findAllByProvider(workspaceId, ChannelProvider.TELEGRAM);
@@ -356,14 +367,28 @@ public class TelegramAdapter {
         ChannelAccount channelAccount =
                 accounts.stream()
                         .filter(
-                                ca ->
-                                        sharedBotToken.equals(
+                                ca -> {
+                                    try {
+                                        return sharedBotToken.equals(
                                                 credentialEncryptionService.decrypt(
-                                                        ca.getEncryptedCredentials())))
+                                                        ca.getEncryptedCredentials()));
+                                    } catch (Exception decryptionException) {
+                                        log.warn(
+                                                "Failed to decrypt credentials for channel account"
+                                                        + " {} — skipping",
+                                                ca.getId());
+                                        return false;
+                                    }
+                                })
                         .findFirst()
                         .orElse(null);
 
         if (channelAccount == null) {
+            log.warn(
+                    "No matching shared Telegram channel account found for workspaceId={}"
+                            + " (accounts queried: {})",
+                    workspaceId,
+                    accounts.size());
             sendTelegramMessageQuietly(sharedBotToken, chatId, "Guest workspace not found.");
 
             return;
@@ -429,14 +454,27 @@ public class TelegramAdapter {
                                                 .stream())
                         .filter(ca -> ca.getStatus() == ChannelAccountStatus.ACTIVE)
                         .filter(
-                                ca ->
-                                        sharedBotToken.equals(
+                                ca -> {
+                                    try {
+                                        return sharedBotToken.equals(
                                                 credentialEncryptionService.decrypt(
-                                                        ca.getEncryptedCredentials())))
+                                                        ca.getEncryptedCredentials()));
+                                    } catch (Exception decryptionException) {
+                                        log.warn(
+                                                "Failed to decrypt credentials for channel account"
+                                                        + " {} — skipping",
+                                                ca.getId());
+                                        return false;
+                                    }
+                                })
                         .findFirst()
                         .orElse(null);
 
         if (sharedChannelAccount == null) {
+            log.info(
+                    "No shared Telegram channel account found for telegramUserId={}"
+                            + " — no linked guest workspace",
+                    telegramUserId);
             sendTelegramMessageQuietly(
                     sharedBotToken,
                     chatId,

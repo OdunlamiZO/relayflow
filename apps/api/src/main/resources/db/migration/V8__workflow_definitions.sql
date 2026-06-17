@@ -1,14 +1,14 @@
-CREATE TABLE workflow_definitions (
-    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID       NOT NULL REFERENCES workspaces(id),
-    name        VARCHAR(200) NOT NULL,
-    enabled     BOOLEAN     NOT NULL DEFAULT false,
-    draft_graph JSONB       NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at  TIMESTAMPTZ
+create table workflow_definitions (
+    id          uuid         primary key default gen_random_uuid(),
+    workspace_id uuid        not null references workspaces(id),
+    name        varchar(200) not null,
+    enabled     boolean      not null default false,
+    draft_graph jsonb        not null default '{"nodes":[],"edges":[]}',
+    created_at  timestamptz  not null default now(),
+    updated_at  timestamptz  not null default now(),
+    deleted_at  timestamptz
 );
 
-CREATE INDEX idx_workflow_definitions_workspace
-    ON workflow_definitions(workspace_id)
-    WHERE deleted_at IS NULL;
+create index idx_workflow_definitions_workspace
+    on workflow_definitions(workspace_id)
+    where deleted_at is null;

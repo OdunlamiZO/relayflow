@@ -145,6 +145,7 @@ const inputCls =
 
 const TRIGGER_EVENTS = [
   { value: "conversation_opened", label: "Conversation Opened" },
+  { value: "manual", label: "Manual" },
 ];
 
 function TriggerForm({

@@ -68,6 +68,11 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: "WEBHOOKS_WRITE", label: "Configure webhooks" },
     ],
   },
+  {
+    section: "AI Agent",
+    icon: "smart_toy",
+    rows: [{ key: "AI_AGENT_WRITE", label: "Configure AI agent" }],
+  },
 ];
 
 // Permissions that are prerequisites for another permission.
@@ -118,6 +123,7 @@ const ALL_PERMISSION_LABELS: Record<WorkspacePermission, string> = {
   CHANNELS_DELETE: "Disconnect channels",
   API_KEYS_WRITE: "Manage API keys",
   WEBHOOKS_WRITE: "Configure webhooks",
+  AI_AGENT_WRITE: "Configure AI agent",
 };
 
 function getInitials(displayName: string | null, email: string | null): string {
@@ -220,7 +226,7 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
                 placeholder="colleague@example.com"
                 required
                 disabled={isInviting}
-                className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20 disabled:opacity-50"
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20 disabled:opacity-50"
               />
             </div>
 

@@ -11,6 +11,7 @@ type TriggerNodeType = Node<TriggerNodeData, "trigger">;
 
 const EVENT_LABELS: Record<string, string> = {
   conversation_opened: "Conversation Opened",
+  manual: "Manual",
 };
 
 export function TriggerNode({

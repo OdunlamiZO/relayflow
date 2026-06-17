@@ -53,8 +53,14 @@ public class Conversation {
     @Column(name = "locked_by_workflow", nullable = false)
     private boolean lockedByWorkflow = false;
 
+    @Column(name = "locked_by_ai_agent", nullable = false)
+    private boolean lockedByAiAgent = false;
+
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
+
+    @Column(name = "session_started_at", nullable = false)
+    private Instant sessionStartedAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -66,6 +72,9 @@ public class Conversation {
     void prePersist() {
         if (createdAt == null) {
             createdAt = Instant.now();
+        }
+        if (sessionStartedAt == null) {
+            sessionStartedAt = createdAt;
         }
         if (status == null) {
             status = ConversationStatus.OPEN;

@@ -94,13 +94,18 @@ public class WorkflowEngineService {
                 definition.getId(),
                 conversation.getId());
 
+        // Re-fetch within the current session so all lazy associations (workspace, channelAccount,
+        // contact) are reachable. The conversation argument may be a detached entity from a prior
+        // transaction (e.g. passed through an @Async boundary).
+        conversation = conversationRepository.findById(conversation.getId()).orElse(conversation);
+
         // 1. Parse graph
         List<GraphNode> nodes = parseNodes(definition.getDraftGraph());
         List<GraphEdge> edges = parseEdges(definition.getDraftGraph());
 
         GraphNode triggerNode =
                 nodes.stream()
-                        .filter(n -> NodeType.TRIGGER.getValue().equals(n.type()))
+                        .filter(node -> NodeType.TRIGGER.getValue().equals(node.type()))
                         .findFirst()
                         .orElse(null);
 
@@ -405,14 +410,20 @@ public class WorkflowEngineService {
             // Single-output node — follow the edge with no sourceHandle
             match =
                     outgoing.stream()
-                            .filter(e -> e.sourceHandle() == null || e.sourceHandle().isBlank())
+                            .filter(
+                                    edge ->
+                                            edge.sourceHandle() == null
+                                                    || edge.sourceHandle().isBlank())
                             .findFirst()
                             .or(() -> outgoing.stream().findFirst()); // fallback: any edge
         } else {
-            match = outgoing.stream().filter(e -> nextHandle.equals(e.sourceHandle())).findFirst();
+            match =
+                    outgoing.stream()
+                            .filter(edge -> nextHandle.equals(edge.sourceHandle()))
+                            .findFirst();
         }
 
-        return match.map(e -> nodeMap.get(e.target())).orElse(null);
+        return match.map(edge -> nodeMap.get(edge.target())).orElse(null);
     }
 
     // ── reply handling ─────────────────────────────────────────────────────────
