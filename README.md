@@ -6,12 +6,18 @@ RelayFlow is an omnichannel customer messaging platform with developer-grade wor
 
 ```text
 apps/
-  api/    Java 21 + Spring Boot backend
-  web/    Next.js frontend
+  api/        Java 21 + Spring Boot backend
+  web/        Next.js frontend (inbox, settings, workflow builder)
+  marketing/  Next.js marketing site
+packages/
+  contracts/  Shared OpenAPI spec and JSON schemas
 docs/
-  prd/    Product and technical planning documents
+  prd/        Product and technical planning documents
+  codebase-components.md  Living architecture reference
 infra/
-  docker/ Local infrastructure notes and config
+  docker/     Local infrastructure notes and config
+hooks/
+  pre-commit  Git pre-commit hook (lint, typecheck, format, tests)
 ```
 
 ## Local Development
