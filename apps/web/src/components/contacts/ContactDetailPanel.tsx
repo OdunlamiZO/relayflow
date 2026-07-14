@@ -1,11 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { Spinner } from "@/components/common/Spinner";
+import { useToast } from "@/components/providers/ToastProvider";
+import { useAuthentication } from "@/hooks/use-authentication";
 import { useContact } from "@/hooks/use-contact";
-import type { ChannelProvider } from "@/lib/messaging-api";
+import { useCurrentMember } from "@/hooks/use-current-member";
+import { useUpdateContactCustomFields } from "@/hooks/use-update-contact-custom-fields";
+import { useWorkspace } from "@/hooks/use-workspaces";
+import { errorMessage } from "@/lib/error-message";
+import {
+  type ChannelProvider,
+  RESERVED_CONTACT_FIELDS,
+  RESERVED_CONTACT_FIELD_KEYS,
+} from "@/lib/messaging-api";
 
 // ── channel meta ──────────────────────────────────────────────────────────────
 
@@ -211,9 +222,133 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
                 </ul>
               )}
             </div>
+
+            {/* Custom fields */}
+            <ContactCustomFieldsSection
+              key={contact.id}
+              contactId={contact.id}
+              workspaceId={workspaceId}
+              customFields={contact.customFields}
+            />
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── custom fields ─────────────────────────────────────────────────────────────
+
+type ContactCustomFieldsSectionProps = {
+  contactId: string;
+  workspaceId: string;
+  customFields: Record<string, string>;
+};
+
+function ContactCustomFieldsSection({
+  contactId,
+  workspaceId,
+  customFields,
+}: ContactCustomFieldsSectionProps) {
+  const workspace = useWorkspace(workspaceId);
+  const { user } = useAuthentication();
+  const currentMember = useCurrentMember(workspaceId, user?.userId);
+  const updateCustomFields = useUpdateContactCustomFields(
+    contactId,
+    workspaceId
+  );
+  const { showToast } = useToast();
+
+  const canEdit =
+    currentMember?.role === "OWNER" ||
+    currentMember?.permissions.includes("CONTACT_FIELDS_WRITE") === true;
+
+  const fields = [
+    ...RESERVED_CONTACT_FIELD_KEYS.map((key) => ({
+      key,
+      label: RESERVED_CONTACT_FIELDS[key].label,
+    })),
+    ...(workspace?.contactFieldDefinitions ?? []),
+  ];
+
+  const [values, setValues] = useState<Record<string, string>>(customFields);
+
+  const isUnchanged = JSON.stringify(values) === JSON.stringify(customFields);
+
+  function handleSave() {
+    updateCustomFields.mutate(values, {
+      onSuccess: () => {
+        showToast({ kind: "success", message: "Contact fields saved" });
+      },
+      onError: (error) => {
+        showToast({ kind: "error", message: errorMessage(error) });
+      },
+    });
+  }
+
+  return (
+    <div>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        Contact fields
+      </p>
+
+      <div className="space-y-3">
+        {fields.map((field) =>
+          canEdit ? (
+            <div key={field.key}>
+              <label
+                htmlFor={`custom-field-${field.key}`}
+                className="mb-1 block text-xs font-medium text-neutral-600"
+              >
+                {field.label || field.key}
+              </label>
+              <input
+                id={`custom-field-${field.key}`}
+                type="text"
+                value={values[field.key] ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({
+                    ...prev,
+                    [field.key]: e.target.value,
+                  }))
+                }
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+              />
+            </div>
+          ) : (
+            <div
+              key={field.key}
+              className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2"
+            >
+              <span className="text-xs text-neutral-500">
+                {field.label || field.key}
+              </span>
+              <span className="truncate text-sm text-neutral-800">
+                {customFields[field.key] || (
+                  <span className="italic text-neutral-400">Not set</span>
+                )}
+              </span>
+            </div>
+          )
+        )}
+      </div>
+
+      {canEdit && !isUnchanged && (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={updateCustomFields.isPending}
+          className="mt-3 flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {updateCustomFields.isPending ? (
+            <Spinner
+              size="sm"
+              className="border-neutral-100/40 border-t-neutral-100"
+            />
+          ) : null}
+          Save
+        </button>
+      )}
     </div>
   );
 }

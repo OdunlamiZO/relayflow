@@ -38,8 +38,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 @WebMvcTest(MessagingController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -68,8 +70,8 @@ class MessagingControllerTest {
                                 new WorkspaceResponse(
                                         workspaceId,
                                         "Acme",
-                                        Instant.parse("2026-05-26T10:00:00Z"),
-                                        false)));
+                                        List.of(),
+                                        Instant.parse("2026-05-26T10:00:00Z"))));
 
         mockMvc.perform(get("/workspaces"))
                 .andExpect(status().isOk())
@@ -87,8 +89,8 @@ class MessagingControllerTest {
                         new WorkspaceResponse(
                                 workspaceId,
                                 "RelayFlow",
-                                Instant.parse("2026-05-26T10:00:00Z"),
-                                false));
+                                List.of(),
+                                Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(
                         post("/workspaces")
@@ -99,6 +101,21 @@ class MessagingControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(workspaceId.toString()))
                 .andExpect(jsonPath("$.name").value("RelayFlow"));
+    }
+
+    @Test
+    void createWorkspaceReturns403WhenCallerOwnsNoWorkspace() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Workspace owner required"))
+                .when(workspaceAuthorizationService)
+                .assertOwnerOfAnyWorkspace(any());
+
+        mockMvc.perform(
+                        post("/workspaces")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        objectMapper.writeValueAsString(
+                                                new CreateWorkspaceRequest("RelayFlow"))))
+                .andExpect(status().isForbidden());
     }
 
     // ── Channel Accounts ──────────────────────────────────────────────────────
@@ -116,7 +133,6 @@ class MessagingControllerTest {
                                         ChannelProvider.TELEGRAM,
                                         "My Bot",
                                         ChannelAccountStatus.ACTIVE,
-                                        false,
                                         Map.of(),
                                         Instant.parse("2026-05-26T10:00:00Z"))));
 
@@ -124,8 +140,7 @@ class MessagingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(channelId.toString()))
                 .andExpect(jsonPath("$[0].name").value("My Bot"))
-                .andExpect(jsonPath("$[0].status").value("ACTIVE"))
-                .andExpect(jsonPath("$[0].shared").value(false));
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"));
     }
 
     @Test
@@ -143,7 +158,6 @@ class MessagingControllerTest {
                                 ChannelProvider.TELEGRAM,
                                 "My Bot",
                                 ChannelAccountStatus.ACTIVE,
-                                false,
                                 Map.of(),
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
@@ -181,7 +195,6 @@ class MessagingControllerTest {
                                 ChannelProvider.TELEGRAM,
                                 "My Bot",
                                 ChannelAccountStatus.ACTIVE,
-                                false,
                                 Map.of(),
                                 Instant.parse("2026-05-26T10:00:00Z")));
 

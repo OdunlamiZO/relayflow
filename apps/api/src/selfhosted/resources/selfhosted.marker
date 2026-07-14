@@ -1,0 +1,2 @@
+Only present in JARs built with `mvn package -Pselfhosted`. Its presence
+activates LicenseKeyValidator via @ConditionalOnResource. Do not delete.

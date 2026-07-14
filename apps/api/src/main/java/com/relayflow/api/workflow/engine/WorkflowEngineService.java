@@ -1,6 +1,5 @@
 package com.relayflow.api.workflow.engine;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.Message;
 import com.relayflow.api.messaging.repository.ConversationRepository;
@@ -57,8 +56,6 @@ public class WorkflowEngineService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    private final ObjectMapper objectMapper;
-
     private final Map<NodeType, NodeExecutor> executors;
 
     public WorkflowEngineService(
@@ -66,13 +63,11 @@ public class WorkflowEngineService {
             ConversationRepository conversationRepository,
             ExternalIdentityRepository externalIdentityRepository,
             ApplicationEventPublisher eventPublisher,
-            ObjectMapper objectMapper,
             List<NodeExecutor> executorList) {
         this.runRepository = runRepository;
         this.conversationRepository = conversationRepository;
         this.externalIdentityRepository = externalIdentityRepository;
         this.eventPublisher = eventPublisher;
-        this.objectMapper = objectMapper;
         this.executors =
                 executorList.stream()
                         .collect(Collectors.toMap(NodeExecutor::nodeType, Function.identity()));
@@ -89,80 +84,23 @@ public class WorkflowEngineService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeWorkflow(
             WorkflowDefinition definition, Conversation conversation, Message triggeringMessage) {
-        log.info(
-                "Starting workflow run: workflow={}, conversation={}",
-                definition.getId(),
-                conversation.getId());
+        executeWorkflowInternal(definition, conversation, triggeringMessage, Map.of());
+    }
 
-        // Re-fetch within the current session so all lazy associations (workspace, channelAccount,
-        // contact) are reachable. The conversation argument may be a detached entity from a prior
-        // transaction (e.g. passed through an @Async boundary).
-        conversation = conversationRepository.findById(conversation.getId()).orElse(conversation);
-
-        // 1. Parse graph
-        List<GraphNode> nodes = parseNodes(definition.getDraftGraph());
-        List<GraphEdge> edges = parseEdges(definition.getDraftGraph());
-
-        GraphNode triggerNode =
-                nodes.stream()
-                        .filter(node -> NodeType.TRIGGER.getValue().equals(node.type()))
-                        .findFirst()
-                        .orElse(null);
-
-        if (triggerNode == null) {
-            log.warn("Workflow {} has no trigger node — skipping", definition.getId());
-            return;
-        }
-
-        // 2. Build adjacency map: nodeId → outgoing edges
-        Map<String, List<GraphEdge>> adjacency = buildAdjacency(edges);
-
-        // 3. Build node lookup map
-        Map<String, GraphNode> nodeMap =
-                nodes.stream().collect(Collectors.toMap(GraphNode::id, Function.identity()));
-
-        // 4. Lock the conversation — agents cannot message while a workflow is running.
-        setConversationLock(conversation.getId(), true);
-
-        // 5. Create the run record
-        WorkflowRun run = new WorkflowRun();
-        run.setWorkflowDefinition(definition);
-        run.setWorkspace(conversation.getWorkspace());
-        run.setConversation(conversation);
-        run.setStatus(WorkflowRunStatus.RUNNING);
-        runRepository.save(run);
-
-        // 6. Initialise execution context with conversation data
-        ExecutionContext context = buildContext(run, conversation, triggeringMessage);
-
-        // 7. Walk the graph starting from the trigger node
-        try {
-            walk(triggerNode, nodeMap, adjacency, context, run);
-
-            // Only mark COMPLETED if the run is still RUNNING — a WAITING run must not be
-            // overwritten here; it will be completed by resumeWorkflow after the contact replies.
-            if (run.getStatus() == WorkflowRunStatus.RUNNING) {
-                run.setStatus(WorkflowRunStatus.COMPLETED);
-                run.setFinishedAt(Instant.now());
-                setConversationLock(conversation.getId(), false);
-            }
-
-            runRepository.save(run);
-
-            log.info(
-                    "Workflow run {}: runId={}",
-                    run.getStatus().toString().toLowerCase(),
-                    run.getId());
-        } catch (Exception e) {
-            run.setStatus(WorkflowRunStatus.FAILED);
-            run.setFinishedAt(Instant.now());
-            run.setErrorMessage(e.getMessage());
-            runRepository.save(run);
-
-            setConversationLock(conversation.getId(), false);
-
-            log.error("Workflow run failed: runId={}, error={}", run.getId(), e.getMessage(), e);
-        }
+    /**
+     * Same as {@link #executeWorkflow(WorkflowDefinition, Conversation, Message)}, but seeds the
+     * run's initial variables with {@code additionalVariables} on top of the usual built-ins (e.g.
+     * {@code agent.reply}/{@code agent.confidence} when the AI agent is the one triggering this
+     * workflow) — see {@link com.relayflow.api.agent.AiAgentInvocationService}.
+     */
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void executeWorkflow(
+            WorkflowDefinition definition,
+            Conversation conversation,
+            Message triggeringMessage,
+            Map<String, String> additionalVariables) {
+        executeWorkflowInternal(definition, conversation, triggeringMessage, additionalVariables);
     }
 
     /**
@@ -297,6 +235,113 @@ public class WorkflowEngineService {
         setConversationLock(run.getConversation().getId(), false);
 
         log.info("Workflow run timed out waiting for a reply: runId={}", runId);
+    }
+
+    /**
+     * Fails a {@code RUNNING} run that was interrupted by a server shutdown or crash, releasing the
+     * conversation lock. Called by {@link com.relayflow.api.workflow.WorkflowStartupRecovery} on
+     * startup.
+     */
+    @Transactional
+    public void failInterruptedRun(UUID runId) {
+        WorkflowRun run = runRepository.findWithDefinitionById(runId).orElse(null);
+
+        if (run == null || run.getStatus() != WorkflowRunStatus.RUNNING) {
+            return;
+        }
+
+        run.setStatus(WorkflowRunStatus.FAILED);
+        run.setFinishedAt(Instant.now());
+        run.setErrorMessage("Interrupted by server shutdown");
+        runRepository.save(run);
+
+        setConversationLock(run.getConversation().getId(), false);
+
+        log.warn("Workflow run interrupted by server shutdown: runId={}", runId);
+    }
+
+    // ── execution orchestration ───────────────────────────────────────────────
+
+    private void executeWorkflowInternal(
+            WorkflowDefinition definition,
+            Conversation conversation,
+            Message triggeringMessage,
+            Map<String, String> additionalVariables) {
+        log.info(
+                "Starting workflow run: workflow={}, conversation={}",
+                definition.getId(),
+                conversation.getId());
+
+        // Re-fetch within the current session so all lazy associations (workspace, channelAccount,
+        // contact) are reachable. The conversation argument may be a detached entity from a prior
+        // transaction (e.g. passed through an @Async boundary).
+        conversation = conversationRepository.findById(conversation.getId()).orElse(conversation);
+
+        // 1. Parse graph
+        List<GraphNode> nodes = parseNodes(definition.getDraftGraph());
+        List<GraphEdge> edges = parseEdges(definition.getDraftGraph());
+
+        GraphNode triggerNode =
+                nodes.stream()
+                        .filter(node -> NodeType.TRIGGER.getValue().equals(node.type()))
+                        .findFirst()
+                        .orElse(null);
+
+        if (triggerNode == null) {
+            log.warn("Workflow {} has no trigger node — skipping", definition.getId());
+            return;
+        }
+
+        // 2. Build adjacency map: nodeId → outgoing edges
+        Map<String, List<GraphEdge>> adjacency = buildAdjacency(edges);
+
+        // 3. Build node lookup map
+        Map<String, GraphNode> nodeMap =
+                nodes.stream().collect(Collectors.toMap(GraphNode::id, Function.identity()));
+
+        // 4. Lock the conversation — agents cannot message while a workflow is running.
+        setConversationLock(conversation.getId(), true);
+
+        // 5. Create the run record
+        WorkflowRun run = new WorkflowRun();
+        run.setWorkflowDefinition(definition);
+        run.setWorkspace(conversation.getWorkspace());
+        run.setConversation(conversation);
+        run.setStatus(WorkflowRunStatus.RUNNING);
+        runRepository.save(run);
+
+        // 6. Initialise execution context with conversation data
+        ExecutionContext context =
+                buildContext(run, conversation, triggeringMessage, additionalVariables);
+
+        // 7. Walk the graph starting from the trigger node
+        try {
+            walk(triggerNode, nodeMap, adjacency, context, run);
+
+            // Only mark COMPLETED if the run is still RUNNING — a WAITING run must not be
+            // overwritten here; it will be completed by resumeWorkflow after the contact replies.
+            if (run.getStatus() == WorkflowRunStatus.RUNNING) {
+                run.setStatus(WorkflowRunStatus.COMPLETED);
+                run.setFinishedAt(Instant.now());
+                setConversationLock(conversation.getId(), false);
+            }
+
+            runRepository.save(run);
+
+            log.info(
+                    "Workflow run {}: runId={}",
+                    run.getStatus().toString().toLowerCase(),
+                    run.getId());
+        } catch (Exception e) {
+            run.setStatus(WorkflowRunStatus.FAILED);
+            run.setFinishedAt(Instant.now());
+            run.setErrorMessage(e.getMessage());
+            runRepository.save(run);
+
+            setConversationLock(conversation.getId(), false);
+
+            log.error("Workflow run failed: runId={}, error={}", run.getId(), e.getMessage(), e);
+        }
     }
 
     // ── graph walking ──────────────────────────────────────────────────────────
@@ -486,7 +531,10 @@ public class WorkflowEngineService {
     // ── context initialisation ─────────────────────────────────────────────────
 
     private ExecutionContext buildContext(
-            WorkflowRun run, Conversation conversation, Message triggeringMessage) {
+            WorkflowRun run,
+            Conversation conversation,
+            Message triggeringMessage,
+            Map<String, String> additionalVariables) {
         Map<String, Object> vars = new LinkedHashMap<>();
 
         vars.put("workspace.id", conversation.getWorkspace().getId().toString());
@@ -512,6 +560,13 @@ public class WorkflowEngineService {
         if (triggeringMessage != null) {
             vars.put("contact.message", nullSafe(triggeringMessage.getText()));
         }
+
+        for (Map.Entry<String, String> field :
+                conversation.getContact().getCustomFields().entrySet()) {
+            vars.put("contact.data." + field.getKey(), field.getValue());
+        }
+
+        vars.putAll(additionalVariables);
 
         return new ExecutionContext(
                 run.getId(), conversation.getId(), conversation.getWorkspace().getId(), vars);

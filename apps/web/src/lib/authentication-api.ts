@@ -2,7 +2,7 @@ export type SignupPayload = {
   name: string;
   email: string;
   password: string;
-  returnUrl?: string;
+  inviteToken: string;
 };
 
 export type LoginPayload = {
@@ -12,7 +12,6 @@ export type LoginPayload = {
 
 export type AuthenticatedUserResponse = {
   authenticated: boolean;
-  anonymous: boolean;
   userId: string | null;
   email: string | null;
   displayName: string | null;
@@ -22,12 +21,30 @@ export type AuthenticatedUserResponse = {
 };
 
 export type SignupResponse = {
-  emailVerificationSent: boolean;
+  authenticated: boolean;
+  userId: string;
+  email: string;
+  displayName: string | null;
+  workspaceId: string;
 };
 
-export type GuestSessionResponse = {
+export type BootstrapPayload = {
+  name: string;
+  email: string;
+  password: string;
+  workspaceName: string;
+};
+
+export type BootstrapResponse = {
+  authenticated: boolean;
+  userId: string;
+  email: string;
+  displayName: string | null;
   workspaceId: string;
-  recoveryToken: string;
+};
+
+export type InstanceStatusResponse = {
+  bootstrapped: boolean;
 };
 
 export type ProfileResponse = {
@@ -153,10 +170,22 @@ export function signup(payload: SignupPayload): Promise<SignupResponse> {
   return apiPost<SignupResponse>("/auth/signup", payload);
 }
 
-export function verifyEmail(token: string): Promise<AuthenticatedUserResponse> {
-  return apiPost<AuthenticatedUserResponse>("/auth/verify-email", {
-    token,
+export function bootstrap(
+  payload: BootstrapPayload
+): Promise<BootstrapResponse> {
+  return apiPost<BootstrapResponse>("/auth/bootstrap", payload);
+}
+
+export async function getInstanceStatus(): Promise<InstanceStatusResponse> {
+  const response = await fetch(`${apiBaseUrl}/auth/bootstrap-status`, {
+    cache: "no-store",
   });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return response.json() as Promise<InstanceStatusResponse>;
 }
 
 export function login(
@@ -175,18 +204,6 @@ export async function logout(): Promise<void> {
   await fetch(`${apiBaseUrl}/auth/logout`, {
     method: "POST",
     credentials: "include",
-  });
-}
-
-export function createGuestSession(): Promise<GuestSessionResponse> {
-  return apiPost<GuestSessionResponse>("/auth/guest", {});
-}
-
-export function recoverGuestSession(
-  recoveryToken: string
-): Promise<GuestSessionResponse> {
-  return apiPost<GuestSessionResponse>("/auth/guest/recover", {
-    recoveryToken,
   });
 }
 

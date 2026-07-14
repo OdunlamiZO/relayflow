@@ -50,9 +50,6 @@ public class ChannelAccount {
     @Column(nullable = false, length = 40)
     private ChannelAccountStatus status = ChannelAccountStatus.ACTIVE;
 
-    @Column(nullable = false)
-    private boolean shared = false;
-
     @Column(name = "encrypted_credentials")
     private String encryptedCredentials;
 

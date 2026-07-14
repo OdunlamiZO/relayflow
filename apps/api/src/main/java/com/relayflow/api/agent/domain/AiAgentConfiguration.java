@@ -62,6 +62,10 @@ public class AiAgentConfiguration {
     @Column(name = "workflow_mappings", nullable = false, columnDefinition = "jsonb")
     private List<WorkflowMapping> workflowMappings = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extraction_fields", nullable = false, columnDefinition = "jsonb")
+    private List<ExtractionField> extractionFields = new ArrayList<>();
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

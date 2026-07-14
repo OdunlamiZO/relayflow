@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -31,7 +31,6 @@ type AiDraftCreatedEvent = {
 export function useWorkspaceEvents(workspaceId: string | undefined) {
   const queryClient = useQueryClient();
   const esRef = useRef<EventSource | null>(null);
-  const [telegramLinked, setTelegramLinked] = useState(false);
 
   useEffect(() => {
     if (!workspaceId || typeof window === "undefined" || !window.EventSource) {
@@ -59,12 +58,10 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
       }
     });
 
-    // Fired when workspace state changes without a new message (e.g. Telegram /start link).
+    // Fired when workspace state changes without a new message.
     es.addEventListener("workspace.updated", (event) => {
       try {
         const data = JSON.parse(event.data) as WorkspaceUpdatedEvent;
-
-        setTelegramLinked(true);
 
         void queryClient.invalidateQueries({
           queryKey: ["conversations", data.workspaceId],
@@ -96,6 +93,4 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
       esRef.current = null;
     };
   }, [workspaceId, queryClient]);
-
-  return { telegramLinked };
 }

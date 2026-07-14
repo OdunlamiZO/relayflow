@@ -24,7 +24,9 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
     protected AgentLlmResponse doComplete(
             RestClient restClient, String model, AgentLlmRequest request) {
         try {
-            String systemPrompt = request.systemPrompt() + LlmPrompts.JSON_FORMAT_INSTRUCTION;
+            String systemPrompt =
+                    request.systemPrompt()
+                            + LlmPrompts.buildFormatInstruction(request.extractionFields());
             List<Map<String, String>> messages = buildMessages(systemPrompt, request.messages());
 
             Map<String, Object> payload = new LinkedHashMap<>();
@@ -43,18 +45,18 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
 
             if (responseBody == null) {
 
-                return emptyResponse();
+                return AgentLlmResponseParser.empty();
             }
 
             JsonNode root = objectMapper.readTree(responseBody);
             String content =
                     root.path("choices").path(0).path("message").path("content").asText("");
 
-            return parseAgentResponse(content);
+            return AgentLlmResponseParser.parse(objectMapper, content);
         } catch (Exception e) {
             log.error("LLM call failed for provider={}: {}", provider(), e.getMessage(), e);
 
-            return emptyResponse();
+            return AgentLlmResponseParser.empty();
         }
     }
 
@@ -67,40 +69,5 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
         }
 
         return messages;
-    }
-
-    private AgentLlmResponse parseAgentResponse(String rawJson) {
-        try {
-            String json = rawJson.trim();
-            if (json.startsWith("```")) {
-                int newline = json.indexOf('\n');
-                int closing = json.lastIndexOf("```");
-                if (newline > 0 && closing > newline) {
-                    json = json.substring(newline + 1, closing).trim();
-                }
-            }
-
-            JsonNode node = objectMapper.readTree(json);
-            String reply = node.path("reply").asText("");
-            JsonNode confidenceNode = node.path("confidence");
-            String confidence = confidenceNode.isNull() ? null : confidenceNode.asText(null);
-            boolean escalate = node.path("escalate").asBoolean(false);
-            boolean needsClarification = node.path("needsClarification").asBoolean(false);
-
-            List<String> suggestedActions = new ArrayList<>();
-            JsonNode actionsNode = node.path("suggestedActions");
-            if (actionsNode.isArray()) {
-                actionsNode.forEach(actionNode -> suggestedActions.add(actionNode.asText()));
-            }
-
-            return new AgentLlmResponse(
-                    reply, confidence, suggestedActions, escalate, needsClarification);
-        } catch (Exception e) {
-            return emptyResponse();
-        }
-    }
-
-    private static AgentLlmResponse emptyResponse() {
-        return new AgentLlmResponse("", null, List.of(), false, false);
     }
 }

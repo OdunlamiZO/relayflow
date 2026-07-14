@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
-type AuthenticationStatus = { authenticated: boolean; anonymous?: boolean };
+type AuthenticationStatus = { authenticated: boolean };
 
 export async function getServerAuthenticationStatus(): Promise<AuthenticationStatus> {
   const cookieStore = await cookies();
@@ -45,16 +45,54 @@ export async function requireAuthentication(): Promise<void> {
 /**
  * Redirects to {@code destination} (default: /inbox) if the user is already authenticated.
  * Pass a validated returnUrl to preserve the post-login destination.
- *
- * <p>Anonymous (guest) sessions are exempt — they're "authenticated" but still need to reach
- * /signup or /login to convert into a real account.
  */
 export async function redirectIfAuthenticated(
   destination = "/inbox"
 ): Promise<void> {
-  const { authenticated, anonymous } = await getServerAuthenticationStatus();
+  const { authenticated } = await getServerAuthenticationStatus();
 
-  if (authenticated && !anonymous) {
+  if (authenticated) {
     redirect(destination);
+  }
+}
+
+type InstanceStatus = { bootstrapped: boolean };
+
+/**
+ * Checks whether this self-hosted instance has completed initial setup. Fails safe on any
+ * error — treats the instance as already bootstrapped so a transient API outage never traps
+ * every visitor on `/setup`.
+ */
+export async function getInstanceStatus(): Promise<InstanceStatus> {
+  try {
+    const res = await fetch(`${apiBaseUrl}/auth/bootstrap-status`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return { bootstrapped: true };
+    }
+
+    return (await res.json()) as InstanceStatus;
+  } catch {
+    return { bootstrapped: true };
+  }
+}
+
+/** Redirects to /setup if this instance hasn't completed initial setup yet. */
+export async function redirectIfNotBootstrapped(): Promise<void> {
+  const { bootstrapped } = await getInstanceStatus();
+
+  if (!bootstrapped) {
+    redirect("/setup");
+  }
+}
+
+/** Redirects to /login if this instance has already completed initial setup. */
+export async function redirectIfBootstrapped(): Promise<void> {
+  const { bootstrapped } = await getInstanceStatus();
+
+  if (bootstrapped) {
+    redirect("/login");
   }
 }

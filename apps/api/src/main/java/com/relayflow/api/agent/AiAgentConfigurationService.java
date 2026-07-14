@@ -2,6 +2,7 @@ package com.relayflow.api.agent;
 
 import com.relayflow.api.agent.domain.AiAgentConfiguration;
 import com.relayflow.api.agent.domain.ConversationAiDraft;
+import com.relayflow.api.agent.domain.ExtractionField;
 import com.relayflow.api.agent.dto.AiAgentConfigurationResponse;
 import com.relayflow.api.agent.dto.ConversationAiDraftResponse;
 import com.relayflow.api.agent.dto.UpdateAiAgentConfigurationRequest;
@@ -20,6 +21,7 @@ import com.relayflow.api.messaging.repository.WorkspaceRepository;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.engine.WorkflowEngineService;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,8 @@ public class AiAgentConfigurationService {
 
     private final MessagingService messagingService;
 
+    private final ContactCustomFieldWriter contactCustomFieldWriter;
+
     public AiAgentConfigurationService(
             AiAgentConfigurationRepository configurationRepository,
             ConversationAiDraftRepository draftRepository,
@@ -49,7 +53,8 @@ public class AiAgentConfigurationService {
             ConversationRepository conversationRepository,
             WorkflowDefinitionRepository workflowDefinitionRepository,
             WorkflowEngineService workflowEngineService,
-            MessagingService messagingService) {
+            MessagingService messagingService,
+            ContactCustomFieldWriter contactCustomFieldWriter) {
         this.configurationRepository = configurationRepository;
         this.draftRepository = draftRepository;
         this.workspaceRepository = workspaceRepository;
@@ -57,6 +62,7 @@ public class AiAgentConfigurationService {
         this.workflowDefinitionRepository = workflowDefinitionRepository;
         this.workflowEngineService = workflowEngineService;
         this.messagingService = messagingService;
+        this.contactCustomFieldWriter = contactCustomFieldWriter;
     }
 
     @Transactional
@@ -84,6 +90,7 @@ public class AiAgentConfigurationService {
         configuration.setKnowledgeBase(request.knowledgeBase());
         configuration.setEscalationKeywords(request.escalationKeywords());
         configuration.setWorkflowMappings(request.workflowMappings());
+        configuration.setExtractionFields(request.extractionFields());
 
         return toResponse(configurationRepository.save(configuration));
     }
@@ -116,6 +123,13 @@ public class AiAgentConfigurationService {
                                 null,
                                 Map.of()),
                         null);
+
+        Conversation conversation =
+                conversationRepository
+                        .findById(conversationId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
+        contactCustomFieldWriter.apply(
+                conversation, draft.getExtractedData(), extractionFieldsFor(workspaceId));
 
         draftRepository.delete(draft);
 
@@ -156,13 +170,28 @@ public class AiAgentConfigurationService {
                         .findInWorkspace(workflowId, workspaceId)
                         .orElseThrow(() -> new ResourceNotFoundException("Workflow not found"));
 
-        draftRepository.delete(draft);
+        List<ExtractionField> extractionFields = extractionFieldsFor(workspaceId);
 
-        // Triggered by a human approving the draft — no originating message to pass along.
-        workflowEngineService.executeWorkflow(workflowDefinition, conversation, null);
+        draftRepository.delete(draft);
+        contactCustomFieldWriter.apply(conversation, draft.getExtractedData(), extractionFields);
+
+        // Triggered by a human approving the draft — no originating message, no confidence
+        // score (that lived on the invocation's LLM response, not the persisted draft).
+        Map<String, String> agentContext =
+                AgentWorkflowContext.build(
+                        draft.getProposedReply(), null, draft.getExtractedData(), extractionFields);
+
+        workflowEngineService.executeWorkflow(workflowDefinition, conversation, null, agentContext);
     }
 
     // ── Private ───────────────────────────────────────────────────────────────
+
+    private List<ExtractionField> extractionFieldsFor(UUID workspaceId) {
+        return configurationRepository
+                .findByWorkspaceId(workspaceId)
+                .map(AiAgentConfiguration::getExtractionFields)
+                .orElse(List.of());
+    }
 
     private AiAgentConfiguration createDefaultConfiguration(UUID workspaceId) {
         Workspace workspace =
@@ -187,6 +216,7 @@ public class AiAgentConfigurationService {
                 configuration.getKnowledgeBase(),
                 configuration.getEscalationKeywords(),
                 configuration.getWorkflowMappings(),
+                configuration.getExtractionFields(),
                 configuration.getCreatedAt(),
                 configuration.getUpdatedAt());
     }
@@ -199,6 +229,7 @@ public class AiAgentConfigurationService {
                 draft.getInvocationLogId(),
                 draft.getProposedReply(),
                 draft.getSuggestedActions(),
+                draft.getExtractedData(),
                 draft.getCreatedAt());
     }
 }

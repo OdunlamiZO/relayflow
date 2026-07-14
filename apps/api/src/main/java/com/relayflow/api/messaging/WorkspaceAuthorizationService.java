@@ -71,6 +71,20 @@ public class WorkspaceAuthorizationService {
         }
     }
 
+    /**
+     * Asserts that the authenticated user is an OWNER of at least one workspace — gates creating
+     * additional workspaces to existing owners.
+     *
+     * @throws ResponseStatusException 403 if the user owns no workspace
+     */
+    public void assertOwnerOfAnyWorkspace(Authentication authentication) {
+        UUID userId = securityUtils.resolveUserId(authentication);
+
+        if (!workspaceMemberRepository.existsByUserAndRole(userId, WorkspaceRole.OWNER)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Workspace owner required");
+        }
+    }
+
     /** Returns the user ID of the authenticated principal. */
     public UUID getUser(Authentication authentication) {
         return securityUtils.resolveUserId(authentication);

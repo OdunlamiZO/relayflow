@@ -1,9 +1,7 @@
 import Link from "next/link";
 
-import { TryItButton } from "@/components/TryItButton";
-
-const appBaseUrl =
-  process.env.NEXT_PUBLIC_APP_BASE_URL ?? "http://localhost:3000";
+import { Footer } from "@/components/Footer";
+import { PricingButton } from "@/components/PricingButton";
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -104,20 +102,15 @@ export default function Home() {
             RelayFlow
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-5">
             <Link
-              href={`${appBaseUrl}/login`}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+              href="/docs/self-hosting"
+              className="text-sm font-semibold text-neutral-600 transition-colors hover:text-accent"
             >
-              Log in
+              Docs
             </Link>
 
-            <Link
-              href={`${appBaseUrl}/signup`}
-              className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
-            >
-              Get started
-            </Link>
+            <PricingButton variant="nav">Pricing</PricingButton>
           </div>
         </div>
       </header>
@@ -135,40 +128,24 @@ export default function Home() {
 
               <p className="mt-5 max-w-lg text-base leading-7 text-neutral-600">
                 Unified inbox, visual workflow automation, controllable HTTP
-                steps, and transparent execution logs — built for teams who
-                demand reliability.
+                steps, and transparent execution logs — self-hosted on your own
+                infrastructure, so your data never leaves your servers.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link
-                  href={`${appBaseUrl}/signup`}
-                  className="inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
-                >
-                  Get started free
+                <PricingButton variant="hero">
+                  View pricing
                   <span
                     className="material-symbols-rounded text-[15px]"
                     aria-hidden="true"
                   >
                     arrow_forward
                   </span>
-                </Link>
-
-                <Link
-                  href={`${appBaseUrl}/inbox`}
-                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-200"
-                >
-                  <span
-                    className="material-symbols-rounded text-[15px]"
-                    aria-hidden="true"
-                  >
-                    inbox
-                  </span>
-                  Open inbox
-                </Link>
+                </PricingButton>
               </div>
 
               <p className="mt-5 text-xs text-neutral-500">
-                No credit card required &nbsp;·&nbsp; Works with any channel
+                One-time payment &nbsp;·&nbsp; Your infrastructure, your data
               </p>
             </div>
 
@@ -181,7 +158,7 @@ export default function Home() {
                   <div className="h-2.5 w-2.5 rounded-full bg-yellow-border" />
                   <div className="h-2.5 w-2.5 rounded-full bg-green-border" />
                   <div className="ml-2 flex-1 rounded bg-neutral-300 px-3 py-1 text-[10px] text-neutral-500">
-                    app.relayflow.tech/inbox
+                    your-domain.com/inbox
                   </div>
                 </div>
 
@@ -321,27 +298,6 @@ export default function Home() {
                 timing for each step so you can debug and iterate with
                 confidence.
               </p>
-
-              <div className="mt-6">
-                <Link
-                  href={`${appBaseUrl}/signup`}
-                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-200"
-                >
-                  <span
-                    className="material-symbols-rounded text-[15px]"
-                    aria-hidden="true"
-                  >
-                    account_tree
-                  </span>
-                  Explore workflows
-                  <span
-                    className="material-symbols-rounded text-[13px]"
-                    aria-hidden="true"
-                  >
-                    arrow_forward
-                  </span>
-                </Link>
-              </div>
             </div>
 
             {/* Right — sample workflow diagram */}
@@ -561,68 +517,25 @@ export default function Home() {
                   className="m-0 text-2xl font-bold tracking-tight sm:text-3xl"
                   style={{ color: "var(--color-neutral-100)" }}
                 >
-                  Ready to unify your inbox?
+                  Ready to own your customer messaging stack?
                 </h2>
                 <p
                   className="mt-2 text-sm"
                   style={{ color: "var(--color-tertiary)" }}
                 >
-                  Set up in minutes. Free to get started.
+                  One-time purchase. Self-hosted. No subscription.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-shrink-0 sm:flex-wrap sm:items-center">
-                  <Link
-                    href={`${appBaseUrl}/signup`}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-light sm:w-auto"
-                  >
-                    Create free account
-                  </Link>
-
-                  <TryItButton fullWidth />
-                </div>
-
-                <p
-                  className="text-sm"
-                  style={{ color: "var(--color-tertiary)" }}
-                >
-                  Already have an account?{" "}
-                  <Link
-                    href={`${appBaseUrl}/login`}
-                    className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-80"
-                    style={{ color: "var(--color-tertiary)" }}
-                  >
-                    Sign in
-                  </Link>
-                </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-shrink-0 sm:flex-wrap sm:items-center">
+                <PricingButton variant="cta">View pricing</PricingButton>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      {/* ── Footer ──────────────────────────────────────────────────── */}
-      <footer className="bg-neutral-100">
-        <div className="mx-auto max-w-6xl px-6 py-8 sm:px-8">
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="flex items-center gap-2 text-sm font-bold text-accent">
-              <span
-                className="material-symbols-rounded text-[15px]"
-                aria-hidden="true"
-              >
-                account_tree
-              </span>
-              RelayFlow
-            </span>
-
-            <p className="m-0 text-xs text-neutral-500">
-              &copy; {new Date().getFullYear()} RelayFlow &nbsp;&mdash;&nbsp;
-              Built for developer-grade reliability.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

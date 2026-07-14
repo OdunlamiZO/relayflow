@@ -1,11 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { AuthenticationPanel } from "@/app/authentication-panel";
-import {
-  getServerAuthenticationStatus,
-  requireAuthentication,
-} from "@/lib/server-authentication";
+import { requireAuthentication } from "@/lib/server-authentication";
 
 export const metadata = {
   title: "Profile — RelayFlow",
@@ -17,12 +13,6 @@ type Props = {
 
 export default async function ProfileLayout({ children }: Props) {
   await requireAuthentication();
-
-  const { anonymous } = await getServerAuthenticationStatus();
-
-  if (anonymous) {
-    redirect("/inbox");
-  }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-200">

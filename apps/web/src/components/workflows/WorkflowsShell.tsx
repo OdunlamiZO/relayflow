@@ -21,13 +21,12 @@ export function WorkflowsShell({ workspaceId }: Props) {
   const router = useRouter();
   const { mutate: createWorkflow, isPending } = useCreateWorkflow();
 
-  const { user, isAnonymous } = useAuthentication();
+  const { user } = useAuthentication();
   const currentMember = useCurrentMember(workspaceId, user?.userId);
 
   // While currentMember is loading (undefined), default to allowing creation
   // so owners don't see a flash of a missing button.
   const canCreateWorkflow =
-    isAnonymous ||
     !currentMember ||
     currentMember.role === "OWNER" ||
     currentMember.permissions.includes("WORKFLOWS_WRITE");

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Spinner } from "@/components/common/Spinner";
+import { InviteStatusMessage } from "@/components/invite/InviteStatusMessage";
 import { useAcceptInvite } from "@/hooks/use-accept-invite";
 import { errorMessage } from "@/lib/error-message";
 import {
@@ -14,6 +15,7 @@ import {
 const PERMISSION_LABEL: Record<WorkspacePermission, string> = {
   INBOX: "Inbox — view conversations and send messages",
   CONTACTS_DELETE: "Contacts — delete and merge contacts",
+  CONTACT_FIELDS_WRITE: "Contacts — define and edit contact fields",
   WORKFLOWS_WRITE: "Workflows — create, edit and toggle workflows",
   WORKFLOWS_DELETE: "Workflows — delete workflows",
   CHANNELS_WRITE: "Channels — view and connect channels",
@@ -26,6 +28,7 @@ const PERMISSION_LABEL: Record<WorkspacePermission, string> = {
 const PERMISSION_ICON: Record<WorkspacePermission, string> = {
   INBOX: "inbox",
   CONTACTS_DELETE: "contacts",
+  CONTACT_FIELDS_WRITE: "contacts",
   WORKFLOWS_WRITE: "account_tree",
   WORKFLOWS_DELETE: "account_tree",
   CHANNELS_WRITE: "hub",
@@ -55,49 +58,8 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
     });
   }
 
-  // Already accepted — just redirect.
-  if (preview.status === "ACCEPTED") {
-    return (
-      <div className="rounded-2xl border border-neutral-300 bg-neutral-100 p-8 text-center shadow-sm">
-        <span
-          className="material-symbols-rounded mb-3 text-[40px] text-green-text"
-          aria-hidden="true"
-        >
-          check_circle
-        </span>
-        <h1 className="text-lg font-semibold text-primary">Already accepted</h1>
-        <p className="mt-2 text-sm text-neutral-500">
-          This invite has already been accepted.
-        </p>
-        <Link
-          href="/inbox"
-          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
-        >
-          Go to inbox
-        </Link>
-      </div>
-    );
-  }
-
-  if (preview.status === "REVOKED" || preview.status === "EXPIRED") {
-    return (
-      <div className="rounded-2xl border border-neutral-300 bg-neutral-100 p-8 text-center shadow-sm">
-        <span
-          className="material-symbols-rounded mb-3 text-[40px] text-neutral-400"
-          aria-hidden="true"
-        >
-          timer_off
-        </span>
-        <h1 className="text-lg font-semibold text-primary">
-          {preview.status === "EXPIRED" ? "Invite expired" : "Invite revoked"}
-        </h1>
-        <p className="mt-2 text-sm text-neutral-500">
-          {preview.status === "EXPIRED"
-            ? "This invite link has expired. Ask the workspace owner to send a new one."
-            : "This invite has been revoked by the workspace owner."}
-        </p>
-      </div>
-    );
+  if (preview.status !== "PENDING") {
+    return <InviteStatusMessage status={preview.status} />;
   }
 
   // PENDING — show the invite card.
@@ -166,26 +128,20 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
             )}
             {isPending ? "Accepting…" : `Join ${preview.workspaceName}`}
           </button>
+        ) : preview.accountExists ? (
+          <Link
+            href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}
+            className="flex w-full items-center justify-center rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
+          >
+            Log in to accept
+          </Link>
         ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm text-neutral-600">
-              Log in or create an account to accept this invite.
-            </p>
-
-            <Link
-              href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}
-              className="flex w-full items-center justify-center rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
-            >
-              Log in to accept
-            </Link>
-
-            <Link
-              href={`/signup?returnUrl=${encodeURIComponent(returnUrl)}`}
-              className="flex w-full items-center justify-center rounded-lg border border-neutral-300 bg-neutral-100 px-5 py-3 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-200"
-            >
-              Create account
-            </Link>
-          </div>
+          <Link
+            href={`/signup?token=${encodeURIComponent(token)}`}
+            className="flex w-full items-center justify-center rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
+          >
+            Create account to accept
+          </Link>
         )}
       </div>
     </div>

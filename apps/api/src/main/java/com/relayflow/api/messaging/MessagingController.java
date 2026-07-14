@@ -18,6 +18,8 @@ import com.relayflow.api.messaging.dto.MergeContactRequest;
 import com.relayflow.api.messaging.dto.MessageResponse;
 import com.relayflow.api.messaging.dto.PageResponse;
 import com.relayflow.api.messaging.dto.UpdateAssigneeRequest;
+import com.relayflow.api.messaging.dto.UpdateContactCustomFieldsRequest;
+import com.relayflow.api.messaging.dto.UpdateContactFieldDefinitionsRequest;
 import com.relayflow.api.messaging.dto.UpdateConversationRequest;
 import com.relayflow.api.messaging.dto.UpdateMemberRequest;
 import com.relayflow.api.messaging.dto.UpdateWorkspaceRequest;
@@ -72,11 +74,9 @@ public class MessagingController {
     @ResponseStatus(HttpStatus.CREATED)
     WorkspaceResponse createWorkspace(
             @Valid @RequestBody CreateWorkspaceRequest request, Authentication authentication) {
-        UUID userId = securityUtils.resolveUserId(authentication);
+        authorizationService.assertOwnerOfAnyWorkspace(authentication);
 
-        if (securityUtils.isAnonymous(authentication)) {
-            return messagingService.createGuestWorkspace(request, userId);
-        }
+        UUID userId = securityUtils.resolveUserId(authentication);
 
         return messagingService.createWorkspace(request, userId);
     }
@@ -89,6 +89,18 @@ public class MessagingController {
         authorizationService.assertOwner(workspaceId, authentication);
 
         return messagingService.updateWorkspace(workspaceId, request.name());
+    }
+
+    @PutMapping("/workspaces/{workspaceId}/contact-field-definitions")
+    WorkspaceResponse updateContactFieldDefinitions(
+            @PathVariable UUID workspaceId,
+            @Valid @RequestBody UpdateContactFieldDefinitionsRequest request,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.CONTACT_FIELDS_WRITE);
+
+        return messagingService.updateContactFieldDefinitions(
+                workspaceId, request.contactFieldDefinitions());
     }
 
     // --- Workspace Members ---
@@ -208,6 +220,18 @@ public class MessagingController {
     ContactDetailResponse getContact(
             @PathVariable UUID id, @RequestParam @NotNull UUID workspaceId) {
         return messagingService.getContactDetail(id, workspaceId);
+    }
+
+    @PatchMapping("/contacts/{id}/custom-fields")
+    ContactDetailResponse updateContactCustomFields(
+            @PathVariable UUID id,
+            @RequestParam @NotNull UUID workspaceId,
+            @Valid @RequestBody UpdateContactCustomFieldsRequest request,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.CONTACT_FIELDS_WRITE);
+
+        return messagingService.updateContactCustomFields(id, workspaceId, request.customFields());
     }
 
     @PostMapping("/contacts/{id}/merge")

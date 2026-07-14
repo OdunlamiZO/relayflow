@@ -1,6 +1,31 @@
+# Three audiences, one file, selected by --profile:
+#   (default)          Local dev infra (Postgres, Redis, opt-in `ollama`).
+#   --profile prod      Customer-facing self-hosted stack — see docs/self-hosting.md.
+#   --profile marketing RelayFlow's own hosting for apps/marketing. Never
+#                       mention this profile in docs/self-hosting.md.
+#
+# No service uses `${VAR:?required}` — Compose evaluates it for every
+# service regardless of active profile, so a required-var guard on a prod
+# service would break `--profile marketing` runs too. Missing config instead
+# fails at container start (Postgres/Spring Boot both refuse to boot without
+# what they need).
+#
+# Usage:
+#   Local dev:   docker compose up -d dev-postgres dev-redis
+#   Self-hosted: cp .env.example .env && docker compose --profile prod up -d
+#   Marketing:   cp apps/marketing/.env.example .env.marketing
+#                docker compose --profile marketing --env-file .env.marketing up --build -d
+#                (--env-file needed here since Compose only auto-loads `.env`,
+#                reserved for the prod profile. --build since marketing has no
+#                published image — deployed by building in place, see
+#                deploy.yml)
+
 services:
-  postgres:
+  # ── Local development infra ────────────────────────────────────────────
+
+  dev-postgres:
     image: postgres:16-alpine
+    profiles: ["dev"]
     environment:
       POSTGRES_DB: relayflow
       POSTGRES_USER: relayflow
@@ -8,19 +33,20 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - dev_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U relayflow -d relayflow"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  redis:
+  dev-redis:
     image: redis:7-alpine
+    profiles: ["dev"]
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - dev_redis_data:/data
     command: redis-server --save 60 1 --loglevel warning
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -61,7 +87,185 @@ services:
     entrypoint: ["ollama", "pull", "llama3.2"]
     restart: "no"
 
+  # ── Self-hosted production (customer) ──────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["prod"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-relayflow}
+      POSTGRES_USER: ${POSTGRES_USER:-relayflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-relayflow} -d ${POSTGRES_DB:-relayflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 1g }
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["prod"]
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256m }
+
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/flyway/Dockerfile
+    image: ghcr.io/odunlamizo/relayflow-migrate:${RELAYFLOW_VERSION:-latest}
+    profiles: ["prod"]
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-relayflow}
+      FLYWAY_USER: ${POSTGRES_USER:-relayflow}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:-}
+    command: ["-connectRetries=10", "migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./apps/api
+    image: ghcr.io/odunlamizo/relayflow-api:${RELAYFLOW_VERSION:-latest}
+    profiles: ["prod"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-relayflow}
+      DATABASE_USERNAME: ${POSTGRES_USER:-relayflow}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-}
+      REDIS_URL: redis://redis:6379
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 45s
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 1g }
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: ghcr.io/odunlamizo/relayflow-web:${RELAYFLOW_VERSION:-latest}
+    profiles: ["prod"]
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${RELAYFLOW_API_BASE_URL}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512m }
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["prod"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      RELAYFLOW_WEB_DOMAIN: ${RELAYFLOW_WEB_DOMAIN}
+      RELAYFLOW_API_DOMAIN: ${RELAYFLOW_API_DOMAIN}
+    depends_on:
+      - web
+      - api
+
+  # ── RelayFlow's own marketing/licensing host (NOT customer-facing) ─────
+  # Do not activate both --profile prod and --profile marketing on the same
+  # host at once — both caddy services bind host ports 80/443.
+
+  marketing:
+    build:
+      context: .
+      dockerfile: apps/marketing/Dockerfile
+    profiles: ["marketing"]
+    restart: unless-stopped
+    env_file: .env.marketing
+    # Loopback-only, for a host-level reverse proxy (skip marketing-caddy
+    # below if using your own — see apps/marketing/README.md).
+    ports:
+      - "127.0.0.1:4000:3000"
+    volumes:
+      - marketing_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512m }
+
+  marketing-caddy:
+    image: caddy:2-alpine
+    profiles: ["marketing"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/docker/caddy/Caddyfile.marketing:/etc/caddy/Caddyfile:ro
+      - caddy_marketing_data:/data
+      - caddy_marketing_config:/config
+    environment:
+      RELAYFLOW_MARKETING_DOMAIN: ${RELAYFLOW_MARKETING_DOMAIN}
+    depends_on:
+      - marketing
+
 volumes:
+  dev_postgres_data:
+  dev_redis_data:
+  ollama_data:
   postgres_data:
   redis_data:
-  ollama_data:
+  caddy_data:
+  caddy_config:
+  marketing_data:
+  caddy_marketing_data:
+  caddy_marketing_config:

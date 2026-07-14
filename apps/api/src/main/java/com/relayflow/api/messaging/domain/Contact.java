@@ -11,11 +11,15 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -35,6 +39,10 @@ public class Contact {
 
     @Column(name = "display_name", length = 200)
     private String displayName;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "custom_fields", nullable = false, columnDefinition = "jsonb")
+    private Map<String, String> customFields = new LinkedHashMap<>();
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

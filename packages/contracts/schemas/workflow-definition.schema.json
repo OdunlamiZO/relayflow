@@ -24,6 +24,7 @@
         { "$ref": "#/$defs/conditionNode" },
         { "$ref": "#/$defs/httpRequestNode" },
         { "$ref": "#/$defs/setVariableNode" },
+        { "$ref": "#/$defs/setContactFieldNode" },
         { "$ref": "#/$defs/waitForReplyNode" },
         { "$ref": "#/$defs/jumpToNode" },
         { "$ref": "#/$defs/endConversationNode" }
@@ -42,6 +43,7 @@
             "condition",
             "httpRequest",
             "setVariable",
+            "setContactField",
             "waitForReply",
             "jumpTo",
             "endConversation"
@@ -179,6 +181,29 @@
               "properties": {
                 "label": { "type": "string" },
                 "variableName": { "type": "string" },
+                "value": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "setContactFieldNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "setContactField" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "fieldKey": {
+                  "type": "string",
+                  "description": "A reserved key (displayName, phone, email, country) or one of the workspace's defined contact field keys."
+                },
                 "value": { "type": "string" }
               },
               "additionalProperties": true

@@ -42,7 +42,13 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     section: "Contacts",
     icon: "contacts",
-    rows: [{ key: "CONTACTS_DELETE", label: "Delete and merge contacts" }],
+    rows: [
+      { key: "CONTACTS_DELETE", label: "Delete and merge contacts" },
+      {
+        key: "CONTACT_FIELDS_WRITE",
+        label: "Define and edit contact fields",
+      },
+    ],
   },
   {
     section: "Workflows",
@@ -117,6 +123,7 @@ function applyPermissionToggle(
 const ALL_PERMISSION_LABELS: Record<WorkspacePermission, string> = {
   INBOX: "Inbox",
   CONTACTS_DELETE: "Delete contacts",
+  CONTACT_FIELDS_WRITE: "Define and edit contact fields",
   WORKFLOWS_WRITE: "Edit workflows",
   WORKFLOWS_DELETE: "Delete workflows",
   CHANNELS_WRITE: "Connect channels",

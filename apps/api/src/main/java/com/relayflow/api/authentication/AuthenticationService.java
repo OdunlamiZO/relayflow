@@ -2,42 +2,35 @@ package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.domain.*;
 import com.relayflow.api.authentication.dto.AuthenticatedUserResponse;
-import com.relayflow.api.authentication.dto.GuestSessionResponse;
+import com.relayflow.api.authentication.dto.BootstrapRequest;
+import com.relayflow.api.authentication.dto.BootstrapResponse;
+import com.relayflow.api.authentication.dto.InstanceStatusResponse;
 import com.relayflow.api.authentication.dto.Login2FARequest;
 import com.relayflow.api.authentication.dto.LoginRequest;
 import com.relayflow.api.authentication.dto.SignupRequest;
 import com.relayflow.api.authentication.dto.SignupResponse;
-import com.relayflow.api.authentication.repository.EmailVerificationTokenRepository;
-import com.relayflow.api.authentication.repository.GuestRecoveryTokenRepository;
 import com.relayflow.api.authentication.repository.TwoFactorChallengeRepository;
 import com.relayflow.api.authentication.repository.UserIdentityRepository;
 import com.relayflow.api.authentication.repository.UserMfaMethodRepository;
 import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
-import com.relayflow.api.email.EmailService;
 import com.relayflow.api.messaging.MessagingService;
-import com.relayflow.api.messaging.domain.WorkspaceMember;
+import com.relayflow.api.messaging.WorkspaceInviteService;
 import com.relayflow.api.messaging.dto.CreateWorkspaceRequest;
 import com.relayflow.api.messaging.dto.WorkspaceResponse;
-import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.profile.TwoFactorService;
 import com.relayflow.api.security.CredentialEncryptionService;
-import com.relayflow.api.subscription.SubscriptionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -65,13 +58,11 @@ public class AuthenticationService {
 
     private final UserMfaMethodRepository mfaMethodRepository;
 
-    private final EmailVerificationTokenRepository verificationTokenRepository;
-
     private final TwoFactorChallengeRepository challengeRepository;
 
-    private final GuestRecoveryTokenRepository guestRecoveryTokenRepository;
+    private final WorkspaceInviteService workspaceInviteService;
 
-    private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final MessagingService messagingService;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -79,63 +70,40 @@ public class AuthenticationService {
 
     private final HttpSessionSecurityContextRepository securityContextRepository;
 
-    private final MessagingService messagingService;
-
-    private final EmailService emailService;
-
     private final TwoFactorService twoFactorService;
 
     private final CredentialEncryptionService encryptionService;
-
-    private final SubscriptionService subscriptionService;
-
-    private final String webBaseUrl;
-
-    private final String sharedBotToken;
 
     public AuthenticationService(
             UserRepository userRepository,
             UserIdentityRepository identityRepository,
             UserPreferencesRepository prefsRepository,
             UserMfaMethodRepository mfaMethodRepository,
-            EmailVerificationTokenRepository verificationTokenRepository,
             TwoFactorChallengeRepository challengeRepository,
-            GuestRecoveryTokenRepository guestRecoveryTokenRepository,
-            WorkspaceMemberRepository workspaceMemberRepository,
+            WorkspaceInviteService workspaceInviteService,
+            MessagingService messagingService,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             HttpSessionSecurityContextRepository securityContextRepository,
-            MessagingService messagingService,
-            EmailService emailService,
             TwoFactorService twoFactorService,
-            CredentialEncryptionService encryptionService,
-            SubscriptionService subscriptionService,
-            @Value("${relayflow.web.base-url}") String webBaseUrl,
-            @Value("${shared.telegram.bot-token:}") String sharedBotToken) {
+            CredentialEncryptionService encryptionService) {
         this.userRepository = userRepository;
         this.identityRepository = identityRepository;
         this.prefsRepository = prefsRepository;
         this.mfaMethodRepository = mfaMethodRepository;
-        this.verificationTokenRepository = verificationTokenRepository;
         this.challengeRepository = challengeRepository;
-        this.guestRecoveryTokenRepository = guestRecoveryTokenRepository;
-        this.workspaceMemberRepository = workspaceMemberRepository;
+        this.workspaceInviteService = workspaceInviteService;
+        this.messagingService = messagingService;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
-        this.messagingService = messagingService;
-        this.emailService = emailService;
         this.twoFactorService = twoFactorService;
         this.encryptionService = encryptionService;
-        this.subscriptionService = subscriptionService;
-        this.webBaseUrl = webBaseUrl;
-        this.sharedBotToken = sharedBotToken;
     }
 
     @Transactional
     public SignupResponse signup(
             SignupRequest request,
-            Authentication authentication,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
@@ -143,73 +111,86 @@ public class AuthenticationService {
                     HttpStatus.CONFLICT, "An account with this email already exists");
         }
 
-        User user = currentAnonymousUser(authentication).orElse(null);
+        User user = new User();
+        user.setEmail(request.email());
+        user.setDisplayName(request.name());
+        user = userRepository.save(user);
 
-        if (user != null) {
-            // Convert the guest account in place — the existing workspace, channels,
-            // conversations etc. stay linked to this user ID.
-            user.setEmail(request.email());
-            user.setDisplayName(request.name());
-            user.setAnonymous(false);
-            user = userRepository.save(user);
-
-            identityRepository.deleteAllByUser(user);
-            guestRecoveryTokenRepository.deleteByUser(user.getId());
-
-            // The guest workspace was exempt from plan limits — now that the owner is no
-            // longer anonymous, bring it in line with a normal FREE workspace.
-            workspaceMemberRepository
-                    .findByUser(user.getId())
-                    .forEach(
-                            member -> {
-                                subscriptionService.lockExcessFreeResources(
-                                        member.getWorkspaceId());
-                                messagingService.dropSharedTelegramChannel(member.getWorkspaceId());
-                            });
-
-            // Clear the guest session — the user must verify their email before
-            // logging in, same as the regular signup path.
-            invalidateSession(httpRequest, httpResponse);
-        } else {
-            user = new User();
-            user.setEmail(request.email());
-            user.setDisplayName(request.name());
-            user = userRepository.save(user);
-
-            UserPreferences prefs = new UserPreferences();
-            prefs.setUser(user);
-            prefsRepository.save(prefs);
-        }
+        UserPreferences prefs = new UserPreferences();
+        prefs.setUser(user);
+        prefsRepository.save(prefs);
 
         UserIdentity identity = new UserIdentity();
         identity.setUser(user);
         identity.setProvider(AuthenticationProvider.EMAIL);
         identity.setProviderSubject(request.email());
         identity.setCredential(passwordEncoder.encode(request.password()));
-        identity.setVerified(false);
+        // The invite itself is the vouch — same trust level acceptInvite() already applies
+        // (case-insensitive email match, no re-verification), so no email round-trip here.
+        identity.setVerified(true);
         identityRepository.save(identity);
 
-        String rawToken = generateToken();
-        EmailVerificationToken verificationToken = new EmailVerificationToken();
-        verificationToken.setUser(user);
-        verificationToken.setToken(rawToken);
-        verificationToken.setExpiresAt(Instant.now().plus(Duration.ofHours(24)));
-        verificationTokenRepository.save(verificationToken);
+        // Reuses the invite's existing status handling (410 on REVOKED/EXPIRED) and
+        // case-insensitive email-match check (403) verbatim — a bad/expired/mismatched
+        // token throws from inside this call, and @Transactional rolls back the user
+        // rows created above.
+        UUID workspaceId = workspaceInviteService.acceptInvite(request.inviteToken(), user.getId());
 
-        String verifyUrl = webBaseUrl + "/verify-email?token=" + rawToken;
+        establishSessionForUser(user, httpRequest, httpResponse);
 
-        if (request.returnUrl() != null
-                && !request.returnUrl().isBlank()
-                && request.returnUrl().startsWith("/")) {
-            verifyUrl +=
-                    "&returnUrl=" + URLEncoder.encode(request.returnUrl(), StandardCharsets.UTF_8);
+        log.info(
+                "New user registered via invite: email={}, workspace={}",
+                request.email(),
+                workspaceId);
+
+        return new SignupResponse(
+                true, user.getId(), user.getEmail(), user.getDisplayName(), workspaceId);
+    }
+
+    @Transactional
+    public BootstrapResponse bootstrap(
+            BootstrapRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        if (userRepository.count() > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "This instance has already been set up");
         }
 
-        emailService.sendEmailVerification(request.email(), request.name(), verifyUrl);
+        User user = new User();
+        user.setEmail(request.email());
+        user.setDisplayName(request.name());
+        user = userRepository.save(user);
 
-        log.info("New user registered: email={}", request.email());
+        UserPreferences prefs = new UserPreferences();
+        prefs.setUser(user);
+        prefsRepository.save(prefs);
 
-        return new SignupResponse(true);
+        UserIdentity identity = new UserIdentity();
+        identity.setUser(user);
+        identity.setProvider(AuthenticationProvider.EMAIL);
+        identity.setProviderSubject(request.email());
+        identity.setCredential(passwordEncoder.encode(request.password()));
+        // The operator has direct server access to provision a fresh instance — there's no
+        // guarantee email delivery is even configured yet, so there's nothing to verify against.
+        identity.setVerified(true);
+        identityRepository.save(identity);
+
+        WorkspaceResponse workspace =
+                messagingService.createWorkspace(
+                        new CreateWorkspaceRequest(request.workspaceName()), user.getId());
+
+        establishSessionForUser(user, httpRequest, httpResponse);
+
+        log.info("Instance bootstrapped: admin={}, workspace={}", request.email(), workspace.id());
+
+        return new BootstrapResponse(
+                true, user.getId(), user.getEmail(), user.getDisplayName(), workspace.id());
+    }
+
+    @Transactional(readOnly = true)
+    public InstanceStatusResponse getInstanceStatus() {
+        return new InstanceStatusResponse(userRepository.count() > 0);
     }
 
     @Transactional
@@ -228,20 +209,15 @@ public class AuthenticationService {
                                                 HttpStatus.UNAUTHORIZED,
                                                 "Invalid email or password."));
 
-        UserIdentity identity =
-                identityRepository
-                        .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.UNAUTHORIZED,
-                                                "Invalid email or password."));
-
-        if (!identity.isVerified()) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Please verify your email address before logging in. Check your inbox.");
-        }
+        // Confirms the account actually has an EMAIL/password identity (as opposed to
+        // Google-OAuth-only), so a mismatched login method gives the same generic error
+        // rather than a confusing failure from authenticationManager.authenticate() below.
+        identityRepository
+                .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED, "Invalid email or password."));
 
         // Validate credentials — throws BadCredentialsException if wrong.
         establishSession(request.email(), request.password(), httpRequest, httpResponse);
@@ -266,12 +242,11 @@ public class AuthenticationService {
             log.info("2FA challenge issued: email={}", request.email());
 
             return new AuthenticatedUserResponse(
-                    false, false, null, null, null, null, true, challengeToken);
+                    false, null, null, null, null, true, challengeToken);
         }
 
         return new AuthenticatedUserResponse(
                 true,
-                user.isAnonymous(),
                 user.getId(),
                 user.getEmail(),
                 user.getDisplayName(),
@@ -324,7 +299,6 @@ public class AuthenticationService {
 
         return new AuthenticatedUserResponse(
                 true,
-                user.isAnonymous(),
                 user.getId(),
                 user.getEmail(),
                 user.getDisplayName(),
@@ -333,163 +307,9 @@ public class AuthenticationService {
                 null);
     }
 
-    @Transactional
-    public AuthenticatedUserResponse verifyEmail(
-            String rawToken, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        EmailVerificationToken verificationToken =
-                verificationTokenRepository
-                        .findByToken(rawToken)
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.BAD_REQUEST,
-                                                "Invalid or expired verification link."));
-
-        if (verificationToken.isUsed()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "This verification link has already been used. Please sign in.");
-        }
-
-        if (verificationToken.isExpired()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "This verification link has expired. Please sign up again.");
-        }
-
-        User user = verificationToken.getUser();
-
-        UserIdentity identity =
-                identityRepository
-                        .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.INTERNAL_SERVER_ERROR,
-                                                "Identity not found for user."));
-
-        identity.setVerified(true);
-        identityRepository.save(identity);
-
-        verificationToken.markUsed();
-        verificationTokenRepository.save(verificationToken);
-
-        log.info("Email verified: email={}", user.getEmail());
-
-        establishSessionForUser(user, httpRequest, httpResponse);
-
-        return new AuthenticatedUserResponse(
-                true,
-                false,
-                user.getId(),
-                user.getEmail(),
-                user.getDisplayName(),
-                null,
-                false,
-                null);
-    }
-
-    @Transactional
-    public GuestSessionResponse createGuestSession(
-            HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        String anonymousId = UUID.randomUUID().toString();
-        String email = "guest-" + anonymousId + "@relayflow.io";
-
-        User user = new User();
-        user.setEmail(email);
-        user.setAnonymous(true);
-        user.setLastActiveAt(Instant.now());
-        user = userRepository.save(user);
-
-        UserIdentity identity = new UserIdentity();
-        identity.setUser(user);
-        identity.setProvider(AuthenticationProvider.ANONYMOUS);
-        identity.setProviderSubject(anonymousId);
-        identity.setVerified(true);
-        identityRepository.save(identity);
-
-        UserPreferences prefs = new UserPreferences();
-        prefs.setUser(user);
-        prefsRepository.save(prefs);
-
-        WorkspaceResponse workspace =
-                messagingService.createWorkspace(
-                        new CreateWorkspaceRequest("Guest Workspace"), user.getId());
-
-        if (sharedBotToken != null && !sharedBotToken.isBlank()) {
-            messagingService.createSharedBotChannelAccount(workspace.id(), sharedBotToken);
-        }
-
-        log.info("Guest session created: userId={}, workspaceId={}", user.getId(), workspace.id());
-
-        establishSessionForUser(user, httpRequest, httpResponse);
-
-        String recoveryToken = generateToken();
-        GuestRecoveryToken recovery = new GuestRecoveryToken();
-        recovery.setUserId(user.getId());
-        recovery.setToken(recoveryToken);
-        guestRecoveryTokenRepository.save(recovery);
-
-        return new GuestSessionResponse(workspace.id(), recoveryToken);
-    }
-
-    /**
-     * Re-establishes a session for a guest whose session expired or was lost (e.g. server restart,
-     * 30-minute idle timeout), using the recovery token issued at guest session creation. The token
-     * itself remains valid for reuse until the guest workspace is cleaned up by {@link
-     * GuestCleanupScheduler}.
-     */
-    @Transactional
-    public GuestSessionResponse recoverGuestSession(
-            String recoveryToken,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) {
-        GuestRecoveryToken recovery =
-                guestRecoveryTokenRepository
-                        .findByToken(recoveryToken)
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.GONE,
-                                                "This guest session no longer exists"));
-
-        User user =
-                userRepository
-                        .findById(recovery.getUserId())
-                        .filter(User::isAnonymous)
-                        .orElseThrow(
-                                () -> {
-                                    guestRecoveryTokenRepository.delete(recovery);
-
-                                    return new ResponseStatusException(
-                                            HttpStatus.GONE, "This guest session no longer exists");
-                                });
-
-        WorkspaceMember member =
-                workspaceMemberRepository.findByUser(user.getId()).stream()
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.GONE,
-                                                "This guest session no longer exists"));
-
-        user.setLastActiveAt(Instant.now());
-        userRepository.save(user);
-
-        establishSessionForUser(user, httpRequest, httpResponse);
-
-        log.info(
-                "Guest session recovered: userId={}, workspaceId={}",
-                user.getId(),
-                member.getWorkspaceId());
-
-        return new GuestSessionResponse(member.getWorkspaceId(), recoveryToken);
-    }
-
     public AuthenticatedUserResponse getCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return new AuthenticatedUserResponse(false, false, null, null, null, null, false, null);
+            return new AuthenticatedUserResponse(false, null, null, null, null, false, null);
         }
 
         Object principal = authentication.getPrincipal();
@@ -504,7 +324,6 @@ public class AuthenticationService {
                             user ->
                                     new AuthenticatedUserResponse(
                                             true,
-                                            false,
                                             user.getId(),
                                             email,
                                             stringAttribute(attributes, "name"),
@@ -514,7 +333,6 @@ public class AuthenticationService {
                     .orElse(
                             new AuthenticatedUserResponse(
                                     true,
-                                    false,
                                     null,
                                     email,
                                     stringAttribute(attributes, "name"),
@@ -530,35 +348,18 @@ public class AuthenticationService {
                             user ->
                                     new AuthenticatedUserResponse(
                                             true,
-                                            user.isAnonymous(),
                                             user.getId(),
-                                            user.isAnonymous() ? null : user.getEmail(),
+                                            user.getEmail(),
                                             user.getDisplayName(),
                                             user.getAvatarUrl(),
                                             false,
                                             null))
                     .orElse(
                             new AuthenticatedUserResponse(
-                                    false, false, null, null, null, null, false, null));
+                                    false, null, null, null, null, false, null));
         }
 
-        return new AuthenticatedUserResponse(false, false, null, null, null, null, false, null);
-    }
-
-    /**
-     * Resolves the current session to its {@link User} if it belongs to an anonymous guest account,
-     * so {@link #signup} can convert it instead of creating a new account.
-     */
-    private Optional<User> currentAnonymousUser(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return Optional.empty();
-        }
-
-        if (!(authentication.getPrincipal() instanceof UserDetails userDetails)) {
-            return Optional.empty();
-        }
-
-        return userRepository.findByEmail(userDetails.getUsername()).filter(User::isAnonymous);
+        return new AuthenticatedUserResponse(false, null, null, null, null, false, null);
     }
 
     private void establishSession(
@@ -578,8 +379,8 @@ public class AuthenticationService {
     }
 
     /**
-     * Establishes a session without requiring the plaintext password. Used after email
-     * verification, 2FA completion, and anonymous session creation.
+     * Establishes a session without requiring the plaintext password. Used after signup, instance
+     * bootstrap, and 2FA completion.
      */
     private void establishSessionForUser(
             User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {

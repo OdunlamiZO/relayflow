@@ -37,7 +37,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.PageRequest;
@@ -74,12 +73,6 @@ public class TelegramAdapter {
 
     private final WebhookDispatchService webhookDispatchService;
 
-    private final String sharedBotToken;
-
-    private final String sharedWebhookSecret;
-
-    private final String webBaseUrl;
-
     public TelegramAdapter(
             ChannelAccountRepository channelAccountRepository,
             ContactRepository contactRepository,
@@ -90,10 +83,7 @@ public class TelegramAdapter {
             CredentialEncryptionService credentialEncryptionService,
             ApplicationEventPublisher eventPublisher,
             ObjectMapper objectMapper,
-            WebhookDispatchService webhookDispatchService,
-            @Value("${shared.telegram.bot-token:}") String sharedBotToken,
-            @Value("${shared.telegram.webhook-secret:}") String sharedWebhookSecret,
-            @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl) {
+            WebhookDispatchService webhookDispatchService) {
         this.channelAccountRepository = channelAccountRepository;
         this.contactRepository = contactRepository;
         this.externalIdentityRepository = externalIdentityRepository;
@@ -104,9 +94,6 @@ public class TelegramAdapter {
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
         this.webhookDispatchService = webhookDispatchService;
-        this.sharedBotToken = sharedBotToken;
-        this.sharedWebhookSecret = sharedWebhookSecret;
-        this.webBaseUrl = webBaseUrl;
     }
 
     @Transactional
@@ -145,40 +132,6 @@ public class TelegramAdapter {
         }
 
         processInboundMessage(channelAccount, payload.message());
-    }
-
-    /**
-     * Handles updates received by the shared bot.
-     *
-     * <p>{@code /start {workspaceId}} — links the Telegram user to that guest workspace and replies
-     * with the inbox URL. Subsequent messages from the same Telegram user are routed automatically
-     * via their {@link com.relayflow.api.messaging.domain.ExternalIdentity}.
-     */
-    @Transactional
-    public void handleSharedBotWebhook(String secretToken, TelegramWebhookPayload webhook) {
-        if (!sharedWebhookSecret.isBlank() && !sharedWebhookSecret.equals(secretToken)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid webhook secret");
-        }
-
-        if (webhook.message() == null || webhook.message().from() == null) {
-            return;
-        }
-
-        var msg = webhook.message();
-        String text = msg.text();
-        String chatId = String.valueOf(msg.chat().id());
-        String telegramUserId = String.valueOf(msg.from().id());
-
-        if (text == null) {
-            return;
-        }
-
-        if (text.startsWith("/start")) {
-            String param = text.length() > 7 ? text.substring(7).trim() : "";
-            handleSharedBotStart(param, msg.from(), telegramUserId, chatId);
-        } else {
-            handleSharedBotMessage(msg, telegramUserId, chatId);
-        }
     }
 
     @EventListener
@@ -236,11 +189,10 @@ public class TelegramAdapter {
     }
 
     /**
-     * Core inbound-message processing shared by both the per-workspace and shared-bot webhook
-     * paths. Runs within the caller's transaction — must not be called via {@code this} from a
-     * {@code @Transactional} method (would bypass the proxy). Both callers ({@link #handleWebhook}
-     * and {@link #handleSharedBotMessage}) are themselves entry points through the proxy, so the
-     * transaction is always active.
+     * Core inbound-message processing. Runs within the caller's transaction — must not be called
+     * via {@code this} from a {@code @Transactional} method (would bypass the proxy). {@link
+     * #handleWebhook} is itself an entry point through the proxy, so the transaction is always
+     * active.
      */
     private void processInboundMessage(ChannelAccount channelAccount, TelegramMessage msg) {
         TelegramUser from = msg.from();
@@ -328,162 +280,6 @@ public class TelegramAdapter {
                         Map.of(
                                 "workspaceId", workspaceId.toString(),
                                 "conversationId", conversation.getId().toString())));
-    }
-
-    private void handleSharedBotStart(
-            String workspaceIdParam, TelegramUser from, String telegramUserId, String chatId) {
-        if (workspaceIdParam.isEmpty()) {
-            log.info(
-                    "Shared bot /start received without workspace ID from telegramUserId={}",
-                    telegramUserId);
-            sendTelegramMessageQuietly(
-                    sharedBotToken,
-                    chatId,
-                    "To link your inbox, click 'Connect Telegram' inside your inbox first.");
-
-            return;
-        }
-
-        UUID workspaceId;
-
-        try {
-            workspaceId = UUID.fromString(workspaceIdParam);
-        } catch (IllegalArgumentException e) {
-            log.warn(
-                    "Shared bot /start received invalid workspace ID '{}' from telegramUserId={}",
-                    workspaceIdParam,
-                    telegramUserId);
-            sendTelegramMessageQuietly(sharedBotToken, chatId, "Invalid workspace link.");
-
-            return;
-        }
-
-        log.info(
-                "Shared bot /start: telegramUserId={} workspaceId={}", telegramUserId, workspaceId);
-
-        List<ChannelAccount> accounts =
-                channelAccountRepository.findAllByProvider(workspaceId, ChannelProvider.TELEGRAM);
-
-        ChannelAccount channelAccount =
-                accounts.stream()
-                        .filter(
-                                ca -> {
-                                    try {
-                                        return sharedBotToken.equals(
-                                                credentialEncryptionService.decrypt(
-                                                        ca.getEncryptedCredentials()));
-                                    } catch (Exception decryptionException) {
-                                        log.warn(
-                                                "Failed to decrypt credentials for channel account"
-                                                        + " {} — skipping",
-                                                ca.getId());
-                                        return false;
-                                    }
-                                })
-                        .findFirst()
-                        .orElse(null);
-
-        if (channelAccount == null) {
-            log.warn(
-                    "No matching shared Telegram channel account found for workspaceId={}"
-                            + " (accounts queried: {})",
-                    workspaceId,
-                    accounts.size());
-            sendTelegramMessageQuietly(sharedBotToken, chatId, "Guest workspace not found.");
-
-            return;
-        }
-
-        if (channelAccount.getStatus() != ChannelAccountStatus.ACTIVE) {
-            sendTelegramMessageQuietly(
-                    sharedBotToken, chatId, "This workspace is not currently accepting messages.");
-
-            return;
-        }
-
-        Workspace workspace = channelAccount.getWorkspace();
-
-        // Find or create the identity for this workspace. Bump createdAt so that
-        // this workspace sorts as the most-recently linked one when routing messages
-        // across multiple guest workspaces for the same Telegram user.
-        ExternalIdentity identity =
-                externalIdentityRepository
-                        .findForExternalUser(channelAccount.getId(), telegramUserId)
-                        .orElseGet(
-                                () -> createIdentity(channelAccount, from, telegramUserId, chatId));
-
-        identity.setCreatedAt(Instant.now());
-        externalIdentityRepository.save(identity);
-
-        log.info("Guest Telegram user {} linked to workspace {}", telegramUserId, workspaceId);
-
-        String inboxUrl = webBaseUrl + "/inbox?workspaceId=" + workspaceId;
-        sendTelegramMessageQuietly(
-                sharedBotToken,
-                chatId,
-                "Connected! ✅ Send me any message to see it appear in your inbox:\n" + inboxUrl);
-
-        // Notify the inbox that the workspace state has changed (Telegram now linked).
-        eventPublisher.publishEvent(
-                new SseBroadcastEvent(
-                        workspaceId,
-                        "workspace.updated",
-                        Map.of("workspaceId", workspaceId.toString())));
-    }
-
-    private void handleSharedBotMessage(TelegramMessage msg, String telegramUserId, String chatId) {
-        if (msg.text() == null) {
-            return;
-        }
-
-        // findAllForExternalUser returns identities newest-first (ORDER BY createdAt DESC).
-        // The flatMap tries each workspace in that order, so the most-recently linked guest
-        // workspace wins when the same Telegram user has connected across multiple sessions.
-        List<ExternalIdentity> identities =
-                externalIdentityRepository.findAllForExternalUser(
-                        ChannelProvider.TELEGRAM, telegramUserId);
-
-        ChannelAccount sharedChannelAccount =
-                identities.stream()
-                        .flatMap(
-                                identity ->
-                                        channelAccountRepository
-                                                .findAllByProvider(
-                                                        identity.getWorkspace().getId(),
-                                                        ChannelProvider.TELEGRAM)
-                                                .stream())
-                        .filter(ca -> ca.getStatus() == ChannelAccountStatus.ACTIVE)
-                        .filter(
-                                ca -> {
-                                    try {
-                                        return sharedBotToken.equals(
-                                                credentialEncryptionService.decrypt(
-                                                        ca.getEncryptedCredentials()));
-                                    } catch (Exception decryptionException) {
-                                        log.warn(
-                                                "Failed to decrypt credentials for channel account"
-                                                        + " {} — skipping",
-                                                ca.getId());
-                                        return false;
-                                    }
-                                })
-                        .findFirst()
-                        .orElse(null);
-
-        if (sharedChannelAccount == null) {
-            log.info(
-                    "No shared Telegram channel account found for telegramUserId={}"
-                            + " — no linked guest workspace",
-                    telegramUserId);
-            sendTelegramMessageQuietly(
-                    sharedBotToken,
-                    chatId,
-                    "To get started, visit relayflow.io and click 'Try it', then connect Telegram from your inbox.");
-
-            return;
-        }
-
-        processInboundMessage(sharedChannelAccount, msg);
     }
 
     // ── Telegram Bot API ─────────────────────────────────────────────────────

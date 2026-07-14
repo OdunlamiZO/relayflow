@@ -30,7 +30,8 @@ public class AiAgentContextAssembler {
         String systemPrompt = buildSystemPrompt(configuration);
         List<LlmMessage> messages = buildHistory(conversation);
 
-        return new AgentLlmRequest(systemPrompt, messages, null);
+        return new AgentLlmRequest(
+                systemPrompt, messages, null, configuration.getExtractionFields());
     }
 
     // ── Private ───────────────────────────────────────────────────────────────

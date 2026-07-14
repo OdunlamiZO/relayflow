@@ -1,10 +1,16 @@
 # Local Infrastructure
 
-`docker-compose.yml` provides:
+> **Looking to deploy RelayFlow, not just develop it?** This file only covers local dev infra.
+> See [`docs/self-hosting.md`](../../docs/self-hosting.md) and the root `docker-compose.yml`'s
+> `prod` profile for the production self-hosting stack — it's the same file, gated by
+> `--profile`, not a separate one. See the comment block at the top of that file for the full
+> profile breakdown (`dev` / `prod` / `marketing`).
+
+The root `docker-compose.yml`'s `dev` profile provides:
 
 - PostgreSQL 16
 - Redis 7
-- Ollama (opt-in via `--profile ollama`)
+- Ollama (opt-in via `--profile ollama`, additive to `dev`)
 
 PostgreSQL is the primary application database. Redis handles rate limiting, live plan configuration, and LLM provider config. Ollama is a self-hosted LLM runtime for running open-source models locally at no API cost.
 
@@ -12,10 +18,10 @@ PostgreSQL is the primary application database. Redis handles rate limiting, liv
 
 ```bash
 # Core only (postgres + redis)
-docker compose up -d
+docker compose up -d dev-postgres dev-redis
 
 # Core + Ollama (pulls llama3.2 on first run — ~2 GB)
-docker compose --profile ollama up -d
+docker compose --profile dev --profile ollama up -d
 ```
 
 ## Ollama

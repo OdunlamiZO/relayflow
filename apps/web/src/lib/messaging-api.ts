@@ -13,11 +13,61 @@ export type MessageDirection = "INBOUND" | "OUTBOUND";
 export type MessageSenderType = "CONTACT" | "AGENT" | "SYSTEM" | "WORKFLOW";
 export type JsonObject = Record<string, unknown>;
 
+export type ContactFieldDefinition = {
+  key: string;
+  label: string;
+  description: string;
+};
+
+/** Keys RelayFlow already derives automatically — can't be redefined as a custom field. */
+export const RESERVED_CONTACT_FIELD_KEYS = [
+  "displayName",
+  "phone",
+  "email",
+  "country",
+] as const;
+
+export type ReservedContactFieldKey =
+  (typeof RESERVED_CONTACT_FIELD_KEYS)[number];
+
+export function isReservedContactFieldKey(
+  key: string
+): key is ReservedContactFieldKey {
+  const normalized = key.trim().toLowerCase();
+
+  return RESERVED_CONTACT_FIELD_KEYS.some(
+    (reservedKey) => reservedKey.toLowerCase() === normalized
+  );
+}
+
+/** Reserved field labels and descriptions, keyed by ReservedContactFieldKey. */
+export const RESERVED_CONTACT_FIELDS: Record<
+  ReservedContactFieldKey,
+  { label: string; description: string }
+> = {
+  displayName: {
+    label: "Display Name",
+    description: "The contact's display name.",
+  },
+  phone: {
+    label: "Phone",
+    description: "The contact's phone number.",
+  },
+  email: {
+    label: "Email",
+    description: "The contact's email address.",
+  },
+  country: {
+    label: "Country",
+    description: "The contact's country.",
+  },
+};
+
 export type Workspace = {
   id: string;
   name: string;
+  contactFieldDefinitions: ContactFieldDefinition[];
   createdAt: string;
-  telegramLinked: boolean;
 };
 
 export type ChannelAccount = {
@@ -26,7 +76,6 @@ export type ChannelAccount = {
   provider: ChannelProvider;
   name: string;
   status: ChannelAccountStatus;
-  shared: boolean;
   metadata: JsonObject;
   createdAt: string;
 };
@@ -35,9 +84,13 @@ export type Contact = {
   id: string;
   workspaceId: string;
   displayName: string | null;
+  customFields: Record<string, string>;
   createdAt: string;
   identities: ExternalIdentity[];
 };
+
+/** Alias kept for components that import ContactDetail by name. */
+export type ContactDetail = Contact;
 
 export type ExternalIdentity = {
   id: string;
@@ -51,9 +104,6 @@ export type ExternalIdentity = {
   rawProfile: JsonObject;
   createdAt: string;
 };
-
-/** Alias kept for components that import ContactDetail by name. */
-export type ContactDetail = Contact;
 
 export type Conversation = {
   id: string;
@@ -89,6 +139,14 @@ export type CreateWorkspaceRequest = {
 
 export type UpdateWorkspaceRequest = {
   name: string;
+};
+
+export type UpdateContactFieldDefinitionsRequest = {
+  contactFieldDefinitions: ContactFieldDefinition[];
+};
+
+export type UpdateContactCustomFieldsRequest = {
+  customFields: Record<string, string>;
 };
 
 export type CreateChannelAccountRequest = {
@@ -146,6 +204,7 @@ export type CreateMessageRequest = {
 export type WorkspacePermission =
   | "INBOX"
   | "CONTACTS_DELETE"
+  | "CONTACT_FIELDS_WRITE"
   | "WORKFLOWS_WRITE"
   | "WORKFLOWS_DELETE"
   | "CHANNELS_WRITE"
@@ -201,6 +260,7 @@ export type InvitePreview = {
   permissions: WorkspacePermission[];
   status: InviteStatus;
   expiresAt: string;
+  accountExists: boolean;
 };
 
 export type WebhookEventType = "CONTACT_CREATED";
@@ -306,64 +366,6 @@ export type WorkflowRunDetail = WorkflowRun & {
   steps: WorkflowRunStep[];
 };
 
-export type Plan = "FREE" | "PRO_MONTHLY" | "PRO_ANNUAL";
-
-export type BillingInterval = "monthly" | "annual";
-
-export type SubscriptionStatus =
-  | "ACTIVE"
-  | "CANCELLATION_SCHEDULED"
-  | "PAST_DUE"
-  | "CANCELLED";
-
-export type Subscription = {
-  plan: Plan;
-  status: SubscriptionStatus;
-  /** Maximum channel accounts allowed. null means unlimited. */
-  maxChannelAccounts: number | null;
-  /** Maximum workflow definitions allowed. null means unlimited. */
-  maxWorkflows: number | null;
-  /** Maximum workspace members allowed. null means unlimited. */
-  maxMembersPerWorkspace: number | null;
-  /** End of current billing period. null for the FREE plan. */
-  currentPeriodEnd: string | null;
-  /** Monthly price in Nigerian Naira. null for the FREE plan. */
-  priceNgn: number | null;
-  /** Billing interval. null for the FREE plan. */
-  billingInterval: BillingInterval | null;
-  /** True when there is a paid plan this workspace can upgrade to right now. Settings always shows an upgrade section when true. */
-  upgradeAvailable: boolean;
-  /** True only when on FREE and upgradeAvailable is true. Paid-plan workspaces with a higher tier show the upgrade prompt in settings only. */
-  upgradeRecommended: boolean;
-  /**
-   * Number of channel accounts that were disabled when the workspace was downgraded to FREE.
-   * null when there is no downgrade notice to show.
-   */
-  downgradeLockedChannels: number | null;
-  /**
-   * Number of workflow definitions that were disabled when the workspace was downgraded to FREE.
-   * null when there is no downgrade notice to show.
-   */
-  downgradeLockedWorkflows: number | null;
-};
-
-/** A single entry from the public plan catalogue — GET /plans. */
-export type PlanInfo = {
-  plan: Plan;
-  /** Maximum channel accounts allowed. null means unlimited. */
-  maxChannelAccounts: number | null;
-  /** Maximum workflow definitions allowed. null means unlimited. */
-  maxWorkflows: number | null;
-  /** Maximum workspace members allowed. null means unlimited. */
-  maxMembersPerWorkspace: number | null;
-  /** Monthly price in Nigerian Naira. null for the FREE plan. */
-  priceNgn: number | null;
-  /** Billing interval. null for the FREE plan. */
-  billingInterval: BillingInterval | null;
-  /** True when this plan is currently available for purchase. Always false for FREE. */
-  upgradeAvailable: boolean;
-};
-
 export type AutonomyCeiling = "DRAFT_ONLY" | "AUTO_SEND";
 
 export type KnowledgeEntry = {
@@ -377,6 +379,11 @@ export type WorkflowMapping = {
   triggerDescription: string;
 };
 
+export type ExtractionField = {
+  key: string;
+  description: string;
+};
+
 export type AiAgentConfiguration = {
   id: string;
   workspaceId: string;
@@ -387,6 +394,7 @@ export type AiAgentConfiguration = {
   knowledgeBase: KnowledgeEntry[];
   escalationKeywords: string[];
   workflowMappings: WorkflowMapping[];
+  extractionFields: ExtractionField[];
   createdAt: string;
   updatedAt: string;
 };
@@ -399,6 +407,7 @@ export type UpdateAiAgentConfigurationRequest = {
   knowledgeBase?: KnowledgeEntry[];
   escalationKeywords?: string[];
   workflowMappings?: WorkflowMapping[];
+  extractionFields?: ExtractionField[];
 };
 
 export type ConversationAiDraft = {
@@ -408,6 +417,7 @@ export type ConversationAiDraft = {
   invocationLogId: string | null;
   proposedReply: string;
   suggestedActions: string[];
+  extractedData: Record<string, string>;
   createdAt: string;
 };
 
@@ -466,6 +476,19 @@ export class MessagingApiClient {
     );
   }
 
+  updateContactFieldDefinitions(
+    workspaceId: string,
+    request: UpdateContactFieldDefinitionsRequest
+  ) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/contact-field-definitions`,
+      {
+        method: "PUT",
+        body: request,
+      }
+    );
+  }
+
   listChannelAccounts(workspaceId: string) {
     return this.request<ChannelAccount[]>(
       `/channel-accounts?workspaceId=${encodeURIComponent(workspaceId)}`
@@ -509,6 +532,20 @@ export class MessagingApiClient {
   getContact(id: string, workspaceId: string) {
     return this.request<ContactDetail>(
       `/contacts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  updateContactCustomFields(
+    id: string,
+    workspaceId: string,
+    request: UpdateContactCustomFieldsRequest
+  ) {
+    return this.request<ContactDetail>(
+      `/contacts/${id}/custom-fields?workspaceId=${encodeURIComponent(workspaceId)}`,
+      {
+        method: "PATCH",
+        body: request,
+      }
     );
   }
 
@@ -787,41 +824,6 @@ export class MessagingApiClient {
     return this.request<RotateWebhookSecretResponse>(
       `/workspaces/${encodeURIComponent(workspaceId)}/webhook/rotate-secret`,
       { method: "POST" }
-    );
-  }
-
-  // ── Subscription ──────────────────────────────────────────────────────────
-
-  /** Returns the public plan catalogue with live limits, pricing, and availability. */
-  getPlans() {
-    return this.request<PlanInfo[]>("/plans");
-  }
-
-  getSubscription(workspaceId: string) {
-    return this.request<Subscription>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/subscription`
-    );
-  }
-
-  /**
-   * Initializes a checkout session for the given plan. Returns a Paystack authorization URL;
-   * redirect the user there to complete payment.
-   */
-  startCheckout(workspaceId: string, plan: Plan) {
-    return this.request<{ authorizationUrl: string }>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/subscription/checkout`,
-      { method: "POST", body: { plan } }
-    );
-  }
-
-  /**
-   * Schedules cancellation of the workspace subscription at the end of the current billing period.
-   * The workspace retains PRO access until currentPeriodEnd.
-   */
-  cancelSubscription(workspaceId: string) {
-    return this.request<void>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/subscription`,
-      { method: "DELETE" }
     );
   }
 

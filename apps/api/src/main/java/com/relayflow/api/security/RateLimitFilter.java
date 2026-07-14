@@ -19,9 +19,9 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Fixed-window rate limiting for abuse-prone endpoints — auth (login, signup, guest sessions, email
- * verification), the public API, and inbound channel/payment webhooks — keyed by client IP or API
- * key and backed by Redis so limits are shared across instances.
+ * Fixed-window rate limiting for abuse-prone endpoints — auth (login, signup, email verification),
+ * the public API, and inbound channel webhooks — keyed by client IP or API key and backed by Redis
+ * so limits are shared across instances.
  */
 public class RateLimitFilter extends OncePerRequestFilter {
 
@@ -73,13 +73,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                 KeySource.IP_ADDRESS),
                         new RateLimitRule(
                                 "signup",
-                                "/auth/guest",
-                                signupLimit,
-                                signupWindowSeconds,
-                                KeySource.IP_ADDRESS),
-                        new RateLimitRule(
-                                "signup",
-                                "/auth/verify-email",
+                                "/auth/bootstrap",
                                 signupLimit,
                                 signupWindowSeconds,
                                 KeySource.IP_ADDRESS),
@@ -98,12 +92,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         new RateLimitRule(
                                 "webhook",
                                 "/whatsapp/webhook/**",
-                                webhookLimit,
-                                webhookWindowSeconds,
-                                KeySource.IP_ADDRESS),
-                        new RateLimitRule(
-                                "webhook",
-                                "/paystack/webhook",
                                 webhookLimit,
                                 webhookWindowSeconds,
                                 KeySource.IP_ADDRESS));

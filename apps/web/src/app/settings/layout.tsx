@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { AuthenticationPanel } from "@/app/authentication-panel";
-import { GuestBanner } from "@/components/common/GuestBanner";
 import { requireAuthentication } from "@/lib/server-authentication";
 
 type Props = {
@@ -27,7 +26,6 @@ export default async function SettingsLayout({ children }: Props) {
         <AuthenticationPanel />
       </header>
 
-      <GuestBanner />
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>
   );

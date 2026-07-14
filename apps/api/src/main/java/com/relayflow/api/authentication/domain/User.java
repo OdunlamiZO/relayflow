@@ -36,12 +36,6 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    @Column(name = "is_anonymous", nullable = false)
-    private boolean anonymous;
-
-    @Column(name = "last_active_at")
-    private Instant lastActiveAt;
-
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

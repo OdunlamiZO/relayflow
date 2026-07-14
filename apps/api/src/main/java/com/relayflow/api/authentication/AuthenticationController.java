@@ -1,13 +1,13 @@
 package com.relayflow.api.authentication;
 
 import com.relayflow.api.authentication.dto.AuthenticatedUserResponse;
-import com.relayflow.api.authentication.dto.GuestRecoveryRequest;
-import com.relayflow.api.authentication.dto.GuestSessionResponse;
+import com.relayflow.api.authentication.dto.BootstrapRequest;
+import com.relayflow.api.authentication.dto.BootstrapResponse;
+import com.relayflow.api.authentication.dto.InstanceStatusResponse;
 import com.relayflow.api.authentication.dto.Login2FARequest;
 import com.relayflow.api.authentication.dto.LoginRequest;
 import com.relayflow.api.authentication.dto.SignupRequest;
 import com.relayflow.api.authentication.dto.SignupResponse;
-import com.relayflow.api.authentication.dto.VerifyEmailRequest;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -48,22 +48,25 @@ public class AuthenticationController {
         return authenticationService.getCurrentUser(authentication);
     }
 
-    @PostMapping("/signup")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    SignupResponse signup(
-            @Valid @RequestBody SignupRequest request,
-            Authentication authentication,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) {
-        return authenticationService.signup(request, authentication, httpRequest, httpResponse);
+    @GetMapping("/bootstrap-status")
+    InstanceStatusResponse bootstrapStatus() {
+        return authenticationService.getInstanceStatus();
     }
 
-    @PostMapping("/verify-email")
-    AuthenticatedUserResponse verifyEmail(
-            @Valid @RequestBody VerifyEmailRequest request,
+    @PostMapping("/bootstrap")
+    BootstrapResponse bootstrap(
+            @Valid @RequestBody BootstrapRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        return authenticationService.verifyEmail(request.token(), httpRequest, httpResponse);
+        return authenticationService.bootstrap(request, httpRequest, httpResponse);
+    }
+
+    @PostMapping("/signup")
+    SignupResponse signup(
+            @Valid @RequestBody SignupRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        return authenticationService.signup(request, httpRequest, httpResponse);
     }
 
     @PostMapping("/login")
@@ -80,21 +83,6 @@ public class AuthenticationController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         return authenticationService.login2FA(request, httpRequest, httpResponse);
-    }
-
-    @PostMapping("/guest")
-    @ResponseStatus(HttpStatus.CREATED)
-    GuestSessionResponse guest(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        return authenticationService.createGuestSession(httpRequest, httpResponse);
-    }
-
-    @PostMapping("/guest/recover")
-    GuestSessionResponse recoverGuest(
-            @Valid @RequestBody GuestRecoveryRequest request,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) {
-        return authenticationService.recoverGuestSession(
-                request.recoveryToken(), httpRequest, httpResponse);
     }
 
     @PostMapping("/logout")

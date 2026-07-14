@@ -7,6 +7,12 @@ import { type Node, useReactFlow } from "@xyflow/react";
 
 import { Select } from "@/components/common/Select";
 import { type SelectOption } from "@/components/common/Select";
+import { useAiAgentConfiguration } from "@/hooks/use-ai-agent-configuration";
+import { useWorkspace } from "@/hooks/use-workspaces";
+import {
+  RESERVED_CONTACT_FIELDS,
+  RESERVED_CONTACT_FIELD_KEYS,
+} from "@/lib/messaging-api";
 
 import {
   BUILT_IN_VARIABLES,
@@ -28,6 +34,7 @@ import {
 type Props = {
   node: Node;
   nodes: Node[];
+  workspaceId: string;
   onClose: () => void;
   onDirty: () => void;
 };
@@ -963,6 +970,59 @@ function SetVariableForm({
   );
 }
 
+function SetContactFieldForm({
+  data,
+  onChange,
+  variables,
+  fieldOptions,
+}: {
+  data: Record<string, unknown>;
+  onChange: (u: Record<string, unknown>) => void;
+  variables: WorkflowVariable[];
+  fieldOptions: SelectOption[];
+}) {
+  const valueRef = useRef<HTMLInputElement>(null);
+  const value = (data.value as string) ?? "";
+
+  return (
+    <>
+      <Field label="Contact field">
+        <Select
+          value={(data.fieldKey as string) ?? ""}
+          onChange={(v) => onChange({ fieldKey: v })}
+          options={fieldOptions}
+          placeholder="Select a field…"
+        />
+      </Field>
+
+      <Field
+        label="Value"
+        action={
+          <VariablePicker
+            variables={variables}
+            onSelect={(name) =>
+              insertAtCursor(valueRef.current, value, `{{${name}}}`, (v) =>
+                onChange({ value: v })
+              )
+            }
+          />
+        }
+      >
+        <input
+          ref={valueRef}
+          type="text"
+          value={value}
+          onChange={(e) => onChange({ value: e.target.value })}
+          placeholder="e.g. {{agent.data.city}} or a static value"
+          className={inputCls}
+        />
+
+        <FilterWarning text={value} />
+      </Field>
+    </>
+  );
+}
+
 function EndConversationForm({
   data,
   onChange,
@@ -1269,6 +1329,7 @@ const TYPE_LABEL: Record<string, string> = {
   condition: "Condition",
   httpRequest: "HTTP Request",
   setVariable: "Set Variable",
+  setContactField: "Set Contact Field",
   endConversation: "End Conversation",
   waitForReply: "Ask Question",
   jumpTo: "Jump To",
@@ -1276,7 +1337,13 @@ const TYPE_LABEL: Record<string, string> = {
 
 // ─── panel ────────────────────────────────────────────────────────────────────
 
-export function NodeConfigPanel({ node, nodes, onClose, onDirty }: Props) {
+export function NodeConfigPanel({
+  node,
+  nodes,
+  workspaceId,
+  onClose,
+  onDirty,
+}: Props) {
   const { setNodes } = useReactFlow();
   // key={node.id} is set by the parent (WorkflowEditor) so this component
   // remounts whenever the selected node changes — no sync effect needed.
@@ -1284,8 +1351,39 @@ export function NodeConfigPanel({ node, nodes, onClose, onDirty }: Props) {
     node.data as Record<string, unknown>
   );
 
+  const { data: aiAgentConfiguration } = useAiAgentConfiguration(workspaceId);
+  const extractionFieldVariables: WorkflowVariable[] = (
+    aiAgentConfiguration?.extractionFields ?? []
+  ).map((field) => ({
+    name: `agent.data.${field.key}`,
+    label: field.description || field.key,
+    group: "built-in",
+  }));
+
+  const workspace = useWorkspace(workspaceId);
+  const contactFieldVariables: WorkflowVariable[] = (
+    workspace?.contactFieldDefinitions ?? []
+  ).map((field) => ({
+    name: `contact.data.${field.key}`,
+    label: field.label || field.key,
+    group: "built-in",
+  }));
+
+  const writableContactFieldOptions: SelectOption[] = [
+    ...RESERVED_CONTACT_FIELD_KEYS.map((key) => ({
+      value: key,
+      label: RESERVED_CONTACT_FIELDS[key].label,
+    })),
+    ...(workspace?.contactFieldDefinitions ?? []).map((field) => ({
+      value: field.key,
+      label: field.label || field.key,
+    })),
+  ];
+
   const variables: WorkflowVariable[] = [
     ...BUILT_IN_VARIABLES,
+    ...extractionFieldVariables,
+    ...contactFieldVariables,
     ...extractWorkflowVariables(nodes),
   ];
 
@@ -1363,6 +1461,14 @@ export function NodeConfigPanel({ node, nodes, onClose, onDirty }: Props) {
             data={data}
             onChange={update}
             variables={variables}
+          />
+        )}
+        {node.type === "setContactField" && (
+          <SetContactFieldForm
+            data={data}
+            onChange={update}
+            variables={variables}
+            fieldOptions={writableContactFieldOptions}
           />
         )}
         {node.type === "endConversation" && (

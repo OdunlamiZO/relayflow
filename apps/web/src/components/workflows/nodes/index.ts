@@ -3,6 +3,7 @@ export { SendMessageNode } from "./SendMessageNode";
 export { ConditionNode } from "./ConditionNode";
 export { HttpRequestNode } from "./HttpRequestNode";
 export { SetVariableNode } from "./SetVariableNode";
+export { SetContactFieldNode } from "./SetContactFieldNode";
 export { EndConversationNode } from "./EndConversationNode";
 export { WaitForReplyNode } from "./WaitForReplyNode";
 export type { WaitForReplyOption } from "./WaitForReplyNode";

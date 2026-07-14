@@ -1,3 +1,6 @@
 package com.relayflow.api.authentication.dto;
 
-public record SignupResponse(boolean emailVerificationSent) {}
+import java.util.UUID;
+
+public record SignupResponse(
+        boolean authenticated, UUID userId, String email, String displayName, UUID workspaceId) {}

@@ -27,21 +27,4 @@ public interface WorkflowDefinitionRepository extends JpaRepository<WorkflowDefi
     @Modifying
     @Query("UPDATE WorkflowDefinition w SET w.deletedAt = :now WHERE w.workspace.id = :workspaceId")
     void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
-
-    /** Counts non-deleted workflow definitions in a workspace for plan limit enforcement. */
-    @Query("select count(w) from WorkflowDefinition w where w.workspace.id = :workspaceId")
-    long countByWorkspace(@Param("workspaceId") UUID workspaceId);
-
-    /** Counts currently-enabled workflows — used when re-enabling to enforce the plan limit. */
-    @Query(
-            "select count(w) from WorkflowDefinition w where w.workspace.id = :workspaceId and w.enabled = true")
-    long countEnabled(@Param("workspaceId") UUID workspaceId);
-
-    /**
-     * Returns all non-deleted workflows ordered newest-first. Used by the downgrade job to pick the
-     * excess workflows to disable (beyond the FREE limit).
-     */
-    @Query(
-            "select w from WorkflowDefinition w where w.workspace.id = :workspaceId order by w.createdAt desc")
-    List<WorkflowDefinition> findNewestFirst(@Param("workspaceId") UUID workspaceId);
 }

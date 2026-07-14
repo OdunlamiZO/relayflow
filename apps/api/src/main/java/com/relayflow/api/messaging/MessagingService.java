@@ -9,12 +9,14 @@ import com.relayflow.api.messaging.domain.ChannelAccount;
 import com.relayflow.api.messaging.domain.ChannelAccountStatus;
 import com.relayflow.api.messaging.domain.ChannelProvider;
 import com.relayflow.api.messaging.domain.Contact;
+import com.relayflow.api.messaging.domain.ContactFieldDefinition;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.ConversationStatus;
 import com.relayflow.api.messaging.domain.ExternalIdentity;
 import com.relayflow.api.messaging.domain.Message;
 import com.relayflow.api.messaging.domain.MessageDirection;
 import com.relayflow.api.messaging.domain.MessageSenderType;
+import com.relayflow.api.messaging.domain.ReservedContactField;
 import com.relayflow.api.messaging.domain.Workspace;
 import com.relayflow.api.messaging.domain.WorkspaceMember;
 import com.relayflow.api.messaging.domain.WorkspacePermission;
@@ -43,8 +45,6 @@ import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.sse.SseBroadcastEvent;
-import com.relayflow.api.subscription.SubscriptionService;
-import com.relayflow.api.subscription.domain.LimitType;
 import com.relayflow.api.telegram.TelegramWebhookRegistrar;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import com.relayflow.api.workflow.repository.WorkflowRunRepository;
@@ -61,7 +61,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -104,15 +103,13 @@ public class MessagingService {
 
     private final WorkflowRunStepRepository workflowRunStepRepository;
 
-    private final SubscriptionService subscriptionService;
-
     private final AiAgentConfigurationRepository aiAgentConfigurationRepository;
 
     private final AiAgentInvocationLogRepository aiAgentInvocationLogRepository;
 
     private final ConversationAiDraftRepository conversationAiDraftRepository;
 
-    private final String sharedBotToken;
+    private final ReservedContactFieldResolver reservedContactFieldResolver;
 
     public MessagingService(
             WorkspaceRepository workspaceRepository,
@@ -130,11 +127,10 @@ public class MessagingService {
             WorkflowDefinitionRepository workflowDefinitionRepository,
             WorkflowRunRepository workflowRunRepository,
             WorkflowRunStepRepository workflowRunStepRepository,
-            SubscriptionService subscriptionService,
             AiAgentConfigurationRepository aiAgentConfigurationRepository,
             AiAgentInvocationLogRepository aiAgentInvocationLogRepository,
             ConversationAiDraftRepository conversationAiDraftRepository,
-            @Value("${shared.telegram.bot-token:}") String sharedBotToken) {
+            ReservedContactFieldResolver reservedContactFieldResolver) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.userRepository = userRepository;
@@ -150,11 +146,10 @@ public class MessagingService {
         this.workflowDefinitionRepository = workflowDefinitionRepository;
         this.workflowRunRepository = workflowRunRepository;
         this.workflowRunStepRepository = workflowRunStepRepository;
-        this.subscriptionService = subscriptionService;
         this.aiAgentConfigurationRepository = aiAgentConfigurationRepository;
         this.aiAgentInvocationLogRepository = aiAgentInvocationLogRepository;
         this.conversationAiDraftRepository = conversationAiDraftRepository;
-        this.sharedBotToken = sharedBotToken;
+        this.reservedContactFieldResolver = reservedContactFieldResolver;
     }
 
     @Transactional
@@ -169,15 +164,13 @@ public class MessagingService {
         member.setRole(WorkspaceRole.OWNER);
         workspaceMemberRepository.save(member);
 
-        subscriptionService.createFreeSubscription(workspace);
-
         log.info(
                 "Workspace created: id={}, name={}, owner={}",
                 workspace.getId(),
                 workspace.getName(),
                 ownerId);
 
-        return toWorkspaceResponse(workspace);
+        return mapper.toDto(workspace);
     }
 
     @Transactional
@@ -186,49 +179,24 @@ public class MessagingService {
         workspace.setName(name);
         workspaceRepository.save(workspace);
 
-        return toWorkspaceResponse(workspace);
+        return mapper.toDto(workspace);
     }
 
-    /**
-     * Creates a workspace for a guest user and, if the shared bot is configured, attaches it as a
-     * channel account in the same transaction. If channel-account creation fails, the workspace
-     * creation is rolled back, so the caller never receives a workspace ID that has no bot
-     * attached.
-     */
     @Transactional
-    public WorkspaceResponse createGuestWorkspace(CreateWorkspaceRequest request, UUID ownerId) {
-        Workspace workspace = new Workspace();
-        workspace.setName(request.name());
-        workspaceRepository.save(workspace);
-
-        WorkspaceMember member = new WorkspaceMember();
-        member.setWorkspaceId(workspace.getId());
-        member.setUserId(ownerId);
-        member.setRole(WorkspaceRole.OWNER);
-        workspaceMemberRepository.save(member);
-
-        subscriptionService.createFreeSubscription(workspace);
-
-        if (sharedBotToken != null && !sharedBotToken.isBlank()) {
-            ChannelAccount channelAccount = new ChannelAccount();
-            channelAccount.setWorkspace(workspace);
-            channelAccount.setProvider(ChannelProvider.TELEGRAM);
-            channelAccount.setName("Shared Telegram Bot");
-            channelAccount.setStatus(ChannelAccountStatus.ACTIVE);
-            channelAccount.setShared(true);
-            channelAccount.setEncryptedCredentials(
-                    credentialEncryptionService.encrypt(sharedBotToken));
-            channelAccount.setMetadata(new LinkedHashMap<>());
-            channelAccountRepository.save(channelAccount);
+    public WorkspaceResponse updateContactFieldDefinitions(
+            UUID workspaceId, List<ContactFieldDefinition> contactFieldDefinitions) {
+        for (ContactFieldDefinition definition : contactFieldDefinitions) {
+            if (ReservedContactField.isReserved(definition.key())) {
+                throw new IllegalArgumentException(
+                        "\"" + definition.key() + "\" is already a built-in field.");
+            }
         }
 
-        log.info(
-                "Guest workspace created: id={}, name={}, owner={}",
-                workspace.getId(),
-                workspace.getName(),
-                ownerId);
+        Workspace workspace = getWorkspace(workspaceId);
+        workspace.setContactFieldDefinitions(contactFieldDefinitions);
+        workspaceRepository.save(workspace);
 
-        return toWorkspaceResponse(workspace);
+        return mapper.toDto(workspace);
     }
 
     @Transactional(readOnly = true)
@@ -240,21 +208,8 @@ public class MessagingService {
 
         return workspaceRepository.findAllById(workspaceIds).stream()
                 .sorted(Comparator.comparing(Workspace::getCreatedAt))
-                .map(this::toWorkspaceResponse)
+                .map(mapper::toDto)
                 .toList();
-    }
-
-    /**
-     * Maps a workspace to its response DTO, including whether someone has linked the shared
-     * Telegram bot — derived from {@link ExternalIdentity} rather than stored on the workspace
-     * itself, so it stays correct across page refreshes.
-     */
-    private WorkspaceResponse toWorkspaceResponse(Workspace workspace) {
-        WorkspaceResponse base = mapper.toDto(workspace);
-        boolean telegramLinked =
-                externalIdentityRepository.existsSharedTelegramLinkForWorkspace(workspace.getId());
-
-        return new WorkspaceResponse(base.id(), base.name(), base.createdAt(), telegramLinked);
     }
 
     @Transactional(readOnly = true)
@@ -269,17 +224,6 @@ public class MessagingService {
     @Transactional
     public ChannelAccountResponse createChannelAccount(CreateChannelAccountRequest request) {
         Workspace workspace = getWorkspace(request.workspaceId());
-
-        if (workspaceMemberRepository.countByWorkspace(request.workspaceId(), true) > 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Guest workspaces cannot connect additional channels. Sign up to add your"
-                            + " own channels.");
-        }
-
-        // Enforce plan limit before creating the channel account.
-        long count = channelAccountRepository.countBillable(request.workspaceId(), null);
-        subscriptionService.enforceLimit(request.workspaceId(), LimitType.CHANNEL_ACCOUNTS, count);
 
         // Hold plaintext for webhook registration — encrypt before persisting.
         String plainTextCredential = request.encryptedCredentials();
@@ -313,65 +257,6 @@ public class MessagingService {
         return mapper.toDto(channelAccount);
     }
 
-    /**
-     * Creates a Telegram channel account for a guest workspace using the shared bot token. Skips
-     * webhook registration — the shared bot uses a single fixed endpoint that routes by workspace
-     * ID.
-     */
-    @Transactional
-    public void createSharedBotChannelAccount(UUID workspaceId, String botToken) {
-        Workspace workspace = getWorkspace(workspaceId);
-
-        ChannelAccount channelAccount = new ChannelAccount();
-        channelAccount.setWorkspace(workspace);
-        channelAccount.setProvider(ChannelProvider.TELEGRAM);
-        channelAccount.setName("Shared Telegram Bot");
-        channelAccount.setStatus(ChannelAccountStatus.ACTIVE);
-        channelAccount.setShared(true);
-        channelAccount.setEncryptedCredentials(credentialEncryptionService.encrypt(botToken));
-        channelAccount.setMetadata(new LinkedHashMap<>());
-
-        mapper.toDto(channelAccountRepository.save(channelAccount));
-    }
-
-    /**
-     * Removes the workspace's shared Telegram bot channel account, along with any conversations,
-     * messages and workflow runs that happened over it. Called when a guest account converts to a
-     * real one — the shared bot is only for trying out the product as a guest, so none of that test
-     * traffic carries into the new account (the workflow definitions themselves are kept).
-     */
-    @Transactional
-    public void dropSharedTelegramChannel(UUID workspaceId) {
-        channelAccountRepository.findSharedByWorkspace(workspaceId).stream()
-                .filter(ca -> ca.getProvider() == ChannelProvider.TELEGRAM)
-                .forEach(
-                        ca -> {
-                            List<Conversation> conversations =
-                                    conversationRepository.findByChannelAccount(ca.getId());
-                            List<UUID> conversationIds =
-                                    conversations.stream().map(Conversation::getId).toList();
-                            List<UUID> contactIds =
-                                    conversations.stream()
-                                            .map(conversation -> conversation.getContact().getId())
-                                            .distinct()
-                                            .toList();
-
-                            if (!conversationIds.isEmpty()) {
-                                workflowRunStepRepository.deleteByRunConversations(conversationIds);
-                                workflowRunRepository.deleteByConversations(conversationIds);
-                                messageRepository.deleteByConversations(conversationIds);
-                            }
-
-                            conversationRepository.deleteByChannelAccount(ca.getId());
-                            externalIdentityRepository.deleteByChannelAccount(ca.getId());
-                            channelAccountRepository.delete(ca);
-
-                            if (!contactIds.isEmpty()) {
-                                contactRepository.deleteOrphaned(contactIds);
-                            }
-                        });
-    }
-
     @Transactional
     public void disconnectChannelAccount(UUID id, UUID workspaceId) {
         ChannelAccount channelAccount =
@@ -398,8 +283,6 @@ public class MessagingService {
                         .orElseThrow(
                                 () -> new ResourceNotFoundException("Channel account not found"));
 
-        subscriptionService.enforceLimitOnEnable(workspaceId, LimitType.CHANNEL_ACCOUNTS);
-
         channelAccount.setStatus(ChannelAccountStatus.ACTIVE);
         channelAccountRepository.save(channelAccount);
 
@@ -423,7 +306,12 @@ public class MessagingService {
         ContactResponse base = mapper.toDto(contactRepository.save(contact));
 
         return new ContactResponse(
-                base.id(), base.workspaceId(), base.displayName(), base.createdAt(), List.of());
+                base.id(),
+                base.workspaceId(),
+                base.displayName(),
+                base.customFields(),
+                base.createdAt(),
+                List.of());
     }
 
     @Transactional(readOnly = true)
@@ -458,6 +346,7 @@ public class MessagingService {
                                             base.id(),
                                             base.workspaceId(),
                                             base.displayName(),
+                                            base.customFields(),
                                             base.createdAt(),
                                             ids);
                                 })
@@ -470,17 +359,36 @@ public class MessagingService {
     public ContactDetailResponse getContactDetail(UUID contactId, UUID workspaceId) {
         Contact contact = getContact(contactId, workspaceId);
 
+        List<ExternalIdentity> externalIdentities =
+                externalIdentityRepository.findByContact(contactId);
         List<ExternalIdentityResponse> identities =
-                externalIdentityRepository.findByContact(contactId).stream()
-                        .map(mapper::toDto)
-                        .toList();
+                externalIdentities.stream().map(mapper::toDto).toList();
+
+        // Auto-derived values (e.g. WhatsApp phone) seed the map, then any explicitly stored
+        // value — manually entered, or AI-extracted — overwrites it. An already-configured
+        // value always wins; derivation only ever fills a gap, never overrides one.
+        Map<String, String> customFields =
+                new LinkedHashMap<>(
+                        reservedContactFieldResolver.resolve(contact, externalIdentities));
+        customFields.putAll(contact.getCustomFields());
 
         return new ContactDetailResponse(
                 contact.getId(),
                 workspaceId,
                 contact.getDisplayName(),
+                customFields,
                 contact.getCreatedAt(),
                 identities);
+    }
+
+    @Transactional
+    public ContactDetailResponse updateContactCustomFields(
+            UUID contactId, UUID workspaceId, Map<String, String> customFields) {
+        Contact contact = getContact(contactId, workspaceId);
+        contact.setCustomFields(customFields);
+        contactRepository.save(contact);
+
+        return getContactDetail(contactId, workspaceId);
     }
 
     @Transactional
@@ -579,6 +487,7 @@ public class MessagingService {
                 base.id(),
                 base.workspaceId(),
                 base.displayName(),
+                base.customFields(),
                 base.createdAt(),
                 mergedIdentities);
     }
@@ -807,11 +716,6 @@ public class MessagingService {
     @Transactional
     public WorkspaceMemberResponse inviteWorkspaceMember(
             UUID workspaceId, String email, Set<WorkspacePermission> permissions) {
-        if (workspaceMemberRepository.countByWorkspace(workspaceId, true) > 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Guest workspaces cannot invite members");
-        }
-
         User user =
                 userRepository
                         .findByEmail(email)
@@ -827,9 +731,6 @@ public class MessagingService {
         }
 
         WorkspacePermission.validateDependencies(permissions);
-
-        long count = workspaceMemberRepository.countByWorkspace(workspaceId, null);
-        subscriptionService.enforceLimit(workspaceId, LimitType.MEMBERS_PER_WORKSPACE, count);
 
         WorkspaceMember member = new WorkspaceMember();
         member.setWorkspaceId(workspaceId);

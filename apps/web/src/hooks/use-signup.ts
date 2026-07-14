@@ -12,12 +12,6 @@ export function useSignup() {
 
   return useMutation({
     mutationFn: (payload: SignupPayload) => signupApi(payload),
-    onSuccess: () => {
-      // A guest account that signs up is converted into a real account —
-      // its recovery token is no longer valid, so drop it to avoid stale
-      // "guest session no longer exists" recovery attempts later.
-      localStorage.removeItem("guestRecoveryToken");
-    },
     onError: (error) => {
       showToast({ kind: "error", message: errorMessage(error) });
     },

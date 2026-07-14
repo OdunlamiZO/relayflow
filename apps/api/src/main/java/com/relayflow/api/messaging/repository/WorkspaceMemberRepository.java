@@ -1,6 +1,7 @@
 package com.relayflow.api.messaging.repository;
 
 import com.relayflow.api.messaging.domain.WorkspaceMember;
+import com.relayflow.api.messaging.domain.WorkspaceRole;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -27,18 +28,8 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     Optional<WorkspaceMember> findByWorkspaceAndUser(
             @Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId);
 
-    /**
-     * Count of members in a workspace, optionally filtered by the {@code anonymous} flag (pass
-     * {@code null} for the total across all roles — used to enforce the per-workspace member
-     * limit). Guest workspaces have exactly one member — their anonymous owner — so {@code
-     * countByWorkspace(id, true) > 0} doubles as "is this a guest workspace".
-     */
-    @Query(
-            "select count(m) from WorkspaceMember m, User u "
-                    + "where m.workspaceId = :workspaceId and m.userId = u.id "
-                    + "and (:anonymous is null or u.anonymous = :anonymous)")
-    long countByWorkspace(
-            @Param("workspaceId") UUID workspaceId, @Param("anonymous") Boolean anonymous);
+    @Query("select count(m) > 0 from WorkspaceMember m where m.userId = :userId and m.role = :role")
+    boolean existsByUserAndRole(@Param("userId") UUID userId, @Param("role") WorkspaceRole role);
 
     @Modifying
     @Query("UPDATE WorkspaceMember m SET m.deletedAt = :now WHERE m.workspaceId = :workspaceId")

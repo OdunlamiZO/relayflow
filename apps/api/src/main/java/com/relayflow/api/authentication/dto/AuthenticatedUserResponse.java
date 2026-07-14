@@ -4,7 +4,6 @@ import java.util.UUID;
 
 public record AuthenticatedUserResponse(
         boolean authenticated,
-        boolean anonymous,
         UUID userId,
         String email,
         String displayName,

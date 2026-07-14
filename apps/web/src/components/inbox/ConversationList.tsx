@@ -7,16 +7,14 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { Spinner } from "@/components/common/Spinner";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useConversations } from "@/hooks/use-conversations";
+import { useCurrentMember } from "@/hooks/use-current-member";
 
 import { ConversationItem } from "./ConversationItem";
-
-const sharedBotUsername = process.env.NEXT_PUBLIC_SHARED_BOT_USERNAME ?? "";
 
 type Props = {
   workspaceId: string;
   selectedConversationId: string | undefined;
   onSelect: (conversationId: string) => void;
-  telegramLinked?: boolean;
   /** When set, only conversations for this contact are shown. */
   contactId?: string;
 };
@@ -25,10 +23,12 @@ export function ConversationList({
   workspaceId,
   selectedConversationId,
   onSelect,
-  telegramLinked = false,
   contactId,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { user } = useAuthentication();
+  const currentMember = useCurrentMember(workspaceId, user?.userId);
 
   const {
     data,
@@ -39,10 +39,14 @@ export function ConversationList({
     isFetchingNextPage,
   } = useConversations(workspaceId, contactId);
 
-  const { isAnonymous } = useAuthentication();
-
   const conversations = data?.pages.flatMap((page) => page.items) ?? [];
   const isEmpty = !isLoading && !isError && conversations.length === 0;
+
+  // Same permission check as SettingsShell's Channels tab — no point linking
+  // there if the user can't see or use it once they arrive.
+  const canConnectChannel =
+    currentMember?.role === "OWNER" ||
+    currentMember?.permissions.includes("CHANNELS_WRITE") === true;
 
   function handleScroll() {
     const el = scrollRef.current;
@@ -91,60 +95,39 @@ export function ConversationList({
 
         {isEmpty && (
           <div className="flex flex-col items-center gap-4 px-4 py-10 text-center">
-            {isAnonymous && sharedBotUsername ? (
-              <>
-                {telegramLinked ? (
-                  <EmptyState
-                    icon="check_circle"
-                    title="Telegram connected!"
-                    description="Send a message to the bot and it will appear here."
-                  />
-                ) : (
-                  <>
-                    <EmptyState
-                      icon="send"
-                      title="Connect Telegram to get started"
-                      description={`Send a message to @${sharedBotUsername} on Telegram and it will appear here.`}
-                    />
+            <EmptyState
+              icon="forum"
+              title="No conversations yet"
+              description="Connect a channel to start receiving messages."
+            />
 
-                    <a
-                      href={`https://t.me/${sharedBotUsername}?start=${workspaceId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
-                    >
-                      <span
-                        className="material-symbols-rounded text-[13px] text-telegram"
-                        aria-hidden="true"
-                      >
-                        send
-                      </span>
-                      Open @{sharedBotUsername}
-                    </a>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                <EmptyState
-                  icon="forum"
-                  title="No conversations yet"
-                  description="Connect a channel to start receiving messages."
-                />
-
-                <Link
-                  href={`/settings?workspaceId=${workspaceId}`}
-                  className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
+            {canConnectChannel ? (
+              <Link
+                href={`/settings?workspaceId=${workspaceId}`}
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
+              >
+                <span
+                  className="material-symbols-rounded text-[13px]"
+                  aria-hidden="true"
                 >
-                  <span
-                    className="material-symbols-rounded text-[13px]"
-                    aria-hidden="true"
-                  >
-                    settings
-                  </span>
-                  Connect a channel
-                </Link>
-              </>
+                  settings
+                </span>
+                Connect a channel
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-400"
+              >
+                <span
+                  className="material-symbols-rounded text-[13px]"
+                  aria-hidden="true"
+                >
+                  settings
+                </span>
+                Connect a channel
+              </button>
             )}
           </div>
         )}
