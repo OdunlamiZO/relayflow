@@ -5,11 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useCurrentMember } from "@/hooks/use-current-member";
-import { usePlans } from "@/hooks/use-plans";
-import { useSubscription } from "@/hooks/use-subscription";
 
 import { AiAgentPanel } from "./AiAgentPanel";
-import { BillingPanel } from "./BillingPanel";
 import { ChannelsList } from "./ChannelsList";
 import { GeneralPanel } from "./GeneralPanel";
 import { IntegrationsPanel } from "./IntegrationsPanel";
@@ -17,10 +14,9 @@ import { MembersList } from "./MembersList";
 
 type Props = {
   workspaceId: string;
-  isAnonymous: boolean;
 };
 
-export function SettingsShell({ workspaceId, isAnonymous }: Props) {
+export function SettingsShell({ workspaceId }: Props) {
   const { user } = useAuthentication();
   const currentMember = useCurrentMember(workspaceId, user?.userId);
 
@@ -28,7 +24,6 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
   // While currentMember is loading (undefined), default to showing channels so owners
   // don't see a flash of missing content.
   const canSeeChannels =
-    isAnonymous ||
     !currentMember ||
     currentMember.role === "OWNER" ||
     currentMember.permissions.includes("CHANNELS_WRITE") ||
@@ -39,29 +34,18 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
     currentMember?.permissions.includes("AI_AGENT_WRITE") === true;
 
   const canManageApiKeys =
-    !isAnonymous &&
-    (currentMember?.role === "OWNER" ||
-      currentMember?.permissions.includes("API_KEYS_WRITE") === true);
+    currentMember?.role === "OWNER" ||
+    currentMember?.permissions.includes("API_KEYS_WRITE") === true;
 
   const canManageWebhook =
-    !isAnonymous &&
-    (currentMember?.role === "OWNER" ||
-      currentMember?.permissions.includes("WEBHOOKS_WRITE") === true);
+    currentMember?.role === "OWNER" ||
+    currentMember?.permissions.includes("WEBHOOKS_WRITE") === true;
 
   const canSeeIntegrations = canManageApiKeys || canManageWebhook;
 
-  const isOwner = !isAnonymous && currentMember?.role === "OWNER";
+  const isOwner = currentMember?.role === "OWNER";
 
-  // Guests always own their own (single-member) workspace.
-  const canRenameWorkspace = isAnonymous || isOwner;
-
-  const { data: plans } = usePlans();
-  const { data: subscription } = useSubscription(isOwner ? workspaceId : "");
-
-  const hasPaidPlans = plans?.some((p) => p.upgradeAvailable) ?? false;
-  const isOnPaidPlan =
-    subscription?.plan !== "FREE" && subscription !== undefined;
-  const showBilling = isOwner && (hasPaidPlans || isOnPaidPlan);
+  const canRenameWorkspace = isOwner;
 
   const navItems = [
     ...(canRenameWorkspace
@@ -70,17 +54,12 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
     ...(canSeeChannels
       ? [{ href: "#channels", icon: "hub", label: "Channels" }]
       : []),
-    ...(!isAnonymous
-      ? [{ href: "#members", icon: "group", label: "Members" }]
-      : []),
+    { href: "#members", icon: "group", label: "Members" },
     ...(canManageAiAgent
       ? [{ href: "#ai-agent", icon: "smart_toy", label: "AI Agent" }]
       : []),
     ...(canSeeIntegrations
       ? [{ href: "#integrations", icon: "api", label: "Integrations" }]
-      : []),
-    ...(showBilling
-      ? [{ href: "#billing", icon: "payments", label: "Billing" }]
       : []),
   ];
 
@@ -208,21 +187,19 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
               </div>
             )}
 
-            {!isAnonymous && (
-              <div
-                id="members"
-                className={
-                  canSeeChannels || canRenameWorkspace
-                    ? "border-t border-neutral-200"
-                    : ""
-                }
-              >
-                <MembersList
-                  workspaceId={workspaceId}
-                  currentUserId={user?.userId ?? undefined}
-                />
-              </div>
-            )}
+            <div
+              id="members"
+              className={
+                canSeeChannels || canRenameWorkspace
+                  ? "border-t border-neutral-200"
+                  : ""
+              }
+            >
+              <MembersList
+                workspaceId={workspaceId}
+                currentUserId={user?.userId ?? undefined}
+              />
+            </div>
 
             {canManageAiAgent && (
               <div id="ai-agent" className="border-t border-neutral-200">
@@ -231,25 +208,12 @@ export function SettingsShell({ workspaceId, isAnonymous }: Props) {
             )}
 
             {canSeeIntegrations && (
-              <div
-                id="integrations"
-                className={
-                  canSeeChannels || !isAnonymous
-                    ? "border-t border-neutral-200"
-                    : ""
-                }
-              >
+              <div id="integrations" className="border-t border-neutral-200">
                 <IntegrationsPanel
                   workspaceId={workspaceId}
                   canManageApiKeys={canManageApiKeys}
                   canManageWebhook={canManageWebhook}
                 />
-              </div>
-            )}
-
-            {showBilling && (
-              <div id="billing" className="border-t border-neutral-200">
-                <BillingPanel workspaceId={workspaceId} isOwner={isOwner} />
               </div>
             )}
           </main>

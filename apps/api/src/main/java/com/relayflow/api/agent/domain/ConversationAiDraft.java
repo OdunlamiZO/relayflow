@@ -14,7 +14,9 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
@@ -48,6 +50,10 @@ public class ConversationAiDraft {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "suggested_actions", nullable = false, columnDefinition = "jsonb")
     private List<String> suggestedActions = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extracted_data", nullable = false, columnDefinition = "jsonb")
+    private Map<String, String> extractedData = new LinkedHashMap<>();
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

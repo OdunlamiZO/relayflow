@@ -15,4 +15,5 @@ public record InvitePreviewResponse(
         String email,
         Set<WorkspacePermission> permissions,
         InviteStatus status,
-        Instant expiresAt) {}
+        Instant expiresAt,
+        boolean accountExists) {}

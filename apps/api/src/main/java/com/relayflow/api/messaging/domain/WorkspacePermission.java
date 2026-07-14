@@ -30,6 +30,9 @@ public enum WorkspacePermission {
     /** Delete and merge contacts. */
     CONTACTS_DELETE,
 
+    /** Define workspace contact field schema, and edit a contact's field values. */
+    CONTACT_FIELDS_WRITE,
+
     // --- Workflows ---
 
     /** View, create, edit, and toggle workflows. */

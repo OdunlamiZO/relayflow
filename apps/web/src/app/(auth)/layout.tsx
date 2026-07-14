@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { redirectIfAuthenticated } from "@/lib/server-authentication";
+import {
+  redirectIfAuthenticated,
+  redirectIfNotBootstrapped,
+} from "@/lib/server-authentication";
 
 export const metadata: Metadata = {
   title: "RelayFlow",
@@ -15,6 +18,10 @@ type Props = {
 };
 
 export default async function AuthLayout({ children }: Props) {
+  // A fresh instance has no accounts yet — send visitors to /setup instead
+  // of a login/signup form that can't do anything useful yet.
+  await redirectIfNotBootstrapped();
+
   // Validate the session against the API before redirecting — a stale cookie
   // that no longer exists on the server must NOT be treated as authenticated.
   await redirectIfAuthenticated();

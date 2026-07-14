@@ -15,8 +15,6 @@ import com.relayflow.api.messaging.dto.WorkspaceInviteResponse;
 import com.relayflow.api.messaging.repository.WorkspaceInviteRepository;
 import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
-import com.relayflow.api.subscription.SubscriptionService;
-import com.relayflow.api.subscription.domain.LimitType;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -45,8 +43,6 @@ public class WorkspaceInviteService {
 
     private final EmailService emailService;
 
-    private final SubscriptionService subscriptionService;
-
     private final String webBaseUrl;
 
     private final int inviteExpiryDays;
@@ -57,7 +53,6 @@ public class WorkspaceInviteService {
             WorkspaceMemberRepository memberRepository,
             UserRepository userRepository,
             EmailService emailService,
-            SubscriptionService subscriptionService,
             @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl,
             @Value("${relayflow.invite.expiry-days}") int inviteExpiryDays) {
         this.inviteRepository = inviteRepository;
@@ -65,7 +60,6 @@ public class WorkspaceInviteService {
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
-        this.subscriptionService = subscriptionService;
         this.webBaseUrl = webBaseUrl;
         this.inviteExpiryDays = inviteExpiryDays;
     }
@@ -79,11 +73,6 @@ public class WorkspaceInviteService {
                 workspaceRepository
                         .findById(workspaceId)
                         .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
-
-        if (memberRepository.countByWorkspace(workspaceId, true) > 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Guest workspaces cannot invite members");
-        }
 
         User inviter =
                 userRepository
@@ -206,7 +195,8 @@ public class WorkspaceInviteService {
                 invite.getEmail(),
                 invite.getPermissions(),
                 invite.status(),
-                invite.getExpiresAt());
+                invite.getExpiresAt(),
+                userRepository.findByEmail(invite.getEmail()).isPresent());
     }
 
     // --- Accept ---
@@ -249,10 +239,6 @@ public class WorkspaceInviteService {
 
         // Guard: already a member (idempotent).
         if (memberRepository.findByWorkspaceAndUser(invite.getWorkspaceId(), userId).isEmpty()) {
-            long count = memberRepository.countByWorkspace(invite.getWorkspaceId(), null);
-            subscriptionService.enforceLimit(
-                    invite.getWorkspaceId(), LimitType.MEMBERS_PER_WORKSPACE, count);
-
             WorkspaceMember member = new WorkspaceMember();
             member.setWorkspaceId(invite.getWorkspaceId());
             member.setUserId(userId);

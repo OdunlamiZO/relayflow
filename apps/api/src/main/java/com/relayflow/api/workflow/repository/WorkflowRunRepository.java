@@ -75,4 +75,17 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
     @Query("select r.id from WorkflowRun r where r.status = :status and r.expiresAt < :now")
     List<UUID> findExpiredWaitingRunIds(
             @Param("status") WorkflowRunStatus status, @Param("now") Instant now);
+
+    /**
+     * Returns all runs with a given status, with conversation and workspace eagerly fetched — used
+     * during startup recovery to release conversation locks left by a previous crash.
+     */
+    @Query(
+            """
+            select r from WorkflowRun r
+            join fetch r.conversation c
+            join fetch c.workspace
+            where r.status = :status
+            """)
+    List<WorkflowRun> findAllWithConversationByStatus(@Param("status") WorkflowRunStatus status);
 }

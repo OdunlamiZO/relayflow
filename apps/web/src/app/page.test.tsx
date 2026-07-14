@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Imported after mocks so the mock is in place.
-import { getServerAuthenticationStatus } from "@/lib/server-authentication";
+import {
+  getInstanceStatus,
+  getServerAuthenticationStatus,
+} from "@/lib/server-authentication";
 
 import Home from "./page";
 
@@ -15,27 +18,32 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/server-authentication", () => ({
+  getInstanceStatus: vi.fn(),
   getServerAuthenticationStatus: vi.fn(),
 }));
 
+const mockGetInstanceStatus = vi.mocked(getInstanceStatus);
 const mockGetStatus = vi.mocked(getServerAuthenticationStatus);
 
 beforeEach(() => {
   mockRedirect.mockReset();
+  mockGetInstanceStatus.mockReset();
   mockGetStatus.mockReset();
+  mockGetInstanceStatus.mockResolvedValue({ bootstrapped: true });
 });
 
 describe("Home (root route)", () => {
-  it("redirects authenticated users to /inbox", async () => {
-    mockGetStatus.mockResolvedValue({ authenticated: true, anonymous: false });
+  it("redirects to /setup when the instance hasn't been bootstrapped yet", async () => {
+    mockGetInstanceStatus.mockResolvedValue({ bootstrapped: false });
+    mockGetStatus.mockResolvedValue({ authenticated: false });
 
     await Home();
 
-    expect(mockRedirect).toHaveBeenCalledWith("/inbox");
+    expect(mockRedirect).toHaveBeenCalledWith("/setup");
   });
 
-  it("redirects guests to /inbox", async () => {
-    mockGetStatus.mockResolvedValue({ authenticated: true, anonymous: true });
+  it("redirects authenticated users to /inbox", async () => {
+    mockGetStatus.mockResolvedValue({ authenticated: true });
 
     await Home();
 
@@ -43,10 +51,7 @@ describe("Home (root route)", () => {
   });
 
   it("redirects unauthenticated visitors to /login", async () => {
-    mockGetStatus.mockResolvedValue({
-      authenticated: false,
-      anonymous: false,
-    });
+    mockGetStatus.mockResolvedValue({ authenticated: false });
 
     await Home();
 

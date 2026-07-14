@@ -132,6 +132,11 @@ public class WorkflowGraphValidator {
                         node, "variableName", "Set Variable node has no variable name configured");
             }
 
+            if (NodeType.SET_CONTACT_FIELD.getValue().equals(type)) {
+                validateRequiredField(
+                        node, "fieldKey", "Set Contact Field node has no field selected");
+            }
+
             if (NodeType.CONDITION.getValue().equals(type)) {
                 validateConditionRows(node);
             }

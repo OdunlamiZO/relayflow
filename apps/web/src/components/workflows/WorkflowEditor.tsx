@@ -42,6 +42,7 @@ import {
   HttpRequestNode,
   JumpToNode,
   SendMessageNode,
+  SetContactFieldNode,
   SetVariableNode,
   TriggerNode,
   WaitForReplyNode,
@@ -59,6 +60,7 @@ const nodeTypes: Record<string, ComponentType<NodeProps>> = {
   condition: ConditionNode as ComponentType<NodeProps>,
   httpRequest: HttpRequestNode as ComponentType<NodeProps>,
   setVariable: SetVariableNode as ComponentType<NodeProps>,
+  setContactField: SetContactFieldNode as ComponentType<NodeProps>,
   endConversation: EndConversationNode as ComponentType<NodeProps>,
   waitForReply: WaitForReplyNode as ComponentType<NodeProps>,
   jumpTo: JumpToNode as ComponentType<NodeProps>,
@@ -93,6 +95,12 @@ const palette = [
     type: "setVariable",
     label: "Set Variable",
     icon: "variable_insert",
+    color: "bg-purple-bg text-purple-text border-purple-border",
+  },
+  {
+    type: "setContactField",
+    label: "Set Contact Field",
+    icon: "contact_page",
     color: "bg-purple-bg text-purple-text border-purple-border",
   },
   {
@@ -132,13 +140,12 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
   );
   const { screenToFlowPosition } = useReactFlow();
 
-  const { user, isAnonymous } = useAuthentication();
+  const { user } = useAuthentication();
   const currentMember = useCurrentMember(workspaceId, user?.userId);
 
   // While currentMember is loading (undefined), default to allowing edits so
   // owners don't see a flash of a read-only editor.
   const canEdit =
-    isAnonymous ||
     !currentMember ||
     currentMember.role === "OWNER" ||
     currentMember.permissions.includes("WORKFLOWS_WRITE");
@@ -702,6 +709,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               key={selectedNode.id}
               node={selectedNode}
               nodes={nodes}
+              workspaceId={workspaceId}
               onClose={closeConfigPanel}
               onDirty={() => setIsDirty(true)}
             />

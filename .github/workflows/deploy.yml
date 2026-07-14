@@ -1,0 +1,25 @@
+name: Deploy marketing
+
+# apps/marketing is RelayFlow's own hosted license-issuance service, not
+# part of the customer-facing self-hosted product (see publish-api.yml /
+# publish-web.yml for that). Deployed directly to RelayFlow's VPS by
+# pulling latest and rebuilding in place.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            cd /root/relayflow
+            git pull
+            docker compose --env-file .env.marketing up --build -d marketing
+            docker image prune -f

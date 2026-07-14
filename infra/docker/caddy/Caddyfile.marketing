@@ -1,0 +1,3 @@
+{$RELAYFLOW_MARKETING_DOMAIN} {
+    reverse_proxy marketing:3000
+}

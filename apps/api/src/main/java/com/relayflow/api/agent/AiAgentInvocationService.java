@@ -5,6 +5,7 @@ import com.relayflow.api.agent.domain.AiAgentInvocationLog;
 import com.relayflow.api.agent.domain.AiAgentInvocationStatus;
 import com.relayflow.api.agent.domain.AutonomyCeiling;
 import com.relayflow.api.agent.domain.ConversationAiDraft;
+import com.relayflow.api.agent.domain.ExtractionField;
 import com.relayflow.api.agent.llm.AgentLlmRequest;
 import com.relayflow.api.agent.llm.AgentLlmResponse;
 import com.relayflow.api.agent.llm.LlmClientFactory;
@@ -25,6 +26,7 @@ import com.relayflow.api.workflow.engine.WorkflowEngineService;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import com.relayflow.api.workflow.repository.WorkflowRunRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,6 +68,8 @@ public class AiAgentInvocationService {
 
     private final AiAgentInvocationSlotClaimer slotClaimer;
 
+    private final ContactCustomFieldWriter contactCustomFieldWriter;
+
     public AiAgentInvocationService(
             AiAgentConfigurationRepository configurationRepository,
             AiAgentInvocationLogRepository invocationLogRepository,
@@ -78,7 +82,8 @@ public class AiAgentInvocationService {
             MessagingService messagingService,
             ConversationRepository conversationRepository,
             ApplicationEventPublisher eventPublisher,
-            AiAgentInvocationSlotClaimer slotClaimer) {
+            AiAgentInvocationSlotClaimer slotClaimer,
+            ContactCustomFieldWriter contactCustomFieldWriter) {
         this.configurationRepository = configurationRepository;
         this.invocationLogRepository = invocationLogRepository;
         this.draftRepository = draftRepository;
@@ -91,6 +96,7 @@ public class AiAgentInvocationService {
         this.conversationRepository = conversationRepository;
         this.eventPublisher = eventPublisher;
         this.slotClaimer = slotClaimer;
+        this.contactCustomFieldWriter = contactCustomFieldWriter;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -205,13 +211,16 @@ public class AiAgentInvocationService {
                         "confidence", response.confidence() != null ? response.confidence() : "",
                         "escalate", response.escalate(),
                         "needsClarification", response.needsClarification(),
-                        "suggestedActions", response.suggestedActions()));
+                        "suggestedActions", response.suggestedActions(),
+                        "extractedData", response.extractedData()));
 
         // Decision flow
         boolean draftOnly = configuration.getAutonomyCeiling() == AutonomyCeiling.DRAFT_ONLY;
 
         if (response.escalate()) {
             String reason = "LLM requested escalation";
+            contactCustomFieldWriter.apply(
+                    conversation, response.extractedData(), configuration.getExtractionFields());
             finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
             broadcastEscalation(workspaceId, conversationId, reason);
 
@@ -225,7 +234,16 @@ public class AiAgentInvocationService {
 
         if (workflowAction.isPresent() && !draftOnly) {
             String rawId = workflowAction.get().substring(WORKFLOW_ACTION_PREFIX.length());
-            triggerWorkflow(rawId, workspaceId, conversation, triggeringMessage, invocationLog);
+            contactCustomFieldWriter.apply(
+                    conversation, response.extractedData(), configuration.getExtractionFields());
+            triggerWorkflow(
+                    rawId,
+                    workspaceId,
+                    conversation,
+                    triggeringMessage,
+                    response,
+                    configuration.getExtractionFields(),
+                    invocationLog);
 
             return;
         }
@@ -233,6 +251,8 @@ public class AiAgentInvocationService {
         boolean shouldDraft =
                 draftOnly || "low".equals(response.confidence()) || response.needsClarification();
 
+        // Drafts defer writing to the contact until a human approves — extraction from an
+        // unreviewed draft may be wrong, and this record persists past a single workflow run.
         if (shouldDraft) {
             saveDraft(conversation, response, invocationLog);
             broadcastDraftCreated(workspaceId, conversationId);
@@ -241,6 +261,8 @@ public class AiAgentInvocationService {
             return;
         }
 
+        contactCustomFieldWriter.apply(
+                conversation, response.extractedData(), configuration.getExtractionFields());
         sendOutbound(workspaceId, conversationId, response.reply());
         finalise(invocationLog, AiAgentInvocationStatus.SENT, null);
     }
@@ -259,6 +281,8 @@ public class AiAgentInvocationService {
             UUID workspaceId,
             Conversation conversation,
             Message triggeringMessage,
+            AgentLlmResponse response,
+            List<ExtractionField> extractionFields,
             AiAgentInvocationLog invocationLog) {
         UUID workflowId;
 
@@ -293,8 +317,15 @@ public class AiAgentInvocationService {
             return;
         }
 
+        Map<String, String> agentContext =
+                AgentWorkflowContext.build(
+                        response.reply(),
+                        response.confidence(),
+                        response.extractedData(),
+                        extractionFields);
+
         workflowEngineService.executeWorkflow(
-                workflowDefinitionOptional.get(), conversation, triggeringMessage);
+                workflowDefinitionOptional.get(), conversation, triggeringMessage, agentContext);
 
         finalise(invocationLog, AiAgentInvocationStatus.SENT, null);
     }
@@ -314,6 +345,7 @@ public class AiAgentInvocationService {
         draft.setInvocationLogId(invocationLog.getId());
         draft.setProposedReply(response.reply());
         draft.setSuggestedActions(response.suggestedActions());
+        draft.setExtractedData(response.extractedData());
         draftRepository.save(draft);
     }
 

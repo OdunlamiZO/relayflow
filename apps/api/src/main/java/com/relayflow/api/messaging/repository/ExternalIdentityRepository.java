@@ -58,22 +58,6 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
     Optional<ExternalIdentity> findForContactOnProvider(
             @Param("contactId") UUID contactId, @Param("provider") ChannelProvider provider);
 
-    /**
-     * Returns all identities for this Telegram user, newest-first. Ordering by {@code createdAt
-     * DESC} means callers always try the most-recently linked workspace first when a user has
-     * connected to multiple guest workspaces across sessions.
-     */
-    @Query(
-            """
-            select e from ExternalIdentity e
-            where e.provider = :provider
-              and e.externalUserId = :externalUserId
-            order by e.createdAt desc
-            """)
-    List<ExternalIdentity> findAllForExternalUser(
-            @Param("provider") ChannelProvider provider,
-            @Param("externalUserId") String externalUserId);
-
     @Query(
             "select e from ExternalIdentity e where e.contact.id = :contactId order by e.createdAt asc")
     List<ExternalIdentity> findByContact(@Param("contactId") UUID contactId);
@@ -85,20 +69,6 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
     @Modifying
     @Query("UPDATE ExternalIdentity e SET e.contact = :target WHERE e.contact.id = :sourceId")
     void reassignContact(@Param("target") Contact target, @Param("sourceId") UUID sourceId);
-
-    /**
-     * Whether someone has linked to this workspace's shared Telegram bot (i.e. sent {@code /start}
-     * to it), used to drive the "Telegram connected!" empty state in the inbox across page
-     * refreshes.
-     */
-    @Query(
-            """
-            select count(e) > 0 from ExternalIdentity e
-            where e.channelAccount.workspace.id = :workspaceId
-              and e.channelAccount.shared = true
-              and e.channelAccount.provider = com.relayflow.api.messaging.domain.ChannelProvider.TELEGRAM
-            """)
-    boolean existsSharedTelegramLinkForWorkspace(@Param("workspaceId") UUID workspaceId);
 
     @Modifying
     @Query("delete from ExternalIdentity e where e.channelAccount.id = :channelAccountId")

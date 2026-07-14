@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -72,6 +73,20 @@ public class MessagingExceptionHandler {
         log.warn("Missing request parameter: {}", exception.getMessage());
 
         return ResponseEntity.badRequest()
+                .body(new ErrorResponse(exception.getMessage(), Instant.now()));
+    }
+
+    /**
+     * Without this, {@link AccessDeniedException}s (e.g. {@code SseController}'s workspace
+     * membership check) fall through to {@link #unexpected} and surface as a generic 500 — and for
+     * SSE requests, the JSON body can't even be written since the client's {@code Accept:
+     * text/event-stream} header doesn't match it.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ErrorResponse> accessDenied(AccessDeniedException exception) {
+        log.warn("Request rejected: {}", exception.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
     }
 

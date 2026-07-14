@@ -102,7 +102,7 @@ async function InviteContent({ token }: { token: string | undefined }) {
     <InviteAcceptCard
       token={token}
       preview={preview}
-      isAuthenticated={authStatus.authenticated && !authStatus.anonymous}
+      isAuthenticated={authStatus.authenticated}
     />
   );
 }

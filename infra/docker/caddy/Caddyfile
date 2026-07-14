@@ -1,0 +1,7 @@
+{$RELAYFLOW_API_DOMAIN} {
+    reverse_proxy api:8080
+}
+
+{$RELAYFLOW_WEB_DOMAIN} {
+    reverse_proxy web:3000
+}

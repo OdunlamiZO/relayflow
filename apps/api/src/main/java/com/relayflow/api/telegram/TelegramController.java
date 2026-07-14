@@ -37,17 +37,4 @@ public class TelegramController {
             @RequestBody TelegramWebhookPayload payload) {
         telegramAdapter.handleWebhook(channelAccountId, secretToken, payload);
     }
-
-    /**
-     * Single webhook endpoint for the shared bot. Routes messages to the correct guest workspace
-     * via the /start {workspaceId} deep link.
-     */
-    @PostMapping("/webhook/shared")
-    @ResponseStatus(HttpStatus.OK)
-    void sharedBotWebhook(
-            @RequestHeader(value = "X-Telegram-Bot-Api-Secret-Token", required = false)
-                    String secretToken,
-            @RequestBody TelegramWebhookPayload payload) {
-        telegramAdapter.handleSharedBotWebhook(secretToken, payload);
-    }
 }

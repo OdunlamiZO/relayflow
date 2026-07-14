@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConversationList } from "./ConversationList";
 
@@ -7,13 +7,6 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
   useSearchParams: vi.fn(() => new URLSearchParams()),
   usePathname: vi.fn(() => "/inbox"),
-}));
-
-vi.mock("@/hooks/use-authentication", () => ({
-  useAuthentication: vi.fn(() => ({
-    isAnonymous: false,
-    isAuthenticated: true,
-  })),
 }));
 
 const mockConversation = {
@@ -33,10 +26,30 @@ const mockConversation = {
 // Because vi.doMock doesn't work well across describe blocks we use vi.mock
 // at the module level and override the return value per test instead.
 const mockUseConversations = vi.fn();
+const mockUseCurrentMember = vi.fn();
 
 vi.mock("@/hooks/use-conversations", () => ({
   useConversations: (...args: unknown[]) => mockUseConversations(...args),
 }));
+
+vi.mock("@/hooks/use-authentication", () => ({
+  useAuthentication: () => ({ user: { userId: "user-1" } }),
+}));
+
+vi.mock("@/hooks/use-current-member", () => ({
+  useCurrentMember: (...args: unknown[]) => mockUseCurrentMember(...args),
+}));
+
+const ownerMember = {
+  id: "member-1",
+  userId: "user-1",
+  email: "owner@example.com",
+  displayName: "Owner",
+  avatarUrl: null,
+  role: "OWNER" as const,
+  permissions: [],
+  joinedAt: "2026-05-26T09:00:00Z",
+};
 
 function baseHookReturn(overrides = {}) {
   return {
@@ -61,6 +74,10 @@ function renderList(props?: { selectedId?: string }) {
 }
 
 describe("ConversationList", () => {
+  beforeEach(() => {
+    mockUseCurrentMember.mockReturnValue(ownerMember);
+  });
+
   it("shows a spinner while loading", () => {
     mockUseConversations.mockReturnValue(baseHookReturn({ isLoading: true }));
 
@@ -79,7 +96,7 @@ describe("ConversationList", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the connect-channel prompt when empty and not anonymous", () => {
+  it("shows the connect-channel prompt when empty", () => {
     mockUseConversations.mockReturnValue(
       baseHookReturn({ data: { pages: [{ items: [], hasMore: false }] } })
     );
@@ -90,6 +107,27 @@ describe("ConversationList", () => {
     expect(
       screen.getByRole("link", { name: /connect a channel/i })
     ).toBeInTheDocument();
+  });
+
+  it("disables the connect-channel button for a member without channel access", () => {
+    mockUseCurrentMember.mockReturnValue({
+      ...ownerMember,
+      role: "MEMBER",
+      permissions: [],
+    });
+    mockUseConversations.mockReturnValue(
+      baseHookReturn({ data: { pages: [{ items: [], hasMore: false }] } })
+    );
+
+    renderList();
+
+    expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /connect a channel/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /connect a channel/i })
+    ).toBeDisabled();
   });
 
   it("renders conversation items", () => {

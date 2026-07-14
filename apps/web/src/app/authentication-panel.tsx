@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Spinner } from "@/components/common/Spinner";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useLogout } from "@/hooks/use-logout";
@@ -24,7 +23,6 @@ export function AuthenticationPanel() {
     () => false
   );
   const [isOpen, setIsOpen] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   function handleLogout() {
@@ -109,7 +107,7 @@ export function AuthenticationPanel() {
 
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-neutral-900">
-                  {user.displayName ?? "Guest"}
+                  {user.displayName ?? "User"}
                 </p>
 
                 {user.email && (
@@ -124,35 +122,26 @@ export function AuthenticationPanel() {
 
             {/* Actions */}
             <div className="p-1.5">
-              {!user.anonymous && (
-                <Link
-                  href="/profile"
-                  onClick={() => {
-                    setIsOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              <Link
+                href="/profile"
+                onClick={() => {
+                  setIsOpen(false);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              >
+                <span
+                  className="material-symbols-rounded text-[18px]"
+                  aria-hidden="true"
                 >
-                  <span
-                    className="material-symbols-rounded text-[18px]"
-                    aria-hidden="true"
-                  >
-                    manage_accounts
-                  </span>
-                  Profile
-                </Link>
-              )}
+                  manage_accounts
+                </span>
+                Profile
+              </Link>
 
               <button
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
-
-                  if (user.anonymous) {
-                    setShowLogoutConfirm(true);
-
-                    return;
-                  }
-
                   handleLogout();
                 }}
                 disabled={isLoggingOut}
@@ -168,18 +157,6 @@ export function AuthenticationPanel() {
               </button>
             </div>
           </div>
-        )}
-
-        {showLogoutConfirm && (
-          <ConfirmModal
-            title="Sign out of guest mode?"
-            description="Your guest workspace and its data can't be recovered after you sign out. To keep access, create an account first."
-            confirmLabel="Sign out"
-            destructive
-            isPending={isLoggingOut}
-            onConfirm={handleLogout}
-            onCancel={() => setShowLogoutConfirm(false)}
-          />
         )}
 
         {isLoggingOut && (
@@ -199,16 +176,9 @@ export function AuthenticationPanel() {
     <div className="flex items-center gap-2">
       <Link
         href="/login"
-        className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
-      >
-        Log in
-      </Link>
-
-      <Link
-        href="/signup"
         className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
       >
-        Get started
+        Log in
       </Link>
     </div>
   );

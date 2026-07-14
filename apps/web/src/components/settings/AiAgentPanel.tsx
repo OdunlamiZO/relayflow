@@ -12,6 +12,7 @@ import { errorMessage } from "@/lib/error-message";
 import type {
   AiAgentConfiguration,
   AutonomyCeiling,
+  ExtractionField,
   KnowledgeEntry,
   WorkflowMapping,
 } from "@/lib/messaging-api";
@@ -58,6 +59,7 @@ type FormState = {
   knowledgeBase: KnowledgeEntry[];
   escalationKeywords: string[];
   workflowMappings: WorkflowMapping[];
+  extractionFields: ExtractionField[];
 };
 
 function formFromConfiguration(configuration: AiAgentConfiguration): FormState {
@@ -69,6 +71,7 @@ function formFromConfiguration(configuration: AiAgentConfiguration): FormState {
     knowledgeBase: configuration.knowledgeBase,
     escalationKeywords: configuration.escalationKeywords,
     workflowMappings: configuration.workflowMappings,
+    extractionFields: configuration.extractionFields,
   };
 }
 
@@ -122,6 +125,7 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
     knowledgeBase,
     escalationKeywords,
     workflowMappings,
+    extractionFields,
   } = form;
 
   const isUnchanged =
@@ -134,7 +138,9 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
     JSON.stringify(configuration.escalationKeywords) ===
       JSON.stringify(escalationKeywords) &&
     JSON.stringify(configuration.workflowMappings) ===
-      JSON.stringify(workflowMappings);
+      JSON.stringify(workflowMappings) &&
+    JSON.stringify(configuration.extractionFields) ===
+      JSON.stringify(extractionFields);
 
   function patch(partial: Partial<FormState>) {
     setForm((prev) => ({ ...prev, ...partial }));
@@ -152,6 +158,7 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
         knowledgeBase,
         escalationKeywords,
         workflowMappings,
+        extractionFields,
       },
       {
         onSuccess: () =>
@@ -227,6 +234,28 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
 
   function removeWorkflowMapping(index: number) {
     patch({ workflowMappings: workflowMappings.filter((_, i) => i !== index) });
+  }
+
+  function addExtractionField() {
+    patch({
+      extractionFields: [...extractionFields, { key: "", description: "" }],
+    });
+  }
+
+  function updateExtractionField(
+    index: number,
+    field: keyof ExtractionField,
+    value: string
+  ) {
+    patch({
+      extractionFields: extractionFields.map((entry, i) =>
+        i === index ? { ...entry, [field]: value } : entry
+      ),
+    });
+  }
+
+  function removeExtractionField(index: number) {
+    patch({ extractionFields: extractionFields.filter((_, i) => i !== index) });
   }
 
   return (
@@ -558,6 +587,67 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
             className="mt-3 text-xs font-medium text-secondary hover:text-secondary-dark"
           >
             + Add workflow trigger
+          </button>
+        </section>
+
+        {/* Extraction fields */}
+        <section>
+          <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            Data extraction
+          </h2>
+          <p className="mb-3 text-xs text-neutral-500">
+            Fields the agent pulls out of the conversation and passes to any
+            workflow it triggers, as <code>agent.data.&lt;key&gt;</code>{" "}
+            workflow variables. Use case varies per workflow — leave empty if
+            none apply.
+          </p>
+
+          <div className="space-y-3">
+            {extractionFields.map((field, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-neutral-200 bg-neutral-100 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-neutral-500">
+                    Field {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeExtractionField(i)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Key (e.g. orderNumber)"
+                  value={field.key}
+                  onChange={(e) =>
+                    updateExtractionField(i, "key", e.target.value)
+                  }
+                  className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+                />
+                <input
+                  type="text"
+                  placeholder="Description (e.g. The customer's order number, if mentioned)"
+                  value={field.description}
+                  onChange={(e) =>
+                    updateExtractionField(i, "description", e.target.value)
+                  }
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+                />
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addExtractionField}
+            className="mt-3 text-xs font-medium text-secondary hover:text-secondary-dark"
+          >
+            + Add field
           </button>
         </section>
 

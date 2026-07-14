@@ -7,7 +7,6 @@ import com.relayflow.api.authentication.OAuth2UserProvisioningService;
 import com.relayflow.api.messaging.repository.WorkspaceApiKeyRepository;
 import com.relayflow.api.security.RateLimitFilter;
 import jakarta.servlet.DispatcherType;
-import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -102,18 +101,14 @@ public class SecurityConfiguration {
                                         .permitAll()
                                         .requestMatchers(
                                                 "/health",
-                                                "/plans",
                                                 "/auth/me",
+                                                "/auth/bootstrap-status",
+                                                "/auth/bootstrap",
                                                 "/auth/signup",
-                                                "/auth/verify-email",
                                                 "/auth/login",
                                                 "/auth/login/2fa",
-                                                "/auth/guest",
-                                                "/auth/guest/recover",
                                                 "/telegram/webhook/**",
-                                                "/telegram/webhook/shared",
                                                 "/whatsapp/webhook/**",
-                                                "/paystack/webhook",
                                                 "/oauth2/authorization/**",
                                                 "/login/oauth2/code/**",
                                                 "/v3/api-docs/**",
@@ -176,30 +171,16 @@ public class SecurityConfiguration {
                         webhookWindowSeconds));
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         registration.addUrlPatterns(
-                "/auth/*",
-                "/public/v1/*",
-                "/telegram/webhook/*",
-                "/whatsapp/webhook/*",
-                "/paystack/webhook");
+                "/auth/*", "/public/v1/*", "/telegram/webhook/*", "/whatsapp/webhook/*");
 
         return registration;
     }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-            @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl,
-            @Value("${relayflow.marketing.base-url:}") String marketingBaseUrl) {
-        List<String> allowedOrigins = new ArrayList<>();
-        allowedOrigins.add(webBaseUrl);
-
-        // The marketing site calls /auth/guest directly for the "See it
-        // live" button — allow it as a CORS origin too, if configured.
-        if (!marketingBaseUrl.isBlank()) {
-            allowedOrigins.add(marketingBaseUrl);
-        }
-
+            @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl) {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedOrigins(List.of(webBaseUrl));
         configuration.setAllowedMethods(
                 List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

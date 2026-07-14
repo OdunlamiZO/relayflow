@@ -4,8 +4,6 @@ import com.relayflow.api.messaging.ResourceNotFoundException;
 import com.relayflow.api.messaging.domain.Workspace;
 import com.relayflow.api.messaging.dto.PageResponse;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
-import com.relayflow.api.subscription.SubscriptionService;
-import com.relayflow.api.subscription.domain.LimitType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.domain.WorkflowRun;
 import com.relayflow.api.workflow.domain.WorkflowRunStep;
@@ -39,20 +37,16 @@ public class WorkflowService {
 
     private final WorkflowGraphValidator graphValidator;
 
-    private final SubscriptionService subscriptionService;
-
     private final WorkflowRunRepository workflowRunRepository;
 
     public WorkflowService(
             WorkflowDefinitionRepository workflowRepository,
             WorkspaceRepository workspaceRepository,
             WorkflowGraphValidator graphValidator,
-            SubscriptionService subscriptionService,
             WorkflowRunRepository workflowRunRepository) {
         this.workflowRepository = workflowRepository;
         this.workspaceRepository = workspaceRepository;
         this.graphValidator = graphValidator;
-        this.subscriptionService = subscriptionService;
         this.workflowRunRepository = workflowRunRepository;
     }
 
@@ -66,10 +60,6 @@ public class WorkflowService {
     @Transactional
     public WorkflowDefinitionResponse createWorkflow(CreateWorkflowDefinitionRequest request) {
         Workspace workspace = getWorkspace(request.workspaceId());
-
-        // Enforce plan limit before creating the workflow.
-        long count = workflowRepository.countByWorkspace(request.workspaceId());
-        subscriptionService.enforceLimit(request.workspaceId(), LimitType.WORKFLOWS, count);
 
         WorkflowDefinition workflow = new WorkflowDefinition();
         workflow.setWorkspace(workspace);
@@ -113,12 +103,6 @@ public class WorkflowService {
 
         if (request.enabled() != null) {
             boolean wasEnabled = workflow.isEnabled();
-
-            // Enforce enabled-count limit when turning a workflow on.
-            if (!wasEnabled && request.enabled()) {
-                subscriptionService.enforceLimitOnEnable(
-                        workflow.getWorkspace().getId(), LimitType.WORKFLOWS);
-            }
 
             workflow.setEnabled(request.enabled());
 

@@ -70,6 +70,16 @@ export const BUILT_IN_VARIABLES: WorkflowVariable[] = [
     label: "Contact's opening message",
     group: "built-in",
   },
+  {
+    name: "agent.reply",
+    label: "AI agent's reply (when triggered by the AI agent)",
+    group: "built-in",
+  },
+  {
+    name: "agent.confidence",
+    label: "AI agent's confidence (when triggered by the AI agent)",
+    group: "built-in",
+  },
 ];
 
 type Props = {

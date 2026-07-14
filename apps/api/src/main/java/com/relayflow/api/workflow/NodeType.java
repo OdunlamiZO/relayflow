@@ -15,6 +15,7 @@ public enum NodeType {
     CONDITION("condition"),
     HTTP_REQUEST("httpRequest"),
     SET_VARIABLE("setVariable"),
+    SET_CONTACT_FIELD("setContactField"),
     END_CONVERSATION("endConversation"),
     WAIT_FOR_REPLY("waitForReply"),
     JUMP_TO("jumpTo");

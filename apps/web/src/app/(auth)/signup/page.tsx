@@ -1,100 +1,113 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-import { GoogleIcon } from "@/components/common/GoogleIcon";
+import { Spinner } from "@/components/common/Spinner";
+import { InviteStatusMessage } from "@/components/invite/InviteStatusMessage";
+import { useInvitePreview } from "@/hooks/use-invite-preview";
 import { useSignup } from "@/hooks/use-signup";
-
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+import { errorMessage } from "@/lib/error-message";
 
 export default function SignupPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl") ?? undefined;
+  const token = searchParams.get("token");
 
-  const { mutate: signup, isPending } = useSignup();
+  const { data: preview, isLoading } = useInvitePreview(token);
+  const { mutate: signup, isPending, error } = useSignup();
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (!token || !preview) return;
+
     signup(
-      { name, email, password, returnUrl },
+      { name, email: preview.email, password, inviteToken: token },
       {
-        onSuccess: () => {
-          setEmailSent(true);
+        onSuccess: (data) => {
+          router.push(`/inbox?workspaceId=${data.workspaceId}`);
         },
       }
     );
   }
 
-  if (emailSent) {
+  if (!token) {
     return (
-      <>
-        <div className="mb-4 flex items-center gap-2.5">
-          <span
-            className="material-symbols-rounded text-[28px] leading-none text-green-text"
-            aria-hidden="true"
-          >
-            mark_email_read
-          </span>
-          <h1 className="m-0 text-xl font-semibold text-primary">
-            Check your inbox
-          </h1>
-        </div>
-
-        <p className="mb-2 text-sm text-neutral-600">
-          We sent a verification link to{" "}
-          <span className="font-semibold text-primary">{email}</span>.
+      <div className="text-center">
+        <span
+          className="material-symbols-rounded mb-3 text-[40px] text-neutral-400"
+          aria-hidden="true"
+        >
+          mail_lock
+        </span>
+        <h1 className="text-lg font-semibold text-primary">
+          You need an invite
+        </h1>
+        <p className="mt-2 text-sm text-neutral-500">
+          Ask your workspace owner for an invite link to create an account.
         </p>
-
-        <p className="text-sm text-neutral-500">
-          Click the link in the email to activate your account. If you
-          don&apos;t see it, check your spam folder.
-        </p>
-
-        <p className="mt-6 text-center text-sm text-neutral-600">
-          Already verified?{" "}
-          <Link
-            href="/login"
-            className="font-semibold text-accent hover:underline"
-          >
-            Sign in
-          </Link>
-        </p>
-      </>
+        <Link
+          href="/login"
+          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
+        >
+          Go to login
+        </Link>
+      </div>
     );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!preview) {
+    return (
+      <div className="text-center">
+        <span
+          className="material-symbols-rounded mb-3 text-[40px] text-neutral-400"
+          aria-hidden="true"
+        >
+          block
+        </span>
+        <h1 className="text-lg font-semibold text-primary">Invite not found</h1>
+        <p className="mt-2 text-sm text-neutral-500">
+          This invite link doesn&apos;t exist or has already been revoked.
+        </p>
+      </div>
+    );
+  }
+
+  if (preview.status !== "PENDING") {
+    return <InviteStatusMessage status={preview.status} />;
   }
 
   return (
     <>
       <h1 className="m-0 text-xl font-semibold text-primary">
-        Create your account
+        Join {preview.workspaceName}
       </h1>
 
       <p className="mb-6 mt-1 text-sm text-neutral-600">
-        Start managing every customer conversation in one place
+        <span className="font-medium text-neutral-700">
+          {preview.inviterName}
+        </span>{" "}
+        invited you to collaborate in this workspace.
       </p>
 
-      <a
-        href={`${apiBaseUrl}/oauth2/authorization/google`}
-        className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-200"
-      >
-        <GoogleIcon />
-        Continue with Google
-      </a>
-
-      <div className="my-5 flex items-center gap-3">
-        <div className="h-px flex-1 bg-neutral-300" />
-        <span className="text-xs text-neutral-500">or</span>
-        <div className="h-px flex-1 bg-neutral-300" />
-      </div>
+      {error && (
+        <p className="mb-4 rounded-lg bg-red-bg px-3 py-2 text-sm text-red-text">
+          {errorMessage(error)}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
@@ -128,14 +141,9 @@ export default function SignupPage() {
           <input
             id="email"
             type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-            }}
-            placeholder="you@company.com"
-            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+            value={preview.email}
+            disabled
+            className="w-full rounded-lg border border-neutral-300 bg-neutral-200 px-3 py-2.5 text-sm text-neutral-500 outline-none"
           />
         </div>
 

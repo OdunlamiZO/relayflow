@@ -40,10 +40,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthenticatedUserResponse"
 
+  /auth/bootstrap-status:
+    get:
+      operationId: getBootstrapStatus
+      summary: Check whether this instance has completed initial setup
+      description: >
+        Public, unauthenticated endpoint. `bootstrapped` is true once at least one
+        user account exists on this instance, at which point `POST /auth/bootstrap`
+        is no longer available and new users must sign up via an invite.
+      tags: [Auth]
+      security: []
+      responses:
+        "200":
+          description: Instance bootstrap status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceStatusResponse"
+
+  /auth/bootstrap:
+    post:
+      operationId: bootstrap
+      summary: Provision the first admin account and workspace on a fresh instance
+      description: >
+        Public, unauthenticated endpoint that establishes a session on success. Only
+        succeeds when no user accounts exist yet; returns 409 once the instance has
+        already been bootstrapped.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BootstrapRequest"
+      responses:
+        "200":
+          description: Instance bootstrapped; admin account, workspace, and session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BootstrapResponse"
+        "409":
+          description: This instance has already been set up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/signup:
     post:
       operationId: signup
-      summary: Register a new email/password account and send verification email
+      summary: Register a new account by accepting a workspace invite
+      description: >
+        Invite-gated signup — there is no open public registration. The invite token
+        is validated with the same rules as `POST /invites/{token}/accept` (email
+        match, not revoked/expired) and the new user is added to the invite's
+        workspace as part of account creation. Establishes a session on success.
       tags: [Auth]
       security: []
       requestBody:
@@ -53,38 +106,36 @@ paths:
             schema:
               $ref: "#/components/schemas/SignupRequest"
       responses:
-        "202":
-          description: Signup accepted; verification email sent
+        "200":
+          description: Account created, invite accepted, and session established
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SignupResponse"
-        "400":
-          description: Validation error or email already in use
+        "404":
+          description: Invite not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /auth/verify-email:
-    post:
-      operationId: verifyEmail
-      summary: Verify an email address and establish a session
-      tags: [Auth]
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VerifyEmailRequest"
-      responses:
-        "200":
-          description: Email verified and session established
+        "409":
+          description: An account with this email already exists
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthenticatedUserResponse"
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Invite has been revoked or has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invite was sent to a different email address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /auth/login:
     post:
@@ -140,20 +191,6 @@ paths:
       responses:
         "204":
           description: Session invalidated
-
-  /auth/guest:
-    post:
-      operationId: createGuestSession
-      summary: Create an anonymous guest session with a pre-built workspace
-      tags: [Auth]
-      security: []
-      responses:
-        "201":
-          description: Guest session created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GuestSessionResponse"
 
   # ── Profile ─────────────────────────────────────────────────────────────────
 
@@ -292,6 +329,59 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkspaceResponse"
 
+  /workspaces/{workspaceId}:
+    patch:
+      operationId: updateWorkspace
+      summary: Rename a workspace
+      description: Owner-only endpoint.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkspaceRequest"
+      responses:
+        "200":
+          description: Workspace updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+
+  /workspaces/{workspaceId}/contact-field-definitions:
+    put:
+      operationId: updateContactFieldDefinitions
+      summary: Define the workspace's custom contact field schema
+      description: >-
+        Requires the `CONTACT_FIELDS_WRITE` permission or owner role. A field's key can't collide
+        with a reserved key (`displayName`, `phone`, `email`, `country`) — RelayFlow already fills
+        those in automatically and they can't be redefined as a custom field.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactFieldDefinitionsRequest"
+      responses:
+        "200":
+          description: Workspace updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "400":
+          description: A field key collides with a reserved key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /workspaces/{workspaceId}/members:
     get:
       operationId: listWorkspaceMembers
@@ -329,12 +419,6 @@ paths:
                 $ref: "#/components/schemas/WorkspaceMemberResponse"
         "409":
           description: User is already a member of this workspace
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "402":
-          description: Workspace member limit reached for the current plan
           content:
             application/json:
               schema:
@@ -678,14 +762,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChannelAccountResponse"
-        "402":
-          description: Channel account limit reached for the current plan
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Guest workspaces cannot connect additional channels
+          description: Missing CHANNELS_WRITE permission
           content:
             application/json:
               schema:
@@ -789,6 +867,11 @@ paths:
     get:
       operationId: getContact
       summary: Get a contact with linked channel identities
+      description: >-
+        The response's `customFields` merges explicitly-stored values with an auto-derived
+        value for any reserved key (displayName, phone, email, country) that hasn't been
+        explicitly set — e.g. `phone` from a WhatsApp identity. An explicitly-stored value
+        always wins over the derived one.
       tags: [Contacts]
       parameters:
         - name: id
@@ -826,6 +909,44 @@ paths:
       responses:
         "204":
           description: Contact deleted
+        "404":
+          description: Contact not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /contacts/{id}/custom-fields:
+    patch:
+      operationId: updateContactCustomFields
+      summary: Update a contact's custom field values
+      description: >-
+        Requires the `CONTACT_FIELDS_WRITE` permission or owner role. Accepts the full set of
+        field values (reserved and workspace-defined); the response's `customFields` merges these
+        explicitly-stored values with any auto-derived reserved values (e.g. phone from a
+        WhatsApp identity) that weren't explicitly overridden.
+      tags: [Contacts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactCustomFieldsRequest"
+      responses:
+        "200":
+          description: Contact detail with updated custom fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactDetailResponse"
         "404":
           description: Contact not found
           content:
@@ -1082,12 +1203,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkflowDefinitionResponse"
-        "402":
-          description: Workflow limit reached for the current plan
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
 
   /workflows/{id}:
     get:
@@ -1161,6 +1276,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /workflows/{id}/runs:
+    get:
+      operationId: listWorkflowRuns
+      summary: List runs of a workflow definition, newest first
+      tags: [Workflows]
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Paginated workflow run list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowRunPageResponse"
+
+  /workflows/{id}/runs/{runId}:
+    get:
+      operationId: getWorkflowRun
+      summary: Get a single workflow run with its step-by-step execution trace
+      tags: [Workflows]
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: Workflow run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowRunDetailResponse"
 
   # ── AI Agent ─────────────────────────────────────────────────────────────────
 
@@ -1294,145 +1457,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  # ── Subscriptions ─────────────────────────────────────────────────────────────
-
-  /plans:
-    get:
-      operationId: listPlans
-      summary: List public plan catalogue
-      tags: [Subscriptions]
-      security: []
-      responses:
-        "200":
-          description: Available plans with live limits, pricing, and checkout availability
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PlanInfo"
-
-  /workspaces/{workspaceId}/subscription:
-    get:
-      operationId: getWorkspaceSubscription
-      summary: Get a workspace subscription
-      tags: [Subscriptions]
-      parameters:
-        - $ref: "#/components/parameters/workspaceIdPath"
-      responses:
-        "200":
-          description: Current workspace subscription, limits, and upgrade availability
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SubscriptionResponse"
-        "403":
-          description: User is not a member of the workspace
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      operationId: cancelWorkspaceSubscription
-      summary: Schedule cancellation of a workspace subscription
-      description: >
-        Owner-only endpoint. Stops future provider charges and keeps paid access until
-        `currentPeriodEnd`; the downgrade scheduler later moves the workspace to FREE.
-      tags: [Subscriptions]
-      parameters:
-        - $ref: "#/components/parameters/workspaceIdPath"
-      responses:
-        "204":
-          description: Cancellation scheduled
-        "403":
-          description: Only the workspace owner can manage billing
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "502":
-          description: Payment provider could not be reached
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "503":
-          description: Payment provider is not configured or subscription token is not available yet
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /workspaces/{workspaceId}/subscription/checkout:
-    post:
-      operationId: startSubscriptionCheckout
-      summary: Start checkout for a paid workspace plan
-      tags: [Subscriptions]
-      parameters:
-        - $ref: "#/components/parameters/workspaceIdPath"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StartCheckoutRequest"
-      responses:
-        "200":
-          description: Checkout session initialized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CheckoutResponse"
-        "400":
-          description: Invalid checkout request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Only the workspace owner can manage billing
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "503":
-          description: Payment provider or paid plan code is not configured
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /paystack/webhook:
-    post:
-      operationId: paystackWebhook
-      summary: Receive Paystack subscription webhook events
-      description: >
-        Handles Paystack subscription lifecycle events including `charge.success`,
-        `subscription.create`, `subscription.not_renew`, `subscription.disable`, and
-        unpaid `invoice.update` events.
-      tags: [Subscriptions]
-      security: []
-      parameters:
-        - name: x-paystack-signature
-          in: header
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: Webhook processed or ignored
-        "401":
-          description: Invalid Paystack signature
-        "500":
-          description: Webhook processing failed
-
   # ── SSE ───────────────────────────────────────────────────────────────────────
 
   /sse/workspace/{workspaceId}:
@@ -1468,7 +1492,7 @@ paths:
   /telegram/webhook/{channelAccountId}:
     post:
       operationId: telegramWebhook
-      summary: Receive a Telegram update for a dedicated bot channel account
+      summary: Receive a Telegram update for a channel account
       tags: [Telegram]
       security: []
       parameters:
@@ -1478,22 +1502,6 @@ paths:
           schema:
             type: string
             format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: Update accepted
-
-  /telegram/webhook/shared:
-    post:
-      operationId: telegramSharedWebhook
-      summary: Receive a Telegram update for the shared guest bot
-      tags: [Telegram]
-      security: []
       requestBody:
         required: true
         content:
@@ -1751,6 +1759,7 @@ components:
       enum:
         - INBOX
         - CONTACTS_DELETE
+        - CONTACT_FIELDS_WRITE
         - WORKFLOWS_WRITE
         - WORKFLOWS_DELETE
         - CHANNELS_WRITE
@@ -1767,23 +1776,11 @@ components:
       type: string
       enum: [CONTACT_CREATED]
 
-    Plan:
-      type: string
-      enum: [FREE, PRO_MONTHLY, PRO_ANNUAL]
-
-    SubscriptionStatus:
-      type: string
-      enum: [ACTIVE, CANCELLATION_SCHEDULED, PAST_DUE, CANCELLED]
-
-    BillingInterval:
-      type: string
-      enum: [monthly, annual]
-
     # ── Requests ───────────────────────────────────────────────────────────────
 
-    SignupRequest:
+    BootstrapRequest:
       type: object
-      required: [name, email, password]
+      required: [name, email, password, workspaceName]
       properties:
         name:
           type: string
@@ -1793,10 +1790,24 @@ components:
         password:
           type: string
           minLength: 8
-        returnUrl:
+        workspaceName:
           type: string
-          nullable: true
-          description: Optional frontend path to preserve through email verification.
+
+    SignupRequest:
+      type: object
+      required: [name, email, password, inviteToken]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        inviteToken:
+          type: string
+          format: uuid
 
     LoginRequest:
       type: object
@@ -1824,12 +1835,30 @@ components:
         name:
           type: string
 
-    VerifyEmailRequest:
+    UpdateWorkspaceRequest:
       type: object
-      required: [token]
+      required: [name]
       properties:
-        token:
+        name:
           type: string
+
+    UpdateContactFieldDefinitionsRequest:
+      type: object
+      required: [contactFieldDefinitions]
+      properties:
+        contactFieldDefinitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactFieldDefinition"
+
+    UpdateContactCustomFieldsRequest:
+      type: object
+      required: [customFields]
+      properties:
+        customFields:
+          type: object
+          additionalProperties:
+            type: string
 
     UpdateProfileRequest:
       type: object
@@ -2062,13 +2091,6 @@ components:
         text:
           type: string
 
-    StartCheckoutRequest:
-      type: object
-      required: [plan]
-      properties:
-        plan:
-          $ref: "#/components/schemas/Plan"
-
     CreateWorkflowDefinitionRequest:
       type: object
       required: [workspaceId, name]
@@ -2113,11 +2135,9 @@ components:
 
     AuthenticatedUserResponse:
       type: object
-      required: [authenticated, anonymous, twoFactorRequired]
+      required: [authenticated, twoFactorRequired]
       properties:
         authenticated:
-          type: boolean
-        anonymous:
           type: boolean
         userId:
           type: string
@@ -2140,17 +2160,44 @@ components:
           nullable: true
           description: Short-lived token passed to `/auth/login/2fa`.
 
+    InstanceStatusResponse:
+      type: object
+      required: [bootstrapped]
+      properties:
+        bootstrapped:
+          type: boolean
+          description: True once at least one user account exists on this instance.
+
+    BootstrapResponse:
+      type: object
+      required: [authenticated, userId, email, displayName, workspaceId]
+      properties:
+        authenticated:
+          type: boolean
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: string
+        workspaceId:
+          type: string
+          format: uuid
+
     SignupResponse:
       type: object
-      required: [emailVerificationSent]
+      required: [authenticated, userId, email, displayName, workspaceId]
       properties:
-        emailVerificationSent:
+        authenticated:
           type: boolean
-
-    GuestSessionResponse:
-      type: object
-      required: [workspaceId]
-      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: string
         workspaceId:
           type: string
           format: uuid
@@ -2179,7 +2226,7 @@ components:
           type: array
           items:
             type: string
-            enum: [GOOGLE, EMAIL, ANONYMOUS]
+            enum: [GOOGLE, EMAIL]
 
     Setup2FAResponse:
       type: object
@@ -2191,16 +2238,34 @@ components:
 
     WorkspaceResponse:
       type: object
-      required: [id, name, createdAt]
+      required: [id, name, contactFieldDefinitions, createdAt]
       properties:
         id:
           type: string
           format: uuid
         name:
           type: string
+        contactFieldDefinitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactFieldDefinition"
         createdAt:
           type: string
           format: date-time
+
+    ContactFieldDefinition:
+      type: object
+      required: [key, label, description]
+      properties:
+        key:
+          type: string
+          description: >-
+            Must not collide with a reserved key (displayName, phone, email, country) —
+            RelayFlow already fills those in automatically.
+        label:
+          type: string
+        description:
+          type: string
 
     WorkspaceMemberResponse:
       type: object
@@ -2381,87 +2446,6 @@ components:
           type: string
           description: New plaintext HMAC secret returned once.
 
-    PlanInfo:
-      type: object
-      required: [plan, upgradeAvailable]
-      properties:
-        plan:
-          $ref: "#/components/schemas/Plan"
-        maxChannelAccounts:
-          type: integer
-          nullable: true
-          description: Maximum channel accounts allowed; null means unlimited.
-        maxWorkflows:
-          type: integer
-          nullable: true
-          description: Maximum workflow definitions allowed; null means unlimited.
-        maxMembersPerWorkspace:
-          type: integer
-          nullable: true
-          description: Maximum workspace members allowed; null means unlimited.
-        priceNgn:
-          type: number
-          nullable: true
-          description: Price in Nigerian naira for this plan's billing cycle; null for free plans.
-        billingInterval:
-          $ref: "#/components/schemas/BillingInterval"
-          nullable: true
-          description: Billing interval; null for free plans.
-        upgradeAvailable:
-          type: boolean
-
-    SubscriptionResponse:
-      type: object
-      required: [plan, status, upgradeAvailable, upgradeRecommended]
-      properties:
-        plan:
-          $ref: "#/components/schemas/Plan"
-        status:
-          $ref: "#/components/schemas/SubscriptionStatus"
-        maxChannelAccounts:
-          type: integer
-          nullable: true
-          description: Maximum channel accounts allowed; null means unlimited.
-        maxWorkflows:
-          type: integer
-          nullable: true
-          description: Maximum workflow definitions allowed; null means unlimited.
-        maxMembersPerWorkspace:
-          type: integer
-          nullable: true
-          description: Maximum workspace members allowed; null means unlimited.
-        currentPeriodEnd:
-          type: string
-          format: date-time
-          nullable: true
-        priceNgn:
-          type: number
-          nullable: true
-          description: Price in Nigerian naira for this plan's billing cycle; null for free plans.
-        billingInterval:
-          $ref: "#/components/schemas/BillingInterval"
-          nullable: true
-        downgradeLockedChannels:
-          type: integer
-          nullable: true
-          description: Channel accounts disabled during the most recent downgrade to FREE; null when no downgrade notice is active.
-        downgradeLockedWorkflows:
-          type: integer
-          nullable: true
-          description: Workflow definitions disabled during the most recent downgrade to FREE; null when no downgrade notice is active.
-        upgradeAvailable:
-          type: boolean
-        upgradeRecommended:
-          type: boolean
-
-    CheckoutResponse:
-      type: object
-      required: [authorizationUrl]
-      properties:
-        authorizationUrl:
-          type: string
-          format: uri
-
     WhatsAppWebhookPayload:
       type: object
       required: [object, entry]
@@ -2559,7 +2543,7 @@ components:
 
     ChannelAccountResponse:
       type: object
-      required: [id, workspaceId, provider, name, status, shared, metadata, createdAt]
+      required: [id, workspaceId, provider, name, status, metadata, createdAt]
       properties:
         id:
           type: string
@@ -2573,11 +2557,6 @@ components:
           type: string
         status:
           $ref: "#/components/schemas/ChannelAccountStatus"
-        shared:
-          type: boolean
-          description: >
-            true for shared-bot channels managed by the RelayFlow platform;
-            false for custom-bot channels where the workspace owner supplied their own token.
         metadata:
           type: object
           additionalProperties: true
@@ -2587,7 +2566,7 @@ components:
 
     ContactResponse:
       type: object
-      required: [id, workspaceId, createdAt, identities]
+      required: [id, workspaceId, customFields, createdAt, identities]
       properties:
         id:
           type: string
@@ -2598,6 +2577,15 @@ components:
         displayName:
           type: string
           nullable: true
+        customFields:
+          type: object
+          additionalProperties:
+            type: string
+          description: >-
+            Explicitly-stored field values keyed by field key (reserved or
+            workspace-defined). GET /contacts/{id} additionally merges in an
+            auto-derived value for a reserved key that hasn't been explicitly set —
+            see that operation's description.
         createdAt:
           type: string
           format: date-time
@@ -2917,3 +2905,120 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    # ── Workflow Runs ──────────────────────────────────────────────────────────
+
+    WorkflowRunStatus:
+      type: string
+      enum: [RUNNING, WAITING, COMPLETED, FAILED]
+      description: >
+        `WAITING` means the run is paused at a "Wait for Reply" node and resumes
+        when the contact replies.
+
+    WorkflowRunStepStatus:
+      type: string
+      enum: [COMPLETED, FAILED, SKIPPED]
+
+    WorkflowRunNodeType:
+      type: string
+      enum:
+        - TRIGGER
+        - SEND_MESSAGE
+        - CONDITION
+        - HTTP_REQUEST
+        - SET_VARIABLE
+        - END_CONVERSATION
+        - WAIT_FOR_REPLY
+        - JUMP_TO
+
+    WorkflowRunStepResponse:
+      type: object
+      required: [id, nodeId, nodeType, status, inputSnapshot, outputSnapshot]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nodeId:
+          type: string
+          description: ID of the node within the workflow's draftGraph that this step executed.
+        nodeType:
+          $ref: "#/components/schemas/WorkflowRunNodeType"
+        status:
+          $ref: "#/components/schemas/WorkflowRunStepStatus"
+        inputSnapshot:
+          type: object
+          additionalProperties: true
+        outputSnapshot:
+          type: object
+          additionalProperties: true
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationMs:
+          type: integer
+          format: int64
+          nullable: true
+
+    WorkflowRunResponse:
+      type: object
+      required: [id, workflowDefinitionId, conversationId, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflowDefinitionId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/WorkflowRunStatus"
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        waitingAtNodeId:
+          type: string
+          nullable: true
+          description: ID of the "Wait for Reply" node the run is paused at; null unless status is WAITING.
+
+    WorkflowRunDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/WorkflowRunResponse"
+        - type: object
+          required: [steps]
+          properties:
+            steps:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkflowRunStepResponse"
+
+    WorkflowRunPageResponse:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowRunResponse"
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true

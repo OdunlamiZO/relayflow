@@ -48,6 +48,10 @@ apps/marketing/.turbo/
 apps/marketing/.vercel/
 apps/marketing/tsconfig.tsbuildinfo
 apps/marketing/.eslintcache
+apps/marketing/coverage/
+
+# SQLite data (apps/marketing's license-issuance database)
+apps/marketing/data/
 
 # Environment files
 .env
