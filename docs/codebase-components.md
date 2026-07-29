@@ -16,6 +16,8 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`AuthenticationService`](#authenticationservice)
   - [`EmailPasswordUserDetailsService`](#emailpassworduserdetailsservice)
   - [`OAuth2UserProvisioningService`](#oauth2userprovisioningservice)
+  - [`PasswordResetService`](#passwordresetservice)
+  - [`PasswordResetToken`](#passwordresettoken)
   - [`ProfileController`](#profilecontroller)
   - [`ProfileService`](#profileservice)
   - [`TwoFactorService`](#twofactorservice)
@@ -63,6 +65,8 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WorkspaceApiKey`](#workspaceapikey)
   - [`WorkspaceWebhook`](#workspacewebhook)
   - [`WebhookEventType`](#webhookeventtype)
+  - [`ContactSnapshotBuilder`](#contactsnapshotbuilder)
+  - [`ContactSnapshot`](#contactsnapshot)
   - [`ChannelAccount`](#channelaccount)
   - [`ChannelProvider`](#channelprovider)
   - [`ChannelAccountStatus`](#channelaccountstatus)
@@ -80,6 +84,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`SseController`](#ssecontroller)
   - [`WorkspaceSseService`](#workspacesseservice)
   - [`SseBroadcastEvent`](#ssebroadcastevent)
+  - [`SseEventType`](#sseeventtype)
 - [Telegram Backend](#telegram-backend)
   - [`TelegramController`](#telegramcontroller)
   - [`TelegramAdapter`](#telegramadapter)
@@ -137,6 +142,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [Workflow Pages](#workflow-pages)
   - [Contacts Pages](#contacts-pages)
   - [Invite Pages](#invite-pages)
+  - [Reset Password Page](#reset-password-page)
   - [Profile Pages](#profile-pages)
   - [Settings Pages](#settings-pages)
 - [Frontend Common Components](#frontend-common-components)
@@ -273,7 +279,7 @@ Important beans:
 - `PasswordEncoder`: BCrypt password hashing for email/password users.
 - `AuthenticationManager`: authenticates email/password credentials through `EmailPasswordUserDetailsService`.
 - `HttpSessionSecurityContextRepository`: stores authenticated sessions in the servlet session.
-- `SecurityFilterChain`: permits public auth, health, Telegram webhook, Swagger, and docs paths; protects the rest.
+- `SecurityFilterChain`: permits public auth, health, and Telegram/WhatsApp webhook paths; protects the rest.
 - `CorsConfigurationSource`: allows credentialed frontend requests from `relayflow.web.base-url`.
 
 We need it to make browser sessions, Google OAuth, email login, and protected API routes work consistently.
@@ -309,6 +315,7 @@ Endpoints:
 - `signup`: creates an email/password account from an accepted invite token (see [Invite-Gated Signup](#workspaceinviteservice)) and establishes a session. There is no open public signup — an account can only be created by bootstrapping the instance or accepting a workspace invite.
 - `login`: authenticates credentials and either establishes a session or returns a 2FA challenge.
 - `login2FA`: verifies a TOTP code for a pending login challenge and establishes a session.
+- `resetPassword`: public — consumes a `PasswordResetToken` and sets a new password. See [`PasswordResetService`](#passwordresetservice).
 - `logout`: invalidates the server session and expires the `JSESSIONID` browser cookie.
 
 We need it as the public API boundary for session state.
@@ -342,6 +349,23 @@ Extends Spring's OAuth user service to provision or update users after Google lo
 
 We need it so Google login creates a local `User` record and returns consistent profile data.
 
+### `PasswordResetService`
+
+`@Service` in `com.relayflow.api.authentication`. There is no self-service "change password" form — this is the only way a password gets set after signup.
+
+Important methods:
+
+- `issueForUser(userId)`: creates a `PasswordResetToken` and emails a `{webBaseUrl}/reset-password/{token}` link to the user's address. Throws `400` if the user has no `EMAIL` identity (e.g. a Google-only account — nothing to reset). Shared by both callers: `ProfileService.requestPasswordReset` (self-service) and `MessagingService.generatePasswordResetForMember` (owner-on-behalf-of-a-member), so the shape can't drift between them.
+- `resetPassword(token, newPassword)`: validates the token (`PasswordResetToken.isValid()` — exists, unused, unexpired), sets the new BCrypt-encoded credential on the `EMAIL` identity, and marks the token used.
+
+We need it as the single place password-setting logic lives, since it's reached from two different permission contexts (self, and workspace owner).
+
+### `PasswordResetToken`
+
+JPA entity mapped to `password_reset_tokens`, in `com.relayflow.api.authentication.domain`. Modeled on `WorkspaceInvite` — `token` is a random `UUID` (unique), `expires_at` is stamped 60 minutes past `created_at` in `@PrePersist`, and `used_at` (rather than a status enum or soft-delete column) tracks consumption. `isValid()` returns `usedAt == null && now < expiresAt`.
+
+We need it so a reset link is single-use and time-boxed without a separate session-tracking mechanism.
+
 ### `ProfileController`
 
 HTTP controller for current-user profile and security routes.
@@ -350,7 +374,7 @@ Endpoints:
 
 - `getProfile`
 - `updateProfile`
-- `changePassword`
+- `requestPasswordReset`: emails the current user a password reset link via `PasswordResetService.issueForUser`.
 - `deleteAccount`
 - `setup2FA`
 - `enable2FA`
@@ -360,13 +384,13 @@ We need it to keep account management separate from login/session endpoints.
 
 ### `ProfileService`
 
-Business service for profile, password, account deletion, preferences, and MFA state.
+Business service for profile, account deletion, preferences, and MFA state.
 
 Important methods:
 
 - `getProfile`
 - `updateProfile`
-- `changePassword`
+- `requestPasswordReset`: thin delegate to `PasswordResetService.issueForUser`.
 - `deleteAccount`
 - `setup2FA`
 - `enable2FA`
@@ -422,14 +446,7 @@ We need it so one user can have multiple login methods, such as email/password a
 
 ### `UserPreferences`
 
-JPA entity for per-user preferences.
-
-Important fields:
-
-- `userId`
-- `receiveEmailUpdates`
-- `createdAt`
-- `updatedAt`
+JPA entity for per-user preferences — currently just `userId`/`createdAt`/`updatedAt` with no preference fields of its own (the one it had, `receiveEmailUpdates`, was removed along with the marketing-email opt-in checkbox now that RelayFlow is self-hosted-only). Kept as the landing spot for any future per-user setting rather than deleted outright.
 
 We need it to keep preferences out of the core identity row.
 
@@ -481,14 +498,14 @@ We need it so MFA support can grow beyond TOTP without redesigning the table.
 - `LoginRequest`: email and password.
 - `Login2FARequest`: 2FA challenge token and OTP.
 - `AuthenticatedUserResponse`: normalized auth/session state for the frontend.
+- `ResetPasswordRequest`: new password only — no current password, since possessing a valid token is the proof.
 
 We need these records as stable API contracts between backend and frontend.
 
 ### Profile DTO Records
 
-- `ProfileResponse`: user profile, preferences, providers, and 2FA state.
-- `UpdateProfileRequest`: display name and email update preference.
-- `ChangePasswordRequest`: current and new password.
+- `ProfileResponse`: user profile, providers, and 2FA state.
+- `UpdateProfileRequest`: display name.
 - `DeleteAccountRequest`: optional password for account deletion.
 - `Setup2FAResponse`: `otpauth://` URI for QR display.
 - `OtpRequest`: authenticator code.
@@ -509,6 +526,7 @@ We need it to keep persistence access declarative and testable.
 - `UserPreferencesRepository`: stores per-user preferences.
 - `UserMfaMethodRepository`: stores enabled/pending MFA methods.
 - `TwoFactorChallengeRepository`: stores short-lived 2FA login challenges.
+- `PasswordResetTokenRepository`: looks up a `PasswordResetToken` by its token UUID.
 
 We need these repositories because login methods, profile preferences, and MFA are deliberately split out of the core `User` table.
 
@@ -553,7 +571,7 @@ HTTP controller for workspace, member, channel account, contact, identity, conve
 Important methods:
 
 - `listWorkspaces`, `createWorkspace`
-- `listMembers`, `inviteMember`, `updateMember`, `removeMember`
+- `listMembers`, `inviteMember`, `updateMember`, `removeMember`, `generatePasswordResetForMember` — owner-only
 - `listChannelAccounts`, `createChannelAccount`, `disconnectChannelAccount`, `reconnectChannelAccount`
 - `listContacts`, `createContact`, `getContact`, `mergeContacts`, `deleteContact`
 - `updateContactFieldDefinitions`, `updateContactCustomFields` — require `CONTACT_FIELDS_WRITE` permission or owner role
@@ -572,6 +590,7 @@ Important methods:
 - `createWorkspace`: creates a workspace and owner membership. Used both by `AuthenticationService.bootstrap` (first-run instance setup) and by the authenticated "create another workspace" flow.
 - `listWorkspaces`: lists workspaces by membership.
 - `listWorkspaceMembers`, `inviteWorkspaceMember`, `updateWorkspaceMember`, `removeWorkspaceMember`, `transferOwnership`: owner/member management with single-owner safeguards.
+- `generatePasswordResetForMember`: resolves `WorkspaceMember` → `userId`, then delegates to `PasswordResetService.issueForUser` — the same issuing path a member's own self-service request uses.
 - `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook.
 - `disconnectChannelAccount` / `reconnectChannelAccount`: toggles channel availability without deleting history.
 - `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
@@ -580,7 +599,7 @@ Important methods:
 - `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
 - `createExternalIdentity`, `createConversation`
 - `listConversations`, `getConversation`, `updateConversationStatus`, `listMessages`
-- `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events.
+- `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason` on that same first human (`MessageSenderType.AGENT`) outbound reply.
 - `deleteWorkspace`: removes all workspace-owned data.
 
 We need it because messaging has cross-entity rules that should not live in controllers or repositories.
@@ -726,15 +745,17 @@ We need it so authorized users can manage outbound integration webhooks.
 
 ### `EmailService` And `SmtpEmailService`
 
-Email abstraction and its SMTP-backed implementation for transactional emails. SMTP works with any
-provider (Resend, SES, Mailgun, Postmark, Gmail, a self-hosted mail server) rather than locking
-self-hosters into one vendor's REST API.
+Email abstraction and its SMTP-backed implementation for transactional emails: `sendInvite`,
+`sendEmailVerification`, `sendPasswordReset`, `sendDowngradeNotice`. SMTP works with any provider
+(Resend, SES, Mailgun, Postmark, Gmail, a self-hosted mail server) rather than locking self-hosters
+into one vendor's REST API. When `smtp.host` is blank, every method falls back to logging the link
+at `INFO` instead of sending, so these flows are testable locally with no mail server.
 
-We need them so invite delivery can be swapped or disabled without changing invite domain logic.
+We need them so invite/verification/reset delivery can be swapped or disabled without changing the domain logic that calls them.
 
 ### `ReservedContactFieldResolver`
 
-`@Component` in the `messaging` package. `resolve(contact, identities)` returns the reserved contact field values ({@link ReservedContactField}) that can already be derived from existing data, without asking the AI agent or an operator: `displayName` from `Contact.displayName`, `phone` (and, via `libphonenumber`, `country`) from a WhatsApp or SMS `ExternalIdentity`, `email` from an EMAIL identity. A key is omitted (not included with an empty value) when nothing can be derived.
+`@Component` in the `messaging` package. `resolve(contact, identities)` returns the reserved contact field values ({@link ReservedContactField}) that can already be derived from existing data, without asking the AI agent or an operator: `displayName` from `Contact.displayName`, `firstName`/`lastName` from a Telegram `ExternalIdentity`'s `rawProfile` (populated by `TelegramAdapter.buildRawProfile` from the inbound update's `from` user), `phone` (and, via `libphonenumber`, `country`) from a WhatsApp or SMS `ExternalIdentity`, `email` from an EMAIL identity. A key is omitted (not included with an empty value) when nothing can be derived.
 
 Used by `MessagingService.getContactDetail` to seed a contact's `customFields` response before the explicitly-stored values overwrite it (derived values only ever fill a gap, never override an explicit one), and by `ContactCustomFieldWriter` to check whether a reserved key is already effectively known before writing an AI extraction.
 
@@ -865,13 +886,26 @@ We need it to persist webhook delivery settings and encrypted signing secrets.
 
 ### `WebhookEventType`
 
-Enum of outbound webhook event types.
+Enum of outbound webhook event types, in `com.relayflow.api.webhook.domain` alongside `WorkspaceWebhook`.
 
-Current value:
+Values:
 
 - `CONTACT_CREATED` maps to payload event name `contact.created`.
+- `CONTACT_UPDATED` maps to payload event name `contact.updated` — dispatched from every contact-field write path: manual edit (`MessagingService.updateContactCustomFields`), AI extraction (`ContactCustomFieldWriter`), and the workflow Set Contact Field node (`SetContactFieldNodeExecutor`).
 
 We need it so persisted webhook subscriptions and dispatched payload names stay aligned.
+
+### `ContactSnapshotBuilder`
+
+Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by all three write paths above so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key.
+
+We need it because the same payload had to be built from three different packages (`messaging`, `agent`, `workflow.engine.executor`), all of which already depend on `com.relayflow.api.webhook` for `WebhookDispatchService`.
+
+### `ContactSnapshot`
+
+`record ContactSnapshot(Map<String, Object> contact)` in `com.relayflow.api.webhook.dto` — the `contact.updated` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
+
+We need it so the outer payload shape (`{"contact": {...}}`) is a typed DTO like the rest of `webhook.dto`, even though the inner contact map stays dynamic.
 
 ### `ChannelAccount`
 
@@ -913,7 +947,7 @@ We need it to group identities and conversations around the human customer.
 
 ### `ReservedContactField`
 
-Enum: `DISPLAY_NAME` (`"displayName"`), `PHONE` (`"phone"`), `EMAIL` (`"email"`), `COUNTRY` (`"country"`). Contact fields RelayFlow already derives automatically — a workspace can't redefine any of these as a custom field.
+Enum: `DISPLAY_NAME` (`"displayName"`), `FIRST_NAME` (`"firstName"`), `LAST_NAME` (`"lastName"`), `PHONE` (`"phone"`), `EMAIL` (`"email"`), `COUNTRY` (`"country"`). Contact fields RelayFlow already derives automatically — a workspace can't redefine any of these as a custom field.
 
 `isReserved(candidateKey)` does a case-insensitive comparison against each enum value's `key()` (`field.key.equalsIgnoreCase(trimmed)`) — both sides must be compared case-insensitively, not just the candidate, since a key like `displayName` isn't all-lowercase.
 
@@ -950,9 +984,10 @@ Important fields:
 - `lockedByAiAgent`: true during an active AI agent invocation pipeline run.
 - `assigneeId`
 - `lastMessageAt`
+- `escalatedAt` / `escalationReason`: set by `AiAgentInvocationService.broadcastEscalation` when the AI agent escalates (keyword match or LLM-requested); cleared by `MessagingService.createMessage` on the next outbound message from a human agent (`MessageSenderType.AGENT`).
 - `sessionStartedAt`: reset to `now()` whenever the conversation is reopened. Used by `AiAgentContextAssembler` to scope history to the current session only, preventing old closed-conversation messages from polluting the LLM context.
 
-We need it as the inbox unit users read, select, and reply to. `lockedByWorkflow` and `lockedByAiAgent` prevent agents from interrupting active automation.
+We need it as the inbox unit users read, select, and reply to. `lockedByWorkflow` and `lockedByAiAgent` prevent agents from interrupting active automation; `escalatedAt` surfaces conversations that need a human without gating who can reply.
 
 ### `ConversationStatus`
 
@@ -1041,9 +1076,15 @@ We need it so message and workspace changes can update open browser sessions imm
 
 ### `SseBroadcastEvent`
 
-Application event containing `workspaceId`, `eventName`, and `payload`.
+Application event containing `workspaceId`, `eventType` (`SseEventType`), and `payload`.
 
 We need it to decouple domain transactions from SSE delivery.
+
+### `SseEventType`
+
+Enum of SSE event names: `MESSAGE_CREATED`, `CONVERSATION_UPDATED`, `AI_DRAFT_CREATED`, `AI_ESCALATED`. `getEventName()` returns the dot-notation string (e.g. `"message.created"`) sent as the SSE event's `event:` field.
+
+We need it so the ten-plus call sites that publish an `SseBroadcastEvent` share one source of truth for event names instead of each repeating the same string literal.
 
 ## Telegram Backend
 
@@ -1069,6 +1110,7 @@ Important methods:
 - `sendTelegramMessage`: calls Telegram Bot API with retry and attaches a one-time reply keyboard when button options are present.
 - `sendTelegramMessageQuietly`: best-effort bot replies for linking/error hints.
 - `createIdentity`, `createConversation`, `buildDisplayName`: helper methods for inbound normalization.
+- `buildRawProfile`: captures the inbound update's `firstName`/`lastName` (trimmed, omitted if blank) onto the `ExternalIdentity.rawProfile` map, so `ReservedContactFieldResolver` can derive them.
 
 We need it to keep Telegram-specific behavior out of the channel-agnostic messaging service.
 
@@ -1584,9 +1626,16 @@ We need them for the workspace contact-management surface.
 
 ### Invite Pages
 
-- `invite/[token]/page.tsx`: loads invite preview and renders the invite acceptance flow.
+- `invite/page.tsx`: reads `?token=` from the query string, loads the invite preview server-side, and renders `InviteAcceptCard`.
 
 We need it so invited users can inspect and accept workspace invitations.
+
+### Reset Password Page
+
+- `reset-password/[token]/page.tsx`: server component; renders the RelayFlow-branded card shell (same layout as `/setup`/`/login`) around `ResetPasswordForm`. Unlike `/setup`/`/login`, this route has no auth-state redirect — it must stay reachable whether the visitor is logged out, or logged into a different account than the one being reset.
+- `reset-password/[token]/ResetPasswordForm.tsx`: client component. New/confirm password fields with client-side match validation (mirrors the removed self-service change-password form), submits via `useResetPassword`. No preview/validation step before rendering the form — an invalid or expired token only surfaces as an inline error on submit, from the `400`/`404` `PasswordResetService.resetPassword` returns. On success, replaces the form with a confirmation and a link to `/login`.
+
+We need it as the one place a password is ever actually set after signup — reached both from a self-requested link and one a workspace owner generates for a member.
 
 ### Profile Pages
 
@@ -1735,7 +1784,7 @@ We need it to coordinate sidebar selection, mobile layout behavior, and real-tim
 
 ### `ConversationList`
 
-Displays the conversation list, paginated with infinite scroll, with an empty state that links to `/settings` to connect a channel.
+Displays the conversation list, paginated with infinite scroll. Two distinct empty states based on `useChannelAccounts`: if the workspace has no `ACTIVE` channel, the empty state links to `/settings` to connect one; if a channel is already connected but there are simply no conversations yet, it shows a plain "No conversations yet" message instead.
 
 We need it as the inbox conversation selector.
 
@@ -1749,6 +1798,8 @@ Important values/functions:
 - `LOCALE`: timestamp locale.
 - `formatTimestamp`: human-readable row timestamp.
 
+Shows a red "error" icon next to the contact name when `conversation.escalatedAt` is set, titled with `escalationReason`.
+
 We need it to make the conversation list scannable.
 
 ### `MessageThread`
@@ -1758,6 +1809,8 @@ Displays selected conversation messages and composer.
 Important values:
 
 - `STATUS_CHIP`: maps conversation state to chip styles.
+
+Shows an "Escalated" pill in the header (same slot as the "Workflow" lock pill) when `conversation.escalatedAt` is set, titled with `escalationReason`.
 
 Important state:
 
@@ -1836,8 +1889,8 @@ Client-side profile management screen.
 
 Important sections:
 
-- personal information and email-update preference.
-- password change for email/password accounts.
+- personal information (display name, read-only email).
+- password, for email/password accounts — no in-place change form; `PasswordSection` sends the current user a reset link (`useRequestPasswordReset` → `POST /profile/request-password-reset`) and shows a toast, matching how the flow completes at `/reset-password/{token}` rather than on this page.
 - TOTP two-factor setup, enable, and disable flow.
 - account deletion danger zone.
 
@@ -1902,6 +1955,7 @@ Important capabilities:
 - invite a member with selected permissions.
 - update member permissions.
 - remove members.
+- generate a password reset link for a member (owner-only, `password` icon button next to Edit permissions/Remove — gated the same way, `viewerIsOwner && !isOwner`) via `useGenerateMemberPasswordReset`.
 - list and revoke pending invites.
 
 `PERMISSION_GROUPS` is the actual grantable-permission checklist shown for both inviting and editing a member (`ALL_PERMISSION_LABELS` is a separate flat map used only for the collapsed pill display) — every `WorkspacePermission` value must have an entry here or an owner has no UI control to grant it, even if the backend already checks for it.
@@ -1919,7 +1973,7 @@ We need it so external integration setup lives in one settings area.
 Settings home for basic workspace-level configuration.
 
 - Workspace rename: owner-only. Tracks a local `edited` override over the fetched workspace name so the input stays controlled while typing, and disables the save button until the trimmed value differs from the persisted name. Uses `useWorkspace` and `useUpdateWorkspace`.
-- Contact fields: defines the workspace's custom contact field schema (key/label/description). Visible to every member (read-only list, including the four reserved fields shown plainly alongside custom ones with no "Reserved" badge or callout — just what each field is, not how/whether it's auto-filled); the add/edit/remove form only renders for a member with `CONTACT_FIELDS_WRITE` or owner role. Blocks saving (and flags inline) if a key collides with a reserved key, via `isReservedContactFieldKey` — a case-insensitive check on both sides, since a reserved key like `displayName` isn't all-lowercase.
+- Contact fields: defines the workspace's custom contact field schema (key/label/description). Visible to every member (read-only list, including the six reserved fields shown plainly alongside custom ones with no "Reserved" badge or callout — just what each field is, not how/whether it's auto-filled); the add/edit/remove form only renders for a member with `CONTACT_FIELDS_WRITE` or owner role. Blocks saving (and flags inline) if a key collides with a reserved key, via `isReservedContactFieldKey` — a case-insensitive check on both sides, since a reserved key like `displayName` isn't all-lowercase.
 
 We need it as the settings home for basic workspace-level configuration that doesn't belong under channels, members, or integrations.
 
@@ -1996,6 +2050,7 @@ Important constants:
 - `BODY_PLACEHOLDERS`
 - `RESPONSE_TYPE_OPTIONS`
 - `TYPE_LABEL`
+- `WHATSAPP_BUTTON_TITLE_LIMIT` (20) — `WaitForReplyForm` shows an inline warning under an option's text input once it exceeds this length, since WhatsApp truncates interactive button titles beyond it (only checked for three or fewer options, since that's the button-eligible range — see the `WhatsApp uses native buttons for up to three options` behavior in `TelegramAdapter`/`WhatsAppAdapter`).
 
 Important form parts:
 
@@ -2171,6 +2226,7 @@ We need it to simplify imports in `WorkflowEditor`.
 - `useLogin2FA`: completes the OTP challenge after password login.
 - `useSignup`: invite-gated signup mutation with error toast support.
 - `useBootstrap`: first-run instance bootstrap mutation with error toast support.
+- `useResetPassword`: consumes a `/reset-password/{token}` link and sets a new password — no toast, since `ResetPasswordForm` renders its own inline success/error state instead.
 - `useLogout`: logout mutation and cache cleanup.
 
 We need them to keep auth forms/components declarative.
@@ -2178,8 +2234,8 @@ We need them to keep auth forms/components declarative.
 ### Profile Hooks
 
 - `useProfile`: fetches current profile state.
-- `useUpdateProfile`: updates display name and email-update preference.
-- `useChangePassword`: changes an email/password account password.
+- `useUpdateProfile`: updates display name.
+- `useRequestPasswordReset`: emails the current user a password reset link; success/error surfaced via toast.
 - `useDeleteAccount`: deletes the current account and clears auth state.
 - `useSetup2FA`: starts TOTP setup and returns an `otpauth://` URI.
 - `useEnable2FA`: verifies OTP and enables TOTP.
@@ -2197,6 +2253,7 @@ We need them to keep profile/security mutations outside the profile component.
 - `useWorkspaceMembers`: fetches workspace members.
 - `useUpdateMember`: updates member role/permissions.
 - `useRemoveMember`: removes a member.
+- `useGenerateMemberPasswordReset`: owner action — emails a member a password reset link; success/error surfaced via toast.
 - `useWorkspaceInvites`: fetches pending invites.
 - `useCreateInvite` / `useInviteMember`: creates invites.
 - `useRevokeInvite`: revokes invites.
@@ -2230,7 +2287,7 @@ We need them for contact-management screens.
 - `useMessages`: infinite query for messages.
 - `useSendMessage`: creates outbound messages and invalidates conversation/message caches.
 - `useUpdateConversation`: changes conversation status.
-- `useWorkspaceEvents`: opens SSE and invalidates React Query caches on `message.created`, `workspace.updated`, `ai.draft.created`, and `ai.escalated` events.
+- `useWorkspaceEvents`: opens SSE and invalidates React Query caches on `message.created`, `ai.draft.created`, and `ai.escalated` events (the last just invalidates the conversation list so `ConversationItem`/`MessageThread` pick up `escalatedAt`). The backend also emits `conversation.updated` over the same stream, but nothing here listens for it yet.
 
 Important constants:
 
@@ -2290,7 +2347,7 @@ Important types:
 - `AuthenticatedUserResponse`
 - `ProfileResponse`
 - `UpdateProfilePayload`
-- `ChangePasswordPayload`
+- `ResetPasswordPayload`
 - `DeleteAccountPayload`
 - `Setup2FAResponse`
 - `OtpPayload`
@@ -2302,9 +2359,10 @@ Important functions:
 - `getInstanceStatus`
 - `login`
 - `login2FA`
+- `resetPassword`
 - `getProfile`
 - `updateProfile`
-- `changePassword`
+- `requestPasswordReset`
 - `deleteAccount`
 - `setup2FA`
 - `enable2FA`
@@ -2591,7 +2649,7 @@ Flow:
 5. Deterministic keyword escalation check.
 6. Assemble context via `AiAgentContextAssembler` and call LLM.
 7. Decision:
-   - `escalate` → broadcast SSE + ESCALATED.
+   - `escalate` → stamp `Conversation.escalatedAt`/`escalationReason`, broadcast `ai.escalated` SSE + ESCALATED (see `broadcastEscalation`; cleared later by `MessagingService.createMessage` on the next human reply).
    - `trigger_workflow:` in `suggestedActions` and autonomy ceiling is `AUTO_SEND` → `WorkflowEngineService.executeWorkflow()` + SENT.
    - `trigger_workflow:` action and `DRAFT_ONLY` ceiling → save draft with the action in `suggestedActions` + broadcast + DRAFTED (human approves via `POST /trigger-workflow/{workflowId}`).
    - `draftOnly` OR `confidence == "low"` OR `needsClarification` → save draft + broadcast + DRAFTED.

@@ -12,18 +12,14 @@ type MessageCreatedEvent = {
   conversationId: string;
 };
 
-type WorkspaceUpdatedEvent = {
-  workspaceId: string;
-};
-
 type AiDraftCreatedEvent = {
   conversationId: string;
 };
 
 /**
  * Opens a Server-Sent Events connection for the given workspace and invalidates
- * the relevant React Query caches whenever a {@code message.created} or
- * {@code workspace.updated} event arrives.
+ * the relevant React Query caches whenever a {@code message.created} event
+ * arrives.
  *
  * Falls back gracefully if the browser does not support {@code EventSource} or
  * if the connection fails — polling in the query hooks acts as the backstop.
@@ -58,19 +54,6 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
       }
     });
 
-    // Fired when workspace state changes without a new message.
-    es.addEventListener("workspace.updated", (event) => {
-      try {
-        const data = JSON.parse(event.data) as WorkspaceUpdatedEvent;
-
-        void queryClient.invalidateQueries({
-          queryKey: ["conversations", data.workspaceId],
-        });
-      } catch {
-        // Malformed event data — ignore.
-      }
-    });
-
     es.addEventListener("ai.draft.created", (event) => {
       try {
         const data = JSON.parse(event.data) as AiDraftCreatedEvent;
@@ -81,6 +64,12 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
       } catch {
         // Malformed event data — ignore.
       }
+    });
+
+    es.addEventListener("ai.escalated", () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["conversations", workspaceId],
+      });
     });
 
     es.onerror = () => {

@@ -27,6 +27,7 @@ const mockConversation = {
 // at the module level and override the return value per test instead.
 const mockUseConversations = vi.fn();
 const mockUseCurrentMember = vi.fn();
+const mockUseChannelAccounts = vi.fn();
 
 vi.mock("@/hooks/use-conversations", () => ({
   useConversations: (...args: unknown[]) => mockUseConversations(...args),
@@ -38,6 +39,10 @@ vi.mock("@/hooks/use-authentication", () => ({
 
 vi.mock("@/hooks/use-current-member", () => ({
   useCurrentMember: (...args: unknown[]) => mockUseCurrentMember(...args),
+}));
+
+vi.mock("@/hooks/use-channel-accounts", () => ({
+  useChannelAccounts: (...args: unknown[]) => mockUseChannelAccounts(...args),
 }));
 
 const ownerMember = {
@@ -76,6 +81,7 @@ function renderList(props?: { selectedId?: string }) {
 describe("ConversationList", () => {
   beforeEach(() => {
     mockUseCurrentMember.mockReturnValue(ownerMember);
+    mockUseChannelAccounts.mockReturnValue({ data: undefined });
   });
 
   it("shows a spinner while loading", () => {
@@ -107,6 +113,26 @@ describe("ConversationList", () => {
     expect(
       screen.getByRole("link", { name: /connect a channel/i })
     ).toBeInTheDocument();
+  });
+
+  it("shows a plain empty state without a connect prompt when a channel is already connected", () => {
+    mockUseChannelAccounts.mockReturnValue({
+      data: [{ id: "ch-1", status: "ACTIVE" }],
+    });
+    mockUseConversations.mockReturnValue(
+      baseHookReturn({ data: { pages: [{ items: [], hasMore: false }] } })
+    );
+
+    renderList();
+
+    expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/messages will show up here/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /connect a channel/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /connect a channel/i })
+    ).not.toBeInTheDocument();
   });
 
   it("disables the connect-channel button for a member without channel access", () => {

@@ -4,13 +4,13 @@ import java.util.Arrays;
 
 /**
  * Contact fields RelayFlow already derives automatically from existing data — a workspace can't
- * redefine any of these as a custom field (enforced in {@code
- * MessagingService.updateContactFieldDefinitions}). Human-readable labels/descriptions for these
- * live in the frontend (see {@code RESERVED_CONTACT_FIELDS} in {@code messaging-api.ts}), mirroring
- * how {@link WorkspacePermission} carries no display copy either.
+ * redefine any of these as a custom field. Human-readable labels/descriptions live in the frontend
+ * ({@code RESERVED_CONTACT_FIELDS} in {@code messaging-api.ts}).
  */
 public enum ReservedContactField {
     DISPLAY_NAME("displayName"),
+    FIRST_NAME("firstName"),
+    LAST_NAME("lastName"),
     PHONE("phone"),
     EMAIL("email"),
     COUNTRY("country");

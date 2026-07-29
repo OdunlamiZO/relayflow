@@ -6,6 +6,7 @@ import com.relayflow.api.messaging.domain.ChannelProvider;
 import com.relayflow.api.messaging.domain.Contact;
 import com.relayflow.api.messaging.domain.ExternalIdentity;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ReservedContactFieldResolverTest {
@@ -16,6 +17,14 @@ class ReservedContactFieldResolverTest {
         ExternalIdentity identity = new ExternalIdentity();
         identity.setProvider(provider);
         identity.setExternalUserId(externalUserId);
+
+        return identity;
+    }
+
+    private ExternalIdentity telegramIdentity(
+            String externalUserId, Map<String, Object> rawProfile) {
+        ExternalIdentity identity = identity(ChannelProvider.TELEGRAM, externalUserId);
+        identity.setRawProfile(rawProfile);
 
         return identity;
     }
@@ -38,6 +47,30 @@ class ReservedContactFieldResolverTest {
         var fields = resolver.resolve(contact, List.of());
 
         assertThat(fields).doesNotContainKey("displayName");
+    }
+
+    @Test
+    void resolvesFirstAndLastNameFromATelegramIdentity() {
+        Contact contact = new Contact();
+        List<ExternalIdentity> identities =
+                List.of(
+                        telegramIdentity(
+                                "123456789", Map.of("firstName", "Ada", "lastName", "Lovelace")));
+
+        var fields = resolver.resolve(contact, identities);
+
+        assertThat(fields).containsEntry("firstName", "Ada");
+        assertThat(fields).containsEntry("lastName", "Lovelace");
+    }
+
+    @Test
+    void omitsFirstAndLastNameWhenNotInTheTelegramRawProfile() {
+        Contact contact = new Contact();
+        List<ExternalIdentity> identities = List.of(telegramIdentity("123456789", Map.of()));
+
+        var fields = resolver.resolve(contact, identities);
+
+        assertThat(fields).doesNotContainKeys("firstName", "lastName");
     }
 
     @Test

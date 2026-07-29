@@ -234,6 +234,9 @@ const NO_VALUE_OPERATORS = new Set<ConditionOperator>(["is_set", "is_not_set"]);
 /** Combined "Wait for Reply" timeout budget across an entire workflow. */
 const MAX_TOTAL_TIMEOUT_MINUTES = 7 * 24 * 60;
 
+/** WhatsApp truncates interactive button titles beyond this length. */
+const WHATSAPP_BUTTON_TITLE_LIMIT = 20;
+
 function ConditionForm({
   nodeId,
   data,
@@ -1180,28 +1183,39 @@ function WaitForReplyForm({
       {responseType === "defined" && (
         <>
           {options.map((opt, i) => (
-            <div key={opt.id} className="flex items-center gap-2">
-              <span className="flex-shrink-0 text-xs text-neutral-400">
-                {i + 1}.
-              </span>
-
-              <input
-                type="text"
-                value={opt.text}
-                onChange={(e) => updateOption(opt.id, e.target.value)}
-                placeholder={`Option ${i + 1} text`}
-                className={`${inputCls} flex-1`}
-              />
-
-              <button
-                onClick={() => removeOption(opt.id)}
-                className="flex-shrink-0 text-neutral-300 transition-colors hover:text-red-border"
-                title="Remove option"
-              >
-                <span className="material-symbols-rounded text-[14px] leading-none">
-                  delete
+            <div key={opt.id}>
+              <div className="flex items-center gap-2">
+                <span className="flex-shrink-0 text-xs text-neutral-400">
+                  {i + 1}.
                 </span>
-              </button>
+
+                <input
+                  type="text"
+                  value={opt.text}
+                  onChange={(e) => updateOption(opt.id, e.target.value)}
+                  placeholder={`Option ${i + 1} text`}
+                  className={`${inputCls} flex-1`}
+                />
+
+                <button
+                  onClick={() => removeOption(opt.id)}
+                  className="flex-shrink-0 text-neutral-300 transition-colors hover:text-red-border"
+                  title="Remove option"
+                >
+                  <span className="material-symbols-rounded text-[14px] leading-none">
+                    delete
+                  </span>
+                </button>
+              </div>
+
+              {options.length <= 3 &&
+                opt.text.length > WHATSAPP_BUTTON_TITLE_LIMIT && (
+                  <p className="ml-5 text-xs text-red-text">
+                    WhatsApp buttons are limited to{" "}
+                    {WHATSAPP_BUTTON_TITLE_LIMIT} characters — this will be
+                    truncated.
+                  </p>
+                )}
             </div>
           ))}
 

@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Spinner } from "@/components/common/Spinner";
 import { useAuthentication } from "@/hooks/use-authentication";
+import { useChannelAccounts } from "@/hooks/use-channel-accounts";
 import { useConversations } from "@/hooks/use-conversations";
 import { useCurrentMember } from "@/hooks/use-current-member";
 
@@ -41,6 +42,10 @@ export function ConversationList({
 
   const conversations = data?.pages.flatMap((page) => page.items) ?? [];
   const isEmpty = !isLoading && !isError && conversations.length === 0;
+
+  const { data: channelAccounts } = useChannelAccounts(workspaceId);
+  const hasActiveChannel =
+    channelAccounts?.some((c) => c.status === "ACTIVE") ?? false;
 
   // Same permission check as SettingsShell's Channels tab — no point linking
   // there if the user can't see or use it once they arrive.
@@ -93,7 +98,17 @@ export function ConversationList({
           />
         )}
 
-        {isEmpty && (
+        {isEmpty && hasActiveChannel && (
+          <div className="flex flex-col items-center gap-4 px-4 py-10 text-center">
+            <EmptyState
+              icon="forum"
+              title="No conversations yet"
+              description="Messages will show up here once a contact reaches out on a connected channel."
+            />
+          </div>
+        )}
+
+        {isEmpty && !hasActiveChannel && (
           <div className="flex flex-col items-center gap-4 px-4 py-10 text-center">
             <EmptyState
               icon="forum"

@@ -246,6 +246,8 @@ class MessagingControllerTest {
                                                 false,
                                                 null,
                                                 null,
+                                                null,
+                                                null,
                                                 Instant.parse("2026-05-26T10:00:00Z"))),
                                 false,
                                 null));
@@ -277,6 +279,8 @@ class MessagingControllerTest {
                                 ConversationStatus.OPEN,
                                 false,
                                 false,
+                                null,
+                                null,
                                 null,
                                 null,
                                 Instant.parse("2026-05-26T10:00:00Z")));

@@ -18,4 +18,6 @@ public record ConversationResponse(
         boolean lockedByAiAgent,
         UUID assigneeId,
         Instant lastMessageAt,
+        Instant escalatedAt,
+        String escalationReason,
         Instant createdAt) {}

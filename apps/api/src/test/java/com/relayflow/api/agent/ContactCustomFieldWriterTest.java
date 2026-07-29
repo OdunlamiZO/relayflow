@@ -14,6 +14,7 @@ import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.Workspace;
 import com.relayflow.api.messaging.repository.ContactRepository;
 import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
+import com.relayflow.api.webhook.WebhookDispatchService;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,9 +32,14 @@ class ContactCustomFieldWriterTest {
 
     @Mock private ReservedContactFieldResolver reservedContactFieldResolver;
 
+    @Mock private WebhookDispatchService webhookDispatchService;
+
     private ContactCustomFieldWriter writer() {
         return new ContactCustomFieldWriter(
-                contactRepository, externalIdentityRepository, reservedContactFieldResolver);
+                contactRepository,
+                externalIdentityRepository,
+                reservedContactFieldResolver,
+                webhookDispatchService);
     }
 
     private Conversation conversationWithDefinedFields(String... keys) {

@@ -107,13 +107,11 @@ public class SecurityConfiguration {
                                                 "/auth/signup",
                                                 "/auth/login",
                                                 "/auth/login/2fa",
+                                                "/auth/reset-password/*",
                                                 "/telegram/webhook/**",
                                                 "/whatsapp/webhook/**",
                                                 "/oauth2/authorization/**",
-                                                "/login/oauth2/code/**",
-                                                "/v3/api-docs/**",
-                                                "/swagger-ui/**",
-                                                "/swagger-ui.html")
+                                                "/login/oauth2/code/**")
                                         .permitAll()
                                         // Invite preview is public — anyone with the link can see
                                         // workspace name + inviter before deciding to sign up.

@@ -52,18 +52,16 @@ export type ProfileResponse = {
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
-  receiveEmailUpdates: boolean;
   twoFactorEnabled: boolean;
   providers: string[];
 };
 
 export type UpdateProfilePayload = {
   displayName: string;
-  receiveEmailUpdates: boolean;
 };
 
-export type ChangePasswordPayload = {
-  currentPassword: string;
+export type ResetPasswordPayload = {
+  token: string;
   newPassword: string;
 };
 
@@ -207,6 +205,12 @@ export async function logout(): Promise<void> {
   });
 }
 
+export function resetPassword(payload: ResetPasswordPayload): Promise<void> {
+  return apiPost<void>(`/auth/reset-password/${payload.token}`, {
+    newPassword: payload.newPassword,
+  });
+}
+
 // ── Profile ─────────────────────────────────────────────────────────────────
 
 export async function getProfile(): Promise<ProfileResponse> {
@@ -227,8 +231,8 @@ export function updateProfile(
   return apiPatch<ProfileResponse>("/profile", payload);
 }
 
-export function changePassword(payload: ChangePasswordPayload): Promise<void> {
-  return apiPost<void>("/profile/change-password", payload);
+export function requestPasswordReset(): Promise<void> {
+  return apiPost<void>("/profile/request-password-reset", {});
 }
 
 export function deleteAccount(payload: DeleteAccountPayload): Promise<void> {

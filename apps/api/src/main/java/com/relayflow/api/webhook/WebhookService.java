@@ -1,6 +1,7 @@
 package com.relayflow.api.webhook;
 
 import com.relayflow.api.security.CredentialEncryptionService;
+import com.relayflow.api.webhook.domain.WorkspaceWebhook;
 import com.relayflow.api.webhook.dto.RotateWebhookSecretResponse;
 import com.relayflow.api.webhook.dto.SaveWebhookRequest;
 import com.relayflow.api.webhook.dto.WebhookConfigResponse;

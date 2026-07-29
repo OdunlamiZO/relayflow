@@ -7,11 +7,11 @@ import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Spinner } from "@/components/common/Spinner";
-import { useChangePassword } from "@/hooks/use-change-password";
 import { useDeleteAccount } from "@/hooks/use-delete-account";
 import { useDisable2FA } from "@/hooks/use-disable-2fa";
 import { useEnable2FA } from "@/hooks/use-enable-2fa";
 import { useProfile } from "@/hooks/use-profile";
+import { useRequestPasswordReset } from "@/hooks/use-request-password-reset";
 import { useSetup2FA } from "@/hooks/use-setup-2fa";
 import { useUpdateProfile } from "@/hooks/use-update-profile";
 
@@ -64,10 +64,9 @@ export function ProfileShell() {
         <ProfileInfoSection
           displayName={profile.displayName ?? ""}
           email={profile.email}
-          receiveEmailUpdates={profile.receiveEmailUpdates}
         />
 
-        {hasEmailLogin && <ChangePasswordSection />}
+        {hasEmailLogin && <PasswordSection />}
 
         {hasEmailLogin && (
           <TwoFactorSection twoFactorEnabled={profile.twoFactorEnabled} />
@@ -89,22 +88,16 @@ export function ProfileShell() {
 type ProfileInfoProps = {
   displayName: string;
   email: string;
-  receiveEmailUpdates: boolean;
 };
 
-function ProfileInfoSection({
-  displayName,
-  email,
-  receiveEmailUpdates,
-}: ProfileInfoProps) {
+function ProfileInfoSection({ displayName, email }: ProfileInfoProps) {
   const { mutate: updateProfile, isPending } = useUpdateProfile();
 
   const [name, setName] = useState(displayName);
-  const [emailUpdates, setEmailUpdates] = useState(receiveEmailUpdates);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    updateProfile({ displayName: name, receiveEmailUpdates: emailUpdates });
+    updateProfile({ displayName: name });
   }
 
   return (
@@ -148,21 +141,6 @@ function ProfileInfoSection({
           />
         </div>
 
-        <label className="flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            checked={emailUpdates}
-            onChange={(e) => {
-              setEmailUpdates(e.target.checked);
-            }}
-            className="h-4 w-4 rounded border-neutral-300 accent-secondary"
-          />
-
-          <span className="text-sm text-neutral-700">
-            Receive email updates and product news
-          </span>
-        </label>
-
         <div className="flex justify-end">
           <button
             type="submit"
@@ -185,137 +163,37 @@ function ProfileInfoSection({
   );
 }
 
-// ── Change password ───────────────────────────────────────────────────────────
+// ── Password ───────────────────────────────────────────────────────────────
 
-function ChangePasswordSection() {
-  const { mutate: changePassword, isPending } = useChangePassword();
-
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [mismatch, setMismatch] = useState(false);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (newPassword !== confirmPassword) {
-      setMismatch(true);
-
-      return;
-    }
-
-    setMismatch(false);
-    changePassword(
-      { currentPassword, newPassword },
-      {
-        onSuccess: () => {
-          setCurrentPassword("");
-          setNewPassword("");
-          setConfirmPassword("");
-        },
-      }
-    );
-  }
+function PasswordSection() {
+  const { mutate: requestReset, isPending } = useRequestPasswordReset();
 
   return (
     <section className="rounded-2xl border border-neutral-300 bg-neutral-100 p-4 sm:p-6">
-      <h2 className="mb-5 text-base font-semibold text-primary">
-        Change password
-      </h2>
+      <h2 className="mb-1 text-base font-semibold text-primary">Password</h2>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="currentPassword"
-            className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
+      <p className="mb-4 text-xs text-neutral-500">
+        We&apos;ll email you a link to set a new password.
+      </p>
+
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => {
+          requestReset();
+        }}
+        className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
+      >
+        {isPending && (
+          <span
+            className="material-symbols-rounded animate-spin text-[16px]"
+            aria-hidden="true"
           >
-            Current password
-          </label>
-
-          <input
-            id="currentPassword"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={currentPassword}
-            onChange={(e) => {
-              setCurrentPassword(e.target.value);
-            }}
-            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="newPassword"
-            className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
-          >
-            New password
-          </label>
-
-          <input
-            id="newPassword"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={newPassword}
-            onChange={(e) => {
-              setNewPassword(e.target.value);
-              setMismatch(false);
-            }}
-            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="confirmPassword"
-            className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
-          >
-            Confirm new password
-          </label>
-
-          <input
-            id="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={confirmPassword}
-            onChange={(e) => {
-              setConfirmPassword(e.target.value);
-              setMismatch(false);
-            }}
-            className={`w-full rounded-lg border px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:ring-2 ${
-              mismatch
-                ? "border-red-text bg-red-bg focus:border-red-text focus:ring-red-text/20"
-                : "border-neutral-300 bg-neutral-100 focus:border-secondary focus:ring-secondary/20"
-            }`}
-          />
-
-          {mismatch && (
-            <p className="text-xs text-red-text">Passwords do not match.</p>
-          )}
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
-          >
-            {isPending && (
-              <span
-                className="material-symbols-rounded animate-spin text-[16px]"
-                aria-hidden="true"
-              >
-                progress_activity
-              </span>
-            )}
-            Update password
-          </button>
-        </div>
-      </form>
+            progress_activity
+          </span>
+        )}
+        Reset password
+      </button>
     </section>
   );
 }

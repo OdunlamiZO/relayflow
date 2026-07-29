@@ -6,6 +6,9 @@ import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.ReservedContactField;
 import com.relayflow.api.messaging.repository.ContactRepository;
 import com.relayflow.api.messaging.repository.ConversationRepository;
+import com.relayflow.api.webhook.ContactSnapshotBuilder;
+import com.relayflow.api.webhook.WebhookDispatchService;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.engine.ExecutionContext;
 import com.relayflow.api.workflow.engine.GraphNode;
@@ -17,10 +20,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Sets (or overwrites) a contact's custom field — one of {@link ReservedContactField} or a field
- * the workspace has defined. Unlike {@link com.relayflow.api.agent.ContactCustomFieldWriter}'s
- * passive, gap-filling AI extraction, this node is a deliberate operator-configured action and
- * always overwrites, matching manual edits from the contact detail panel.
+ * Sets (or overwrites) a contact's custom field — a {@link ReservedContactField} or a field the
+ * workspace has defined.
  */
 @Component
 public class SetContactFieldNodeExecutor implements NodeExecutor {
@@ -29,10 +30,15 @@ public class SetContactFieldNodeExecutor implements NodeExecutor {
 
     private final ContactRepository contactRepository;
 
+    private final WebhookDispatchService webhookDispatchService;
+
     public SetContactFieldNodeExecutor(
-            ConversationRepository conversationRepository, ContactRepository contactRepository) {
+            ConversationRepository conversationRepository,
+            ContactRepository contactRepository,
+            WebhookDispatchService webhookDispatchService) {
         this.conversationRepository = conversationRepository;
         this.contactRepository = contactRepository;
+        this.webhookDispatchService = webhookDispatchService;
     }
 
     @Override
@@ -77,6 +83,11 @@ public class SetContactFieldNodeExecutor implements NodeExecutor {
         Contact contact = conversation.getContact();
         contact.getCustomFields().put(key, resolvedValue);
         contactRepository.save(contact);
+
+        webhookDispatchService.dispatch(
+                conversation.getWorkspace().getId(),
+                WebhookEventType.CONTACT_UPDATED,
+                ContactSnapshotBuilder.build(contact));
 
         return NodeExecutionResult.next(Map.of(key, resolvedValue));
     }

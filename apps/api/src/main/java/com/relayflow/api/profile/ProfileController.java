@@ -1,7 +1,6 @@
 package com.relayflow.api.profile;
 
 import com.relayflow.api.authentication.SecurityUtils;
-import com.relayflow.api.profile.dto.ChangePasswordRequest;
 import com.relayflow.api.profile.dto.DeleteAccountRequest;
 import com.relayflow.api.profile.dto.OtpRequest;
 import com.relayflow.api.profile.dto.ProfileResponse;
@@ -49,11 +48,10 @@ public class ProfileController {
         return profileService.updateProfile(currentUserId(authentication), request);
     }
 
-    @PostMapping("/change-password")
+    @PostMapping("/request-password-reset")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void changePassword(
-            @Valid @RequestBody ChangePasswordRequest request, Authentication authentication) {
-        profileService.changePassword(currentUserId(authentication), request);
+    void requestPasswordReset(Authentication authentication) {
+        profileService.requestPasswordReset(currentUserId(authentication));
     }
 
     @DeleteMapping

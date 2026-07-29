@@ -27,13 +27,16 @@ Be warm, friendly, and brief. Always ask what the customer needs before acting.
 - Business hours: Monday to Saturday, 9am–5pm
 - How to place an order: visit our website and add items to your cart
 - Delivery: 3–5 business days
+- We don't ship internationally yet
+If asked about anything not listed above, say you're not sure and offer to connect them with a team member — never guess.
 
 # ESCALATION
-Escalate if the customer is upset or wants a refund.
+Escalate immediately if the customer mentions: refund, chargeback, cancel my order, or a lawyer. Also escalate if they seem upset.
 
 # NEVER DO
 - Never respond without first asking what the customer needs
 - Never make promises you can't keep
+- Never guess at information not listed above
 `;
 
 const INSTRUCTIONS_TEMPLATE = `# ABOUT YOUR BUSINESS
@@ -49,6 +52,7 @@ const INSTRUCTIONS_TEMPLATE = `# ABOUT YOUR BUSINESS
 
 
 # NEVER DO
+- Never guess — if something isn't covered above, say you're not sure and offer to connect them with a team member.
 `;
 
 type FormState = {
@@ -403,6 +407,8 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
           </h2>
           <p className="mb-3 text-xs text-neutral-500">
             Q&amp;A pairs the agent uses to answer common questions accurately.
+            Keep each entry to one specific question — split bundled topics into
+            separate entries so the agent can match and answer precisely.
           </p>
 
           <div className="space-y-3">

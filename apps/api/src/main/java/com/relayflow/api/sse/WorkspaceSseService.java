@@ -68,7 +68,7 @@ public class WorkspaceSseService {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSseBroadcastEvent(SseBroadcastEvent event) {
         try {
-            broadcast(event.workspaceId(), event.eventName(), event.payload());
+            broadcast(event.workspaceId(), event.eventType().getEventName(), event.payload());
         } catch (Exception e) {
             log.debug(
                     "SSE broadcast swallowed after commit (likely a closed socket): {}",

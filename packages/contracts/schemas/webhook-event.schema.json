@@ -9,7 +9,7 @@
   "properties": {
     "event": {
       "type": "string",
-      "enum": ["contact.created"]
+      "enum": ["contact.created", "contact.updated"]
     },
     "timestamp": {
       "type": "string",
@@ -21,7 +21,8 @@
     },
     "data": {
       "oneOf": [
-        { "$ref": "#/$defs/contactCreatedData" }
+        { "$ref": "#/$defs/contactCreatedData" },
+        { "$ref": "#/$defs/contactUpdatedData" }
       ]
     }
   },
@@ -64,6 +65,29 @@
               "type": "string",
               "enum": ["TELEGRAM", "WHATSAPP"]
             }
+          }
+        }
+      }
+    },
+    "contactUpdatedData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contact"],
+      "properties": {
+        "contact": {
+          "type": "object",
+          "required": ["id", "displayName"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "displayName": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
           }
         }
       }

@@ -2,6 +2,8 @@ package com.relayflow.api.webhook;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.security.CredentialEncryptionService;
+import com.relayflow.api.webhook.domain.WebhookEventType;
+import com.relayflow.api.webhook.domain.WorkspaceWebhook;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;

@@ -152,7 +152,6 @@ services:
       DATABASE_USERNAME: ${POSTGRES_USER:-relayflow}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-}
       REDIS_URL: redis://redis:6379
-      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     depends_on:
       postgres:
         condition: service_healthy
