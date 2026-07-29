@@ -8,11 +8,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Builds the workflow variables seeded when the AI agent is the one triggering a run.
- *
- * <p>Only keys matching a field the workspace has configured are exposed as {@code agent.data.*}
- * variables — the LLM's {@code extractedData} is free-form model output, and an unconfigured (or
- * hallucinated) key must not leak into a workflow's variable namespace.
+ * Builds the workflow variables seeded when the AI agent is the one triggering a run. Only keys
+ * matching a configured {@code extractionField} are exposed as {@code agent.data.*} variables.
  */
 final class AgentWorkflowContext {
 

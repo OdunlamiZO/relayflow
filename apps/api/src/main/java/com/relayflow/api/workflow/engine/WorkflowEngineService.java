@@ -5,6 +5,7 @@ import com.relayflow.api.messaging.domain.Message;
 import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
 import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.domain.WorkflowRun;
@@ -670,7 +671,7 @@ public class WorkflowEngineService {
                             eventPublisher.publishEvent(
                                     new SseBroadcastEvent(
                                             conversation.getWorkspace().getId(),
-                                            "conversation.updated",
+                                            SseEventType.CONVERSATION_UPDATED,
                                             Map.of(
                                                     "workspaceId",
                                                             conversation

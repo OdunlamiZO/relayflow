@@ -35,9 +35,6 @@ public class UserPreferences {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "receive_email_updates", nullable = false)
-    private boolean receiveEmailUpdates = true;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 

@@ -22,11 +22,12 @@ import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.repository.MessageRepository;
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.telegram.dto.TelegramMessage;
 import com.relayflow.api.telegram.dto.TelegramUser;
 import com.relayflow.api.telegram.dto.TelegramWebhookPayload;
 import com.relayflow.api.webhook.WebhookDispatchService;
-import com.relayflow.api.webhook.WebhookEventType;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import com.relayflow.api.workflow.engine.ConversationMessageReceivedEvent;
 import com.relayflow.api.workflow.engine.ConversationOpenedEvent;
 import java.time.Instant;
@@ -276,7 +277,7 @@ public class TelegramAdapter {
         eventPublisher.publishEvent(
                 new SseBroadcastEvent(
                         workspaceId,
-                        "message.created",
+                        SseEventType.MESSAGE_CREATED,
                         Map.of(
                                 "workspaceId", workspaceId.toString(),
                                 "conversationId", conversation.getId().toString())));
@@ -377,7 +378,7 @@ public class TelegramAdapter {
         identity.setExternalUserId(externalUserId);
         identity.setExternalConversationId(chatId);
         identity.setUsername(from.username());
-        identity.setRawProfile(new LinkedHashMap<>());
+        identity.setRawProfile(buildRawProfile(from));
 
         identity = externalIdentityRepository.save(identity);
 
@@ -425,5 +426,19 @@ public class TelegramAdapter {
         }
 
         return from.username() != null ? "@" + from.username() : "Telegram User";
+    }
+
+    private Map<String, Object> buildRawProfile(TelegramUser from) {
+        Map<String, Object> rawProfile = new LinkedHashMap<>();
+
+        if (from.firstName() != null && !from.firstName().isBlank()) {
+            rawProfile.put("firstName", from.firstName().trim());
+        }
+
+        if (from.lastName() != null && !from.lastName().isBlank()) {
+            rawProfile.put("lastName", from.lastName().trim());
+        }
+
+        return rawProfile;
     }
 }

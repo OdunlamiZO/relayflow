@@ -4,10 +4,7 @@ import { Footer } from "@/components/Footer";
 import { PricingForm } from "@/components/PricingForm";
 import { configuration } from "@/lib/configuration";
 
-// Reads Paystack price/currency at request time rather than baking them into
-// a statically prerendered page — those are runtime env vars (see
-// apps/marketing/Dockerfile), not build-time ARGs, so a static prerender
-// would either fail the Docker build or freeze in a stale price.
+// Paystack price/currency are runtime-only env vars (Dockerfile has no build ARG for them).
 export const dynamic = "force-dynamic";
 
 function formatPrice(): string {

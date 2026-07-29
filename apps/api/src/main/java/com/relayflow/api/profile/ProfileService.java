@@ -1,16 +1,15 @@
 package com.relayflow.api.profile;
 
+import com.relayflow.api.authentication.PasswordResetService;
 import com.relayflow.api.authentication.domain.AuthenticationProvider;
 import com.relayflow.api.authentication.domain.MfaMethodType;
 import com.relayflow.api.authentication.domain.User;
 import com.relayflow.api.authentication.domain.UserIdentity;
 import com.relayflow.api.authentication.domain.UserMfaMethod;
-import com.relayflow.api.authentication.domain.UserPreferences;
 import com.relayflow.api.authentication.repository.UserIdentityRepository;
 import com.relayflow.api.authentication.repository.UserMfaMethodRepository;
 import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
-import com.relayflow.api.profile.dto.ChangePasswordRequest;
 import com.relayflow.api.profile.dto.DeleteAccountRequest;
 import com.relayflow.api.profile.dto.OtpRequest;
 import com.relayflow.api.profile.dto.ProfileResponse;
@@ -47,6 +46,8 @@ public class ProfileService {
 
     private final TwoFactorService twoFactorService;
 
+    private final PasswordResetService passwordResetService;
+
     public ProfileService(
             UserRepository userRepository,
             UserIdentityRepository identityRepository,
@@ -54,7 +55,8 @@ public class ProfileService {
             UserMfaMethodRepository mfaMethodRepository,
             PasswordEncoder passwordEncoder,
             CredentialEncryptionService encryptionService,
-            TwoFactorService twoFactorService) {
+            TwoFactorService twoFactorService,
+            PasswordResetService passwordResetService) {
         this.userRepository = userRepository;
         this.identityRepository = identityRepository;
         this.prefsRepository = prefsRepository;
@@ -62,6 +64,7 @@ public class ProfileService {
         this.passwordEncoder = passwordEncoder;
         this.encryptionService = encryptionService;
         this.twoFactorService = twoFactorService;
+        this.passwordResetService = passwordResetService;
     }
 
     public ProfileResponse getProfile(UUID userId) {
@@ -74,36 +77,11 @@ public class ProfileService {
         user.setDisplayName(request.displayName());
         user = userRepository.save(user);
 
-        UserPreferences prefs = requirePrefs(userId, user);
-        prefs.setReceiveEmailUpdates(request.receiveEmailUpdates());
-        prefsRepository.save(prefs);
-
         return buildProfile(user);
     }
 
-    @Transactional
-    public void changePassword(UUID userId, ChangePasswordRequest request) {
-        User user = requireUser(userId);
-
-        UserIdentity identity =
-                identityRepository
-                        .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.BAD_REQUEST,
-                                                "Password changes are only supported for"
-                                                        + " email/password accounts."));
-
-        if (!passwordEncoder.matches(request.currentPassword(), identity.getCredential())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Current password is incorrect.");
-        }
-
-        identity.setCredential(passwordEncoder.encode(request.newPassword()));
-        identityRepository.save(identity);
-
-        log.info("Password changed: userId={}", userId);
+    public void requestPasswordReset(UUID userId) {
+        passwordResetService.issueForUser(userId);
     }
 
     @Transactional
@@ -239,26 +217,12 @@ public class ProfileService {
                         () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found."));
     }
 
-    private UserPreferences requirePrefs(UUID userId, User user) {
-        return prefsRepository
-                .findById(userId)
-                .orElseGet(
-                        () -> {
-                            UserPreferences prefs = new UserPreferences();
-                            prefs.setUser(user);
-
-                            return prefsRepository.save(prefs);
-                        });
-    }
-
     private ProfileResponse buildProfile(User user) {
         boolean twoFactorEnabled =
                 mfaMethodRepository
                         .findByUserAndType(user, MfaMethodType.TOTP)
                         .map(UserMfaMethod::isEnabled)
                         .orElse(false);
-
-        UserPreferences prefs = requirePrefs(user.getId(), user);
 
         List<String> providers =
                 identityRepository.findAllByUser(user).stream()
@@ -272,7 +236,6 @@ public class ProfileService {
                 user.getEmail(),
                 user.getDisplayName(),
                 user.getAvatarUrl(),
-                prefs.isReceiveEmailUpdates(),
                 twoFactorEnabled,
                 providers);
     }

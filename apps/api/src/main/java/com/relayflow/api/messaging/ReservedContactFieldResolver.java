@@ -32,6 +32,11 @@ public class ReservedContactFieldResolver {
             fields.put(ReservedContactField.DISPLAY_NAME.key(), contact.getDisplayName());
         }
 
+        findTelegramProfileField(identities, "firstName")
+                .ifPresent(v -> fields.put(ReservedContactField.FIRST_NAME.key(), v));
+        findTelegramProfileField(identities, "lastName")
+                .ifPresent(v -> fields.put(ReservedContactField.LAST_NAME.key(), v));
+
         String phone = findIdentifier(identities, ChannelProvider.WHATSAPP, ChannelProvider.SMS);
         if (phone != null) {
             fields.put(ReservedContactField.PHONE.key(), phone);
@@ -45,6 +50,16 @@ public class ReservedContactFieldResolver {
         }
 
         return fields;
+    }
+
+    private Optional<String> findTelegramProfileField(
+            List<ExternalIdentity> identities, String key) {
+        return identities.stream()
+                .filter(identity -> identity.getProvider() == ChannelProvider.TELEGRAM)
+                .map(identity -> identity.getRawProfile().get(key))
+                .filter(value -> value instanceof String s && !s.isBlank())
+                .map(value -> (String) value)
+                .findFirst();
     }
 
     private String findIdentifier(List<ExternalIdentity> identities, ChannelProvider... providers) {

@@ -59,6 +59,13 @@ public class Conversation {
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
 
+    /** Set when the AI agent escalates; cleared when a human agent sends the next reply. */
+    @Column(name = "escalated_at")
+    private Instant escalatedAt;
+
+    @Column(name = "escalation_reason", length = 255)
+    private String escalationReason;
+
     @Column(name = "session_started_at", nullable = false)
     private Instant sessionStartedAt;
 

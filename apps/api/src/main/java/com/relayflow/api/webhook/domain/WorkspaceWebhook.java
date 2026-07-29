@@ -1,4 +1,4 @@
-package com.relayflow.api.webhook;
+package com.relayflow.api.webhook.domain;
 
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;

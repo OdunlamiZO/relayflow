@@ -1774,7 +1774,7 @@ components:
 
     WebhookEventType:
       type: string
-      enum: [CONTACT_CREATED]
+      enum: [CONTACT_CREATED, CONTACT_UPDATED]
 
     # ── Requests ───────────────────────────────────────────────────────────────
 

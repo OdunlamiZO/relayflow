@@ -34,8 +34,8 @@ export default function SetupPage() {
       </h1>
 
       <p className="mb-6 mt-1 text-sm text-neutral-600">
-        Create the first admin account and your workspace. This only happens
-        once.
+        Create the first admin account and your workspace — you won&apos;t see
+        this screen again.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

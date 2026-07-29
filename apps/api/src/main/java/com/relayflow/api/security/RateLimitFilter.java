@@ -66,6 +66,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                 loginWindowSeconds,
                                 KeySource.IP_ADDRESS),
                         new RateLimitRule(
+                                "login",
+                                "/auth/reset-password/*",
+                                loginLimit,
+                                loginWindowSeconds,
+                                KeySource.IP_ADDRESS),
+                        new RateLimitRule(
                                 "signup",
                                 "/auth/signup",
                                 signupLimit,

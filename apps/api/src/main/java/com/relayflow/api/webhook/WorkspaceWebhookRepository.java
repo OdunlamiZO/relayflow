@@ -1,5 +1,6 @@
 package com.relayflow.api.webhook;
 
+import com.relayflow.api.webhook.domain.WorkspaceWebhook;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

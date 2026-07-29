@@ -3,6 +3,7 @@ package com.relayflow.api.messaging;
 import com.relayflow.api.agent.repository.AiAgentConfigurationRepository;
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
+import com.relayflow.api.authentication.PasswordResetService;
 import com.relayflow.api.authentication.domain.User;
 import com.relayflow.api.authentication.repository.UserRepository;
 import com.relayflow.api.messaging.domain.ChannelAccount;
@@ -45,7 +46,11 @@ import com.relayflow.api.messaging.repository.WorkspaceMemberRepository;
 import com.relayflow.api.messaging.repository.WorkspaceRepository;
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.telegram.TelegramWebhookRegistrar;
+import com.relayflow.api.webhook.ContactSnapshotBuilder;
+import com.relayflow.api.webhook.WebhookDispatchService;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import com.relayflow.api.workflow.repository.WorkflowRunRepository;
 import com.relayflow.api.workflow.repository.WorkflowRunStepRepository;
@@ -111,6 +116,10 @@ public class MessagingService {
 
     private final ReservedContactFieldResolver reservedContactFieldResolver;
 
+    private final WebhookDispatchService webhookDispatchService;
+
+    private final PasswordResetService passwordResetService;
+
     public MessagingService(
             WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
@@ -130,7 +139,9 @@ public class MessagingService {
             AiAgentConfigurationRepository aiAgentConfigurationRepository,
             AiAgentInvocationLogRepository aiAgentInvocationLogRepository,
             ConversationAiDraftRepository conversationAiDraftRepository,
-            ReservedContactFieldResolver reservedContactFieldResolver) {
+            ReservedContactFieldResolver reservedContactFieldResolver,
+            WebhookDispatchService webhookDispatchService,
+            PasswordResetService passwordResetService) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.userRepository = userRepository;
@@ -150,6 +161,8 @@ public class MessagingService {
         this.aiAgentInvocationLogRepository = aiAgentInvocationLogRepository;
         this.conversationAiDraftRepository = conversationAiDraftRepository;
         this.reservedContactFieldResolver = reservedContactFieldResolver;
+        this.webhookDispatchService = webhookDispatchService;
+        this.passwordResetService = passwordResetService;
     }
 
     @Transactional
@@ -364,9 +377,8 @@ public class MessagingService {
         List<ExternalIdentityResponse> identities =
                 externalIdentities.stream().map(mapper::toDto).toList();
 
-        // Auto-derived values (e.g. WhatsApp phone) seed the map, then any explicitly stored
-        // value — manually entered, or AI-extracted — overwrites it. An already-configured
-        // value always wins; derivation only ever fills a gap, never overrides one.
+        // Derived values (e.g. WhatsApp phone) seed the map; explicitly stored values overwrite
+        // them.
         Map<String, String> customFields =
                 new LinkedHashMap<>(
                         reservedContactFieldResolver.resolve(contact, externalIdentities));
@@ -387,6 +399,11 @@ public class MessagingService {
         Contact contact = getContact(contactId, workspaceId);
         contact.setCustomFields(customFields);
         contactRepository.save(contact);
+
+        webhookDispatchService.dispatch(
+                workspaceId,
+                WebhookEventType.CONTACT_UPDATED,
+                ContactSnapshotBuilder.build(contact));
 
         return getContactDetail(contactId, workspaceId);
     }
@@ -648,6 +665,13 @@ public class MessagingService {
             autoAssigned = true;
         }
 
+        if (request.direction() == MessageDirection.OUTBOUND
+                && request.senderType() == MessageSenderType.AGENT
+                && conversation.getEscalatedAt() != null) {
+            conversation.setEscalatedAt(null);
+            conversation.setEscalationReason(null);
+        }
+
         Message message = new Message();
         message.setWorkspace(conversation.getWorkspace());
         message.setConversation(conversation);
@@ -666,7 +690,7 @@ public class MessagingService {
             eventPublisher.publishEvent(
                     new SseBroadcastEvent(
                             workspaceId,
-                            "conversation.updated",
+                            SseEventType.CONVERSATION_UPDATED,
                             Map.of(
                                     "workspaceId", workspaceId.toString(),
                                     "conversationId", conversationId.toString())));
@@ -675,7 +699,7 @@ public class MessagingService {
         eventPublisher.publishEvent(
                 new SseBroadcastEvent(
                         workspaceId,
-                        "message.created",
+                        SseEventType.MESSAGE_CREATED,
                         Map.of(
                                 "workspaceId", workspaceId.toString(),
                                 "conversationId", conversationId.toString())));
@@ -795,6 +819,15 @@ public class MessagingService {
         workspaceMemberRepository.delete(member);
 
         log.info("Member removed: id={}, workspace={}", memberId, workspaceId);
+    }
+
+    public void generatePasswordResetForMember(UUID workspaceId, UUID memberId) {
+        WorkspaceMember member =
+                workspaceMemberRepository
+                        .findInWorkspace(workspaceId, memberId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
+
+        passwordResetService.issueForUser(member.getUserId());
     }
 
     /**

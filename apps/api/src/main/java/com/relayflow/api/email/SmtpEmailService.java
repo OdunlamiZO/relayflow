@@ -10,9 +10,8 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 /**
- * Sends emails over plain SMTP — works with any provider (Resend, SES, Mailgun, Postmark, Gmail, a
- * self-hosted mail server) rather than a single vendor's REST API, so self-hosters aren't locked
- * into a specific email provider.
+ * Sends emails over plain SMTP, compatible with any provider (Resend, SES, Mailgun, Postmark,
+ * Gmail, a self-hosted mail server).
  *
  * <p>When {@code smtp.host} is blank the service falls back to a no-op: it logs the accept URL at
  * INFO level so developers can test the invite flow locally without a mail server.
@@ -98,6 +97,25 @@ public class SmtpEmailService implements EmailService {
             log.info("Verification email sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send verification email to {}: {}", to, e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendPasswordReset(String to, String name, String resetUrl) {
+        if (host.isBlank()) {
+            log.info("[no-op email] Password reset for {} — link: {}", to, resetUrl);
+
+            return;
+        }
+
+        String subject = "Reset your RelayFlow password";
+        String html = buildPasswordResetHtml(name, resetUrl);
+
+        try {
+            send(to, subject, html);
+            log.info("Password reset email sent to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send password reset email to {}: {}", to, e.getMessage());
         }
     }
 
@@ -252,6 +270,49 @@ public class SmtpEmailService implements EmailService {
                 </html>
                 """
                 .formatted(name, verifyUrl, verifyUrl, verifyUrl);
+    }
+
+    private String buildPasswordResetHtml(String name, String resetUrl) {
+
+        return """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                </head>
+                <body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+                  <table width="100%%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 16px;">
+                    <tr><td align="center">
+                      <table width="100%%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e5e5;overflow:hidden;">
+                        <tr>
+                          <td style="padding:32px 32px 24px;">
+                            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#6b7280;letter-spacing:.06em;text-transform:uppercase;">RelayFlow</p>
+                            <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#111827;">Reset your password</h1>
+                            <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.6;">
+                              Hi %s, click the button below to set a new password for your RelayFlow account.
+                            </p>
+                            <a href="%s"
+                               style="display:inline-block;background:#2e69ff;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;">
+                              Reset password
+                            </a>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding:20px 32px 28px;border-top:1px solid #f3f4f6;">
+                            <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+                              This link expires in 1 hour. If you didn't request this, you can ignore this email — your password will not change.
+                              <br>Or copy this link: <a href="%s" style="color:#2e69ff;">%s</a>
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td></tr>
+                  </table>
+                </body>
+                </html>
+                """
+                .formatted(name, resetUrl, resetUrl, resetUrl);
     }
 
     private String buildHtml(String inviterName, String workspaceName, String acceptUrl) {

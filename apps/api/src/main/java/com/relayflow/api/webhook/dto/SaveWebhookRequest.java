@@ -1,6 +1,6 @@
 package com.relayflow.api.webhook.dto;
 
-import com.relayflow.api.webhook.WebhookEventType;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

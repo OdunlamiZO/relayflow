@@ -22,6 +22,8 @@ export type ContactFieldDefinition = {
 /** Keys RelayFlow already derives automatically — can't be redefined as a custom field. */
 export const RESERVED_CONTACT_FIELD_KEYS = [
   "displayName",
+  "firstName",
+  "lastName",
   "phone",
   "email",
   "country",
@@ -48,6 +50,14 @@ export const RESERVED_CONTACT_FIELDS: Record<
   displayName: {
     label: "Display Name",
     description: "The contact's display name.",
+  },
+  firstName: {
+    label: "First Name",
+    description: "The contact's first name.",
+  },
+  lastName: {
+    label: "Last Name",
+    description: "The contact's last name.",
   },
   phone: {
     label: "Phone",
@@ -118,6 +128,8 @@ export type Conversation = {
   lockedByAiAgent: boolean;
   assigneeId: string | null;
   lastMessageAt: string | null;
+  escalatedAt: string | null;
+  escalationReason: string | null;
   createdAt: string;
 };
 
@@ -263,7 +275,7 @@ export type InvitePreview = {
   accountExists: boolean;
 };
 
-export type WebhookEventType = "CONTACT_CREATED";
+export type WebhookEventType = "CONTACT_CREATED" | "CONTACT_UPDATED";
 
 export type ApiKey = {
   id: string;
@@ -719,6 +731,13 @@ export class MessagingApiClient {
     return this.request<void>(
       `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
       { method: "DELETE" }
+    );
+  }
+
+  generateMemberPasswordReset(workspaceId: string, memberId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}/reset-password`,
+      { method: "POST" }
     );
   }
 

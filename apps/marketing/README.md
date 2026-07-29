@@ -138,6 +138,10 @@ See `.env.example` for the full list with defaults. `PAYSTACK_SECRET_KEY`,
 `RESEND_API_KEY` are secrets — pass them as container env vars at deploy
 time, never as Docker build args (see `Dockerfile`).
 
+`CHECKOUT_RATE_LIMIT` / `CHECKOUT_RATE_LIMIT_WINDOW_SECONDS` (default `5` per
+`3600` seconds) fixed-window rate limit the checkout endpoint per client IP —
+see `configuration.ts`.
+
 ## Database
 
 A single SQLite file (`MARKETING_DB_PATH`, default

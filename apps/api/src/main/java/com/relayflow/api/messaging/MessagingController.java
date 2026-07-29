@@ -148,6 +148,17 @@ public class MessagingController {
         messagingService.removeWorkspaceMember(workspaceId, memberId);
     }
 
+    @PostMapping("/workspaces/{workspaceId}/members/{memberId}/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void generatePasswordResetForMember(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID memberId,
+            Authentication authentication) {
+        authorizationService.assertOwner(workspaceId, authentication);
+
+        messagingService.generatePasswordResetForMember(workspaceId, memberId);
+    }
+
     @PutMapping("/workspaces/{workspaceId}/owner")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void transferOwnership(

@@ -9,6 +9,7 @@ import com.relayflow.api.messaging.domain.MessageSenderType;
 import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.messaging.repository.MessageRepository;
 import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.engine.ExecutionContext;
 import com.relayflow.api.workflow.engine.GraphNode;
@@ -90,7 +91,7 @@ public class EndConversationNodeExecutor implements NodeExecutor {
             eventPublisher.publishEvent(
                     new SseBroadcastEvent(
                             context.getWorkspaceId(),
-                            "message.created",
+                            SseEventType.MESSAGE_CREATED,
                             Map.of(
                                     "workspaceId", context.getWorkspaceId().toString(),
                                     "conversationId", context.getConversationId().toString())));
@@ -108,7 +109,7 @@ public class EndConversationNodeExecutor implements NodeExecutor {
         eventPublisher.publishEvent(
                 new SseBroadcastEvent(
                         context.getWorkspaceId(),
-                        "conversation.updated",
+                        SseEventType.CONVERSATION_UPDATED,
                         Map.of(
                                 "workspaceId", context.getWorkspaceId().toString(),
                                 "conversationId", context.getConversationId().toString())));

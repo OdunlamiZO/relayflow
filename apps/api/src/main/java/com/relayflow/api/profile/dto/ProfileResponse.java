@@ -8,6 +8,5 @@ public record ProfileResponse(
         String email,
         String displayName,
         String avatarUrl,
-        boolean receiveEmailUpdates,
         boolean twoFactorEnabled,
         List<String> providers) {}

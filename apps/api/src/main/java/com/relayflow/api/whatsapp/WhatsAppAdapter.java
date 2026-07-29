@@ -22,8 +22,9 @@ import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.repository.MessageRepository;
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.webhook.WebhookDispatchService;
-import com.relayflow.api.webhook.WebhookEventType;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import com.relayflow.api.whatsapp.dto.WhatsAppContactEntry;
 import com.relayflow.api.whatsapp.dto.WhatsAppMessage;
 import com.relayflow.api.whatsapp.dto.WhatsAppWebhookPayload;
@@ -342,7 +343,7 @@ public class WhatsAppAdapter {
         eventPublisher.publishEvent(
                 new SseBroadcastEvent(
                         workspaceId,
-                        "message.created",
+                        SseEventType.MESSAGE_CREATED,
                         Map.of(
                                 "workspaceId", workspaceId.toString(),
                                 "conversationId", conversation.getId().toString())));

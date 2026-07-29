@@ -9,6 +9,9 @@ import com.relayflow.api.messaging.domain.ExternalIdentity;
 import com.relayflow.api.messaging.domain.ReservedContactField;
 import com.relayflow.api.messaging.repository.ContactRepository;
 import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
+import com.relayflow.api.webhook.ContactSnapshotBuilder;
+import com.relayflow.api.webhook.WebhookDispatchService;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -20,20 +23,10 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
- * Persists AI-extracted data onto the contact's custom fields — for keys the workspace has defined
- * as a contact field, or one of the {@link ReservedContactField} keys. An extraction key matching
- * neither stays scoped to the single workflow run ({@code agent.data.*}) rather than polluting the
- * contact.
- *
- * <p>A key is only ever considered if it's also one the admin configured the agent to extract
- * ({@code extractionFields}) — the LLM's {@code extractedData} is free-form model output, and an
- * unconfigured (or hallucinated) key must not get persisted just because it happens to collide with
- * a reserved or workspace-defined field name.
- *
- * <p>Only fills a key that isn't already effectively set — for a reserved key, that includes a
- * value {@link ReservedContactFieldResolver} can already derive (e.g. "displayName" from the
- * contact's display name), not just one explicitly stored in {@code customFields}. Either way, a
- * value already in place is never silently overwritten by a fresh guess.
+ * Persists AI-extracted data onto a contact's custom fields — only a key that is both a configured
+ * {@code extractionField} and a writable contact field ({@link ReservedContactField} or a
+ * workspace-defined {@link ContactFieldDefinition}), and only when not already effectively set
+ * (including a value {@link ReservedContactFieldResolver} can derive).
  */
 @Service
 public class ContactCustomFieldWriter {
@@ -44,13 +37,17 @@ public class ContactCustomFieldWriter {
 
     private final ReservedContactFieldResolver reservedContactFieldResolver;
 
+    private final WebhookDispatchService webhookDispatchService;
+
     public ContactCustomFieldWriter(
             ContactRepository contactRepository,
             ExternalIdentityRepository externalIdentityRepository,
-            ReservedContactFieldResolver reservedContactFieldResolver) {
+            ReservedContactFieldResolver reservedContactFieldResolver,
+            WebhookDispatchService webhookDispatchService) {
         this.contactRepository = contactRepository;
         this.externalIdentityRepository = externalIdentityRepository;
         this.reservedContactFieldResolver = reservedContactFieldResolver;
+        this.webhookDispatchService = webhookDispatchService;
     }
 
     public void apply(
@@ -84,10 +81,6 @@ public class ContactCustomFieldWriter {
         Contact contact = conversation.getContact();
         Map<String, String> customFields = contact.getCustomFields();
 
-        // A reserved key can already have a value auto-derived (e.g. "displayName" from the
-        // contact's display name, "phone" from a WhatsApp identity) without ever being written to
-        // customFields directly. Only resolve derived values — an extra query — when a candidate
-        // key could actually need them.
         Map<String, String> effectiveValues = customFields;
         if (candidateKeys.stream().anyMatch(ReservedContactField::isReserved)) {
             List<ExternalIdentity> identities =
@@ -111,6 +104,11 @@ public class ContactCustomFieldWriter {
 
         if (changed) {
             contactRepository.save(contact);
+
+            webhookDispatchService.dispatch(
+                    conversation.getWorkspace().getId(),
+                    WebhookEventType.CONTACT_UPDATED,
+                    ContactSnapshotBuilder.build(contact));
         }
     }
 }

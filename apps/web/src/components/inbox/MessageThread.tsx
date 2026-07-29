@@ -157,6 +157,21 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
               {conversation.status}
             </span>
 
+            {conversation.escalatedAt && (
+              <div
+                className="flex min-w-0 flex-shrink items-center gap-1.5 rounded-lg border border-red-border bg-red-bg px-3 py-2 text-xs font-medium text-red-text"
+                title={conversation.escalationReason ?? "Escalated"}
+              >
+                <span
+                  className="material-symbols-rounded text-[14px] leading-none"
+                  aria-hidden="true"
+                >
+                  error
+                </span>
+                <span className="truncate">Escalated</span>
+              </div>
+            )}
+
             {conversation.lockedByWorkflow ? (
               <div
                 className="flex w-28 min-w-0 flex-shrink items-center gap-1.5 rounded-lg border border-purple-border bg-purple-bg px-3 py-2 text-xs font-medium text-purple-text sm:w-36"

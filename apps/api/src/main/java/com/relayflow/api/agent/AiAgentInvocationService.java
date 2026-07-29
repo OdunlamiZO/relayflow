@@ -20,6 +20,7 @@ import com.relayflow.api.messaging.domain.MessageSenderType;
 import com.relayflow.api.messaging.dto.CreateMessageRequest;
 import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
 import com.relayflow.api.workflow.engine.WorkflowEngineService;
@@ -195,7 +196,7 @@ public class AiAgentInvocationService {
             if (messageText.toLowerCase().contains(keyword.toLowerCase())) {
                 String reason = "Escalation keyword matched: \"" + keyword + "\"";
                 finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
-                broadcastEscalation(workspaceId, conversationId, reason);
+                broadcastEscalation(conversation, reason);
 
                 return;
             }
@@ -222,7 +223,7 @@ public class AiAgentInvocationService {
             contactCustomFieldWriter.apply(
                     conversation, response.extractedData(), configuration.getExtractionFields());
             finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
-            broadcastEscalation(workspaceId, conversationId, reason);
+            broadcastEscalation(conversation, reason);
 
             return;
         }
@@ -349,19 +350,27 @@ public class AiAgentInvocationService {
         draftRepository.save(draft);
     }
 
-    private void broadcastEscalation(UUID workspaceId, UUID conversationId, String reason) {
+    private void broadcastEscalation(Conversation conversation, String reason) {
+        conversation.setEscalatedAt(Instant.now());
+        conversation.setEscalationReason(reason);
+        conversationRepository.save(conversation);
+
         eventPublisher.publishEvent(
                 new SseBroadcastEvent(
-                        workspaceId,
-                        "ai.escalated",
-                        Map.of("conversationId", conversationId.toString(), "reason", reason)));
+                        conversation.getWorkspace().getId(),
+                        SseEventType.AI_ESCALATED,
+                        Map.of(
+                                "conversationId",
+                                conversation.getId().toString(),
+                                "reason",
+                                reason)));
     }
 
     private void broadcastDraftCreated(UUID workspaceId, UUID conversationId) {
         eventPublisher.publishEvent(
                 new SseBroadcastEvent(
                         workspaceId,
-                        "ai.draft.created",
+                        SseEventType.AI_DRAFT_CREATED,
                         Map.of("conversationId", conversationId.toString())));
     }
 

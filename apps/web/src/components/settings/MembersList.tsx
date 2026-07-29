@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Spinner } from "@/components/common/Spinner";
 import { useCreateInvite } from "@/hooks/use-create-invite";
+import { useGenerateMemberPasswordReset } from "@/hooks/use-generate-member-password-reset";
 import { useRemoveMember } from "@/hooks/use-remove-member";
 import { useRevokeInvite } from "@/hooks/use-revoke-invite";
 import { useUpdateMember } from "@/hooks/use-update-member";
@@ -427,6 +428,8 @@ function MemberRow({
     useUpdateMember(workspaceId);
   const { mutate: removeMember, isPending: isRemoving } =
     useRemoveMember(workspaceId);
+  const { mutate: generatePasswordReset, isPending: isGeneratingReset } =
+    useGenerateMemberPasswordReset(workspaceId);
 
   const isLastOwner = member.role === "OWNER" && ownerCount <= 1;
   const isOwner = member.role === "OWNER";
@@ -513,6 +516,25 @@ function MemberRow({
                 aria-hidden="true"
               >
                 {expanded ? "expand_less" : "tune"}
+              </span>
+            </button>
+          )}
+
+          {/* Generate password reset link — viewer must be owner; displayed member must not be owner */}
+          {viewerIsOwner && !isOwner && (
+            <button
+              type="button"
+              onClick={() => generatePasswordReset(member.id)}
+              disabled={isGeneratingReset}
+              className="flex-shrink-0 rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-50"
+              aria-label="Send password reset link"
+              title="Send password reset link"
+            >
+              <span
+                className="material-symbols-rounded text-[18px] leading-none"
+                aria-hidden="true"
+              >
+                password
               </span>
             </button>
           )}

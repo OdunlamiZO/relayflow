@@ -68,6 +68,16 @@ export function ConversationItem({ conversation, isSelected, onClick }: Props) {
             <span className="truncate text-sm font-semibold text-neutral-800">
               {conversation.contactDisplayName ?? "Unknown contact"}
             </span>
+
+            {conversation.escalatedAt && (
+              <span
+                className="material-symbols-rounded flex-shrink-0 text-[14px] leading-none text-red-text"
+                title={conversation.escalationReason ?? "Escalated"}
+                aria-label="Escalated"
+              >
+                error
+              </span>
+            )}
           </div>
 
           <p className="mt-0.5 truncate text-xs text-neutral-500">

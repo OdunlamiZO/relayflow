@@ -11,4 +11,5 @@ import java.util.UUID;
  * {@code @TransactionalEventListener(phase = AFTER_COMMIT)} so the push only reaches clients after
  * the DB write is durable and visible to subsequent reads.
  */
-public record SseBroadcastEvent(UUID workspaceId, String eventName, Map<String, Object> payload) {}
+public record SseBroadcastEvent(
+        UUID workspaceId, SseEventType eventType, Map<String, Object> payload) {}

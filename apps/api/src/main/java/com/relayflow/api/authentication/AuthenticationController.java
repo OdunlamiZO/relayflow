@@ -6,6 +6,7 @@ import com.relayflow.api.authentication.dto.BootstrapResponse;
 import com.relayflow.api.authentication.dto.InstanceStatusResponse;
 import com.relayflow.api.authentication.dto.Login2FARequest;
 import com.relayflow.api.authentication.dto.LoginRequest;
+import com.relayflow.api.authentication.dto.ResetPasswordRequest;
 import com.relayflow.api.authentication.dto.SignupRequest;
 import com.relayflow.api.authentication.dto.SignupResponse;
 import jakarta.servlet.http.Cookie;
@@ -13,11 +14,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,15 +33,19 @@ public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
 
+    private final PasswordResetService passwordResetService;
+
     private final String sessionCookieName;
 
     private final boolean sessionCookieSecure;
 
     public AuthenticationController(
             AuthenticationService authenticationService,
+            PasswordResetService passwordResetService,
             @Value("${server.servlet.session.cookie.name:JSESSIONID}") String sessionCookieName,
             @Value("${server.servlet.session.cookie.secure:false}") boolean sessionCookieSecure) {
         this.authenticationService = authenticationService;
+        this.passwordResetService = passwordResetService;
         this.sessionCookieName = sessionCookieName;
         this.sessionCookieSecure = sessionCookieSecure;
     }
@@ -83,6 +90,12 @@ public class AuthenticationController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         return authenticationService.login2FA(request, httpRequest, httpResponse);
+    }
+
+    @PostMapping("/reset-password/{token}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void resetPassword(@PathVariable UUID token, @Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(token, request.newPassword());
     }
 
     @PostMapping("/logout")

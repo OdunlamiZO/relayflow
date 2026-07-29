@@ -13,6 +13,7 @@ import { type WebhookConfig, type WebhookEventType } from "@/lib/messaging-api";
 
 const ALL_EVENTS: { value: WebhookEventType; label: string }[] = [
   { value: "CONTACT_CREATED", label: "Contact created" },
+  { value: "CONTACT_UPDATED", label: "Contact updated" },
 ];
 
 type Props = {

@@ -1,6 +1,6 @@
 package com.relayflow.api.webhook.dto;
 
-import com.relayflow.api.webhook.WebhookEventType;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
