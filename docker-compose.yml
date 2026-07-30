@@ -18,7 +18,7 @@
 #                (--env-file needed here since Compose only auto-loads `.env`,
 #                reserved for the prod profile. --build since marketing has no
 #                published image — deployed by building in place, see
-#                deploy.yml)
+#                deploy-marketing.yml)
 
 services:
   # ── Local development infra ────────────────────────────────────────────

@@ -1,9 +1,9 @@
 name: Deploy marketing
 
-# apps/marketing is RelayFlow's own hosted license-issuance service, not
-# part of the customer-facing self-hosted product (see publish-api.yml /
-# publish-web.yml for that). Deployed directly to RelayFlow's VPS by
-# pulling latest and rebuilding in place.
+# apps/marketing is RelayFlow's own hosted license-issuance service, not part
+# of the customer-facing self-hosted product (see publish-images.yml for
+# that). Deployed directly to RelayFlow's VPS by pulling latest and
+# rebuilding in place.
 
 on:
   workflow_dispatch:
