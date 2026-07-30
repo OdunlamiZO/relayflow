@@ -47,12 +47,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Only a real tag push also updates :latest — a manual workflow_dispatch
+      # re-run might be republishing an older version and shouldn't move it.
+      - name: Compute tags
+        id: tags
+        run: |
+          TAGS="ghcr.io/odunlamizo/relayflow-${{ matrix.name }}:${{ env.IMAGE_TAG }}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAGS="$TAGS
+          ghcr.io/odunlamizo/relayflow-${{ matrix.name }}:latest"
+          fi
+          {
+            echo "tags<<EOF"
+            echo "$TAGS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/odunlamizo/relayflow-${{ matrix.name }}:${{ env.IMAGE_TAG }}
+          tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             RELAYFLOW_LICENSE_SIGNING_PUBLIC_KEY=${{ matrix.name == 'api' && secrets.RELAYFLOW_LICENSE_SIGNING_PUBLIC_KEY || '' }}
