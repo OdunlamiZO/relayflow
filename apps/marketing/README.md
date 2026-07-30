@@ -69,7 +69,7 @@ Prints two values:
   instance will ever issue — store it in a secrets manager, not just the
   VPS's `.env.marketing` file.
 - `RELAYFLOW_LICENSE_SIGNING_PUBLIC_KEY` — set as a GitHub Actions secret on
-  this repo (Settings → Secrets and variables → Actions). `publish-api.yml`
+  this repo (Settings → Secrets and variables → Actions). `publish-images.yml`
   passes it as a build arg that gets baked into every `relayflow-api` image
   at build time (see `LicenseKeyValidator`'s Javadoc) — customers never see
   or configure this value.
@@ -166,9 +166,9 @@ or snapshot the `marketing_data` named volume directly.
 This runs as its own profile in the root `docker-compose.yml`, entirely
 separate from the customer-facing `prod` profile — see the comment block at
 the top of that file. Deployed by building in place on the VPS from a git
-checkout, the same pattern as `../mstore-admin` — no image is published to a
-registry for this service (unlike the customer-facing `api`/`web`/`migrate`
-images, which are, via `publish-api.yml` — which also publishes `migrate` — and `publish-web.yml`).
+checkout — no image is published to a registry for this service (unlike the
+customer-facing `api`/`web`/`migrate` images, which are, via
+`publish-images.yml`).
 
 ```bash
 docker compose --env-file .env.marketing up --build -d marketing
@@ -202,7 +202,7 @@ server {
 Obtain the certificate with `certbot --nginx -d sell.example.com` (or your usual ACME client)
 — unlike Caddy, nginx doesn't provision/renew TLS automatically.
 
-**Updates**: run `.github/workflows/deploy.yml` manually (Actions tab → Deploy marketing
+**Updates**: run `.github/workflows/deploy-marketing.yml` manually (Actions tab → Deploy marketing
 → Run workflow) whenever you want to ship a change — it's not triggered automatically on push. It
 SSHes into the VPS and runs `git pull && docker compose --env-file .env.marketing up --build -d
 marketing`. Requires `VPS_HOST`/`VPS_USER`/`VPS_PASSWORD` secrets on this repo (same values as
