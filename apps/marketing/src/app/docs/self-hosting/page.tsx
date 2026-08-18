@@ -121,16 +121,15 @@ export default function SelfHostingDocsPage() {
               below.
             </li>
             <li>
-              A GitHub account with access to RelayFlow&apos;s private image
-              packages (granted after purchase) and a{" "}
+              A GitHub account and a{" "}
               <a
                 href="https://github.com/settings/tokens"
                 className="font-semibold text-secondary"
               >
                 Personal Access Token
               </a>{" "}
-              with <code>read:packages</code> scope — the images can&apos;t be
-              pulled without authenticating first.
+              with <code>read:packages</code> scope, used to authenticate to
+              GHCR before pulling the images.
             </li>
           </ul>
         </section>
@@ -277,11 +276,14 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
             <li>
               <strong>Obtaining a key</strong> —{" "}
               <Link href="/pricing" className="font-semibold text-secondary">
-                purchase a self-hosted license
+                {/* FREE MODE — restore to "purchase a self-hosted license" when re-enabling payment. */}
+                request a self-hosted license
               </Link>
-              . After payment we verify and grant your GitHub account access to
-              the private image packages, then email your license key — usually
-              within a few minutes.
+              {/* FREE MODE — restore to "After payment we verify and grant your GitHub account
+                  access to the private image packages, then email your license key" when
+                  re-enabling payment. */}
+              . We&apos;ll email your license key — usually within a few
+              minutes.
             </li>
             <li>
               <strong>Expiry</strong> — an expired key is tolerated for a 14-day

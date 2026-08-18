@@ -7,18 +7,20 @@ import { configuration } from "@/lib/configuration";
 // Paystack price/currency are runtime-only env vars (Dockerfile has no build ARG for them).
 export const dynamic = "force-dynamic";
 
-function formatPrice(): string {
-  const amount = configuration.paystack.priceMinorUnits / 100;
-
-  return new Intl.NumberFormat("en", {
-    style: "currency",
-    currency: configuration.paystack.currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+// FREE MODE — restore this to read configuration.paystack.priceMinorUnits /
+// .currency (see the commented block below) when re-enabling payment.
+// function formatPrice(): string {
+//   const amount = configuration.paystack.priceMinorUnits / 100;
+//
+//   return new Intl.NumberFormat("en", {
+//     style: "currency",
+//     currency: configuration.paystack.currency,
+//     maximumFractionDigits: 0,
+//   }).format(amount);
+// }
 
 export default function PricingPage() {
-  const price = formatPrice();
+  const price = "Free"; // FREE MODE — restore to formatPrice() when re-enabling payment.
   const termDays = configuration.license.termDays;
 
   return (
@@ -56,8 +58,7 @@ export default function PricingPage() {
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-neutral-600">
               Run RelayFlow on your own servers. Your data never leaves your
-              infrastructure, and verification of your license happens entirely
-              offline — no dependency on our servers being reachable.
+              infrastructure.
             </p>
 
             <div className="mt-10 max-w-md rounded-2xl border border-neutral-300 bg-neutral-100 p-8 shadow-sm">
@@ -68,10 +69,13 @@ export default function PricingPage() {
                 {price}
               </p>
               <ul className="mt-6 flex flex-col gap-2 text-sm text-neutral-600">
-                <li>
+                {/* FREE MODE — restore these two bullets, remove the "Free during..." one, when re-enabling payment. */}
+                {/* <li>
                   Valid for {termDays} days — renew any time by purchasing again
                 </li>
-                <li>One-time payment, no recurring billing</li>
+                <li>One-time payment, no recurring billing</li> */}
+                <li>Early access — no payment required</li>
+                <li>Valid for {termDays} days, renewable</li>
                 <li>Delivered instantly by email</li>
               </ul>
 

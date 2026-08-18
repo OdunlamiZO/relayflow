@@ -1,6 +1,6 @@
 name: Publish images
 
-# migrate publishes alongside api. All three images share one trigger so they always stay in version lockstep.
+# migrate publishes alongside api. All three images share one trigger, so they always stay in version lockstep.
 
 on:
   push:

@@ -1,10 +1,16 @@
 import { randomBytes } from "node:crypto";
 
 import { configuration } from "@/lib/configuration";
-import { insertPendingOrder, markOrderFailed } from "@/lib/database";
+import {
+  insertPendingOrder,
+  markOrderAwaitingAccessGrant,
+} from "@/lib/database";
+// import { markOrderFailed } from "@/lib/database"; // PAYSTACK PATH — uncomment when re-enabling payment
 import { githubUserExists } from "@/lib/github";
-import { initializeTransaction } from "@/lib/paystack";
+import { issueLicenseKey } from "@/lib/license";
+// import { initializeTransaction } from "@/lib/paystack"; // PAYSTACK PATH — uncomment when re-enabling payment
 import { clientIpFromRequest, isRateLimited } from "@/lib/rate-limit";
+import { notifyAccessGrantNeeded } from "@/lib/telegram";
 
 export const dynamic = "force-dynamic";
 
@@ -59,27 +65,58 @@ export async function POST(request: Request) {
     reference,
     email,
     githubUsername,
-    currency: configuration.paystack.currency,
-    amountMinorUnits: configuration.paystack.priceMinorUnits,
+    // FREE MODE — restore to configuration.paystack.currency / .priceMinorUnits
+    // when re-enabling payment.
+    currency: "FREE",
+    amountMinorUnits: 0,
   });
 
-  try {
-    const { authorizationUrl } = await initializeTransaction({
-      email,
-      reference,
-      amountMinorUnits: configuration.paystack.priceMinorUnits,
-      currency: configuration.paystack.currency,
-      callbackUrl: `${configuration.marketingBaseUrl}/checkout/complete?reference=${reference}`,
-    });
+  // ─── FREE MODE (temporary — early access/testing phase, no payment collected) ───
+  // Skips Paystack entirely and issues the license key immediately, then drops
+  // into the same manual access-grant step a paid order uses (GHCR packages
+  // stay private either way). To re-enable payment enforcement: delete this
+  // block, restore the two commented-out imports above, restore the
+  // insertPendingOrder currency/amountMinorUnits above, and uncomment the
+  // PAYSTACK PATH block below.
+  const { licenseKey, expiresAt } = issueLicenseKey(email);
+  const accessGrantToken = randomBytes(24).toString("base64url");
 
-    return Response.json({ authorizationUrl });
-  } catch (error) {
-    markOrderFailed(reference);
-    console.error("Failed to initialize a Paystack transaction:", error);
+  markOrderAwaitingAccessGrant({
+    reference,
+    licenseKey,
+    licenseExpiresAt: Math.floor(expiresAt.getTime() / 1000),
+    accessGrantToken,
+  });
 
-    return Response.json(
-      { error: "Could not start checkout. Please try again." },
-      { status: 502 }
-    );
-  }
+  await notifyAccessGrantNeeded({
+    reference,
+    email,
+    githubUsername,
+    accessGrantToken,
+  });
+
+  return Response.json({
+    authorizationUrl: `${configuration.marketingBaseUrl}/checkout/complete?reference=${reference}`,
+  });
+
+  // ─── PAYSTACK PATH (disabled during free mode — uncomment to restore) ───────────
+  // try {
+  //   const { authorizationUrl } = await initializeTransaction({
+  //     email,
+  //     reference,
+  //     amountMinorUnits: configuration.paystack.priceMinorUnits,
+  //     currency: configuration.paystack.currency,
+  //     callbackUrl: `${configuration.marketingBaseUrl}/checkout/complete?reference=${reference}`,
+  //   });
+  //
+  //   return Response.json({ authorizationUrl });
+  // } catch (error) {
+  //   markOrderFailed(reference);
+  //   console.error("Failed to initialize a Paystack transaction:", error);
+  //
+  //   return Response.json(
+  //     { error: "Could not start checkout. Please try again." },
+  //     { status: 502 }
+  //   );
+  // }
 }
