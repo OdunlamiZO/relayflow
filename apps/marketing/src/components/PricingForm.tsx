@@ -73,7 +73,8 @@ export function PricingForm() {
           className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-colors focus:border-secondary"
         />
         <p className="mt-1.5 text-xs text-neutral-500">
-          Needed to set up your access after payment.
+          {/* FREE MODE — restore to "Needed to set up your access after payment." when re-enabling payment. */}
+          Needed to set up your access.
         </p>
       </div>
 
@@ -87,7 +88,8 @@ export function PricingForm() {
         className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
       >
         {isSubmitting ? <Spinner size="sm" /> : null}
-        Buy license
+        {/* FREE MODE — restore to "Buy license" when re-enabling payment. */}
+        Get free access
       </button>
     </form>
   );

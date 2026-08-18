@@ -141,14 +141,15 @@ export function CheckoutCompleteContent() {
     statusResponse?.status === "awaiting_access_grant";
   const isSlow = pollCount >= SLOW_POLL_THRESHOLD;
 
-  let message = "Waiting for payment confirmation…";
+  // FREE MODE — restore to "Waiting for payment confirmation…" / "Payment
+  // received — setting up your access..." when re-enabling payment.
+  let message = "Setting up your order.";
 
   if (isAwaitingAccessGrant && isSlow) {
     message =
       "Still setting up your registry access — we'll email your license key the moment it's ready. Feel free to close this tab.";
   } else if (isAwaitingAccessGrant) {
-    message =
-      "Payment received — setting up your access. This can take a little while.";
+    message = "Setting up your access. This can take a little while.";
   } else if (isSlow) {
     message =
       "This is taking longer than expected — check your email, or try again if nothing arrives.";
