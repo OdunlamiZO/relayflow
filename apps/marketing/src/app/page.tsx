@@ -1,7 +1,7 @@
 import Link from "next/link";
 
+import { CtaButton } from "@/components/CtaButton";
 import { Footer } from "@/components/Footer";
-import { PricingButton } from "@/components/PricingButton";
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -110,7 +110,18 @@ export default function Home() {
               Docs
             </Link>
 
-            <PricingButton variant="nav">Pricing</PricingButton>
+            <Link
+              href="https://github.com/OdunlamiZO/relayflow"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-neutral-600 transition-colors hover:text-accent"
+            >
+              GitHub
+            </Link>
+
+            <CtaButton variant="nav" href="/docs/self-hosting">
+              Get started
+            </CtaButton>
           </div>
         </div>
       </header>
@@ -133,19 +144,20 @@ export default function Home() {
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <PricingButton variant="hero">
-                  View pricing
+                <CtaButton variant="hero" href="/docs/self-hosting">
+                  Get started
                   <span
                     className="material-symbols-rounded text-[15px]"
                     aria-hidden="true"
                   >
                     arrow_forward
                   </span>
-                </PricingButton>
+                </CtaButton>
               </div>
 
               <p className="mt-5 text-xs text-neutral-500">
-                One-time payment &nbsp;·&nbsp; Your infrastructure, your data
+                Free and open source &nbsp;·&nbsp; Your infrastructure, your
+                data
               </p>
             </div>
 
@@ -523,12 +535,14 @@ export default function Home() {
                   className="mt-2 text-sm"
                   style={{ color: "var(--color-tertiary)" }}
                 >
-                  One-time purchase. Self-hosted. No subscription.
+                  Free. Open source. Self-hosted.
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-shrink-0 sm:flex-wrap sm:items-center">
-                <PricingButton variant="cta">View pricing</PricingButton>
+                <CtaButton variant="cta" href="/docs/self-hosting">
+                  Get started
+                </CtaButton>
               </div>
             </div>
           </div>

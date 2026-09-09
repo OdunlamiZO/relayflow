@@ -1,1 +1,0 @@
-${relayflow.license.publicKey}

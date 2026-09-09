@@ -23,6 +23,15 @@ export function Footer() {
               Setup docs
             </Link>
 
+            <Link
+              href="https://github.com/OdunlamiZO/relayflow"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-neutral-600 transition-colors hover:text-accent"
+            >
+              GitHub
+            </Link>
+
             <p className="m-0 text-xs text-neutral-500">
               &copy; {new Date().getFullYear()} RelayFlow &nbsp;&mdash;&nbsp;
               Built for developer-grade reliability.

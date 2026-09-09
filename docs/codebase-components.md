@@ -252,15 +252,8 @@ It intentionally focuses on components that define behavior or shared contracts.
 - [AI Agent Frontend Components](#ai-agent-frontend-components)
   - [`AiAgentPanel`](#aiagentpanel)
   - [`AiDraftBanner`](#aidraftbanner)
-- [License Backend](#license-backend)
-  - [`LicenseKeyValidator`](#licensekeyvalidator)
-  - [`LicenseClaims`](#licenseclaims)
-  - [`LicenseVerificationException`](#licenseverificationexception)
-- [`apps/marketing` (License Sales Service)](#appsmarketing-license-sales-service)
-  - [Checkout And Order Flow](#checkout-and-order-flow)
-  - [`license.ts`](#licensets)
-  - [`database.ts`](#databasets)
-  - [Configuration And Supporting Libraries](#configuration-and-supporting-libraries)
+- [`apps/marketing`](#appsmarketing)
+  - [`deployment-artifacts.ts` And The Self-Hosting Docs Page](#deployment-artifactsts-and-the-self-hosting-docs-page)
 
 ## Backend Application And Configuration
 
@@ -1583,7 +1576,7 @@ We need these to make every page share providers, typography, and icon font setu
 
 ### Root Route
 
-- `page.tsx` (`Home`): the root route no longer renders a marketing landing page — that content now lives in the separate `apps/marketing` service (see [`apps/marketing` (License Sales Service)](#appsmarketing-license-sales-service)). `Home` is a server component that checks `getInstanceStatus()` and `getServerAuthenticationStatus()` and redirects to `/setup` (instance not yet bootstrapped), `/login` (unauthenticated), or `/inbox` (authenticated).
+- `page.tsx` (`Home`): the root route no longer renders a marketing landing page — that content now lives in the separate `apps/marketing` site (see [`apps/marketing`](#appsmarketing)). `Home` is a server component that checks `getInstanceStatus()` and `getServerAuthenticationStatus()` and redirects to `/setup` (instance not yet bootstrapped), `/login` (unauthenticated), or `/inbox` (authenticated).
 
 We need it as a pure traffic-router now that apps/web is a self-hosted-only app with no public marketing surface of its own.
 
@@ -2817,94 +2810,27 @@ Button row uses `flex-wrap` for mobile responsiveness. All buttons disabled whil
 
 We need it so agents can send AI replies, trigger AI-suggested workflows, or discard — all from the inbox without leaving the conversation.
 
-## License Backend
 
-Part of the BYOC self-hosting pivot: apps/api itself never talks to a licensing server. A self-hosted deployment is gated entirely offline, at Spring Boot startup, by verifying a license key that was issued ahead of time by the separate `apps/marketing` service (see [`apps/marketing` (License Sales Service)](#appsmarketing-license-sales-service)). Activation is a **build-time** decision, not a runtime one: `LicenseKeyValidator` is gated by `@ConditionalOnResource(resources = "classpath:META-INF/selfhosted.marker")`, and that marker resource is only baked into the JAR when built with `mvn package -Pselfhosted` (`apps/api/Dockerfile`'s build stage). Local dev (`mvn spring-boot:run`) and a plain `mvn package` never include it, so none of this runs for them — and, deliberately, no environment variable a self-hosted operator sets can disable it either, since it was previously an env-var-gated `@ConditionalOnProperty` and that was found to be trivially bypassable (Spring Boot's environment property source always overrides `application.properties` values, regardless of how the property is declared).
+## `apps/marketing`
 
-### `LicenseKeyValidator`
+A static marketing site — no server, no database, no backend of any kind. Built with Next.js's
+static export (`output: "export"` in `next.config.mjs`) and deployed to GitHub Pages by
+`.github/workflows/deploy-pages.yml` on every push to `main` that touches this app.
 
-`@Service`, `@ConditionalOnResource(resources = "classpath:META-INF/selfhosted.marker")` — only instantiated when built with `mvn package -Pselfhosted` (see above).
+Two pages: `page.tsx` (the landing page, linking to the GitHub repo and to the self-hosting
+docs) and `app/docs/self-hosting/page.tsx` (the public setup guide).
 
-The constructor takes the `@Value`-injected `relayflow.license.key` (`RELAYFLOW_LICENSE_KEY`) plus a public key loaded at startup from the build-time-baked classpath resource `META-INF/license-public-key.txt` (via a SpEL `@Value` call to `loadBakedPublicKey()`) — not an env var, so an operator can't point verification at their own keypair. The grace period is a hardcoded constant (14 days), for the same reason. A missing/invalid/expired-past-grace key throws `LicenseVerificationException` and Spring Boot fails to start, so the instance can never come up unlicensed.
-
-The license key is a compact JWS: `base64url(header).base64url(payload).base64url(signature)`, signed with raw Ed25519 (`EdDSA`, no pre-hash). Verification steps:
-
-- splits the key into its three `.`-separated parts and rebuilds the signing input (`header.payload`).
-- decodes the baked public key as an X.509/SPKI-encoded Ed25519 public key and verifies the signature over the signing input — never a network call, so verification works with RelayFlow's servers completely unreachable.
-- parses the payload JSON into `sub` (customer ID), `iat`, and `exp`, all required.
-- if `exp` is in the past, tolerates it for the grace period (logs a warning) so a late renewal doesn't cause an outage; past the grace deadline, startup fails with a message naming the expiry date and grace period.
-
-Important method:
-
-- `claims()`: exposes the verified `LicenseClaims` for anything downstream that needs to read `customerId`/`issuedAt`/`expiresAt`.
-
-Two test classes cover it. `LicenseKeyValidatorTest` generates its own Ed25519 keypairs and exercises construction/parsing/tampering/grace-period behavior directly in Java. `LicenseKeyValidatorNodeCompatibilityTest` is a separate, narrower guard: it hardcodes two license keys that were generated once by the real Node.js signer (`apps/marketing/src/lib/license.ts`) against a throwaway keypair, and asserts this Java validator accepts them and parses identical claims. Because the two sides are implemented independently in different languages, nothing else catches a silent drift in base64url alphabet/padding, JSON claim field names, raw-Ed25519 signing-input construction, or SPKI/DER public-key encoding — if that test starts failing, every license key the marketing site issues has become unverifiable in production even though the Java-only unit tests still pass.
-
-### `LicenseClaims`
-
-Record: `customerId`, `issuedAt`, `expiresAt`. The claims carried by a verified license key.
-
-### `LicenseVerificationException`
-
-Runtime exception thrown when a license key is missing, malformed, or fails signature verification. An expired key that is still within its grace period does **not** throw this — see `LicenseKeyValidator`.
-
-## `apps/marketing` (License Sales Service)
-
-A separate Next.js server app (its own `package.json`, deployed independently from apps/api and apps/web) that sells RelayFlow self-hosted licenses and issues the Ed25519-signed license keys that `LicenseKeyValidator` verifies. It replaced the product's old open landing page and guest "try it" flow — apps/web's root route now just redirects (see [Root Route](#root-route)), and this app owns the public marketing site and checkout.
-
-Unlike apps/api's Postgres, this service persists to a local SQLite file via Node's built-in `node:sqlite` (`DatabaseSync`) — order tracking is low-volume and doesn't need a shared database server. It runs as a real Next.js server (`next start`, not a static export) because its API routes need a writable filesystem and outbound calls to Paystack/Resend.
-
-Given this doc's existing convention of treating apps/web at a coarser grain than apps/api, and apps/marketing being smaller still, this section groups the service by flow rather than documenting every file individually.
-
-### Checkout And Order Flow
-
-The self-hosted images are in a **private** GHCR registry, so a purchase has two parts that must
-both complete before the buyer gets anything: issuing a license key (automated) and granting the
-buyer's GitHub account read access to pull the images (manual, notified via Telegram). An order
-moves through `pending` → `awaiting_access_grant` → `paid`.
-
-- `pricing/page.tsx` + `PricingForm`: collects an email and GitHub username, `POST`s them to `/api/checkout`.
-- `POST /api/checkout` (`app/api/checkout/route.ts`): rate-limited by client IP, validates the email and GitHub username format, confirms the GitHub username actually exists (`github.ts`, unauthenticated public API, fails open on network errors), generates a random `reference`, inserts a `pending` order row, then calls Paystack's `initializeTransaction` (one-time payment, not a recurring subscription) and returns the authorization URL for the browser to redirect to. On a Paystack failure it marks the order `failed`.
-- `POST /api/webhooks/paystack` (`app/api/webhooks/paystack/route.ts`): verifies the `x-paystack-signature` header, ignores everything but `charge.success`, looks up the matching `pending` order, re-verifies the transaction server-side against Paystack (amount and currency must match the order), signs a license key (`issueLicenseKey`), and transitions the order to `awaiting_access_grant` (not `paid` yet) — the license key is stored but not emailed. A Telegram message (`telegram.ts`) is sent with the order details and a one-click confirmation link. The transition is guarded the same idempotent way as below, so a duplicate webhook delivery can't re-notify.
-- `GET /api/admin/grant-access` (`app/api/admin/grant-access/route.ts`): the token-authenticated link from the Telegram message. Once the operator has manually added the buyer's GitHub account as a collaborator on the `relayflow-api`/`relayflow-web`/`relayflow-migrate` **packages** (no API for this step), tapping the link transitions the order to `paid` and emails the license key. The transition is an idempotent guarded `UPDATE ... WHERE status='awaiting_access_grant'`, so a repeat click is a no-op.
-- `checkout/complete/page.tsx` + `CheckoutCompleteContent`: polls `GET /api/orders/[reference]/status` (`app/api/orders/[reference]/status/route.ts`, also rate-limited) and shows status-appropriate copy for `pending`/`awaiting_access_grant`/`paid`/`failed`, displaying the issued license key once `paid`.
-
-We need this flow because self-hosted licenses are sold as a single one-time payment per license term, not a subscription, and because the private-registry access grant has no API — a human has to be in the loop before an order can complete.
-
-### `license.ts`
-
-`issueLicenseKey(customerId)` and `signLicenseKey(...)`: builds the compact JWS described in [`LicenseKeyValidator`](#licensekeyvalidator) using Node's `node:crypto` (`createPrivateKey` + `sign(null, ...)` for raw Ed25519), signing with the PKCS8/DER private key from `LICENSE_SIGNING_PRIVATE_KEY_B64`.
-
-This file's byte-level output format is a cross-language contract with `apps/api`'s `LicenseKeyValidator` — any change here (base64url alphabet/padding, claim field names, signing-input construction) must stay in lockstep with that Java class, and is guarded from drifting silently by `LicenseKeyValidatorNodeCompatibilityTest.java` on the apps/api side. `license.test.ts` covers this file's own round-trip behavior.
-
-We need it as the one place that mints license keys, so the signing format can't drift between call sites.
-
-### `database.ts`
-
-Thin wrapper around a single SQLite `orders` table (`reference`, `email`, `status` — `pending`/`awaiting_access_grant`/`paid`/`failed`, `currency`, `amount_minor_units`, `license_key`, `license_expires_at`, timestamps). `getDatabase()` caches the `DatabaseSync` handle on `globalThis` so Next.js dev-mode hot reload doesn't open a second handle on the same file. Exposes `insertPendingOrder`, `markOrderFailed`, `markOrderAwaitingAccessGrant`, `grantAccessAndCompleteOrder` (each an idempotent guarded transition, see above), and `findOrderByReference`.
-
-We need it as durable proof of what was paid for and which license key was issued for it, independent of Paystack's own records.
+We need it so RelayFlow has a public-facing site describing the product and pointing visitors at
+the repo and the self-hosting docs, with zero infrastructure of its own to operate.
 
 ### `deployment-artifacts.ts` And The Self-Hosting Docs Page
 
-`app/docs/self-hosting/page.tsx` is the public, linkable setup guide — linked from the site footer, the license-delivery email, and the checkout-complete success view. It solves a real distribution gap: customers only ever get GHCR package-level access, never repo access, so they had no way to obtain the actual `docker-compose.yml`/`.env.example`/Caddyfile needed to run the stack.
+`app/docs/self-hosting/page.tsx` embeds the real `docker-compose.yml`, `.env.example`, and
+Caddyfile from the repo root, read by `deployment-artifacts.ts` **at build time** (`readFileSync`
+against `../../` from the app's working directory) rather than copy-pasted — so the docs page
+can never drift from the actual deployment files. `docker-compose.yml`'s content is additionally
+filtered down to just the `prod`-profile services before embedding, since the full file also has
+local-dev-only services that aren't relevant to a self-hosted operator.
 
-`deployment-artifacts.ts` reads those three files directly from the repository at build time (no duplication, so the page can't drift) and, for `docker-compose.yml`, strips it down to only the `prod`-profile services and the volumes they use — customers don't need to see RelayFlow's own local-dev or internal marketing-hosting services. In local dev the files are read from the repository root two directories up; in the Docker build stage they're copied into `./deployment-artifacts` first, since that stage's build context is the repository root (see the `marketing` service's `Dockerfile` build args). The page itself is statically prerendered, so none of this touches the runtime image.
-
-We need this because "buy a license" is meaningless if the buyer then has no way to get the files required to actually run what they bought.
-
-### Configuration And Supporting Libraries
-
-- `configuration.ts`: typed, fail-fast environment configuration (`required()` throws at first access if an env var is unset) for the database path, Paystack keys/pricing, license signing key/term, Telegram bot credentials, Resend email credentials, and checkout rate-limit settings.
-- `paystack.ts`: `initializeTransaction` and `verifyTransaction` (Paystack REST calls) plus `verifyWebhookSignature` (HMAC check on inbound webhooks).
-- `github.ts`: `githubUserExists` — unauthenticated GitHub public API check used by `/api/checkout` before payment, so a typo'd username is caught early rather than discovered later when the manual access grant fails.
-- `telegram.ts`: sends the sale-notification message (with the confirmation link) via the Telegram Bot API's plain `sendMessage`.
-- `email.ts`: sends the "here is your license key" email via the Resend API, with a link to the self-hosting docs page; falls back to a `console.info` no-op when no Resend API key is configured, so local development doesn't need real email credentials.
-- `rate-limit.ts`: in-memory IP-based rate limiter used by the checkout and order-status routes.
-- `scripts/generate-license-keypair.mjs`: one-off operator script (never run in a build/deploy path) that generates the Ed25519 signing keypair — the private half goes into `LICENSE_SIGNING_PRIVATE_KEY_B64` on this service, and the public half is set as the `RELAYFLOW_LICENSE_SIGNING_PUBLIC_KEY` GitHub Actions secret, baked into `relayflow-api` images at build time (see `LicenseKeyValidator`).
-
-We need these to keep the checkout routes free of inline environment parsing, HTTP client boilerplate, and email templating.
-
-### Deployment
-
-Deployed by building in place on RelayFlow's own VPS from a git checkout — `.github/workflows/deploy-marketing.yml` is triggered manually (`workflow_dispatch`, not on push) and, when run, SSHes in and runs `git pull && docker compose --env-file .env.marketing up --build -d marketing`. No image is published to a registry for this service, unlike the customer-facing `api`/`migrate`/`web` images (`publish-images.yml` — one workflow, one matrix job per image, triggered by a pushed `v*` git tag so all three always share a version; `migrate` publishes alongside `api` since a migrate image only makes sense paired with the api schema it was built for) — this is RelayFlow's own hosting, not the customer-facing product, so it doesn't need the same distribution mechanism.
+We need this because a setup guide that quietly drifts from the files it tells you to copy is
+worse than no guide at all.

@@ -121,39 +121,6 @@
             </properties>
         </profile>
         <profile>
-            <!-- Only passed by the Dockerfile build stage, never local dev. Bakes a marker
-                 resource that activates LicenseKeyValidator via @ConditionalOnResource — see
-                 that class's Javadoc for why this is build-time, not an env var. -->
-            <id>selfhosted</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-resources-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>bake-selfhosted-marker</id>
-                                <phase>process-resources</phase>
-                                <goals>
-                                    <goal>copy-resources</goal>
-                                </goals>
-                                <configuration>
-                                    <outputDirectory>${project.build.outputDirectory}/META-INF</outputDirectory>
-                                    <useDefaultDelimiters>true</useDefaultDelimiters>
-                                    <resources>
-                                        <resource>
-                                            <directory>src/selfhosted/resources</directory>
-                                            <filtering>true</filtering>
-                                        </resource>
-                                    </resources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
             <id>development</id>
             <build>
                 <plugins>

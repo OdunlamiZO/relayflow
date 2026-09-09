@@ -8,7 +8,7 @@ RelayFlow is an omnichannel customer messaging platform with developer-grade wor
 apps/
   api/        Java 21 + Spring Boot backend
   web/        Next.js frontend (inbox, settings, workflow builder)
-  marketing/  Next.js marketing site + self-hosted license checkout
+  marketing/  Next.js marketing site (static export, GitHub Pages)
 packages/
   contracts/  Shared OpenAPI spec and JSON schemas
 docs/
@@ -91,17 +91,10 @@ The first account created on a fresh instance goes through instance bootstrap (`
 
 ## Self-Hosting
 
-RelayFlow is distributed as a self-hosted (BYOC) Docker Compose stack — see
+RelayFlow is free and open source, distributed as a self-hosted Docker Compose stack — see
 [`docs/self-hosting.md`](docs/self-hosting.md) for the production deployment guide, and the
 root `docker-compose.yml`'s `prod` profile (`docker compose --profile prod up -d`) for the
-stack itself. A signed license key (`RELAYFLOW_LICENSE_KEY`) is required and verified fully
-offline at API startup.
-
-License keys are purchased and issued through `apps/marketing` — RelayFlow's own hosted
-license checkout (Paystack, one-time payment, fixed-term key), entirely separate from the
-customer-facing self-hosted stack. It's the same `docker-compose.yml`'s `marketing` profile
-(`docker compose --profile marketing up -d`) — see `apps/marketing/README.md` for how
-issuance works.
+stack itself.
 
 ## API Reference
 
@@ -258,7 +251,6 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Session cookie hardening — configurable cookie name, `HttpOnly`, `Secure`, `SameSite`, and idle timeout (`SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_SAME_SITE`, `SESSION_TIMEOUT`); logout expires the cookie with matching attributes.
 - [x] Swagger UI / OpenAPI docs are disabled unconditionally, with no env var to re-enable them — self-hosted clients only need the public API, documented separately in `apps/marketing`.
 - [x] Rate limiting — Redis-backed, fixed-window, returns `429` with a `Retry-After` header. Covers auth endpoints (`/auth/login`, `/login/2fa`, `/reset-password/{token}`, `/signup`, keyed by client IP), the public API (`/public/v1/**`, keyed by API key), and inbound webhooks (Telegram, WhatsApp, keyed by client IP). Configurable via `RATE_LIMIT_ENABLED`, `RATE_LIMIT_LOGIN_LIMIT`/`RATE_LIMIT_LOGIN_WINDOW_SECONDS`, `RATE_LIMIT_SIGNUP_LIMIT`/`RATE_LIMIT_SIGNUP_WINDOW_SECONDS`, `RATE_LIMIT_PUBLIC_API_LIMIT`/`RATE_LIMIT_PUBLIC_API_WINDOW_SECONDS`, and `RATE_LIMIT_WEBHOOK_LIMIT`/`RATE_LIMIT_WEBHOOK_WINDOW_SECONDS`.
-- [x] Self-hosted license verification — `LicenseKeyValidator` verifies an Ed25519-signed `RELAYFLOW_LICENSE_KEY` fully offline at startup. Activated by a classpath marker baked in only when the JAR is built with `mvn package -Pselfhosted` (`apps/api/Dockerfile`) — a build-time decision, not a runtime env var, specifically so no setting a self-hosted operator controls can disable it. Tolerates a 14-day grace period past expiry before refusing to start. Keys are issued by `apps/marketing`'s license checkout — see [Self-Hosting](#self-hosting).
 
 ### Inbox UI
 - [x] Conversation list, message thread, and outbound composer.

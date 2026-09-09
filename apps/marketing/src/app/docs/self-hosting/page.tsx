@@ -25,11 +25,6 @@ const ENV_VAR_ROWS: Array<{
       "No default — generate with openssl rand -base64 32. The API refuses to start without it.",
   },
   {
-    name: "RELAYFLOW_LICENSE_KEY",
-    required: true,
-    notes: "Emailed to you after purchase — see Licensing below",
-  },
-  {
     name: "RELAYFLOW_WEB_DOMAIN / RELAYFLOW_API_DOMAIN",
     required: true,
     notes: "Used by Caddy for automatic TLS",
@@ -81,10 +76,12 @@ export default function SelfHostingDocsPage() {
           </Link>
 
           <Link
-            href="/pricing"
+            href="https://github.com/OdunlamiZO/relayflow"
+            target="_blank"
+            rel="noopener noreferrer"
             className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
           >
-            Pricing
+            GitHub
           </Link>
         </div>
       </header>
@@ -113,24 +110,6 @@ export default function SelfHostingDocsPage() {
               certificates automatically.
             </li>
             <li>Ports 80 and 443 open on the host.</li>
-            <li>
-              A RelayFlow license key — see{" "}
-              <a href="#licensing" className="font-semibold text-secondary">
-                Licensing
-              </a>{" "}
-              below.
-            </li>
-            <li>
-              A GitHub account and a{" "}
-              <a
-                href="https://github.com/settings/tokens"
-                className="font-semibold text-secondary"
-              >
-                Personal Access Token
-              </a>{" "}
-              with <code>read:packages</code> scope, used to authenticate to
-              GHCR before pulling the images.
-            </li>
           </ul>
         </section>
 
@@ -171,21 +150,12 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
           </pre>
 
           <p className="mt-4 text-sm leading-6 text-neutral-600">
-            Fill in <code>.env</code>: the two generated secrets, your domains (
-            <code>RELAYFLOW_WEB_DOMAIN</code>, <code>RELAYFLOW_API_DOMAIN</code>
-            , and the matching <code>RELAYFLOW_WEB_BASE_URL</code>/
-            <code>RELAYFLOW_API_BASE_URL</code>), and your license key (
-            <code>RELAYFLOW_LICENSE_KEY</code>).
+            Fill in <code>.env</code>: the two generated secrets and your
+            domains (<code>RELAYFLOW_WEB_DOMAIN</code>,{" "}
+            <code>RELAYFLOW_API_DOMAIN</code>, and the matching{" "}
+            <code>RELAYFLOW_WEB_BASE_URL</code>/
+            <code>RELAYFLOW_API_BASE_URL</code>).
           </p>
-
-          <p className="mt-4 text-sm leading-6 text-neutral-600">
-            The images are in a private registry, so authenticate before pulling
-            — use the Personal Access Token from Prerequisites, not your GitHub
-            password:
-          </p>
-          <pre className="mt-3 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
-            <code>docker login ghcr.io -u &lt;your-github-username&gt;</code>
-          </pre>
 
           <p className="mt-4 text-sm leading-6 text-neutral-600">
             Then start the stack:
@@ -259,42 +229,6 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
               complete the first admin signup.
             </li>
           </ol>
-        </section>
-
-        <section id="licensing" className="mt-12 scroll-mt-20">
-          <h2 className="m-0 text-xl font-bold tracking-tight text-primary">
-            Licensing
-          </h2>
-          <p className="mt-4 text-sm leading-6 text-neutral-600">
-            RelayFlow&apos;s self-hosted image requires a signed license key (
-            <code>RELAYFLOW_LICENSE_KEY</code>), checked at API startup.
-            Verification happens entirely offline — the API never calls out to
-            RelayFlow&apos;s servers to check your license, so your deployment
-            has no runtime dependency on them being reachable.
-          </p>
-          <ul className="mt-4 flex flex-col gap-2 text-sm leading-6 text-neutral-600">
-            <li>
-              <strong>Obtaining a key</strong> —{" "}
-              <Link href="/pricing" className="font-semibold text-secondary">
-                {/* FREE MODE — restore to "purchase a self-hosted license" when re-enabling payment. */}
-                request a self-hosted license
-              </Link>
-              {/* FREE MODE — restore to "After payment we verify and grant your GitHub account
-                  access to the private image packages, then email your license key" when
-                  re-enabling payment. */}
-              . We&apos;ll email your license key — usually within a few
-              minutes.
-            </li>
-            <li>
-              <strong>Expiry</strong> — an expired key is tolerated for a 14-day
-              grace period (the API logs a warning but keeps running) before
-              startup fails — a late renewal won&apos;t cause an outage.
-            </li>
-            <li>
-              <strong>Missing or invalid key</strong> — the API refuses to
-              start, with a log message pointing back here.
-            </li>
-          </ul>
         </section>
 
         <section className="mt-12">
@@ -385,9 +319,8 @@ docker compose --profile prod up -d`}</code>
                 API container exits immediately on a fresh install
               </strong>{" "}
               — check <code>docker compose --profile prod logs api</code> — this
-              is almost always a missing <code>RELAYFLOW_ENCRYPTION_KEY</code>{" "}
-              or an invalid/missing license key, both of which fail fast with a
-              clear message.
+              is almost always a missing <code>RELAYFLOW_ENCRYPTION_KEY</code>,
+              which fails fast with a clear message.
             </li>
           </ul>
         </section>
