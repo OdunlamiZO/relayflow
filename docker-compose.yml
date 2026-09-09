@@ -1,24 +1,19 @@
-# Three audiences, one file, selected by --profile:
-#   (default)          Local dev infra (Postgres, Redis, opt-in `ollama`).
-#   --profile prod      Customer-facing self-hosted stack — see docs/self-hosting.md.
-#   --profile marketing RelayFlow's own hosting for apps/marketing. Never
-#                       mention this profile in docs/self-hosting.md.
+# Two audiences, one file, selected by --profile:
+#   (default)     Local dev infra (Postgres, Redis, opt-in `ollama`).
+#   --profile prod Customer-facing self-hosted stack — see docs/self-hosting.md.
+#
+# apps/marketing is a static site (GitHub Pages, see
+# .github/workflows/deploy-pages.yml) — it has no service here.
 #
 # No service uses `${VAR:?required}` — Compose evaluates it for every
-# service regardless of active profile, so a required-var guard on a prod
-# service would break `--profile marketing` runs too. Missing config instead
+# service regardless of active profile, so a required-var guard would apply
+# even when unset for a profile that doesn't need it. Missing config instead
 # fails at container start (Postgres/Spring Boot both refuse to boot without
 # what they need).
 #
 # Usage:
 #   Local dev:   docker compose up -d dev-postgres dev-redis
 #   Self-hosted: cp .env.example .env && docker compose --profile prod up -d
-#   Marketing:   cp apps/marketing/.env.example .env.marketing
-#                docker compose --profile marketing --env-file .env.marketing up --build -d
-#                (--env-file needed here since Compose only auto-loads `.env`,
-#                reserved for the prod profile. --build since marketing has no
-#                published image — deployed by building in place, see
-#                deploy-marketing.yml)
 
 services:
   # ── Local development infra ────────────────────────────────────────────
@@ -213,50 +208,6 @@ services:
       - web
       - api
 
-  # ── RelayFlow's own marketing/licensing host (NOT customer-facing) ─────
-  # Do not activate both --profile prod and --profile marketing on the same
-  # host at once — both caddy services bind host ports 80/443.
-
-  marketing:
-    build:
-      context: .
-      dockerfile: apps/marketing/Dockerfile
-    profiles: ["marketing"]
-    restart: unless-stopped
-    env_file: .env.marketing
-    # Loopback-only, for a host-level reverse proxy (skip marketing-caddy
-    # below if using your own — see apps/marketing/README.md).
-    ports:
-      - "127.0.0.1:4000:3000"
-    volumes:
-      - marketing_data:/app/data
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 20s
-    security_opt: ["no-new-privileges:true"]
-    deploy:
-      resources:
-        limits: { cpus: "1", memory: 512m }
-
-  marketing-caddy:
-    image: caddy:2-alpine
-    profiles: ["marketing"]
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./infra/docker/caddy/Caddyfile.marketing:/etc/caddy/Caddyfile:ro
-      - caddy_marketing_data:/data
-      - caddy_marketing_config:/config
-    environment:
-      RELAYFLOW_MARKETING_DOMAIN: ${RELAYFLOW_MARKETING_DOMAIN}
-    depends_on:
-      - marketing
-
 volumes:
   dev_postgres_data:
   dev_redis_data:
@@ -265,6 +216,3 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
-  marketing_data:
-  caddy_marketing_data:
-  caddy_marketing_config:

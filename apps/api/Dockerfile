@@ -4,10 +4,7 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn -B -q dependency:go-offline
 COPY src ./src
-# -Pselfhosted activates LicenseKeyValidator — see its Javadoc.
-ARG RELAYFLOW_LICENSE_SIGNING_PUBLIC_KEY
-RUN mvn -B -q -DskipTests package -Pselfhosted \
-    -Drelayflow.license.publicKey="$RELAYFLOW_LICENSE_SIGNING_PUBLIC_KEY"
+RUN mvn -B -q -DskipTests package
 
 # ---- Runtime stage ----
 FROM eclipse-temurin:21-jre-alpine

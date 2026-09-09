@@ -10,12 +10,13 @@ const VARIANT_CLASSNAMES: Record<Variant, string> = {
 
 type Props = {
   variant: Variant;
+  href: string;
   children: React.ReactNode;
 };
 
-export function PricingButton({ variant, children }: Props) {
+export function CtaButton({ variant, href, children }: Props) {
   return (
-    <Link href="/pricing" className={VARIANT_CLASSNAMES[variant]}>
+    <Link href={href} className={VARIANT_CLASSNAMES[variant]}>
       {children}
     </Link>
   );

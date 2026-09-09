@@ -6,7 +6,7 @@ Product Requirements and Technical Strategy | Updated July 30, 2026
 
 RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation and an optional AI agent, built on a channel-agnostic core rather than around any single platform — see Section 4 for which adapters are live and Section 5.3 for what's next. The core model is designed around users, identities, preferences, MFA methods, workspaces, workspace members and permissions, channel accounts, contacts, external identities, conversations, messages, integrations, and workflow definitions.
 
-RelayFlow is distributed as self-hosted (BYOC) software: operators run their own Docker Compose stack on their own infrastructure, gated by an offline-verified license key. The product differentiates on reliable automation — mutable workflow variables, controllable HTTP behavior, visible execution logs, durable message handling — plus an AI agent that can draft or auto-send replies within operator-defined guardrails.
+RelayFlow is free and open source, distributed as self-hosted (BYOC) software: operators run their own Docker Compose stack on their own infrastructure. The product differentiates on reliable automation — mutable workflow variables, controllable HTTP behavior, visible execution logs, durable message handling — plus an AI agent that can draft or auto-send replies within operator-defined guardrails.
 
 ## 2. Problem
 
@@ -40,7 +40,6 @@ The target market is SMB and technical teams handling support, sales, and operat
 | Conversation escalation | Implemented | A keyword match or LLM-requested escalation stamps the conversation and pushes an `ai.escalated` SSE event; the inbox shows a badge until a human agent's next reply clears it. |
 | Workspace authorization | Implemented | Membership model plus granular permission checks on mutating workspace-scoped endpoints. |
 | Webhook verification | Implemented | Telegram secret-token validation. WhatsApp Cloud API signature verification (beyond the verify-token handshake) remains planned. |
-| Self-hosted licensing | Implemented | Offline Ed25519 license-key verification at API startup; keys purchased and issued through apps/marketing. |
 | Manual migrations | Required | Flyway is disabled at runtime; migrations must be run manually. |
 
 ## 5. Product Scope
@@ -70,8 +69,7 @@ Prove that RelayFlow can normalize Telegram and WhatsApp conversations into a ch
 - Workspace API keys and public API endpoints for conversations, messages, and outbound replies.
 - Workspace webhooks with encrypted HMAC secret, signature header, retry/backoff delivery, and `contact.created`/`contact.updated` events.
 - AI agent: per-workspace configuration (autonomy ceiling, instructions, knowledge base Q&A, escalation keywords, workflow mappings), a multi-provider LLM layer (Anthropic, OpenAI, Groq, self-hosted Ollama) switchable without restart, a decision pipeline (keyword escalation → LLM → escalate/draft/auto-send), and an inbox draft banner for reviewing AI-suggested replies and workflow triggers. An escalation stamps the conversation and clears automatically on the next human reply.
-- Self-hosted distribution: Docker Compose production stack (api, web, Postgres, Redis, Caddy for automatic TLS, a one-shot Flyway migrate service), and an offline-verified Ed25519 license key required at API startup.
-- License issuance: apps/marketing is a separate, self-contained Next.js service (its own SQLite database, its own Paystack one-time-payment checkout) that sells and issues license keys — entirely independent of apps/api.
+- Self-hosted distribution: Docker Compose production stack (api, web, Postgres, Redis, Caddy for automatic TLS, a one-shot Flyway migrate service).
 
 ### 5.3 Not Yet Implemented
 
@@ -84,16 +82,14 @@ Prove that RelayFlow can normalize Telegram and WhatsApp conversations into a ch
 - Additional channel adapters beyond Telegram and WhatsApp (Instagram planned).
 - Restricting `POST /workspaces` (creating additional workspaces) — currently any authenticated user can create one; only account creation and the first workspace are gated today.
 - Proactive session revocation on password reset — a reset rotates the credential but does not invalidate other active sessions for that user (no session registry exists today; would need either a lazy per-request staleness check or a shared session store).
-- Automated redeploy on `apps/marketing` image publish (CI currently only builds and pushes the image).
-- Decision on whether published self-hosted Docker images should move to a private registry as a stronger lever against license-check bypass than the on-prem check alone.
 
 ### 5.4 Out Of Scope For Current MVP
 
 - Broadcast campaigns.
 - Advanced analytics.
 - Native mobile apps and push notifications — would need a centralized relay RelayFlow operates, which doesn't fit self-hosted distribution.
-- A hosted multi-tenant SaaS instance of the core product — apps/api and apps/web are self-hosted-only; only the marketing site and license checkout stay hosted by RelayFlow.
-- Recurring/subscription billing — self-hosted licenses are a one-time purchase for a fixed term, renewed by purchasing again.
+- A hosted multi-tenant SaaS instance of the core product — apps/api and apps/web are self-hosted-only.
+- Monetization — the product is free and open source; no billing model exists.
 - Marketplace integrations.
 - Full CRM functionality.
 
@@ -117,8 +113,7 @@ Prove that RelayFlow can normalize Telegram and WhatsApp conversations into a ch
 - As an integrator, I can subscribe to signed workspace webhook events.
 - As a workspace owner, I can enable an AI agent that drafts or auto-sends replies within instructions and autonomy limits I control, and escalates to a human on defined keywords or low confidence.
 - As an agent, I can see at a glance which conversations the AI agent has escalated, until I reply and clear it.
-- As a buyer, I can purchase a self-hosted license key through the marketing site and receive it by email and on-screen within moments of payment.
-- As an operator, my self-hosted instance keeps running through a short license lapse (a grace period) rather than going down the moment a key expires.
+- As an operator, I can download and self-host RelayFlow for free.
 
 ## 7. Workflow Requirements
 
@@ -154,24 +149,23 @@ The current runtime uses a flat variable map with dot-notation names. Built-in v
 
 ## 8. Architecture
 
-- Three independently deployable apps: apps/api (Java Spring Boot), apps/web (Next.js product frontend), and apps/marketing (Next.js marketing site plus self-hosted license checkout).
-- apps/api and apps/web are distributed self-hosted-only via Docker Compose; RelayFlow does not run a hosted multi-tenant instance of the core product. Only apps/marketing stays hosted by RelayFlow.
+- Three independently deployable apps: apps/api (Java Spring Boot), apps/web (Next.js product frontend), and apps/marketing (a static Next.js marketing site).
+- apps/api and apps/web are distributed self-hosted-only via Docker Compose; RelayFlow does not run a hosted multi-tenant instance of the core product. apps/marketing is a static site with no backend, hosted on GitHub Pages.
 - PostgreSQL stores users, workspaces, members, invites, API keys, webhooks, channel accounts, contacts, external identities, conversations, messages, workflow definitions, runs, run steps, and AI agent configuration/invocation/draft data.
 - Flyway migrations are run manually; the API does not auto-migrate on startup (a dedicated one-shot Docker service runs them in production).
 - Telegram and WhatsApp webhooks normalize provider payloads into channel-agnostic records, including WhatsApp interactive button replies.
 - SSE broadcasts workspace updates, including AI draft creation and escalation, to open inbox sessions.
 - Workflow definitions are stored as React Flow-style draft graph JSON.
 - Workflow execution is asynchronous, locks conversations while active, and records durable run/step logs.
-- apps/marketing is a separate Next.js server with its own SQLite database and Paystack integration — it signs Ed25519 license keys that apps/api's LicenseKeyValidator verifies fully offline; the two sides share no runtime dependency.
 
 ## 9. Technology Stack
 
 - Backend (apps/api): Java 21, Spring Boot, Spring Security, Spring Data JPA, Flyway, PostgreSQL, Redis.
 - Frontend (apps/web): Next.js, React, TypeScript, Tailwind CSS, TanStack Query, React Flow.
-- License checkout (apps/marketing): Next.js server (not statically exported), Node's built-in SQLite module, Paystack one-time-payment checkout, Ed25519 license signing.
+- Marketing (apps/marketing): Next.js static export, deployed to GitHub Pages.
 - AI agent: pluggable LLM layer over Anthropic, OpenAI, Groq, and self-hosted Ollama.
 - Contracts: OpenAPI 3.1 and JSON Schema.
-- Testing: Maven/JUnit on the backend (including a cross-language fixture test guarding the Node/Java license-key contract); Vitest and Testing Library on both frontends.
+- Testing: Maven/JUnit on the backend; Vitest and Testing Library on both frontends.
 - Deployment: Docker Compose for local infrastructure (PostgreSQL, Redis, optional Ollama) and for the self-hosted production stack (adds Caddy for automatic TLS and a one-shot migration service).
 
 ## 10. Data Model
@@ -191,7 +185,6 @@ The current runtime uses a flat variable map with dot-notation names. Built-in v
 - `workflow_definitions`: workflow name, enabled state, and draft graph JSON.
 - `workflow_run` and `workflow_run_step`: durable execution and observability records.
 - `ai_agent_configs`, `ai_agent_invocation_log`, and `conversation_ai_drafts`: per-workspace AI agent configuration, invocation history, and pending draft replies.
-- There is no license/subscription table in Postgres — self-hosted license state is not persisted; it is verified from the `RELAYFLOW_LICENSE_KEY` environment variable in memory at API startup.
 
 ## 11. Execution Requirements
 
@@ -213,8 +206,6 @@ The current runtime uses a flat variable map with dot-notation names. Built-in v
 - Implemented: workspace-level authorization and granular permission checks for mutating workspace-scoped endpoints.
 - Implemented: instance bootstrap is a one-time action guarded by an empty user table; every subsequent account requires a valid, non-expired workspace invite token — there is no open public signup surface.
 - Implemented: Telegram webhook secret-token verification. Planned: WhatsApp webhook signature verification beyond the initial verify-token handshake.
-- Implemented: self-hosted license key verified fully offline via Ed25519 signature at API startup, with a 14-day grace period past expiry before the instance refuses to start. Known limitation (accepted, consistent with other self-hosted enterprise software): a host operator who controls the machine can bypass this check — its purpose is filtering casual non-payment and giving an audit hook, not cryptographic prevention.
-- Implemented: apps/marketing's Paystack webhook verifies the HMAC signature over the raw request body, additionally re-verifies the transaction server-to-server before issuing a key, and applies an idempotent order-state transition so retried webhook deliveries never double-issue a license.
 - Implemented: Swagger UI / OpenAPI docs are disabled unconditionally, with no env var to re-enable them — self-hosted clients only need the public API, documented separately in apps/marketing.
 - Planned: mask secrets in workflow editor previews and run logs.
 - Planned: audit workflow publishing, channel connection changes, permission changes, API key changes, webhook changes, and credential updates.
@@ -224,7 +215,6 @@ The current runtime uses a flat variable map with dot-notation names. Built-in v
 
 - OpenAPI must document auth (including instance bootstrap and password reset), profile/2FA, workspaces, members including ownership transfer and password-reset generation, invites, API keys, webhooks, public API, channel accounts, contacts, external identities, conversations, messages, workflows and run logs, AI agent configuration and drafts, SSE, Telegram webhooks, WhatsApp webhooks, and normalized error responses for validation failures, missing required request parameters, business conflicts, missing resources, provider failures, and unexpected server errors.
 - JSON schemas must describe normalized message events, outbound webhook events, and the persisted workflow graph format.
-- apps/marketing's checkout/issuance API (checkout, order status, Paystack webhook) is a separate service and is not part of the apps/api OpenAPI contract.
 - Contract updates should happen in the same change set as API shape changes.
 
 ## 14. Next Build Order
@@ -241,7 +231,7 @@ The current runtime uses a flat variable map with dot-notation names. Built-in v
 
 ## 15. Complexity Estimate
 
-The project is medium-to-high complexity because it combines multi-tenant auth, invite-gated account creation, MFA, profile management, permissions, invites, API keys, webhooks, channel integrations, realtime inbox behavior, workflow graph editing, durable workflow execution, external HTTP calls, an AI agent with a multi-provider LLM layer, observability, and self-hosted distribution with offline license verification and a fully separate license-issuance service. The current implementation has completed the first major vertical slice: Telegram and WhatsApp adapters, inbox, contacts, workflow builder and runtime, AI agent, profile/security basics, permissions, self-hosted Docker distribution, and license issuance. The next complexity wall is production hardening: WhatsApp webhook signature verification, secret masking, retries, workflow versioning, audit logs, and the registry/redeploy decisions around the self-hosted distribution model.
+The project is medium-to-high complexity because it combines multi-tenant auth, invite-gated account creation, MFA, profile management, permissions, invites, API keys, webhooks, channel integrations, realtime inbox behavior, workflow graph editing, durable workflow execution, external HTTP calls, an AI agent with a multi-provider LLM layer, observability, and self-hosted distribution. The current implementation has completed the first major vertical slice: Telegram and WhatsApp adapters, inbox, contacts, workflow builder and runtime, AI agent, profile/security basics, permissions, and self-hosted Docker distribution. The next complexity wall is production hardening: WhatsApp webhook signature verification, secret masking, retries, workflow versioning, and audit logs.
 
 ## 16. Positioning
 
