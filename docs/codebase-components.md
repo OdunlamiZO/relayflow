@@ -715,6 +715,11 @@ We need it so third-party systems can inspect conversations and send outbound re
 
 Creates, updates, deletes, retrieves, and rotates workspace webhook configuration.
 
+Important behavior:
+
+- the signing secret is never client-supplied. Creating a webhook auto-generates one, returned once as `generatedSecret` on that response only.
+- `saveWebhook` never touches the secret, on create or update — changing it is only possible through `rotateSecret`.
+
 We need it to centralize webhook URL, encrypted secret, enabled state, and subscribed events.
 
 ### `WebhookDispatchService`

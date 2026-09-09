@@ -4,6 +4,7 @@ import com.relayflow.api.messaging.dto.ErrorResponse;
 import com.relayflow.api.telegram.TelegramSendException;
 import com.relayflow.api.workflow.WorkflowValidationException;
 import java.time.Instant;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -63,8 +64,20 @@ public class MessagingExceptionHandler {
     ResponseEntity<ErrorResponse> validation(MethodArgumentNotValidException exception) {
         log.warn("Request validation failed: {}", exception.getMessage());
 
+        String message =
+                exception.getBindingResult().getFieldErrors().stream()
+                        .map(
+                                fieldError ->
+                                        fieldError.getField()
+                                                + ": "
+                                                + fieldError.getDefaultMessage())
+                        .collect(Collectors.joining("; "));
+
         return ResponseEntity.badRequest()
-                .body(new ErrorResponse("Request validation failed", Instant.now()));
+                .body(
+                        new ErrorResponse(
+                                message.isBlank() ? "Request validation failed" : message,
+                                Instant.now()));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)

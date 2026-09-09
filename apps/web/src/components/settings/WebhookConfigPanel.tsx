@@ -23,6 +23,18 @@ type Props = {
 export function WebhookConfigPanel({ workspaceId }: Props) {
   const { data: webhook, isLoading } = useWorkspaceWebhook(workspaceId);
 
+  // Not in WebhookForm: it remounts on create, which would wipe this.
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+
+  async function copySecret() {
+    if (!revealedSecret) return;
+
+    await navigator.clipboard.writeText(revealedSecret);
+    setCopiedSecret(true);
+    setTimeout(() => setCopiedSecret(false), 2000);
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -32,11 +44,60 @@ export function WebhookConfigPanel({ workspaceId }: Props) {
   }
 
   return (
-    <WebhookForm
-      key={webhook?.id ?? "new"}
-      workspaceId={workspaceId}
-      webhook={webhook ?? null}
-    />
+    <>
+      <WebhookForm
+        key={webhook?.id ?? "new"}
+        workspaceId={workspaceId}
+        webhook={webhook ?? null}
+        onSecretRevealed={setRevealedSecret}
+      />
+
+      {/* Generated/rotated secret reveal */}
+      {revealedSecret && (
+        <div className="mt-4 rounded-xl border border-yellow-border bg-yellow-bg p-4">
+          <p className="mb-2 text-sm font-medium text-yellow-text">
+            New signing secret — copy now, it won&apos;t be shown again.
+          </p>
+
+          <div className="flex items-stretch gap-2 overflow-hidden rounded-xl border border-yellow-border bg-neutral-100">
+            <code className="flex-1 overflow-x-auto p-3 text-xs text-neutral-700 select-all">
+              {revealedSecret}
+            </code>
+
+            <button
+              type="button"
+              onClick={copySecret}
+              className="flex flex-shrink-0 items-center gap-1.5 border-l border-yellow-border px-3 text-sm font-medium text-yellow-text transition-colors hover:bg-yellow-bg"
+            >
+              <span className="material-symbols-rounded text-[16px] leading-none">
+                {copiedSecret ? "check" : "content_copy"}
+              </span>
+              {copiedSecret ? "Copied" : "Copy"}
+            </button>
+          </div>
+
+          <p className="mt-3 text-xs text-yellow-text">
+            Use it to verify the{" "}
+            <code className="rounded bg-neutral-100 px-1 text-[11px]">
+              X-RelayFlow-Signature
+            </code>{" "}
+            header on each delivery: it&apos;s{" "}
+            <code className="rounded bg-neutral-100 px-1 text-[11px]">
+              sha256=&lt;hex digest&gt;
+            </code>
+            , an HMAC-SHA256 of the raw request body keyed with this secret.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setRevealedSecret(null)}
+            className="mt-2 text-xs text-yellow-text underline hover:no-underline"
+          >
+            I&apos;ve saved it, dismiss
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -45,22 +106,20 @@ export function WebhookConfigPanel({ workspaceId }: Props) {
 type FormProps = {
   workspaceId: string;
   webhook: WebhookConfig | null;
+  onSecretRevealed: (secret: string) => void;
 };
 
-function WebhookForm({ workspaceId, webhook }: FormProps) {
+function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
   const saveWebhook = useSaveWebhook(workspaceId);
   const deleteWebhook = useDeleteWebhook(workspaceId);
   const rotateSecret = useRotateWebhookSecret(workspaceId);
 
   const [url, setUrl] = useState(webhook?.url ?? "");
-  const [secret, setSecret] = useState("");
   const [enabled, setEnabled] = useState(webhook?.enabled ?? false);
   const [events, setEvents] = useState<WebhookEventType[]>(
     webhook?.events ?? []
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
-  const [copiedSecret, setCopiedSecret] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const isNew = !webhook;
@@ -73,24 +132,17 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(null);
 
-    if (isNew && !secret.trim()) {
-      setFormError("A signing secret is required when setting up a webhook.");
-
-      return;
-    }
-
+    // Don't clear formError here — let it stay until the new outcome is known.
     saveWebhook.mutate(
+      { url: url.trim(), enabled, events },
       {
-        url: url.trim(),
-        secret: secret.trim() || undefined,
-        enabled,
-        events,
-      },
-      {
-        onSuccess: () => {
-          setSecret("");
+        onSuccess: (data) => {
+          setFormError(null);
+
+          if (data.generatedSecret) {
+            onSecretRevealed(data.generatedSecret);
+          }
         },
         onError: (err) => {
           setFormError(errorMessage(err));
@@ -110,17 +162,13 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
   function handleRotate() {
     rotateSecret.mutate(undefined, {
       onSuccess: (data) => {
-        setRevealedSecret(data.secret);
+        setFormError(null);
+        onSecretRevealed(data.secret);
+      },
+      onError: (err) => {
+        setFormError(errorMessage(err));
       },
     });
-  }
-
-  async function copySecret() {
-    if (!revealedSecret) return;
-
-    await navigator.clipboard.writeText(revealedSecret);
-    setCopiedSecret(true);
-    setTimeout(() => setCopiedSecret(false), 2000);
   }
 
   return (
@@ -143,37 +191,6 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
             required
             className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
           />
-        </div>
-
-        {/* Signing secret */}
-        <div>
-          <label
-            htmlFor="webhook-secret"
-            className="mb-1.5 block text-sm font-medium text-neutral-700"
-          >
-            Signing secret{" "}
-            {!isNew && (
-              <span className="font-normal text-neutral-400">
-                (leave blank to keep current)
-              </span>
-            )}
-          </label>
-          <input
-            id="webhook-secret"
-            type="password"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            placeholder={isNew ? "Min. 16 characters" : "••••••••••••"}
-            autoComplete="new-password"
-            className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
-          />
-          <p className="mt-1 text-xs text-neutral-400">
-            Used to sign payloads with HMAC-SHA256 (
-            <code className="rounded bg-neutral-100 px-1 text-[11px]">
-              X-RelayFlow-Signature
-            </code>
-            ).
-          </p>
         </div>
 
         {/* Events */}
@@ -265,40 +282,6 @@ function WebhookForm({ workspaceId, webhook }: FormProps) {
           </button>
         </div>
       </form>
-
-      {/* Rotated secret reveal */}
-      {revealedSecret && (
-        <div className="mt-4 rounded-xl border border-yellow-border bg-yellow-bg p-4">
-          <p className="mb-2 text-sm font-medium text-yellow-text">
-            New signing secret — copy now, it won&apos;t be shown again.
-          </p>
-
-          <div className="flex items-stretch gap-2 overflow-hidden rounded-xl border border-yellow-border bg-neutral-100">
-            <code className="flex-1 overflow-x-auto p-3 text-xs text-neutral-700 select-all">
-              {revealedSecret}
-            </code>
-
-            <button
-              type="button"
-              onClick={copySecret}
-              className="flex flex-shrink-0 items-center gap-1.5 border-l border-yellow-border px-3 text-sm font-medium text-yellow-text transition-colors hover:bg-yellow-bg"
-            >
-              <span className="material-symbols-rounded text-[16px] leading-none">
-                {copiedSecret ? "check" : "content_copy"}
-              </span>
-              {copiedSecret ? "Copied" : "Copy"}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setRevealedSecret(null)}
-            className="mt-2 text-xs text-yellow-text underline hover:no-underline"
-          >
-            I&apos;ve saved it, dismiss
-          </button>
-        </div>
-      )}
 
       {showDeleteConfirm && (
         <ConfirmModal
