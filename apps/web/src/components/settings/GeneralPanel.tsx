@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Spinner } from "@/components/common/Spinner";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useCurrentMember } from "@/hooks/use-current-member";
@@ -130,19 +130,14 @@ export function GeneralPanel({ workspaceId }: Props) {
             className="w-full flex-1 rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
           />
 
-          <button
+          <LoadingButton
             type="submit"
-            disabled={!trimmed || isUnchanged || updateWorkspace.isPending}
-            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            isLoading={updateWorkspace.isPending}
+            disabled={!trimmed || isUnchanged}
+            className="flex-shrink-0 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {updateWorkspace.isPending ? (
-              <Spinner
-                size="sm"
-                className="border-neutral-100/40 border-t-neutral-100"
-              />
-            ) : null}
             Save
-          </button>
+          </LoadingButton>
         </form>
       </section>
 
@@ -265,23 +260,15 @@ export function GeneralPanel({ workspaceId }: Props) {
             </button>
 
             {!fieldsUnchanged && (
-              <button
+              <LoadingButton
                 type="button"
                 onClick={handleSaveContactFields}
-                disabled={
-                  hasReservedKeyConflict ||
-                  updateContactFieldDefinitions.isPending
-                }
-                className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                isLoading={updateContactFieldDefinitions.isPending}
+                disabled={hasReservedKeyConflict}
+                className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {updateContactFieldDefinitions.isPending ? (
-                  <Spinner
-                    size="sm"
-                    className="border-neutral-100/40 border-t-neutral-100"
-                  />
-                ) : null}
                 Save
-              </button>
+              </LoadingButton>
             )}
           </div>
         )}

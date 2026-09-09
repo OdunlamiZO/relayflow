@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useResetPassword } from "@/hooks/use-reset-password";
 import { errorMessage } from "@/lib/error-message";
 
@@ -135,25 +136,13 @@ export function ResetPasswordForm({ token }: Props) {
           )}
         </div>
 
-        <button
+        <LoadingButton
           type="submit"
-          disabled={isPending}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          isLoading={isPending}
+          className="mt-1 w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? (
-            <>
-              <span
-                className="material-symbols-rounded animate-spin text-[16px]"
-                aria-hidden="true"
-              >
-                progress_activity
-              </span>
-              Updating…
-            </>
-          ) : (
-            "Update password"
-          )}
-        </button>
+          Update password
+        </LoadingButton>
       </form>
     </>
   );

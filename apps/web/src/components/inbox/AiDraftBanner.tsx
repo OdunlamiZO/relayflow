@@ -1,6 +1,6 @@
 "use client";
 
-import { Spinner } from "@/components/common/Spinner";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useDiscardAiDraft } from "@/hooks/use-discard-ai-draft";
 import { useSendAiDraft } from "@/hooks/use-send-ai-draft";
 import { useTriggerWorkflowFromDraft } from "@/hooks/use-trigger-workflow-from-draft";
@@ -69,38 +69,28 @@ export function AiDraftBanner({
       <div className="flex flex-wrap items-center gap-2">
         {isWorkflowDraft ? (
           workflowIds.map((workflowId) => (
-            <button
+            <LoadingButton
               key={workflowId}
               type="button"
               disabled={isBusy}
+              isLoading={triggerWorkflow.isPending}
               onClick={() => triggerWorkflow.mutate(workflowId)}
-              className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {triggerWorkflow.isPending ? (
-                <Spinner
-                  size="sm"
-                  className="border-neutral-100/40 border-t-neutral-100"
-                />
-              ) : null}
               Run Workflow
-            </button>
+            </LoadingButton>
           ))
         ) : (
           <>
-            <button
+            <LoadingButton
               type="button"
               disabled={isBusy}
+              isLoading={sendDraft.isPending}
               onClick={() => sendDraft.mutate()}
-              className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {sendDraft.isPending ? (
-                <Spinner
-                  size="sm"
-                  className="border-neutral-100/40 border-t-neutral-100"
-                />
-              ) : null}
               Send
-            </button>
+            </LoadingButton>
 
             <button
               type="button"
@@ -113,14 +103,15 @@ export function AiDraftBanner({
           </>
         )}
 
-        <button
+        <LoadingButton
           type="button"
           disabled={isBusy}
+          isLoading={discardDraft.isPending}
           onClick={() => discardDraft.mutate()}
           className="rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-500 transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {discardDraft.isPending ? <Spinner size="sm" /> : "Discard"}
-        </button>
+          Discard
+        </LoadingButton>
       </div>
     </div>
   );

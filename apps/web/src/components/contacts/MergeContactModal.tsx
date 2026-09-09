@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useContacts } from "@/hooks/use-contacts";
 import { useMergeContact } from "@/hooks/use-merge-contact";
@@ -204,19 +205,19 @@ export function MergeContactModal({
             Cancel
           </button>
 
-          <button
+          <LoadingButton
             type="button"
             onClick={handleConfirm}
-            disabled={!selected || isMerging}
-            className="flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-50"
+            isLoading={isMerging}
+            disabled={!selected}
+            className="flex min-w-0 items-center rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-50"
           >
-            {isMerging && <Spinner size="sm" />}
             <span className="truncate">
               {selected
                 ? `Merge into ${selected.displayName ?? "Unknown"}`
                 : "Select a contact"}
             </span>
-          </button>
+          </LoadingButton>
         </div>
       </div>
     </div>

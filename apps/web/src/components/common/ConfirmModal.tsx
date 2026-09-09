@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
+
 type Props = {
   title: string;
   description?: React.ReactNode;
@@ -64,18 +66,18 @@ export function ConfirmModal({
             {cancelLabel}
           </button>
 
-          <button
+          <LoadingButton
             type="button"
             onClick={onConfirm}
-            disabled={isPending}
+            isLoading={isPending}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
               destructive
                 ? "bg-red-text text-neutral-100 hover:bg-red-text-hover"
                 : "bg-secondary text-neutral-100 hover:opacity-90"
             }`}
           >
-            {isPending ? "…" : confirmLabel}
-          </button>
+            {confirmLabel}
+          </LoadingButton>
         </div>
       </div>
     </div>

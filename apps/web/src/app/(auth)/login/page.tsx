@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { GoogleIcon } from "@/components/common/GoogleIcon";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useLogin } from "@/hooks/use-login";
 import { useLogin2FA } from "@/hooks/use-login-2fa";
 
@@ -119,25 +120,14 @@ export default function LoginPage() {
             />
           </div>
 
-          <button
+          <LoadingButton
             type="submit"
-            disabled={is2FAPending || otp.length !== 6}
-            className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            isLoading={is2FAPending}
+            disabled={otp.length !== 6}
+            className="mt-1 w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {is2FAPending ? (
-              <>
-                <span
-                  className="material-symbols-rounded animate-spin text-[16px]"
-                  aria-hidden="true"
-                >
-                  progress_activity
-                </span>
-                Verifying…
-              </>
-            ) : (
-              "Verify"
-            )}
-          </button>
+            Verify
+          </LoadingButton>
         </form>
 
         <button
@@ -223,25 +213,13 @@ export default function LoginPage() {
           />
         </div>
 
-        <button
+        <LoadingButton
           type="submit"
-          disabled={isLoginPending}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          isLoading={isLoginPending}
+          className="mt-1 w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isLoginPending ? (
-            <>
-              <span
-                className="material-symbols-rounded animate-spin text-[16px]"
-                aria-hidden="true"
-              >
-                progress_activity
-              </span>
-              Signing in…
-            </>
-          ) : (
-            "Sign in"
-          )}
-        </button>
+          Sign in
+        </LoadingButton>
       </form>
 
       <p className="mt-6 text-center text-sm text-neutral-600">

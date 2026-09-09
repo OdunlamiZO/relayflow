@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { Spinner } from "@/components/common/Spinner";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useCreateWorkspace } from "@/hooks/use-create-workspace";
 import { useWorkspaces } from "@/hooks/use-workspaces";
 
@@ -163,19 +163,14 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
                   Cancel
                 </button>
 
-                <button
+                <LoadingButton
                   type="submit"
-                  disabled={isCreating || !newName.trim()}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                  isLoading={isCreating}
+                  disabled={!newName.trim()}
+                  className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
                 >
                   Create
-                  {isCreating && (
-                    <Spinner
-                      size="sm"
-                      className="border-neutral-100/40 border-t-neutral-100"
-                    />
-                  )}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           ) : (

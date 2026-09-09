@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { EmptyState } from "@/components/common/EmptyState";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { ContactDetailPanel } from "@/components/contacts/ContactDetailPanel";
 import { MergeContactModal } from "@/components/contacts/MergeContactModal";
@@ -412,26 +413,22 @@ export function ContactsShell({ workspaceId }: Props) {
           {/* Load more */}
           {hasNextPage && (
             <div className="flex justify-center py-4">
-              <button
+              <LoadingButton
                 type="button"
                 onClick={() => void fetchNextPage()}
-                disabled={isFetchingNextPage}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-60"
+                isLoading={isFetchingNextPage}
+                className="rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-60"
               >
-                {isFetchingNextPage ? (
-                  <Spinner size="sm" />
-                ) : (
-                  <>
-                    <span
-                      className="material-symbols-rounded text-[14px] leading-none"
-                      aria-hidden="true"
-                    >
-                      expand_more
-                    </span>
-                    Load more
-                  </>
-                )}
-              </button>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="material-symbols-rounded text-[14px] leading-none"
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                  Load more
+                </span>
+              </LoadingButton>
             </div>
           )}
         </div>

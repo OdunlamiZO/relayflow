@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useBootstrap } from "@/hooks/use-bootstrap";
 
 export default function SetupPage() {
@@ -124,25 +125,13 @@ export default function SetupPage() {
           />
         </div>
 
-        <button
+        <LoadingButton
           type="submit"
-          disabled={isPending}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          isLoading={isPending}
+          className="mt-1 w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? (
-            <>
-              <span
-                className="material-symbols-rounded animate-spin text-[16px]"
-                aria-hidden="true"
-              >
-                progress_activity
-              </span>
-              Setting up…
-            </>
-          ) : (
-            "Set up instance"
-          )}
-        </button>
+          Set up instance
+        </LoadingButton>
       </form>
     </>
   );

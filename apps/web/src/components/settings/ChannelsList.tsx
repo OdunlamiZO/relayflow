@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { CopyButton } from "@/components/common/CopyButton";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { ConnectTelegramForm } from "@/components/inbox/ConnectTelegramForm";
 import { ConnectWhatsAppForm } from "@/components/inbox/ConnectWhatsAppForm";
@@ -282,13 +283,13 @@ function ChannelItem({
                 Disconnect
               </button>
             ) : (
-              <button
+              <LoadingButton
                 onClick={() => reconnect(channel.id)}
-                disabled={isReconnecting}
+                isLoading={isReconnecting}
                 className="text-xs font-medium text-secondary transition-colors hover:underline disabled:opacity-60"
               >
-                {isReconnecting ? "…" : "Reconnect"}
-              </button>
+                Reconnect
+              </LoadingButton>
             )}
           </div>
         </div>

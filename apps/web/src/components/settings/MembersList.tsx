@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useCreateInvite } from "@/hooks/use-create-invite";
 import { useGenerateMemberPasswordReset } from "@/hooks/use-generate-member-password-reset";
@@ -253,19 +254,14 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
               <p className="mb-3 text-sm text-red-text">{inviteError}</p>
             )}
 
-            <button
+            <LoadingButton
               type="submit"
-              disabled={isInviting || !email.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              isLoading={isInviting}
+              disabled={!email.trim()}
+              className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
-              {isInviting && (
-                <Spinner
-                  size="sm"
-                  className="border-neutral-100/40 border-t-neutral-100"
-                />
-              )}
-              {isInviting ? "Sending…" : "Send invite"}
-            </button>
+              Send invite
+            </LoadingButton>
           </form>
         </section>
       )}
@@ -586,20 +582,14 @@ function MemberRow({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
+              <LoadingButton
                 type="button"
                 onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-50"
+                isLoading={isSaving}
+                className="rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-50"
               >
-                {isSaving && (
-                  <Spinner
-                    size="sm"
-                    className="border-neutral-100/40 border-t-neutral-100"
-                  />
-                )}
-                {isSaving ? "Saving…" : "Save"}
-              </button>
+                Save
+              </LoadingButton>
 
               <button
                 type="button"

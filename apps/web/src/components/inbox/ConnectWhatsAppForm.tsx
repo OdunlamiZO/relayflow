@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useConnectWhatsApp } from "@/hooks/use-connect-whatsapp";
 
 type Props = {
@@ -132,13 +133,14 @@ export function ConnectWhatsAppForm({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
+        <LoadingButton
           type="submit"
-          disabled={isPending || !canSubmit}
+          isLoading={isPending}
+          disabled={!canSubmit}
           className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "Connecting…" : "Connect WhatsApp"}
-        </button>
+          Connect WhatsApp
+        </LoadingButton>
 
         <button
           type="button"

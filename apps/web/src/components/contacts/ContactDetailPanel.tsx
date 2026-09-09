@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAuthentication } from "@/hooks/use-authentication";
@@ -334,20 +335,14 @@ function ContactCustomFieldsSection({
       </div>
 
       {canEdit && !isUnchanged && (
-        <button
+        <LoadingButton
           type="button"
           onClick={handleSave}
-          disabled={updateCustomFields.isPending}
-          className="mt-3 flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          isLoading={updateCustomFields.isPending}
+          className="mt-3 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {updateCustomFields.isPending ? (
-            <Spinner
-              size="sm"
-              className="border-neutral-100/40 border-t-neutral-100"
-            />
-          ) : null}
           Save
-        </button>
+        </LoadingButton>
       )}
     </div>
   );

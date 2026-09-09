@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
 import { useConversationAiDraft } from "@/hooks/use-conversation-ai-draft";
@@ -209,33 +210,31 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
               </div>
             )}
 
-            <button
+            <LoadingButton
               type="button"
-              disabled={isUpdating}
+              isLoading={isUpdating}
               onClick={() =>
                 updateConversation({
                   conversationId: conversationId,
                   status: conversation.status === "CLOSED" ? "OPEN" : "CLOSED",
                 })
               }
-              className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`flex-shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 conversation.status === "CLOSED"
                   ? "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"
                   : "bg-green-bg text-green-text hover:bg-green-bg/70"
               }`}
             >
-              {isUpdating ? (
-                <Spinner size="sm" />
-              ) : (
+              <span className="flex items-center gap-1.5">
                 <span
                   className="material-symbols-rounded text-[14px] leading-none"
                   aria-hidden="true"
                 >
                   {conversation.status === "CLOSED" ? "refresh" : "done_all"}
                 </span>
-              )}
-              {conversation.status === "CLOSED" ? "Reopen" : "Close"}
-            </button>
+                {conversation.status === "CLOSED" ? "Reopen" : "Close"}
+              </span>
+            </LoadingButton>
           </div>
         )}
       </div>
