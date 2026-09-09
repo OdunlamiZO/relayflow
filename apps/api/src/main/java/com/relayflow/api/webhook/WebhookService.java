@@ -43,9 +43,8 @@ public class WebhookService {
     }
 
     /**
-     * Creates or updates the webhook configuration for a workspace. The secret is never touched
-     * here on update — creating auto-generates one (returned once via {@code generatedSecret});
-     * changing an existing secret is only done through {@link #rotateSecret}.
+     * Creates or updates the webhook configuration for a workspace. Creating one auto-generates its
+     * secret, returned once via {@code generatedSecret}.
      */
     @Transactional
     public WebhookConfigResponse saveWebhook(UUID workspaceId, SaveWebhookRequest request) {
