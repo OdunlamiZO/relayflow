@@ -311,12 +311,12 @@ export type WebhookConfig = {
   events: WebhookEventType[];
   createdAt: string;
   updatedAt: string;
+  /** Plaintext secret — only present in the response that creates the webhook. */
+  generatedSecret?: string | null;
 };
 
 export type SaveWebhookRequest = {
   url: string;
-  /** Plaintext HMAC secret. Required on create; omit to keep existing on update. */
-  secret?: string | null;
   enabled: boolean;
   events: WebhookEventType[];
 };
