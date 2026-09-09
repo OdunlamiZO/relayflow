@@ -151,7 +151,7 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-relayflow}
       DATABASE_USERNAME: ${POSTGRES_USER:-relayflow}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-}
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
