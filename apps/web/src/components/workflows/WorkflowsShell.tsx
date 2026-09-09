@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";
-import { Spinner } from "@/components/common/Spinner";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useCreateWorkflow } from "@/hooks/use-create-workflow";
@@ -144,19 +144,14 @@ export function WorkflowsShell({ workspaceId }: Props) {
                 Cancel
               </button>
 
-              <button
+              <LoadingButton
                 type="submit"
-                disabled={isPending || !name.trim()}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                isLoading={isPending}
+                disabled={!name.trim()}
+                className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
               >
                 Create
-                {isPending && (
-                  <Spinner
-                    size="sm"
-                    className="border-neutral-100/40 border-t-neutral-100"
-                  />
-                )}
-              </button>
+              </LoadingButton>
             </div>
           </form>
         )}

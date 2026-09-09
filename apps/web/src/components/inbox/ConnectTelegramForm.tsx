@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useConnectTelegram } from "@/hooks/use-connect-telegram";
 
 type Props = {
@@ -79,13 +80,14 @@ export function ConnectTelegramForm({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
+        <LoadingButton
           type="submit"
-          disabled={isPending || !botToken.trim()}
+          isLoading={isPending}
+          disabled={!botToken.trim()}
           className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "Connecting…" : "Connect bot"}
-        </button>
+          Connect bot
+        </LoadingButton>
 
         <button
           type="button"

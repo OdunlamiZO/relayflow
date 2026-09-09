@@ -27,6 +27,7 @@ import {
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
 import { useAuthentication } from "@/hooks/use-authentication";
@@ -437,19 +438,14 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
             />
 
             {!readOnly && (
-              <button
+              <LoadingButton
                 onClick={handleSave}
-                disabled={!isDirty || isSaving}
-                className="flex h-7 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-semibold text-neutral-100 transition-opacity disabled:opacity-40"
+                isLoading={isSaving}
+                disabled={!isDirty}
+                className="flex h-7 items-center rounded-md bg-accent px-3 text-xs font-semibold text-neutral-100 transition-opacity disabled:opacity-40"
               >
                 Save
-                {isSaving && (
-                  <Spinner
-                    size="sm"
-                    className="border-neutral-100/40 border-t-neutral-100"
-                  />
-                )}
-              </button>
+              </LoadingButton>
             )}
 
             <Link

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Spinner } from "@/components/common/Spinner";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { useCreateWorkspace } from "@/hooks/use-create-workspace";
 
 export function CreateWorkspaceForm() {
@@ -68,26 +68,21 @@ export function CreateWorkspaceForm() {
             />
           </div>
 
-          <button
+          <LoadingButton
             type="submit"
-            disabled={isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            isLoading={isPending}
+            className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Create workspace
-            {isPending ? (
-              <Spinner
-                size="sm"
-                className="border-neutral-100/40 border-t-neutral-100"
-              />
-            ) : (
+            <span className="flex items-center justify-center gap-2">
+              Create workspace
               <span
                 className="material-symbols-rounded text-[15px]"
                 aria-hidden="true"
               >
                 arrow_forward
               </span>
-            )}
-          </button>
+            </span>
+          </LoadingButton>
         </form>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useDeleteWebhook } from "@/hooks/use-delete-webhook";
 import { useRotateWebhookSecret } from "@/hooks/use-rotate-webhook-secret";
@@ -11,9 +12,9 @@ import { useWorkspaceWebhook } from "@/hooks/use-workspace-webhook";
 import { errorMessage } from "@/lib/error-message";
 import { type WebhookConfig, type WebhookEventType } from "@/lib/messaging-api";
 
-const ALL_EVENTS: { value: WebhookEventType; label: string }[] = [
-  { value: "CONTACT_CREATED", label: "Contact created" },
-  { value: "CONTACT_UPDATED", label: "Contact updated" },
+const ALL_EVENTS: { value: WebhookEventType; payloadName: string }[] = [
+  { value: "CONTACT_CREATED", payloadName: "contact.created" },
+  { value: "CONTACT_UPDATED", payloadName: "contact.updated" },
 ];
 
 type Props = {
@@ -209,7 +210,9 @@ function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
                   onChange={() => toggleEvent(ev.value)}
                   className="h-4 w-4 rounded border-neutral-300 accent-secondary"
                 />
-                <span className="text-sm text-neutral-700">{ev.label}</span>
+                <span className="font-mono text-sm text-neutral-700">
+                  {ev.payloadName}
+                </span>
               </label>
             ))}
           </div>
@@ -256,30 +259,24 @@ function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
             )}
 
             {!isNew && (
-              <button
+              <LoadingButton
                 type="button"
                 onClick={handleRotate}
-                disabled={rotateSecret.isPending}
+                isLoading={rotateSecret.isPending}
                 className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-60"
               >
-                {rotateSecret.isPending ? "Rotating…" : "Rotate secret"}
-              </button>
+                Rotate secret
+              </LoadingButton>
             )}
           </div>
 
-          <button
+          <LoadingButton
             type="submit"
-            disabled={saveWebhook.isPending}
+            isLoading={saveWebhook.isPending}
             className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:opacity-60"
           >
-            {saveWebhook.isPending
-              ? isNew
-                ? "Creating…"
-                : "Saving…"
-              : isNew
-                ? "Create webhook"
-                : "Save changes"}
-          </button>
+            {isNew ? "Create webhook" : "Save changes"}
+          </LoadingButton>
         </div>
       </form>
 
