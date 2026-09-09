@@ -136,16 +136,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Self-hosted, not Google's CDN — ad blockers and privacy extensions
-   commonly block fonts.gstatic.com, which silently broke every icon. */
-@font-face {
-  font-family: "Material Symbols Rounded";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/material-symbols-rounded.ttf") format("truetype");
-}
-
 * {
   box-sizing: border-box;
 }
@@ -173,7 +163,7 @@ a {
 .material-symbols-rounded {
   direction: ltr;
   display: inline-block;
-  font-family: "Material Symbols Rounded", sans-serif;
+  font-family: var(--font-material-symbols-rounded), sans-serif;
   font-feature-settings: "liga" 1;
   font-size: 20px;
   font-style: normal;
