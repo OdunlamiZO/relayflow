@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 
@@ -11,6 +12,12 @@ const inter = Inter({
 const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
+});
+
+const materialSymbolsRounded = localFont({
+  src: "../fonts/material-symbols-rounded.ttf",
+  variable: "--font-material-symbols-rounded",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -30,7 +37,9 @@ type Props = {
 export default function RootLayout({ children }: Props) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${jetBrainsMono.variable}`}>
+      <body
+        className={`${inter.variable} ${jetBrainsMono.variable} ${materialSymbolsRounded.variable}`}
+      >
         {children}
       </body>
     </html>
