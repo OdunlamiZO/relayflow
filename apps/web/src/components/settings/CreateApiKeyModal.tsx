@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { type CreateApiKeyResponse } from "@/lib/messaging-api";
 
 type ExpiryOption = {
@@ -213,13 +214,14 @@ export function CreateApiKeyModal({
                 Cancel
               </button>
 
-              <button
+              <LoadingButton
                 type="submit"
-                disabled={isCreating || !name.trim()}
+                isLoading={isCreating}
+                disabled={!name.trim()}
                 className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:opacity-60"
               >
-                {isCreating ? "Creating…" : "Create"}
-              </button>
+                Create
+              </LoadingButton>
             </div>
           </form>
         )}

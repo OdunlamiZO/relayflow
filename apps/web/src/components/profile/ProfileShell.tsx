@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { QRCodeSVG } from "qrcode.react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useDeleteAccount } from "@/hooks/use-delete-account";
 import { useDisable2FA } from "@/hooks/use-disable-2fa";
@@ -142,21 +143,13 @@ function ProfileInfoSection({ displayName, email }: ProfileInfoProps) {
         </div>
 
         <div className="flex justify-end">
-          <button
+          <LoadingButton
             type="submit"
-            disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
+            isLoading={isPending}
+            className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
           >
-            {isPending && (
-              <span
-                className="material-symbols-rounded animate-spin text-[16px]"
-                aria-hidden="true"
-              >
-                progress_activity
-              </span>
-            )}
             Save changes
-          </button>
+          </LoadingButton>
         </div>
       </form>
     </section>
@@ -176,24 +169,16 @@ function PasswordSection() {
         We&apos;ll email you a link to set a new password.
       </p>
 
-      <button
+      <LoadingButton
         type="button"
-        disabled={isPending}
+        isLoading={isPending}
         onClick={() => {
           requestReset();
         }}
-        className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
+        className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
       >
-        {isPending && (
-          <span
-            className="material-symbols-rounded animate-spin text-[16px]"
-            aria-hidden="true"
-          >
-            progress_activity
-          </span>
-        )}
         Reset password
-      </button>
+      </LoadingButton>
     </section>
   );
 }
@@ -293,22 +278,14 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
               Disable 2FA
             </button>
           ) : (
-            <button
+            <LoadingButton
               type="button"
               onClick={handleStartSetup}
-              disabled={isSettingUp}
-              className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
+              isLoading={isSettingUp}
+              className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
             >
-              {isSettingUp && (
-                <span
-                  className="material-symbols-rounded animate-spin text-[16px]"
-                  aria-hidden="true"
-                >
-                  progress_activity
-                </span>
-              )}
               Set up 2FA
-            </button>
+            </LoadingButton>
           )}
         </div>
       )}
@@ -351,21 +328,14 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
-              <button
+              <LoadingButton
                 type="submit"
-                disabled={isEnabling || otp.length !== 6}
-                className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60 sm:py-2"
+                isLoading={isEnabling}
+                disabled={otp.length !== 6}
+                className="rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60 sm:py-2"
               >
-                {isEnabling && (
-                  <span
-                    className="material-symbols-rounded animate-spin text-[16px]"
-                    aria-hidden="true"
-                  >
-                    progress_activity
-                  </span>
-                )}
                 Enable 2FA
-              </button>
+              </LoadingButton>
 
               <button
                 type="button"
@@ -410,21 +380,14 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            <button
+            <LoadingButton
               type="submit"
-              disabled={isDisabling || otp.length !== 6}
-              className="flex items-center justify-center gap-2 rounded-lg border border-red-text px-4 py-2.5 text-sm font-semibold text-red-text transition-colors hover:bg-red-bg disabled:opacity-60 sm:py-2"
+              isLoading={isDisabling}
+              disabled={otp.length !== 6}
+              className="rounded-lg border border-red-text px-4 py-2.5 text-sm font-semibold text-red-text transition-colors hover:bg-red-bg disabled:opacity-60 sm:py-2"
             >
-              {isDisabling && (
-                <span
-                  className="material-symbols-rounded animate-spin text-[16px]"
-                  aria-hidden="true"
-                >
-                  progress_activity
-                </span>
-              )}
               Disable 2FA
-            </button>
+            </LoadingButton>
 
             <button
               type="button"
@@ -568,14 +531,14 @@ function DangerZoneSection({ isEmailProvider, onDeleted }: DangerZoneProps) {
                 Cancel
               </button>
 
-              <button
+              <LoadingButton
                 type="button"
                 onClick={handleDelete}
-                disabled={isPending}
+                isLoading={isPending}
                 className="rounded-lg bg-red-text px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:opacity-60"
               >
-                {isPending ? "Deleting…" : "Delete account"}
-              </button>
+                Delete account
+              </LoadingButton>
             </div>
           </div>
         </div>

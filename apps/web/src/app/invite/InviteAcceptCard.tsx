@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Spinner } from "@/components/common/Spinner";
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { InviteStatusMessage } from "@/components/invite/InviteStatusMessage";
 import { useAcceptInvite } from "@/hooks/use-accept-invite";
 import { errorMessage } from "@/lib/error-message";
@@ -114,20 +114,14 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
         )}
 
         {isAuthenticated ? (
-          <button
+          <LoadingButton
             type="button"
             onClick={handleAccept}
-            disabled={isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            isLoading={isPending}
+            className="flex w-full items-center justify-center rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending && (
-              <Spinner
-                size="sm"
-                className="border-neutral-100/40 border-t-neutral-100"
-              />
-            )}
-            {isPending ? "Accepting…" : `Join ${preview.workspaceName}`}
-          </button>
+            Join {preview.workspaceName}
+          </LoadingButton>
         ) : preview.accountExists ? (
           <Link
             href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}

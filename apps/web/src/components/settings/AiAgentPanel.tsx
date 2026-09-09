@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { LoadingButton } from "@/components/common/LoadingButton";
 import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -659,13 +660,14 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
 
         {/* Save */}
         <div className="flex justify-end border-t border-neutral-200 pt-6">
-          <button
+          <LoadingButton
             type="submit"
-            disabled={isUnchanged || updateConfiguration.isPending}
+            isLoading={updateConfiguration.isPending}
+            disabled={isUnchanged}
             className="rounded-lg bg-secondary px-5 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {updateConfiguration.isPending ? "Saving…" : "Save"}
-          </button>
+            Save
+          </LoadingButton>
         </div>
       </form>
     </div>
