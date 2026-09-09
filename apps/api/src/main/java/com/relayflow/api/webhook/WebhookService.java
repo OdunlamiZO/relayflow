@@ -39,33 +39,26 @@ public class WebhookService {
 
     @Transactional(readOnly = true)
     public Optional<WebhookConfigResponse> getWebhook(UUID workspaceId) {
-        return webhookRepository.findByWorkspace(workspaceId).map(this::toResponse);
+        return webhookRepository.findByWorkspace(workspaceId).map(w -> toResponse(w, null));
     }
 
     /**
-     * Creates or updates the webhook configuration for a workspace.
-     *
-     * <p>When updating an existing webhook, a null {@code secret} in the request leaves the stored
-     * secret unchanged. A non-null secret replaces the stored one (re-encrypted). When creating a
-     * new webhook, a secret is mandatory and will be rejected with 400 if absent.
+     * Creates or updates the webhook configuration for a workspace. Creating one auto-generates its
+     * secret, returned once via {@code generatedSecret}.
      */
     @Transactional
     public WebhookConfigResponse saveWebhook(UUID workspaceId, SaveWebhookRequest request) {
         urlValidator.validate(request.url());
 
         WorkspaceWebhook webhook = webhookRepository.findByWorkspace(workspaceId).orElse(null);
+        String generatedSecret = null;
 
         if (webhook == null) {
-            if (request.secret() == null || request.secret().isBlank()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "secret is required when creating a webhook");
-            }
-
             webhook = new WorkspaceWebhook();
             webhook.setWorkspaceId(workspaceId);
-            webhook.setSecret(encryptionService.encrypt(request.secret()));
-        } else if (request.secret() != null && !request.secret().isBlank()) {
-            webhook.setSecret(encryptionService.encrypt(request.secret()));
+
+            generatedSecret = generateSecret();
+            webhook.setSecret(encryptionService.encrypt(generatedSecret));
         }
 
         webhook.setUrl(request.url());
@@ -79,7 +72,7 @@ public class WebhookService {
 
         log.info("Webhook saved: workspaceId={}, url={}", workspaceId, webhook.getUrl());
 
-        return toResponse(webhook);
+        return toResponse(webhook, generatedSecret);
     }
 
     @Transactional
@@ -122,7 +115,7 @@ public class WebhookService {
         return new RotateWebhookSecretResponse(newSecret);
     }
 
-    private WebhookConfigResponse toResponse(WorkspaceWebhook w) {
+    private WebhookConfigResponse toResponse(WorkspaceWebhook w, String generatedSecret) {
         return new WebhookConfigResponse(
                 w.getId(),
                 w.getWorkspaceId(),
@@ -130,7 +123,8 @@ public class WebhookService {
                 w.isEnabled(),
                 w.getEvents(),
                 w.getCreatedAt(),
-                w.getUpdatedAt());
+                w.getUpdatedAt(),
+                generatedSecret);
     }
 
     private static String generateSecret() {

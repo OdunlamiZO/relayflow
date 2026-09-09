@@ -8,8 +8,8 @@ import java.util.UUID;
 /**
  * Public representation of a workspace webhook configuration.
  *
- * <p>The secret is never included in this response; clients that need it must use the rotate-secret
- * endpoint which returns the new plaintext value once.
+ * <p>{@code generatedSecret} is only populated by the {@code PUT} call that creates the webhook;
+ * it's {@code null} everywhere else (GET, and updates to an existing webhook).
  */
 public record WebhookConfigResponse(
         UUID id,
@@ -18,4 +18,5 @@ public record WebhookConfigResponse(
         boolean enabled,
         Set<WebhookEventType> events,
         Instant createdAt,
-        Instant updatedAt) {}
+        Instant updatedAt,
+        String generatedSecret) {}
