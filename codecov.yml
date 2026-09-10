@@ -1,0 +1,28 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        if_no_uploads: error
+        informational: false
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+        informational: false
+
+flags:
+  api:
+    paths:
+      - apps/api/src/main
+  web:
+    paths:
+      - apps/web/src
+
+ignore:
+  - "**/*.md"
+  - "docs/**"
+  - "apps/marketing/**"
+  - "apps/api/src/test/**"
+  - "apps/web/src/test/**"
