@@ -1,6 +1,6 @@
 package com.relayflow.api.agent.domain;
 
-import com.relayflow.api.messaging.domain.Workspace;
+import com.relayflow.api.workspace.domain.Workspace;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

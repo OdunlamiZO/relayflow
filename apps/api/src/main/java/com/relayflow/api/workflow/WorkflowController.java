@@ -1,13 +1,13 @@
 package com.relayflow.api.workflow;
 
-import com.relayflow.api.messaging.WorkspaceAuthorizationService;
-import com.relayflow.api.messaging.domain.WorkspacePermission;
-import com.relayflow.api.messaging.dto.PageResponse;
+import com.relayflow.api.common.dto.PageResponse;
 import com.relayflow.api.workflow.dto.CreateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.UpdateWorkflowDefinitionRequest;
 import com.relayflow.api.workflow.dto.WorkflowDefinitionResponse;
 import com.relayflow.api.workflow.dto.WorkflowRunDetailResponse;
 import com.relayflow.api.workflow.dto.WorkflowRunResponse;
+import com.relayflow.api.workspace.WorkspaceAuthorizationService;
+import com.relayflow.api.workspace.domain.WorkspacePermission;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;

@@ -1,8 +1,8 @@
 package com.relayflow.api.authentication;
 
-import com.relayflow.api.messaging.ApiKeyService;
-import com.relayflow.api.messaging.domain.WorkspaceApiKey;
-import com.relayflow.api.messaging.repository.WorkspaceApiKeyRepository;
+import com.relayflow.api.workspace.ApiKeyService;
+import com.relayflow.api.workspace.domain.WorkspaceApiKey;
+import com.relayflow.api.workspace.repository.WorkspaceApiKeyRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

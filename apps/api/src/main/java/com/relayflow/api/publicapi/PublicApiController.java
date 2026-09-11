@@ -1,12 +1,12 @@
 package com.relayflow.api.publicapi;
 
 import com.relayflow.api.authentication.ApiKeyAuthentication;
+import com.relayflow.api.common.dto.PageResponse;
 import com.relayflow.api.messaging.MessagingService;
 import com.relayflow.api.messaging.domain.MessageSenderType;
 import com.relayflow.api.messaging.dto.ConversationResponse;
 import com.relayflow.api.messaging.dto.CreateMessageRequest;
 import com.relayflow.api.messaging.dto.MessageResponse;
-import com.relayflow.api.messaging.dto.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;

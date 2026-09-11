@@ -36,26 +36,21 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`ApiKeyAuthentication`](#apikeyauthentication)
   - [`ApiKeyAuthenticationFilter`](#apikeyauthenticationfilter)
   - [`AsyncConfiguration`](#asyncconfiguration)
-- [Messaging Backend](#messaging-backend)
-  - [`MessagingController`](#messagingcontroller)
-  - [`MessagingService`](#messagingservice)
-  - [`MessagingMapper`](#messagingmapper)
-  - [`MessagingExceptionHandler`](#messagingexceptionhandler)
-  - [`ConversationLockedException`](#conversationlockedexception)
+- [Common Backend](#common-backend)
+  - [`ResourceNotFoundException`](#resourcenotfoundexception)
+  - [`PageResponse`](#pageresponse)
+  - [`ErrorResponse`](#errorresponse)
+  - [`CommonExceptionHandler`](#commonexceptionhandler)
+- [Workspace Backend](#workspace-backend)
+  - [`WorkspaceController`](#workspacecontroller)
+  - [`WorkspaceService`](#workspaceservice)
+  - [`WorkspaceMapper`](#workspacemapper)
   - [`WorkspaceAuthorizationService`](#workspaceauthorizationservice)
   - [`ApiKeyService`](#apikeyservice)
   - [`ApiKeyController`](#apikeycontroller)
   - [`WorkspaceInviteService`](#workspaceinviteservice)
   - [`WorkspaceInviteController`](#workspaceinvitecontroller)
-  - [`PublicApiController`](#publicapicontroller)
-  - [`WebhookService`](#webhookservice)
-  - [`WebhookDispatchService`](#webhookdispatchservice)
-  - [`WebhookController`](#webhookcontroller)
-  - [`EmailService` And `SmtpEmailService`](#emailservice-and-smtpemailservice)
-  - [`ReservedContactFieldResolver`](#reservedcontactfieldresolver)
-  - [`OutboundMessageEvent`](#outboundmessageevent)
-  - [`ResourceNotFoundException`](#resourcenotfoundexception)
-- [Messaging Domain Entities And Enums](#messaging-domain-entities-and-enums)
+- [Workspace Domain Entities And Enums](#workspace-domain-entities-and-enums)
   - [`Workspace`](#workspace)
   - [`ContactFieldDefinition`](#contactfielddefinition)
   - [`WorkspaceMember`](#workspacemember)
@@ -63,16 +58,37 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WorkspacePermission`](#workspacepermission)
   - [`WorkspaceInvite`](#workspaceinvite)
   - [`WorkspaceApiKey`](#workspaceapikey)
-  - [`WorkspaceWebhook`](#workspacewebhook)
-  - [`WebhookEventType`](#webhookeventtype)
-  - [`ContactSnapshotBuilder`](#contactsnapshotbuilder)
-  - [`ContactSnapshot`](#contactsnapshot)
+  - [`ReservedContactField`](#reservedcontactfield)
+- [Workspace DTO Records](#workspace-dto-records)
+- [Workspace Repositories](#workspace-repositories)
+- [Channel Backend](#channel-backend)
+  - [`ChannelAccountController`](#channelaccountcontroller)
+  - [`ChannelAccountService`](#channelaccountservice)
+  - [`ChannelAccountMapper`](#channelaccountmapper)
+- [Channel Domain Entities And Enums](#channel-domain-entities-and-enums)
   - [`ChannelAccount`](#channelaccount)
   - [`ChannelProvider`](#channelprovider)
   - [`ChannelAccountStatus`](#channelaccountstatus)
+- [Channel DTO Records](#channel-dto-records)
+- [Channel Repositories](#channel-repositories)
+- [Contact Backend](#contact-backend)
+  - [`ContactController`](#contactcontroller)
+  - [`ContactService`](#contactservice)
+  - [`ContactMapper`](#contactmapper)
+  - [`ReservedContactFieldResolver`](#reservedcontactfieldresolver)
+- [Contact Domain Entities And Enums](#contact-domain-entities-and-enums)
   - [`Contact`](#contact)
-  - [`ReservedContactField`](#reservedcontactfield)
   - [`ExternalIdentity`](#externalidentity)
+- [Contact DTO Records](#contact-dto-records)
+- [Contact Repositories](#contact-repositories)
+- [Messaging Backend](#messaging-backend)
+  - [`MessagingController`](#messagingcontroller)
+  - [`MessagingService`](#messagingservice)
+  - [`MessagingMapper`](#messagingmapper)
+  - [`MessagingExceptionHandler`](#messagingexceptionhandler)
+  - [`ConversationLockedException`](#conversationlockedexception)
+  - [`OutboundMessageEvent`](#outboundmessageevent)
+- [Messaging Domain Entities And Enums](#messaging-domain-entities-and-enums)
   - [`Conversation`](#conversation)
   - [`ConversationStatus`](#conversationstatus)
   - [`Message`](#message)
@@ -80,6 +96,17 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`MessageSenderType`](#messagesendertype)
 - [Messaging DTO Records](#messaging-dto-records)
 - [Messaging Repositories](#messaging-repositories)
+- [Public API Backend](#public-api-backend)
+  - [`PublicApiController`](#publicapicontroller)
+- [Webhook And Email Backend](#webhook-and-email-backend)
+  - [`WebhookService`](#webhookservice)
+  - [`WebhookDispatchService`](#webhookdispatchservice)
+  - [`WebhookController`](#webhookcontroller)
+  - [`EmailService` And `SmtpEmailService`](#emailservice-and-smtpemailservice)
+  - [`WorkspaceWebhook`](#workspacewebhook)
+  - [`WebhookEventType`](#webhookeventtype)
+  - [`ContactSnapshotBuilder`](#contactsnapshotbuilder)
+  - [`ContactSnapshot`](#contactsnapshot)
 - [SSE Backend](#sse-backend)
   - [`SseController`](#ssecontroller)
   - [`WorkspaceSseService`](#workspacesseservice)
@@ -320,7 +347,7 @@ Business logic for authentication.
 Important methods:
 
 - `signup`: rejects if the email is already registered, creates the `User`/`UserPreferences`/`UserIdentity` rows, marks the email identity verified without a round-trip (the invite itself is the vouch — `WorkspaceInviteService.acceptInvite` already applies a case-insensitive email match and rejects revoked/expired invites), then calls `acceptInvite` to add the user to the invite's workspace. The whole method is `@Transactional`, so a bad/expired/mismatched invite token rolls back the user rows created above.
-- `bootstrap`: guarded by `userRepository.count() == 0` (throws `409` otherwise). Creates the admin `User`/`UserPreferences`/`UserIdentity`, marks the identity verified for the same reason as signup (no mail server is guaranteed to be configured yet on a fresh instance), creates the first workspace via `MessagingService.createWorkspace`, and establishes a session.
+- `bootstrap`: guarded by `userRepository.count() == 0` (throws `409` otherwise). Creates the admin `User`/`UserPreferences`/`UserIdentity`, marks the identity verified for the same reason as signup (no mail server is guaranteed to be configured yet on a fresh instance), creates the first workspace via `WorkspaceService.createWorkspace`, and establishes a session.
 - `getInstanceStatus`: read-only check of `userRepository.count() > 0`, backing `bootstrapStatus`.
 - `login`: authenticates through Spring Security and returns user profile state or a short-lived 2FA challenge.
 - `login2FA`: verifies the TOTP challenge and establishes a session.
@@ -348,7 +375,7 @@ We need it so Google login creates a local `User` record and returns consistent 
 
 Important methods:
 
-- `issueForUser(userId)`: creates a `PasswordResetToken` and emails a `{webBaseUrl}/reset-password/{token}` link to the user's address. Throws `400` if the user has no `EMAIL` identity (e.g. a Google-only account — nothing to reset). Shared by both callers: `ProfileService.requestPasswordReset` (self-service) and `MessagingService.generatePasswordResetForMember` (owner-on-behalf-of-a-member), so the shape can't drift between them.
+- `issueForUser(userId)`: creates a `PasswordResetToken` and emails a `{webBaseUrl}/reset-password/{token}` link to the user's address. Throws `400` if the user has no `EMAIL` identity (e.g. a Google-only account — nothing to reset). Shared by both callers: `ProfileService.requestPasswordReset` (self-service) and `WorkspaceService.generatePasswordResetForMember` (owner-on-behalf-of-a-member), so the shape can't drift between them.
 - `resetPassword(token, newPassword)`: validates the token (`PasswordResetToken.isValid()` — exists, unused, unexpired), sets the new BCrypt-encoded credential on the `EMAIL` identity, and marks the token used.
 
 We need it as the single place password-setting logic lives, since it's reached from two different permission contexts (self, and workspace owner).
@@ -555,80 +582,87 @@ Important executors:
 
 We need it so workflow execution and webhook delivery do not block inbound HTTP/webhook request handling.
 
-## Messaging Backend
+## Common Backend
 
-### `MessagingController`
+`com.relayflow.api.common` — small infrastructure shared across every other backend package, not owned by any single domain.
 
-HTTP controller for workspace, member, channel account, contact, identity, conversation, and message routes.
+### `ResourceNotFoundException`
+
+Runtime exception used when workspace-scoped data is missing or not accessible in that workspace.
+
+We need it to avoid leaking whether records exist outside the requested workspace.
+
+### `PageResponse`
+
+`record PageResponse<T>(List<T> items, boolean hasMore, String nextCursor)` — generic paginated API response, used by every list endpoint across `workspace`, `channel`, `contact`, and `messaging`.
+
+We need it so pagination shape doesn't drift between domains.
+
+### `ErrorResponse`
+
+`record ErrorResponse(String message, Instant timestamp)` — normalized API error body.
+
+We need it so the frontend receives a consistent error shape regardless of which domain threw.
+
+### `CommonExceptionHandler`
+
+Global REST exception handler for exceptions that aren't specific to one domain — domain-specific exceptions (`ConversationLockedException`, `TelegramSendException`, `WorkflowValidationException`) each have their own small `@RestControllerAdvice` in their own package instead; Spring composes `@ExceptionHandler` methods across every advice bean regardless of which one declares them.
+
+Handles:
+
+- `ResourceNotFoundException` as `404`.
+- `IllegalArgumentException` as `409`.
+- validation errors as `400`.
+- missing required request parameters as `400`.
+- `AccessDeniedException` as `403`.
+- `ResponseStatusException` — preserves its own status and reason.
+- `AsyncRequestTimeoutException` (SSE emitter timeout) — bodiless `503`.
+- unexpected exceptions as `500` with a generic message.
+
+We need it so the frontend receives consistent `{ message, timestamp }` error responses.
+
+## Workspace Backend
+
+`com.relayflow.api.workspace` — workspace CRUD, membership, invites, and API keys. Owns the tenant boundary the other domains (`channel`, `contact`, `messaging`) are scoped within.
+
+### `WorkspaceController`
+
+HTTP controller for workspace and workspace-member routes.
 
 Important methods:
 
 - `listWorkspaces`, `createWorkspace`
+- `updateWorkspace`, `updateContactFieldDefinitions`
 - `listMembers`, `inviteMember`, `updateMember`, `removeMember`, `generatePasswordResetForMember` — owner-only
-- `listChannelAccounts`, `createChannelAccount`, `disconnectChannelAccount`, `reconnectChannelAccount`
-- `listContacts`, `createContact`, `getContact`, `mergeContacts`, `deleteContact`
-- `updateContactFieldDefinitions`, `updateContactCustomFields` — require `CONTACT_FIELDS_WRITE` permission or owner role
-- `createExternalIdentity`
-- `createConversation`, `listConversations`, `getConversation`, `updateConversation`
-- `listMessages`, `createMessage`
+- `transferOwnership`
 
-We need it as the REST boundary for the inbox and channel management UI.
+We need it as the REST boundary for workspace settings and team management.
 
-### `MessagingService`
+### `WorkspaceService`
 
-Business service for messaging persistence and message creation.
+Business service for workspace and membership persistence.
 
 Important methods:
 
 - `createWorkspace`: creates a workspace and owner membership. Used both by `AuthenticationService.bootstrap` (first-run instance setup) and by the authenticated "create another workspace" flow.
-- `listWorkspaces`: lists workspaces by membership.
+- `listWorkspaces`: lists workspaces by membership. Also used by `SseController` to check that a subscriber is a member of the workspace it's connecting to.
+- `updateContactFieldDefinitions`: validates no key collides with a `ReservedContactField` key, then replaces `Workspace.contactFieldDefinitions`.
 - `listWorkspaceMembers`, `inviteWorkspaceMember`, `updateWorkspaceMember`, `removeWorkspaceMember`, `transferOwnership`: owner/member management with single-owner safeguards.
 - `generatePasswordResetForMember`: resolves `WorkspaceMember` → `userId`, then delegates to `PasswordResetService.issueForUser` — the same issuing path a member's own self-service request uses.
-- `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook.
-- `disconnectChannelAccount` / `reconnectChannelAccount`: toggles channel availability without deleting history.
-- `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
-- `updateContactFieldDefinitions`: validates no key collides with a `ReservedContactField` key, then replaces `Workspace.contactFieldDefinitions`.
-- `updateContactCustomFields`: replaces `Contact.customFields`, then returns `getContactDetail`.
-- `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
-- `createExternalIdentity`, `createConversation`
-- `listConversations`, `getConversation`, `updateConversationStatus`, `listMessages`
-- `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason` on that same first human (`MessageSenderType.AGENT`) outbound reply.
-- `deleteWorkspace`: removes all workspace-owned data.
+- `deleteWorkspace`: removes all workspace-owned data — reaches into `channel`/`contact`/`messaging`/`workflow`/`agent` repositories directly for the cascade, since those domains don't expose their own bulk-delete-by-workspace service method.
+- `getWorkspace`: looks up a workspace by ID or throws `ResourceNotFoundException`. Called by `ChannelAccountService`, `ContactService`, and `MessagingService` to validate a workspace exists before scoping a query to it — the one piece of cross-domain API `workspace` exposes to the other three.
 
-We need it because messaging has cross-entity rules that should not live in controllers or repositories.
+We need it because workspace/membership has cross-entity rules that should not live in controllers or repositories.
 
-### `MessagingMapper`
+### `WorkspaceMapper`
 
-Maps JPA entities to response DTOs.
+Maps the `Workspace` JPA entity to `WorkspaceResponse`.
 
 We need it to isolate the API response shape from the persistence entity shape.
 
-### `MessagingExceptionHandler`
-
-Global REST exception handler.
-
-Handles:
-
-- `TelegramSendException` as `502`.
-- `ConversationLockedException` as `409`.
-- `ResourceNotFoundException` as `404`.
-- `WorkflowValidationException` as `400`.
-- `IllegalArgumentException` as `409`.
-- validation errors as `400`.
-- missing required request parameters as `400`.
-- unexpected exceptions as `500` with a generic message.
-
-We need it so frontend receives consistent `{ message, timestamp }` error responses.
-
-### `ConversationLockedException`
-
-Runtime exception thrown when an agent or public API client tries to send a message while an active workflow owns the conversation.
-
-We need it to enforce workflow-driven conversations without silently dropping agent replies.
-
 ### `WorkspaceAuthorizationService`
 
-Service that resolves the authenticated user's workspace membership and checks owner or granular permissions.
+Service that resolves the authenticated user's workspace membership and checks owner or granular permissions. Used by every controller across `workspace`, `channel`, `contact`, and `messaging` that needs to authorize a workspace-scoped request.
 
 Important methods:
 
@@ -691,87 +725,7 @@ Endpoints:
 
 We need it for both owner invite management and the public invite acceptance flow.
 
-### `PublicApiController`
-
-API-key-authenticated controller under `/public/v1`.
-
-Endpoints:
-
-- `listConversations`
-- `getConversation`
-- `listMessages`
-- `sendMessage`
-
-We need it so third-party systems can inspect conversations and send outbound replies for a workspace.
-
-### `WebhookService`
-
-Creates, updates, deletes, retrieves, and rotates workspace webhook configuration.
-
-Important behavior:
-
-- the signing secret is never client-supplied. Creating a webhook auto-generates one, returned once as `generatedSecret` on that response only.
-- `saveWebhook` never touches the secret, on create or update — changing it is only possible through `rotateSecret`.
-
-We need it to centralize webhook URL, encrypted secret, enabled state, and subscribed events.
-
-### `WebhookDispatchService`
-
-Asynchronous webhook delivery service.
-
-Important behavior:
-
-- signs payloads with `X-RelayFlow-Signature`.
-- posts JSON payloads to the configured URL.
-- retries failed deliveries with backoff.
-- currently supports `contact.created`.
-
-We need it to notify external systems when RelayFlow creates important records.
-
-### `WebhookController`
-
-REST controller for workspace webhook configuration.
-
-Endpoints:
-
-- `getWebhook`
-- `saveWebhook`
-- `deleteWebhook`
-- `rotateSecret`
-
-We need it so authorized users can manage outbound integration webhooks.
-
-### `EmailService` And `SmtpEmailService`
-
-Email abstraction and its SMTP-backed implementation for transactional emails: `sendInvite`,
-`sendEmailVerification`, `sendPasswordReset`, `sendDowngradeNotice`. SMTP works with any provider
-(Resend, SES, Mailgun, Postmark, Gmail, a self-hosted mail server) rather than locking self-hosters
-into one vendor's REST API. When `smtp.host` is blank, every method falls back to logging the link
-at `INFO` instead of sending, so these flows are testable locally with no mail server.
-
-We need them so invite/verification/reset delivery can be swapped or disabled without changing the domain logic that calls them.
-
-### `ReservedContactFieldResolver`
-
-`@Component` in the `messaging` package. `resolve(contact, identities)` returns the reserved contact field values ({@link ReservedContactField}) that can already be derived from existing data, without asking the AI agent or an operator: `displayName` from `Contact.displayName`, `firstName`/`lastName` from a Telegram `ExternalIdentity`'s `rawProfile` (populated by `TelegramAdapter.buildRawProfile` from the inbound update's `from` user), `phone` (and, via `libphonenumber`, `country`) from a WhatsApp or SMS `ExternalIdentity`, `email` from an EMAIL identity. A key is omitted (not included with an empty value) when nothing can be derived.
-
-Used by `MessagingService.getContactDetail` to seed a contact's `customFields` response before the explicitly-stored values overwrite it (derived values only ever fill a gap, never override an explicit one), and by `ContactCustomFieldWriter` to check whether a reserved key is already effectively known before writing an AI extraction.
-
-We need it so reserved fields are auto-filled wherever RelayFlow can already derive them, without hand-coding a Telegram-specific "share contact" flow or similar one-off hack for channels that don't expose the data.
-
-### `OutboundMessageEvent`
-
-Application event carrying a saved outbound message, its channel account, and optional button option labels.
-
-We need it to decouple message persistence from provider delivery. The messaging service saves the message; adapters deliver it, optionally rendering Ask Question options as provider-native controls.
-
-### `ResourceNotFoundException`
-
-Runtime exception used when workspace-scoped data is missing or not accessible in that workspace.
-
-We need it to avoid leaking whether records exist outside the requested workspace.
-
-## Messaging Domain Entities And Enums
+## Workspace Domain Entities And Enums
 
 ### `Workspace`
 
@@ -780,7 +734,7 @@ JPA entity for a company/team workspace.
 Important fields:
 
 - `name`
-- `contactFieldDefinitions`: `List<ContactFieldDefinition>` JSONB — the workspace's custom contact field schema. A key here can't collide with a `ReservedContactField` key (enforced in `MessagingService.updateContactFieldDefinitions`).
+- `contactFieldDefinitions`: `List<ContactFieldDefinition>` JSONB — the workspace's custom contact field schema. A key here can't collide with a `ReservedContactField` key (enforced in `WorkspaceService.updateContactFieldDefinitions`).
 
 We need it as the tenant boundary for conversations, channels, workflows, and members.
 
@@ -866,44 +820,70 @@ Important fields:
 
 We need it to authenticate external systems while storing no plaintext API key.
 
-### `WorkspaceWebhook`
+### `ReservedContactField`
 
-JPA entity for a workspace's outbound webhook configuration.
+Enum: `DISPLAY_NAME` (`"displayName"`), `FIRST_NAME` (`"firstName"`), `LAST_NAME` (`"lastName"`), `PHONE` (`"phone"`), `EMAIL` (`"email"`), `COUNTRY` (`"country"`). Contact fields RelayFlow already derives automatically — a workspace can't redefine any of these as a custom field. Lives in `workspace.domain` (validated against `Workspace.contactFieldDefinitions`), even though the resolver that uses it (`ReservedContactFieldResolver`) lives in `contact`.
 
-Important fields:
+`isReserved(candidateKey)` does a case-insensitive comparison against each enum value's `key()` (`field.key.equalsIgnoreCase(trimmed)`) — both sides must be compared case-insensitively, not just the candidate, since a key like `displayName` isn't all-lowercase.
 
-- `workspaceId`
-- `url`
-- `secret`
-- `enabled`
-- `events`
-- `createdAt`
-- `updatedAt`
+Carries no label or description — those are presentation copy that live in the frontend (`RESERVED_CONTACT_FIELDS` in `messaging-api.ts`), mirroring how `WorkspacePermission` carries no display copy either.
 
-We need it to persist webhook delivery settings and encrypted signing secrets.
+We need it as the single source of truth for which keys are reserved, used by `ReservedContactFieldResolver`, `ContactCustomFieldWriter`, `SetContactFieldNodeExecutor`, and `WorkspaceService.updateContactFieldDefinitions`'s validation.
 
-### `WebhookEventType`
+## Workspace DTO Records
 
-Enum of outbound webhook event types, in `com.relayflow.api.webhook.domain` alongside `WorkspaceWebhook`.
+- `CreateWorkspaceRequest`, `UpdateWorkspaceRequest`, `WorkspaceResponse`
+- `UpdateContactFieldDefinitionsRequest`
+- `InviteMemberRequest`, `UpdateMemberRequest`, `WorkspaceMemberResponse`
+- `CreateInviteRequest`, `WorkspaceInviteResponse`, `InvitePreviewResponse`
+- `CreateApiKeyRequest`, `ApiKeyResponse`, `CreateApiKeyResponse`
 
-Values:
+We need these records to keep frontend/backend data exchange explicit and stable.
 
-- `CONTACT_CREATED` maps to payload event name `contact.created`.
-- `CONTACT_UPDATED` maps to payload event name `contact.updated` — dispatched from every contact-field write path: manual edit (`MessagingService.updateContactCustomFields`), AI extraction (`ContactCustomFieldWriter`), and the workflow Set Contact Field node (`SetContactFieldNodeExecutor`).
+## Workspace Repositories
 
-We need it so persisted webhook subscriptions and dispatched payload names stay aligned.
+- `WorkspaceRepository`
+- `WorkspaceMemberRepository`
+- `WorkspaceInviteRepository`
+- `WorkspaceApiKeyRepository`
 
-### `ContactSnapshotBuilder`
+These are Spring Data persistence interfaces. Their custom query methods express workspace lookup, member permission lookup, invite lookup, API key lookup by hash, and cleanup deletes.
 
-Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by all three write paths above so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key.
+We need them so services do not contain SQL or persistence boilerplate.
 
-We need it because the same payload had to be built from three different packages (`messaging`, `agent`, `workflow.engine.executor`), all of which already depend on `com.relayflow.api.webhook` for `WebhookDispatchService`.
+## Channel Backend
 
-### `ContactSnapshot`
+`com.relayflow.api.channel` — connected messaging channels (Telegram, WhatsApp, ...) that route inbound/outbound messages.
 
-`record ContactSnapshot(Map<String, Object> contact)` in `com.relayflow.api.webhook.dto` — the `contact.updated` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
+### `ChannelAccountController`
 
-We need it so the outer payload shape (`{"contact": {...}}`) is a typed DTO like the rest of `webhook.dto`, even though the inner contact map stays dynamic.
+HTTP controller for channel account routes.
+
+Important methods:
+
+- `listChannelAccounts`, `createChannelAccount`, `disconnectChannelAccount`, `reconnectChannelAccount`
+
+We need it as the REST boundary for channel connection management.
+
+### `ChannelAccountService`
+
+Business service for channel account persistence.
+
+Important methods:
+
+- `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook.
+- `disconnectChannelAccount` / `reconnectChannelAccount`: toggles channel availability without deleting history.
+- `getChannelAccount`: looks up a channel account within a workspace or throws `ResourceNotFoundException`. Called by `ContactService` (creating an external identity) and `MessagingService` (creating a conversation).
+
+We need it because channel account provisioning has credential-encryption and webhook-registration rules that should not live in a controller.
+
+### `ChannelAccountMapper`
+
+Maps the `ChannelAccount` JPA entity to `ChannelAccountResponse`.
+
+We need it to isolate the API response shape from the persistence entity shape.
+
+## Channel Domain Entities And Enums
 
 ### `ChannelAccount`
 
@@ -932,6 +912,66 @@ Enum for `ACTIVE` or `DISABLED`.
 
 We need it to stop message flow without deleting account history.
 
+## Channel DTO Records
+
+- `CreateChannelAccountRequest`, `ChannelAccountResponse`
+
+We need these records to keep frontend/backend data exchange explicit and stable.
+
+## Channel Repositories
+
+- `ChannelAccountRepository`
+
+Spring Data persistence interface. Its custom query methods express workspace scoping, active channel filtering, and cleanup deletes.
+
+We need it so the service does not contain SQL or persistence boilerplate.
+
+## Contact Backend
+
+`com.relayflow.api.contact` — customer contacts and their per-channel external identities.
+
+### `ContactController`
+
+HTTP controller for contact and external identity routes.
+
+Important methods:
+
+- `listContacts`, `createContact`, `getContact`, `mergeContacts`, `deleteContact`
+- `updateContactCustomFields` — requires `CONTACT_FIELDS_WRITE` permission or owner role
+- `createExternalIdentity`
+
+We need it as the REST boundary for the contacts UI and channel adapters creating identities.
+
+### `ContactService`
+
+Business service for contact and external identity persistence.
+
+Important methods:
+
+- `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
+- `updateContactCustomFields`: replaces `Contact.customFields`, then returns `getContactDetail`.
+- `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
+- `createExternalIdentity`
+- `getContact`: looks up a contact within a workspace or throws `ResourceNotFoundException`. Called by `MessagingService` when creating a conversation.
+
+We need it because contacts have cross-entity rules (merge reassignment, derived-field precedence) that should not live in controllers or repositories.
+
+### `ContactMapper`
+
+Maps `Contact` and `ExternalIdentity` JPA entities to their response DTOs.
+
+We need it to isolate the API response shape from the persistence entity shape.
+
+### `ReservedContactFieldResolver`
+
+`@Component` in the `contact` package. `resolve(contact, identities)` returns the reserved contact field values ({@link ReservedContactField}) that can already be derived from existing data, without asking the AI agent or an operator: `displayName` from `Contact.displayName`, `firstName`/`lastName` from a Telegram `ExternalIdentity`'s `rawProfile` (populated by `TelegramAdapter.buildRawProfile` from the inbound update's `from` user), `phone` (and, via `libphonenumber`, `country`) from a WhatsApp or SMS `ExternalIdentity`, `email` from an EMAIL identity. A key is omitted (not included with an empty value) when nothing can be derived.
+
+Used by `ContactService.getContactDetail` to seed a contact's `customFields` response before the explicitly-stored values overwrite it (derived values only ever fill a gap, never override an explicit one), and by `ContactCustomFieldWriter` to check whether a reserved key is already effectively known before writing an AI extraction.
+
+We need it so reserved fields are auto-filled wherever RelayFlow can already derive them, without hand-coding a Telegram-specific "share contact" flow or similar one-off hack for channels that don't expose the data.
+
+## Contact Domain Entities And Enums
+
 ### `Contact`
 
 JPA entity for a customer/contact inside a workspace.
@@ -939,19 +979,9 @@ JPA entity for a customer/contact inside a workspace.
 Important fields:
 
 - `displayName`
-- `customFields`: `Map<String, String>` JSONB — explicitly-stored custom field values, keyed by a reserved key (see `ReservedContactField`) or a workspace-defined `ContactFieldDefinition` key. Written by manual edits, AI extraction (`ContactCustomFieldWriter`), or a workflow's Set Contact Field node. `MessagingService.getContactDetail` merges this with `ReservedContactFieldResolver`'s auto-derived values for the API response — an explicitly-stored value always wins.
+- `customFields`: `Map<String, String>` JSONB — explicitly-stored custom field values, keyed by a reserved key (see `ReservedContactField`) or a workspace-defined `ContactFieldDefinition` key. Written by manual edits, AI extraction (`ContactCustomFieldWriter`), or a workflow's Set Contact Field node. `ContactService.getContactDetail` merges this with `ReservedContactFieldResolver`'s auto-derived values for the API response — an explicitly-stored value always wins.
 
 We need it to group identities and conversations around the human customer.
-
-### `ReservedContactField`
-
-Enum: `DISPLAY_NAME` (`"displayName"`), `FIRST_NAME` (`"firstName"`), `LAST_NAME` (`"lastName"`), `PHONE` (`"phone"`), `EMAIL` (`"email"`), `COUNTRY` (`"country"`). Contact fields RelayFlow already derives automatically — a workspace can't redefine any of these as a custom field.
-
-`isReserved(candidateKey)` does a case-insensitive comparison against each enum value's `key()` (`field.key.equalsIgnoreCase(trimmed)`) — both sides must be compared case-insensitively, not just the candidate, since a key like `displayName` isn't all-lowercase.
-
-Carries no label or description — those are presentation copy that live in the frontend (`RESERVED_CONTACT_FIELDS` in `messaging-api.ts`), mirroring how `WorkspacePermission` carries no display copy either.
-
-We need it as the single source of truth for which keys are reserved, used by `ReservedContactFieldResolver`, `ContactCustomFieldWriter`, `SetContactFieldNodeExecutor`, and `MessagingService.updateContactFieldDefinitions`'s validation.
 
 ### `ExternalIdentity`
 
@@ -967,6 +997,80 @@ Important fields:
 - `rawProfile`
 
 We need it to map channel-specific sender IDs back to RelayFlow contacts.
+
+## Contact DTO Records
+
+- `CreateContactRequest`, `ContactResponse`, `ContactDetailResponse`, `MergeContactRequest`
+- `UpdateContactCustomFieldsRequest`
+- `CreateExternalIdentityRequest`, `ExternalIdentityResponse`
+
+We need these records to keep frontend/backend data exchange explicit and stable.
+
+## Contact Repositories
+
+- `ContactRepository`
+- `ExternalIdentityRepository`
+
+These are Spring Data persistence interfaces. Their custom query methods express workspace scoping, pagination, contact merge reassignment, and cleanup deletes.
+
+We need them so services do not contain SQL or persistence boilerplate.
+
+## Messaging Backend
+
+`com.relayflow.api.messaging` — conversations and messages, the inbox core. Depends on `workspace`, `channel`, and `contact` for validating the parties a conversation references, but nothing in those three depends back on it.
+
+### `MessagingController`
+
+HTTP controller for conversation and message routes.
+
+Important methods:
+
+- `createConversation`, `listConversations`, `getConversation`, `updateConversation`
+- `listMessages`, `createMessage`
+
+We need it as the REST boundary for the inbox UI.
+
+### `MessagingService`
+
+Business service for conversation and message persistence.
+
+Important methods:
+
+- `createExternalIdentity`, `createConversation`
+- `listConversations`, `getConversation`, `updateConversationStatus`, `listMessages`
+- `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason` on that same first human (`MessageSenderType.AGENT`) outbound reply.
+
+We need it because messaging has cross-entity rules that should not live in controllers or repositories.
+
+### `MessagingMapper`
+
+Maps `Conversation` and `Message` JPA entities to their response DTOs.
+
+We need it to isolate the API response shape from the persistence entity shape.
+
+### `MessagingExceptionHandler`
+
+`@RestControllerAdvice` scoped to this package's one domain-specific exception. See [`CommonExceptionHandler`](#commonexceptionhandler) for the generic handlers shared across all domains.
+
+Handles:
+
+- `ConversationLockedException` as `409`.
+
+We need it so a locked-conversation write attempt gets a clear, specific response instead of falling through to a generic `500`.
+
+### `ConversationLockedException`
+
+Runtime exception thrown when an agent or public API client tries to send a message while an active workflow owns the conversation.
+
+We need it to enforce workflow-driven conversations without silently dropping agent replies.
+
+### `OutboundMessageEvent`
+
+Application event carrying a saved outbound message, its channel account, and optional button option labels.
+
+We need it to decouple message persistence from provider delivery. The messaging service saves the message; adapters deliver it, optionally rendering Ask Question options as provider-native controls.
+
+## Messaging Domain Entities And Enums
 
 ### `Conversation`
 
@@ -1022,36 +1126,122 @@ We need it to distinguish human replies from workflow/system automation.
 
 ## Messaging DTO Records
 
-- `CreateWorkspaceRequest`, `WorkspaceResponse`
-- `InviteMemberRequest`, `UpdateMemberRequest`, `WorkspaceMemberResponse`
-- `CreateInviteRequest`, `WorkspaceInviteResponse`, `InvitePreviewResponse`
-- `CreateApiKeyRequest`, `ApiKeyResponse`, `CreateApiKeyResponse`
-- `CreateChannelAccountRequest`, `ChannelAccountResponse`
-- `CreateContactRequest`, `ContactResponse`, `ContactDetailResponse`, `MergeContactRequest`
-- `CreateExternalIdentityRequest`, `ExternalIdentityResponse`
 - `CreateConversationRequest`, `UpdateConversationRequest`, `ConversationResponse`
 - `CreateMessageRequest`, `MessageResponse`
-- `PageResponse<T>`: generic paginated API response.
-- `ErrorResponse`: normalized API error body.
 
 We need these records to keep frontend/backend data exchange explicit and stable.
 
 ## Messaging Repositories
 
-- `WorkspaceRepository`
-- `WorkspaceMemberRepository`
-- `WorkspaceInviteRepository`
-- `WorkspaceApiKeyRepository`
-- `ChannelAccountRepository`
-- `ContactRepository`
-- `ExternalIdentityRepository`
 - `ConversationRepository`
 - `MessageRepository`
 
-These are Spring Data persistence interfaces. Their custom query methods express workspace scoping, pagination, active channel filtering, conversation lookup, message cursors, and cleanup deletes.
-They also support invite lookup, API key lookup by hash, member permission lookup, and contact merge reassignment.
+These are Spring Data persistence interfaces. Their custom query methods express workspace scoping, conversation lookup, message cursors, and cleanup deletes.
 
 We need them so services do not contain SQL or persistence boilerplate.
+
+## Public API Backend
+
+### `PublicApiController`
+
+API-key-authenticated controller under `/public/v1`, in `com.relayflow.api.publicapi`.
+
+Endpoints:
+
+- `listConversations`
+- `getConversation`
+- `listMessages`
+- `sendMessage`
+
+We need it so third-party systems can inspect conversations and send outbound replies for a workspace.
+
+## Webhook And Email Backend
+
+### `WebhookService`
+
+Creates, updates, deletes, retrieves, and rotates workspace webhook configuration, in `com.relayflow.api.webhook`.
+
+Important behavior:
+
+- the signing secret is never client-supplied. Creating a webhook auto-generates one, returned once as `generatedSecret` on that response only.
+- `saveWebhook` never touches the secret, on create or update — changing it is only possible through `rotateSecret`.
+
+We need it to centralize webhook URL, encrypted secret, enabled state, and subscribed events.
+
+### `WebhookDispatchService`
+
+Asynchronous webhook delivery service.
+
+Important behavior:
+
+- signs payloads with `X-RelayFlow-Signature`.
+- posts JSON payloads to the configured URL.
+- retries failed deliveries with backoff.
+- currently supports `contact.created`.
+
+We need it to notify external systems when RelayFlow creates important records.
+
+### `WebhookController`
+
+REST controller for workspace webhook configuration.
+
+Endpoints:
+
+- `getWebhook`
+- `saveWebhook`
+- `deleteWebhook`
+- `rotateSecret`
+
+We need it so authorized users can manage outbound integration webhooks.
+
+### `EmailService` And `SmtpEmailService`
+
+Email abstraction and its SMTP-backed implementation for transactional emails: `sendInvite`,
+`sendEmailVerification`, `sendPasswordReset`, `sendDowngradeNotice`. SMTP works with any provider
+(Resend, SES, Mailgun, Postmark, Gmail, a self-hosted mail server) rather than locking self-hosters
+into one vendor's REST API. When `smtp.host` is blank, every method falls back to logging the link
+at `INFO` instead of sending, so these flows are testable locally with no mail server.
+
+We need them so invite/verification/reset delivery can be swapped or disabled without changing the domain logic that calls them.
+
+### `WorkspaceWebhook`
+
+JPA entity for a workspace's outbound webhook configuration, in `com.relayflow.api.webhook.domain`.
+
+Important fields:
+
+- `workspaceId`
+- `url`
+- `secret`
+- `enabled`
+- `events`
+- `createdAt`
+- `updatedAt`
+
+We need it to persist webhook delivery settings and encrypted signing secrets.
+
+### `WebhookEventType`
+
+Enum of outbound webhook event types, in `com.relayflow.api.webhook.domain` alongside `WorkspaceWebhook`.
+
+Values:
+
+- `CONTACT_CREATED` maps to payload event name `contact.created`.
+- `CONTACT_UPDATED` maps to payload event name `contact.updated` — dispatched from every contact-field write path: manual edit (`ContactService.updateContactCustomFields`), AI extraction (`ContactCustomFieldWriter`), and the workflow Set Contact Field node (`SetContactFieldNodeExecutor`).
+
+We need it so persisted webhook subscriptions and dispatched payload names stay aligned.
+
+### `ContactSnapshotBuilder`
+
+Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by all three write paths above so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key.
+
+We need it because the same payload had to be built from three different packages (`contact`, `agent`, `workflow.engine.executor`), all of which already depend on `com.relayflow.api.webhook` for `WebhookDispatchService`.
+
+### `ContactSnapshot`
+
+`record ContactSnapshot(Map<String, Object> contact)` in `com.relayflow.api.webhook.dto` — the `contact.updated` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
+
+We need it so the outer payload shape (`{"contact": {...}}`) is a typed DTO like the rest of `webhook.dto`, even though the inner contact map stays dynamic.
 
 ## SSE Backend
 

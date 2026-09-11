@@ -1,6 +1,6 @@
 package com.relayflow.api.messaging.dto;
 
-import com.relayflow.api.messaging.domain.ChannelProvider;
+import com.relayflow.api.channel.domain.ChannelProvider;
 import com.relayflow.api.messaging.domain.ConversationStatus;
 import java.time.Instant;
 import java.util.UUID;
