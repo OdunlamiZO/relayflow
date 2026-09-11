@@ -41,6 +41,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`PageResponse`](#pageresponse)
   - [`ErrorResponse`](#errorresponse)
   - [`CommonExceptionHandler`](#commonexceptionhandler)
+  - [`MapUtils`](#maputils)
 - [Workspace Backend](#workspace-backend)
   - [`WorkspaceController`](#workspacecontroller)
   - [`WorkspaceService`](#workspaceservice)
@@ -620,6 +621,12 @@ Handles:
 - unexpected exceptions as `500` with a generic message.
 
 We need it so the frontend receives consistent `{ message, timestamp }` error responses.
+
+### `MapUtils`
+
+`copyMap(source)`: returns a mutable `LinkedHashMap` copy of `source`, or an empty one if `source` is null. Used by `ChannelAccountService`, `ContactService`, and `MessagingService` to defensively copy an incoming request's JSONB-bound map field (`metadata`, `rawProfile`, `rawPayload`) before persisting it.
+
+We need it because that copy-or-empty logic was duplicated identically in all three services after the messaging domain split.
 
 ## Workspace Backend
 
