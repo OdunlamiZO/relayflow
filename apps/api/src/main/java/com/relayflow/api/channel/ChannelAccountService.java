@@ -6,14 +6,13 @@ import com.relayflow.api.channel.domain.ChannelProvider;
 import com.relayflow.api.channel.dto.ChannelAccountResponse;
 import com.relayflow.api.channel.dto.CreateChannelAccountRequest;
 import com.relayflow.api.channel.repository.ChannelAccountRepository;
+import com.relayflow.api.common.MapUtils;
 import com.relayflow.api.common.ResourceNotFoundException;
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.telegram.TelegramWebhookRegistrar;
 import com.relayflow.api.workspace.WorkspaceService;
 import com.relayflow.api.workspace.domain.Workspace;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +71,7 @@ public class ChannelAccountService {
                 request.status() == null ? ChannelAccountStatus.ACTIVE : request.status());
         channelAccount.setEncryptedCredentials(
                 credentialEncryptionService.encrypt(plainTextCredential));
-        channelAccount.setMetadata(copyMap(request.metadata()));
+        channelAccount.setMetadata(MapUtils.copyMap(request.metadata()));
 
         channelAccountRepository.save(channelAccount);
 
@@ -144,9 +143,5 @@ public class ChannelAccountService {
         }
 
         return channelAccount;
-    }
-
-    private Map<String, Object> copyMap(Map<String, Object> source) {
-        return source == null ? new LinkedHashMap<>() : new LinkedHashMap<>(source);
     }
 }
