@@ -1,6 +1,6 @@
 package com.relayflow.api.messaging.repository;
 
-import com.relayflow.api.messaging.domain.Contact;
+import com.relayflow.api.contact.domain.Contact;
 import com.relayflow.api.messaging.domain.Conversation;
 import java.time.Instant;
 import java.util.List;

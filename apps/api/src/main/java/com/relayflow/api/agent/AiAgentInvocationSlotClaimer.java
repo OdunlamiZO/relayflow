@@ -20,11 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
  * the caller's transaction, avoiding {@code UnexpectedRollbackException}.
  */
 @Component
-class AiAgentInvocationSlotClaimer {
+public class AiAgentInvocationSlotClaimer {
 
     private final AiAgentInvocationLogRepository invocationLogRepository;
 
-    AiAgentInvocationSlotClaimer(AiAgentInvocationLogRepository invocationLogRepository) {
+    public AiAgentInvocationSlotClaimer(AiAgentInvocationLogRepository invocationLogRepository) {
         this.invocationLogRepository = invocationLogRepository;
     }
 

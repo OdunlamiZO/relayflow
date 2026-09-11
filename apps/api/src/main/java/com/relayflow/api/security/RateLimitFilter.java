@@ -1,8 +1,8 @@
 package com.relayflow.api.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.relayflow.api.messaging.ApiKeyService;
-import com.relayflow.api.messaging.dto.ErrorResponse;
+import com.relayflow.api.common.dto.ErrorResponse;
+import com.relayflow.api.workspace.ApiKeyService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

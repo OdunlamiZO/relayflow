@@ -1,7 +1,7 @@
 package com.relayflow.api.sse;
 
 import com.relayflow.api.authentication.SecurityUtils;
-import com.relayflow.api.messaging.MessagingService;
+import com.relayflow.api.workspace.WorkspaceService;
 import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -18,7 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * <p>Clients connect to {@code GET /sse/workspace/{workspaceId}} and receive events as they are
  * broadcast by {@link WorkspaceSseService}. The caller must be a member of the workspace; guest
  * (anonymous) sessions are also accepted — membership is checked via {@link
- * MessagingService#listWorkspaces}.
+ * WorkspaceService#listWorkspaces}.
  */
 @RestController
 @RequestMapping("/sse")
@@ -26,16 +26,16 @@ public class SseController {
 
     private final WorkspaceSseService sseService;
 
-    private final MessagingService messagingService;
+    private final WorkspaceService workspaceService;
 
     private final SecurityUtils securityUtils;
 
     public SseController(
             WorkspaceSseService sseService,
-            MessagingService messagingService,
+            WorkspaceService workspaceService,
             SecurityUtils securityUtils) {
         this.sseService = sseService;
-        this.messagingService = messagingService;
+        this.workspaceService = workspaceService;
         this.securityUtils = securityUtils;
     }
 
@@ -44,7 +44,7 @@ public class SseController {
         UUID userId = securityUtils.resolveUserId(authentication);
 
         boolean isMember =
-                messagingService.listWorkspaces(userId).stream()
+                workspaceService.listWorkspaces(userId).stream()
                         .anyMatch(ws -> ws.id().equals(workspaceId));
 
         if (!isMember) {

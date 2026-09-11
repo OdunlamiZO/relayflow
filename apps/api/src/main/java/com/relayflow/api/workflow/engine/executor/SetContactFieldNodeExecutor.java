@@ -1,10 +1,8 @@
 package com.relayflow.api.workflow.engine.executor;
 
-import com.relayflow.api.messaging.domain.Contact;
-import com.relayflow.api.messaging.domain.ContactFieldDefinition;
+import com.relayflow.api.contact.domain.Contact;
+import com.relayflow.api.contact.repository.ContactRepository;
 import com.relayflow.api.messaging.domain.Conversation;
-import com.relayflow.api.messaging.domain.ReservedContactField;
-import com.relayflow.api.messaging.repository.ContactRepository;
 import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.webhook.ContactSnapshotBuilder;
 import com.relayflow.api.webhook.WebhookDispatchService;
@@ -15,6 +13,8 @@ import com.relayflow.api.workflow.engine.GraphNode;
 import com.relayflow.api.workflow.engine.NodeExecutionException;
 import com.relayflow.api.workflow.engine.NodeExecutionResult;
 import com.relayflow.api.workflow.engine.NodeExecutor;
+import com.relayflow.api.workspace.domain.ContactFieldDefinition;
+import com.relayflow.api.workspace.domain.ReservedContactField;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;

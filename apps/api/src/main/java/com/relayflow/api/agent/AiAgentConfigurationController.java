@@ -2,8 +2,8 @@ package com.relayflow.api.agent;
 
 import com.relayflow.api.agent.dto.AiAgentConfigurationResponse;
 import com.relayflow.api.agent.dto.UpdateAiAgentConfigurationRequest;
-import com.relayflow.api.messaging.WorkspaceAuthorizationService;
-import com.relayflow.api.messaging.domain.WorkspacePermission;
+import com.relayflow.api.workspace.WorkspaceAuthorizationService;
+import com.relayflow.api.workspace.domain.WorkspacePermission;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.security.core.Authentication;

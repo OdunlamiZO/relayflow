@@ -1,6 +1,6 @@
 package com.relayflow.api.messaging;
 
-import com.relayflow.api.messaging.domain.ChannelAccount;
+import com.relayflow.api.channel.domain.ChannelAccount;
 import com.relayflow.api.messaging.domain.Message;
 import java.util.List;
 

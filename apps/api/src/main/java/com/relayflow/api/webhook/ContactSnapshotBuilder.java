@@ -1,6 +1,6 @@
 package com.relayflow.api.webhook;
 
-import com.relayflow.api.messaging.domain.Contact;
+import com.relayflow.api.contact.domain.Contact;
 import com.relayflow.api.webhook.dto.ContactSnapshot;
 import java.util.LinkedHashMap;
 import java.util.Map;

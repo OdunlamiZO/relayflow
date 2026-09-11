@@ -1,10 +1,10 @@
 package com.relayflow.api.webhook;
 
-import com.relayflow.api.messaging.WorkspaceAuthorizationService;
-import com.relayflow.api.messaging.domain.WorkspacePermission;
 import com.relayflow.api.webhook.dto.RotateWebhookSecretResponse;
 import com.relayflow.api.webhook.dto.SaveWebhookRequest;
 import com.relayflow.api.webhook.dto.WebhookConfigResponse;
+import com.relayflow.api.workspace.WorkspaceAuthorizationService;
+import com.relayflow.api.workspace.domain.WorkspacePermission;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;

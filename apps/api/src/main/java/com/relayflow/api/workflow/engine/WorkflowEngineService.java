@@ -1,9 +1,9 @@
 package com.relayflow.api.workflow.engine;
 
+import com.relayflow.api.contact.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.Message;
 import com.relayflow.api.messaging.repository.ConversationRepository;
-import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
 import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.workflow.NodeType;
