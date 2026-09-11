@@ -1,10 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components/providers/ToastProvider";
-import {
-  type OtpPayload,
-  disable2FA as disable2FAApi,
-} from "@/lib/authentication-api";
+import { type OtpPayload, authenticationApi } from "@/lib/authentication-api";
 import { errorMessage } from "@/lib/error-message";
 
 export function useDisable2FA() {
@@ -12,7 +9,7 @@ export function useDisable2FA() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: (payload: OtpPayload) => disable2FAApi(payload),
+    mutationFn: (payload: OtpPayload) => authenticationApi.disable2FA(payload),
     onError: (error) => {
       showToast({ kind: "error", message: errorMessage(error) });
     },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getServerAuthenticationStatus } from "@/lib/server-authentication";
+import { serverAuthenticationApi } from "@/lib/server-authentication";
 
 import { InviteAcceptCard } from "./InviteAcceptCard";
 
@@ -78,7 +78,7 @@ async function InviteContent({ token }: { token: string | undefined }) {
 
   const [preview, authStatus] = await Promise.all([
     fetchInvitePreview(token),
-    getServerAuthenticationStatus(),
+    serverAuthenticationApi.getAuthenticationStatus(),
   ]);
 
   if (!preview) {

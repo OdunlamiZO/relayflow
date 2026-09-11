@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components/providers/ToastProvider";
-import { type LoginPayload, login as loginApi } from "@/lib/authentication-api";
+import { type LoginPayload, authenticationApi } from "@/lib/authentication-api";
 import { errorMessage } from "@/lib/error-message";
 
 export function useLogin() {
@@ -9,7 +9,7 @@ export function useLogin() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: (payload: LoginPayload) => loginApi(payload),
+    mutationFn: (payload: LoginPayload) => authenticationApi.login(payload),
     onError: (error) => {
       showToast({ kind: "error", message: errorMessage(error) });
     },
