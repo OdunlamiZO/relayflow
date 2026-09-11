@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Imported after mocks so the mock is in place.
-import {
-  getInstanceStatus,
-  getServerAuthenticationStatus,
-} from "@/lib/server-authentication";
+import { serverAuthenticationApi } from "@/lib/server-authentication";
 
 import Home from "./page";
 
@@ -18,12 +15,18 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/server-authentication", () => ({
-  getInstanceStatus: vi.fn(),
-  getServerAuthenticationStatus: vi.fn(),
+  serverAuthenticationApi: {
+    getInstanceStatus: vi.fn(),
+    getAuthenticationStatus: vi.fn(),
+  },
 }));
 
-const mockGetInstanceStatus = vi.mocked(getInstanceStatus);
-const mockGetStatus = vi.mocked(getServerAuthenticationStatus);
+const mockGetInstanceStatus = vi.mocked(
+  serverAuthenticationApi.getInstanceStatus
+);
+const mockGetStatus = vi.mocked(
+  serverAuthenticationApi.getAuthenticationStatus
+);
 
 beforeEach(() => {
   mockRedirect.mockReset();

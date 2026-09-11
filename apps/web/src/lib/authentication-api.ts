@@ -1,3 +1,12 @@
+import {
+  ApiError,
+  type RequestOptions,
+  apiErrorMessage,
+  readResponseBody,
+} from "@/lib/api-client";
+
+export { ApiError };
+
 export type SignupPayload = {
   name: string;
   email: string;
@@ -82,171 +91,145 @@ export type Login2FAPayload = {
   otp: string;
 };
 
-const apiBaseUrl =
+const defaultBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
-async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+export class AuthenticationApiClient {
+  private readonly baseUrl: string;
 
-  if (!response.ok) {
-    const data: unknown = await response.json().catch(() => ({}));
-
-    const message =
-      data !== null &&
-      typeof data === "object" &&
-      "message" in data &&
-      typeof (data as { message: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : `Request failed with status ${response.status}`;
-
-    throw new Error(message);
+  constructor(baseUrl = defaultBaseUrl) {
+    this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
-  if (response.status === 204) {
-    return undefined as T;
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  signup(payload: SignupPayload) {
+    return this.request<SignupResponse>("/auth/signup", {
+      method: "POST",
+      body: payload,
+    });
   }
 
-  return response.json() as Promise<T>;
-}
-
-async function apiPatch<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "PATCH",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const data: unknown = await response.json().catch(() => ({}));
-
-    const message =
-      data !== null &&
-      typeof data === "object" &&
-      "message" in data &&
-      typeof (data as { message: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : `Request failed with status ${response.status}`;
-
-    throw new Error(message);
+  bootstrap(payload: BootstrapPayload) {
+    return this.request<BootstrapResponse>("/auth/bootstrap", {
+      method: "POST",
+      body: payload,
+    });
   }
 
-  return response.json() as Promise<T>;
-}
+  getInstanceStatus() {
+    return this.request<InstanceStatusResponse>("/auth/bootstrap-status");
+  }
 
-async function apiDelete(path: string, body?: unknown): Promise<void> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "DELETE",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  getCurrentUser() {
+    return this.request<AuthenticatedUserResponse>("/auth/me");
+  }
 
-  if (!response.ok) {
-    const data: unknown = await response.json().catch(() => ({}));
+  login(payload: LoginPayload) {
+    return this.request<AuthenticatedUserResponse>("/auth/login", {
+      method: "POST",
+      body: payload,
+    });
+  }
 
-    const message =
-      data !== null &&
-      typeof data === "object" &&
-      "message" in data &&
-      typeof (data as { message: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : `Request failed with status ${response.status}`;
+  login2FA(payload: Login2FAPayload) {
+    return this.request<AuthenticatedUserResponse>("/auth/login/2fa", {
+      method: "POST",
+      body: payload,
+    });
+  }
 
-    throw new Error(message);
+  async logout(): Promise<void> {
+    await this.request<void>("/auth/logout", { method: "POST" });
+  }
+
+  resetPassword(payload: ResetPasswordPayload) {
+    return this.request<void>(`/auth/reset-password/${payload.token}`, {
+      method: "POST",
+      body: { newPassword: payload.newPassword },
+    });
+  }
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+
+  getProfile() {
+    return this.request<ProfileResponse>("/profile");
+  }
+
+  updateProfile(payload: UpdateProfilePayload) {
+    return this.request<ProfileResponse>("/profile", {
+      method: "PATCH",
+      body: payload,
+    });
+  }
+
+  requestPasswordReset() {
+    return this.request<void>("/profile/request-password-reset", {
+      method: "POST",
+    });
+  }
+
+  deleteAccount(payload: DeleteAccountPayload) {
+    return this.request<void>("/profile", {
+      method: "DELETE",
+      body: payload,
+    });
+  }
+
+  setup2FA() {
+    return this.request<Setup2FAResponse>("/profile/2fa/setup", {
+      method: "POST",
+    });
+  }
+
+  enable2FA(payload: OtpPayload) {
+    return this.request<void>("/profile/2fa/enable", {
+      method: "POST",
+      body: payload,
+    });
+  }
+
+  disable2FA(payload: OtpPayload) {
+    return this.request<void>("/profile/2fa/disable", {
+      method: "POST",
+      body: payload,
+    });
+  }
+
+  private async request<T>(
+    path: string,
+    options: RequestOptions = {}
+  ): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: options.method ?? "GET",
+      credentials: "include",
+      headers:
+        options.body === undefined
+          ? undefined
+          : { "Content-Type": "application/json" },
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+
+    if (!response.ok) {
+      const details = await readResponseBody(response);
+
+      throw new ApiError(
+        response.status,
+        apiErrorMessage(response.status, details),
+        details
+      );
+    }
+
+    if (
+      response.status === 204 ||
+      response.headers.get("content-length") === "0"
+    ) {
+      return undefined as T;
+    }
+
+    return (await response.json()) as T;
   }
 }
 
-// ── Auth ────────────────────────────────────────────────────────────────────
-
-export function signup(payload: SignupPayload): Promise<SignupResponse> {
-  return apiPost<SignupResponse>("/auth/signup", payload);
-}
-
-export function bootstrap(
-  payload: BootstrapPayload
-): Promise<BootstrapResponse> {
-  return apiPost<BootstrapResponse>("/auth/bootstrap", payload);
-}
-
-export async function getInstanceStatus(): Promise<InstanceStatusResponse> {
-  const response = await fetch(`${apiBaseUrl}/auth/bootstrap-status`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
-  }
-
-  return response.json() as Promise<InstanceStatusResponse>;
-}
-
-export function login(
-  payload: LoginPayload
-): Promise<AuthenticatedUserResponse> {
-  return apiPost<AuthenticatedUserResponse>("/auth/login", payload);
-}
-
-export function login2FA(
-  payload: Login2FAPayload
-): Promise<AuthenticatedUserResponse> {
-  return apiPost<AuthenticatedUserResponse>("/auth/login/2fa", payload);
-}
-
-export async function logout(): Promise<void> {
-  await fetch(`${apiBaseUrl}/auth/logout`, {
-    method: "POST",
-    credentials: "include",
-  });
-}
-
-export function resetPassword(payload: ResetPasswordPayload): Promise<void> {
-  return apiPost<void>(`/auth/reset-password/${payload.token}`, {
-    newPassword: payload.newPassword,
-  });
-}
-
-// ── Profile ─────────────────────────────────────────────────────────────────
-
-export async function getProfile(): Promise<ProfileResponse> {
-  const response = await fetch(`${apiBaseUrl}/profile`, {
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
-  }
-
-  return response.json() as Promise<ProfileResponse>;
-}
-
-export function updateProfile(
-  payload: UpdateProfilePayload
-): Promise<ProfileResponse> {
-  return apiPatch<ProfileResponse>("/profile", payload);
-}
-
-export function requestPasswordReset(): Promise<void> {
-  return apiPost<void>("/profile/request-password-reset", {});
-}
-
-export function deleteAccount(payload: DeleteAccountPayload): Promise<void> {
-  return apiDelete("/profile", payload);
-}
-
-export function setup2FA(): Promise<Setup2FAResponse> {
-  return apiPost<Setup2FAResponse>("/profile/2fa/setup", {});
-}
-
-export function enable2FA(payload: OtpPayload): Promise<void> {
-  return apiPost<void>("/profile/2fa/enable", payload);
-}
-
-export function disable2FA(payload: OtpPayload): Promise<void> {
-  return apiPost<void>("/profile/2fa/disable", payload);
-}
+export const authenticationApi = new AuthenticationApiClient();

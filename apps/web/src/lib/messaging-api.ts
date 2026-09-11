@@ -1,3 +1,10 @@
+import {
+  ApiError,
+  type RequestOptions,
+  apiErrorMessage,
+  readResponseBody,
+} from "@/lib/api-client";
+
 export type ChannelProvider =
   | "TELEGRAM"
   | "WHATSAPP"
@@ -440,22 +447,7 @@ export type PageResponse<T> = {
   nextCursor: string | null;
 };
 
-export class ApiError extends Error {
-  readonly status: number;
-  readonly details: unknown;
-
-  constructor(status: number, message: string, details: unknown) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.details = details;
-  }
-}
-
-type RequestOptions = {
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  body?: unknown;
-};
+export { ApiError };
 
 const defaultBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -916,7 +908,7 @@ export class MessagingApiClient {
 
       throw new ApiError(
         response.status,
-        errorMessage(response.status, details),
+        apiErrorMessage(response.status, details),
         details
       );
     }
@@ -933,23 +925,3 @@ export class MessagingApiClient {
 }
 
 export const messagingApi = new MessagingApiClient();
-
-async function readResponseBody(response: Response) {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    return response.json();
-  }
-  return response.text();
-}
-
-function errorMessage(status: number, details: unknown) {
-  if (
-    details &&
-    typeof details === "object" &&
-    "message" in details &&
-    typeof details.message === "string"
-  ) {
-    return details.message;
-  }
-  return `Request failed with status ${status}`;
-}

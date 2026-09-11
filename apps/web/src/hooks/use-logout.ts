@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components/providers/ToastProvider";
-import { logout as logoutApi } from "@/lib/authentication-api";
+import { authenticationApi } from "@/lib/authentication-api";
 import { errorMessage } from "@/lib/error-message";
 
 export function useLogout() {
@@ -9,7 +9,7 @@ export function useLogout() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: () => logoutApi(),
+    mutationFn: () => authenticationApi.logout(),
     onError: (error) => {
       showToast({ kind: "error", message: errorMessage(error) });
     },

@@ -1,41 +1,83 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { ApiError, apiErrorMessage, readResponseBody } from "@/lib/api-client";
+
 // Server-only — do NOT import this from client components.
 // Forwards the session cookie to the backend so Server Components can
 // check auth status without an extra client round-trip.
 
-const apiBaseUrl =
+type AuthenticationStatus = { authenticated: boolean };
+type InstanceStatus = { bootstrapped: boolean };
+
+const defaultBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
-type AuthenticationStatus = { authenticated: boolean };
+export class ServerAuthenticationClient {
+  private readonly baseUrl: string;
 
-export async function getServerAuthenticationStatus(): Promise<AuthenticationStatus> {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore
-    .getAll()
-    .map((c) => `${c.name}=${c.value}`)
-    .join("; ");
+  constructor(baseUrl = defaultBaseUrl) {
+    this.baseUrl = baseUrl.replace(/\/$/, "");
+  }
 
-  try {
-    const res = await fetch(`${apiBaseUrl}/auth/me`, {
+  /**
+   * Checks whether the current request's session is authenticated. Fails safe on any error
+   * (network failure, non-2xx, malformed body) — treats the visitor as unauthenticated rather
+   * than surfacing the error to a Server Component.
+   */
+  async getAuthenticationStatus(): Promise<AuthenticationStatus> {
+    try {
+      return await this.request<AuthenticationStatus>("/auth/me");
+    } catch {
+      return { authenticated: false };
+    }
+  }
+
+  /**
+   * Checks whether this self-hosted instance has completed initial setup. Fails safe on any
+   * error — treats the instance as already bootstrapped so a transient API outage never traps
+   * every visitor on `/setup`.
+   */
+  async getInstanceStatus(): Promise<InstanceStatus> {
+    try {
+      return await this.request<InstanceStatus>("/auth/bootstrap-status");
+    } catch {
+      return { bootstrapped: true };
+    }
+  }
+
+  private async request<T>(path: string): Promise<T> {
+    const cookieStore = await cookies();
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join("; ");
+
+    const response = await fetch(`${this.baseUrl}${path}`, {
       headers: { Cookie: cookieHeader },
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      return { authenticated: false };
+    if (!response.ok) {
+      const details = await readResponseBody(response);
+
+      throw new ApiError(
+        response.status,
+        apiErrorMessage(response.status, details),
+        details
+      );
     }
 
-    return (await res.json()) as AuthenticationStatus;
-  } catch {
-    return { authenticated: false };
+    return (await response.json()) as T;
   }
 }
 
+export const serverAuthenticationApi = new ServerAuthenticationClient();
+
 /** Redirects to /login if the user is not authenticated. */
 export async function requireAuthentication(): Promise<void> {
-  const { authenticated } = await getServerAuthenticationStatus();
+  const { authenticated } =
+    await serverAuthenticationApi.getAuthenticationStatus();
 
   if (!authenticated) {
     redirect("/login");
@@ -49,39 +91,17 @@ export async function requireAuthentication(): Promise<void> {
 export async function redirectIfAuthenticated(
   destination = "/inbox"
 ): Promise<void> {
-  const { authenticated } = await getServerAuthenticationStatus();
+  const { authenticated } =
+    await serverAuthenticationApi.getAuthenticationStatus();
 
   if (authenticated) {
     redirect(destination);
   }
 }
 
-type InstanceStatus = { bootstrapped: boolean };
-
-/**
- * Checks whether this self-hosted instance has completed initial setup. Fails safe on any
- * error — treats the instance as already bootstrapped so a transient API outage never traps
- * every visitor on `/setup`.
- */
-export async function getInstanceStatus(): Promise<InstanceStatus> {
-  try {
-    const res = await fetch(`${apiBaseUrl}/auth/bootstrap-status`, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      return { bootstrapped: true };
-    }
-
-    return (await res.json()) as InstanceStatus;
-  } catch {
-    return { bootstrapped: true };
-  }
-}
-
 /** Redirects to /setup if this instance hasn't completed initial setup yet. */
 export async function redirectIfNotBootstrapped(): Promise<void> {
-  const { bootstrapped } = await getInstanceStatus();
+  const { bootstrapped } = await serverAuthenticationApi.getInstanceStatus();
 
   if (!bootstrapped) {
     redirect("/setup");
@@ -90,7 +110,7 @@ export async function redirectIfNotBootstrapped(): Promise<void> {
 
 /** Redirects to /login if this instance has already completed initial setup. */
 export async function redirectIfBootstrapped(): Promise<void> {
-  const { bootstrapped } = await getInstanceStatus();
+  const { bootstrapped } = await serverAuthenticationApi.getInstanceStatus();
 
   if (bootstrapped) {
     redirect("/login");
