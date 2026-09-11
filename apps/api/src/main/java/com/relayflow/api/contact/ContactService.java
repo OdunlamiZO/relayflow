@@ -2,6 +2,7 @@ package com.relayflow.api.contact;
 
 import com.relayflow.api.channel.ChannelAccountService;
 import com.relayflow.api.channel.domain.ChannelAccount;
+import com.relayflow.api.common.MapUtils;
 import com.relayflow.api.common.ResourceNotFoundException;
 import com.relayflow.api.common.dto.PageResponse;
 import com.relayflow.api.contact.domain.Contact;
@@ -201,7 +202,7 @@ public class ContactService {
         externalIdentity.setExternalUserId(request.externalUserId());
         externalIdentity.setExternalConversationId(request.externalConversationId());
         externalIdentity.setUsername(request.username());
-        externalIdentity.setRawProfile(copyMap(request.rawProfile()));
+        externalIdentity.setRawProfile(MapUtils.copyMap(request.rawProfile()));
 
         return mapper.toDto(externalIdentityRepository.save(externalIdentity));
     }
@@ -281,9 +282,5 @@ public class ContactService {
         }
 
         return contact;
-    }
-
-    private Map<String, Object> copyMap(Map<String, Object> source) {
-        return source == null ? new LinkedHashMap<>() : new LinkedHashMap<>(source);
     }
 }

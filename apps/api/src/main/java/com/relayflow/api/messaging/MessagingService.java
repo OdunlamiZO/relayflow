@@ -3,6 +3,7 @@ package com.relayflow.api.messaging;
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.channel.ChannelAccountService;
 import com.relayflow.api.channel.domain.ChannelAccount;
+import com.relayflow.api.common.MapUtils;
 import com.relayflow.api.common.ResourceNotFoundException;
 import com.relayflow.api.common.dto.PageResponse;
 import com.relayflow.api.contact.ContactService;
@@ -26,7 +27,6 @@ import com.relayflow.api.workspace.repository.WorkspaceMemberRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -252,7 +252,7 @@ public class MessagingService {
         message.setSenderType(request.senderType());
         message.setText(request.text());
         message.setProviderMessageId(request.providerMessageId());
-        message.setRawPayload(copyMap(request.rawPayload()));
+        message.setRawPayload(MapUtils.copyMap(request.rawPayload()));
 
         message = messageRepository.save(message);
         conversation.setLastMessageAt(
@@ -299,9 +299,5 @@ public class MessagingService {
         return conversationRepository
                 .findInWorkspace(conversationId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
-    }
-
-    private Map<String, Object> copyMap(Map<String, Object> source) {
-        return source == null ? new LinkedHashMap<>() : new LinkedHashMap<>(source);
     }
 }
