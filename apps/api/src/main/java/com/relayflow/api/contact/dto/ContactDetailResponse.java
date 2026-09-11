@@ -1,0 +1,14 @@
+package com.relayflow.api.contact.dto;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+public record ContactDetailResponse(
+        UUID id,
+        UUID workspaceId,
+        String displayName,
+        Map<String, String> customFields,
+        Instant createdAt,
+        List<ExternalIdentityResponse> identities) {}

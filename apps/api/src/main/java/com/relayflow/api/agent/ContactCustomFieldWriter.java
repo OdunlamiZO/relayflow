@@ -1,17 +1,17 @@
 package com.relayflow.api.agent;
 
 import com.relayflow.api.agent.domain.ExtractionField;
-import com.relayflow.api.messaging.ReservedContactFieldResolver;
-import com.relayflow.api.messaging.domain.Contact;
-import com.relayflow.api.messaging.domain.ContactFieldDefinition;
+import com.relayflow.api.contact.ReservedContactFieldResolver;
+import com.relayflow.api.contact.domain.Contact;
+import com.relayflow.api.contact.domain.ExternalIdentity;
+import com.relayflow.api.contact.repository.ContactRepository;
+import com.relayflow.api.contact.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.domain.Conversation;
-import com.relayflow.api.messaging.domain.ExternalIdentity;
-import com.relayflow.api.messaging.domain.ReservedContactField;
-import com.relayflow.api.messaging.repository.ContactRepository;
-import com.relayflow.api.messaging.repository.ExternalIdentityRepository;
 import com.relayflow.api.webhook.ContactSnapshotBuilder;
 import com.relayflow.api.webhook.WebhookDispatchService;
 import com.relayflow.api.webhook.domain.WebhookEventType;
+import com.relayflow.api.workspace.domain.ContactFieldDefinition;
+import com.relayflow.api.workspace.domain.ReservedContactField;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;

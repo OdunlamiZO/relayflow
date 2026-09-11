@@ -14,12 +14,12 @@ import com.relayflow.api.authentication.repository.UserIdentityRepository;
 import com.relayflow.api.authentication.repository.UserMfaMethodRepository;
 import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
-import com.relayflow.api.messaging.MessagingService;
-import com.relayflow.api.messaging.WorkspaceInviteService;
-import com.relayflow.api.messaging.dto.CreateWorkspaceRequest;
-import com.relayflow.api.messaging.dto.WorkspaceResponse;
 import com.relayflow.api.profile.TwoFactorService;
 import com.relayflow.api.security.CredentialEncryptionService;
+import com.relayflow.api.workspace.WorkspaceInviteService;
+import com.relayflow.api.workspace.WorkspaceService;
+import com.relayflow.api.workspace.dto.CreateWorkspaceRequest;
+import com.relayflow.api.workspace.dto.WorkspaceResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.security.SecureRandom;
@@ -62,7 +62,7 @@ public class AuthenticationService {
 
     private final WorkspaceInviteService workspaceInviteService;
 
-    private final MessagingService messagingService;
+    private final WorkspaceService workspaceService;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -81,7 +81,7 @@ public class AuthenticationService {
             UserMfaMethodRepository mfaMethodRepository,
             TwoFactorChallengeRepository challengeRepository,
             WorkspaceInviteService workspaceInviteService,
-            MessagingService messagingService,
+            WorkspaceService workspaceService,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             HttpSessionSecurityContextRepository securityContextRepository,
@@ -93,7 +93,7 @@ public class AuthenticationService {
         this.mfaMethodRepository = mfaMethodRepository;
         this.challengeRepository = challengeRepository;
         this.workspaceInviteService = workspaceInviteService;
-        this.messagingService = messagingService;
+        this.workspaceService = workspaceService;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
@@ -177,7 +177,7 @@ public class AuthenticationService {
         identityRepository.save(identity);
 
         WorkspaceResponse workspace =
-                messagingService.createWorkspace(
+                workspaceService.createWorkspace(
                         new CreateWorkspaceRequest(request.workspaceName()), user.getId());
 
         establishSessionForUser(user, httpRequest, httpResponse);

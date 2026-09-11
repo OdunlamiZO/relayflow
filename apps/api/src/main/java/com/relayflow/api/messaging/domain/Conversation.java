@@ -1,5 +1,8 @@
 package com.relayflow.api.messaging.domain;
 
+import com.relayflow.api.channel.domain.ChannelAccount;
+import com.relayflow.api.contact.domain.Contact;
+import com.relayflow.api.workspace.domain.Workspace;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

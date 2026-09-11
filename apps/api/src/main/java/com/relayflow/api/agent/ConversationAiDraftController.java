@@ -1,9 +1,9 @@
 package com.relayflow.api.agent;
 
 import com.relayflow.api.agent.dto.ConversationAiDraftResponse;
-import com.relayflow.api.messaging.WorkspaceAuthorizationService;
-import com.relayflow.api.messaging.domain.WorkspacePermission;
 import com.relayflow.api.messaging.dto.MessageResponse;
+import com.relayflow.api.workspace.WorkspaceAuthorizationService;
+import com.relayflow.api.workspace.domain.WorkspacePermission;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
