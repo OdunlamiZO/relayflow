@@ -16,6 +16,4 @@ public interface UserIdentityRepository extends JpaRepository<UserIdentity, UUID
     Optional<UserIdentity> findByUserAndProvider(User user, AuthenticationProvider provider);
 
     List<UserIdentity> findAllByUser(User user);
-
-    void deleteAllByUser(User user);
 }

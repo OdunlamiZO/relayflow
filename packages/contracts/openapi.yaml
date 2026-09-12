@@ -223,20 +223,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfileResponse"
-    delete:
-      operationId: deleteAccount
-      summary: Delete the current user's account and invalidate the session
-      tags: [Profile]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeleteAccountRequest"
-      responses:
-        "204":
-          description: Account deleted
-
   /profile/change-password:
     post:
       operationId: changePassword
@@ -1880,14 +1866,6 @@ components:
           type: string
           minLength: 8
           maxLength: 72
-
-    DeleteAccountRequest:
-      type: object
-      properties:
-        password:
-          type: string
-          nullable: true
-          description: Required for email/password accounts; OAuth users may omit it.
 
     OtpRequest:
       type: object

@@ -174,4 +174,39 @@ class SetContactFieldNodeExecutorTest {
         assertThat(conversation.getContact().getCustomFields())
                 .containsEntry("displayName", "Lagos");
     }
+
+    @Test
+    void syncsDisplayNameWhenFirstNameIsSet() {
+        Conversation conversation = conversationWithDefinedFields();
+        when(conversationRepository.findById(conversation.getId()))
+                .thenReturn(Optional.of(conversation));
+
+        executor()
+                .execute(
+                        new GraphNode(
+                                "n1",
+                                "setContactField",
+                                Map.of("fieldKey", "firstName", "value", "Jane")),
+                        contextFor(conversation));
+
+        assertThat(conversation.getContact().getDisplayName()).isEqualTo("Jane");
+    }
+
+    @Test
+    void syncsDisplayNameFromFirstAndLastName() {
+        Conversation conversation = conversationWithDefinedFields();
+        conversation.getContact().getCustomFields().put("firstName", "Jane");
+        when(conversationRepository.findById(conversation.getId()))
+                .thenReturn(Optional.of(conversation));
+
+        executor()
+                .execute(
+                        new GraphNode(
+                                "n1",
+                                "setContactField",
+                                Map.of("fieldKey", "lastName", "value", "Doe")),
+                        contextFor(conversation));
+
+        assertThat(conversation.getContact().getDisplayName()).isEqualTo("Jane Doe");
+    }
 }

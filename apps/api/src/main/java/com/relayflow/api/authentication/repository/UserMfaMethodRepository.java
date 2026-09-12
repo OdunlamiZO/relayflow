@@ -10,6 +10,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserMfaMethodRepository extends JpaRepository<UserMfaMethod, UUID> {
 
     Optional<UserMfaMethod> findByUserAndType(User user, MfaMethodType type);
-
-    void deleteAllByUser(User user);
 }

@@ -17,7 +17,11 @@ final class LlmPrompts {
                 .append("confidence: set to \"high\" only when you are certain your reply fully")
                 .append(
                         " addresses the customer; use \"low\" when uncertain or the topic is outside")
-                .append(" your knowledge base.");
+                .append(" your knowledge base.")
+                .append(
+                        "\n\nEach customer message may end with a <context>...</context> block —"
+                                + " that's internal metadata about the contact, for you only. Never"
+                                + " quote, repeat, or reference its literal text in your reply.");
 
         if (!extractionFields.isEmpty()) {
             sb.append(
@@ -27,6 +31,13 @@ final class LlmPrompts {
             for (ExtractionField field : extractionFields) {
                 sb.append("\n- \"").append(field.key()).append("\": ").append(field.description());
             }
+            sb.append(
+                    "\n\nBefore finalizing your reply, check the customer's latest message against"
+                            + " the \"Still missing\" fields inside the <context> block — if this"
+                            + " message answers one of those fields, you must include it in"
+                            + " extractedData, even if your reply already treats it as done. When"
+                            + " you need to ask for a missing field, ask for exactly one at a time,"
+                            + " phrased plainly using its description above.");
         }
 
         return sb.toString();

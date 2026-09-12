@@ -74,10 +74,6 @@ export type ResetPasswordPayload = {
   newPassword: string;
 };
 
-export type DeleteAccountPayload = {
-  password: string | null;
-};
-
 export type Setup2FAResponse = {
   otpauthUri: string;
 };
@@ -166,13 +162,6 @@ export class AuthenticationApiClient {
   requestPasswordReset() {
     return this.request<void>("/profile/request-password-reset", {
       method: "POST",
-    });
-  }
-
-  deleteAccount(payload: DeleteAccountPayload) {
-    return this.request<void>("/profile", {
-      method: "DELETE",
-      body: payload,
     });
   }
 

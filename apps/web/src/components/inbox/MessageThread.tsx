@@ -32,8 +32,21 @@ const STATUS_CHIP: Record<string, string> = {
 export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [composerPrefill, setComposerPrefill] = useState("");
+  const [isEditingAiDraft, setIsEditingAiDraft] = useState(false);
 
   const { data: aiDraft } = useConversationAiDraft(workspaceId, conversationId);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsEditingAiDraft(false);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!aiDraft) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsEditingAiDraft(false);
+    }
+  }, [aiDraft]);
 
   // Track the previous scrollHeight so we can restore position after prepending older messages.
   const prevScrollHeightRef = useRef<number>(0);
@@ -283,7 +296,10 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
           workspaceId={workspaceId}
           conversationId={conversationId}
           draft={aiDraft}
-          onEdit={(text) => setComposerPrefill(text)}
+          onEdit={(text) => {
+            setComposerPrefill(text);
+            setIsEditingAiDraft(true);
+          }}
         />
       )}
 
@@ -293,6 +309,8 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
         lockedByWorkflow={conversation?.lockedByWorkflow ?? false}
         prefillText={composerPrefill}
         onPrefillConsumed={() => setComposerPrefill("")}
+        isEditingAiDraft={isEditingAiDraft}
+        onDraftSent={() => setIsEditingAiDraft(false)}
       />
     </div>
   );

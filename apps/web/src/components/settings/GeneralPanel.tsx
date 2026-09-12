@@ -158,9 +158,14 @@ export function GeneralPanel({ workspaceId }: Props) {
               key={key}
               className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5"
             >
-              <span className="text-sm font-medium text-neutral-800">
-                {RESERVED_CONTACT_FIELDS[key].label}
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-neutral-800">
+                  {RESERVED_CONTACT_FIELDS[key].label}
+                </span>
+                <code className="rounded bg-neutral-200 px-1 text-[11px] text-neutral-500">
+                  {key}
+                </code>
+              </div>
               <p className="mt-0.5 text-xs text-neutral-500">
                 {RESERVED_CONTACT_FIELDS[key].description}
               </p>

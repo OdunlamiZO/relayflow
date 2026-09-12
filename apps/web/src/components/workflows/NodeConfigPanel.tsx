@@ -261,12 +261,7 @@ function ConditionForm({
 
   function addBranch() {
     const newId = `branch-${Date.now()}`;
-    onChange({
-      branches: [
-        ...branches,
-        { id: newId, label: `Branch ${branches.length + 1}` },
-      ],
-    });
+    onChange({ branches: [...branches, { id: newId, label: "" }] });
   }
 
   function removeBranch(id: string) {
@@ -312,6 +307,7 @@ function ConditionForm({
       {branches.map((branch, idx) => {
         const conditions = getConditions(branch);
         const combinator = branch.combinator ?? "and";
+        const isLastBranch = idx === branches.length - 1;
 
         return (
           <div
@@ -324,7 +320,7 @@ function ConditionForm({
                 Branch {idx + 1}
               </span>
 
-              {branches.length > 1 && (
+              {branches.length > 1 && !isLastBranch && (
                 <button
                   onClick={() => removeBranch(branch.id)}
                   className="text-neutral-300 transition-colors hover:text-red-border"
@@ -344,142 +340,153 @@ function ConditionForm({
                 onChange={(e) =>
                   updateBranch(branch.id, { label: e.target.value })
                 }
-                placeholder="Branch label"
+                placeholder={`Branch ${idx + 1}`}
                 className={inputCls}
               />
             </Field>
 
-            {conditions.map((condition, ci) => {
-              const hideValue = condition.operator
-                ? NO_VALUE_OPERATORS.has(condition.operator)
-                : false;
+            {isLastBranch && (
+              <p className="text-[11px] text-neutral-400">
+                Default branch — taken when no other branch matches.
+              </p>
+            )}
 
-              return (
-                <div key={condition.id} className="flex flex-col gap-2">
-                  {ci > 0 && (
-                    <div className="flex items-center justify-center">
-                      <div className="flex rounded-full border border-neutral-200 bg-white p-0.5 text-[10px] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateBranch(branch.id, { combinator: "and" })
-                          }
-                          className={`rounded-full px-2 py-0.5 transition-colors ${
-                            combinator === "and"
-                              ? "bg-secondary text-white"
-                              : "text-neutral-400 hover:text-neutral-600"
-                          }`}
-                        >
-                          AND
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateBranch(branch.id, { combinator: "or" })
-                          }
-                          className={`rounded-full px-2 py-0.5 transition-colors ${
-                            combinator === "or"
-                              ? "bg-secondary text-white"
-                              : "text-neutral-400 hover:text-neutral-600"
-                          }`}
-                        >
-                          OR
-                        </button>
+            {!isLastBranch &&
+              conditions.map((condition, ci) => {
+                const hideValue = condition.operator
+                  ? NO_VALUE_OPERATORS.has(condition.operator)
+                  : false;
+
+                return (
+                  <div key={condition.id} className="flex flex-col gap-2">
+                    {ci > 0 && (
+                      <div className="flex items-center justify-center">
+                        <div className="flex rounded-full border border-neutral-200 bg-white p-0.5 text-[10px] font-semibold">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateBranch(branch.id, { combinator: "and" })
+                            }
+                            className={`rounded-full px-2 py-0.5 transition-colors ${
+                              combinator === "and"
+                                ? "bg-secondary text-white"
+                                : "text-neutral-400 hover:text-neutral-600"
+                            }`}
+                          >
+                            AND
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateBranch(branch.id, { combinator: "or" })
+                            }
+                            className={`rounded-full px-2 py-0.5 transition-colors ${
+                              combinator === "or"
+                                ? "bg-secondary text-white"
+                                : "text-neutral-400 hover:text-neutral-600"
+                            }`}
+                          >
+                            OR
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <input
-                        type="text"
-                        value={condition.label ?? ""}
-                        onChange={(e) =>
-                          updateCondition(branch, condition.id, {
-                            label: e.target.value,
-                          })
-                        }
-                        placeholder={`Condition ${ci + 1}`}
-                        className="flex-1 border-none bg-transparent p-0 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 placeholder:text-neutral-400 focus:outline-none"
-                      />
-
-                      {conditions.length > 1 && (
-                        <button
-                          onClick={() => removeCondition(branch, condition.id)}
-                          className="text-neutral-300 transition-colors hover:text-red-border"
-                          title="Remove condition"
-                        >
-                          <span className="material-symbols-rounded text-[14px] leading-none">
-                            delete
-                          </span>
-                        </button>
-                      )}
-                    </div>
-
-                    <Field
-                      label="Variable"
-                      action={
-                        <VariablePicker
-                          variables={variables}
-                          onSelect={(name) =>
+                    <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <input
+                          type="text"
+                          value={condition.label ?? ""}
+                          onChange={(e) =>
                             updateCondition(branch, condition.id, {
-                              variable: name,
+                              label: e.target.value,
                             })
                           }
+                          placeholder={`Condition ${ci + 1}`}
+                          className="flex-1 border-none bg-transparent p-0 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 placeholder:text-neutral-400 focus:outline-none"
                         />
-                      }
-                    >
-                      <input
-                        type="text"
-                        value={condition.variable ?? ""}
-                        onChange={(e) =>
-                          updateCondition(branch, condition.id, {
-                            variable: e.target.value,
-                          })
-                        }
-                        placeholder="e.g. contact.name"
-                        className={inputCls}
-                      />
-                    </Field>
 
-                    <Field label="Operator">
-                      <Select
-                        value={condition.operator ?? "eq"}
-                        onChange={(v) =>
-                          updateCondition(branch, condition.id, {
-                            operator: v as ConditionOperator,
-                          })
-                        }
-                        options={CONDITION_OPERATORS}
-                      />
-                    </Field>
+                        {conditions.length > 1 && (
+                          <button
+                            onClick={() =>
+                              removeCondition(branch, condition.id)
+                            }
+                            className="text-neutral-300 transition-colors hover:text-red-border"
+                            title="Remove condition"
+                          >
+                            <span className="material-symbols-rounded text-[14px] leading-none">
+                              delete
+                            </span>
+                          </button>
+                        )}
+                      </div>
 
-                    {!hideValue && (
-                      <ConditionValueField
-                        value={condition.value ?? ""}
-                        onChange={(v) =>
-                          updateCondition(branch, condition.id, { value: v })
+                      <Field
+                        label="Variable"
+                        action={
+                          <VariablePicker
+                            variables={variables}
+                            onSelect={(name) =>
+                              updateCondition(branch, condition.id, {
+                                variable: name,
+                              })
+                            }
+                          />
                         }
-                        variables={variables}
-                      />
-                    )}
+                      >
+                        <input
+                          type="text"
+                          value={condition.variable ?? ""}
+                          onChange={(e) =>
+                            updateCondition(branch, condition.id, {
+                              variable: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. contact.name"
+                          className={inputCls}
+                        />
+                      </Field>
+
+                      <Field label="Operator">
+                        <Select
+                          value={condition.operator ?? "eq"}
+                          onChange={(v) =>
+                            updateCondition(branch, condition.id, {
+                              operator: v as ConditionOperator,
+                            })
+                          }
+                          options={CONDITION_OPERATORS}
+                        />
+                      </Field>
+
+                      {!hideValue && (
+                        <ConditionValueField
+                          value={condition.value ?? ""}
+                          onChange={(v) =>
+                            updateCondition(branch, condition.id, { value: v })
+                          }
+                          variables={variables}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            <button
-              onClick={() => addCondition(branch)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
-            >
-              <span
-                className="material-symbols-rounded text-[14px] leading-none"
-                aria-hidden="true"
+            {!isLastBranch && (
+              <button
+                onClick={() => addCondition(branch)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
               >
-                add
-              </span>
-              Add condition
-            </button>
+                <span
+                  className="material-symbols-rounded text-[14px] leading-none"
+                  aria-hidden="true"
+                >
+                  add
+                </span>
+                Add condition
+              </button>
+            )}
           </div>
         );
       })}
@@ -1365,23 +1372,35 @@ export function NodeConfigPanel({
     node.data as Record<string, unknown>
   );
 
+  const workspace = useWorkspace(workspaceId);
+  const contactFieldKeys = new Set<string>([
+    ...RESERVED_CONTACT_FIELD_KEYS,
+    ...(workspace?.contactFieldDefinitions ?? []).map((field) => field.key),
+  ]);
+
   const { data: aiAgentConfiguration } = useAiAgentConfiguration(workspaceId);
   const extractionFieldVariables: WorkflowVariable[] = (
     aiAgentConfiguration?.extractionFields ?? []
-  ).map((field) => ({
-    name: `agent.data.${field.key}`,
-    label: field.description || field.key,
-    group: "built-in",
-  }));
+  )
+    .filter((field) => !contactFieldKeys.has(field.key))
+    .map((field) => ({
+      name: `agent.data.${field.key}`,
+      label: field.description || field.key,
+      group: "ai",
+    }));
 
-  const workspace = useWorkspace(workspaceId);
-  const contactFieldVariables: WorkflowVariable[] = (
-    workspace?.contactFieldDefinitions ?? []
-  ).map((field) => ({
-    name: `contact.data.${field.key}`,
-    label: field.label || field.key,
-    group: "built-in",
-  }));
+  const contactFieldVariables: WorkflowVariable[] = [
+    ...RESERVED_CONTACT_FIELD_KEYS.map((key) => ({
+      name: `contact.data.${key}`,
+      label: RESERVED_CONTACT_FIELDS[key].label,
+      group: "contact" as const,
+    })),
+    ...(workspace?.contactFieldDefinitions ?? []).map((field) => ({
+      name: `contact.data.${field.key}`,
+      label: field.label || field.key,
+      group: "contact" as const,
+    })),
+  ];
 
   const writableContactFieldOptions: SelectOption[] = [
     ...RESERVED_CONTACT_FIELD_KEYS.map((key) => ({
@@ -1411,7 +1430,7 @@ export function NodeConfigPanel({
   }
 
   return (
-    <aside className="flex w-96 flex-shrink-0 flex-col border-l border-neutral-300 bg-neutral-50">
+    <aside className="flex w-[28rem] flex-shrink-0 flex-col border-l border-neutral-300 bg-neutral-50">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-300 px-4 py-3">
         <span className="text-sm font-semibold text-neutral-800">

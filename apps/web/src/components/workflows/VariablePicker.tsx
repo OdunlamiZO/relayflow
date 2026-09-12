@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 export type WorkflowVariable = {
   name: string;
   label: string;
-  group: "built-in" | "workflow";
+  group: "contact" | "ai" | "conversation" | "workflow";
 };
 
 /** Transforms supported by the `{{variable | filter}}` pipe syntax — mirrors VariableInterpolator on the backend. */
@@ -56,29 +56,30 @@ export function FilterWarning({ text }: { text: string | undefined }) {
   );
 }
 
-/** Variables seeded into every workflow run — contact.id and internal IDs are intentionally excluded. */
+/** Variables seeded into every workflow run — conversation.id and workspace.id are excluded. */
 export const BUILT_IN_VARIABLES: WorkflowVariable[] = [
-  { name: "contact.name", label: "Contact name", group: "built-in" },
-  { name: "contact.username", label: "Contact username", group: "built-in" },
-  {
-    name: "conversation.channel",
-    label: "Conversation channel",
-    group: "built-in",
-  },
+  { name: "contact.id", label: "Contact ID", group: "contact" },
+  { name: "contact.name", label: "Contact name", group: "contact" },
+  { name: "contact.username", label: "Contact username", group: "contact" },
   {
     name: "contact.message",
     label: "Contact's opening message",
-    group: "built-in",
+    group: "contact",
+  },
+  {
+    name: "conversation.channel",
+    label: "Conversation channel",
+    group: "conversation",
   },
   {
     name: "agent.reply",
     label: "AI agent's reply (when triggered by the AI agent)",
-    group: "built-in",
+    group: "ai",
   },
   {
     name: "agent.confidence",
     label: "AI agent's confidence (when triggered by the AI agent)",
-    group: "built-in",
+    group: "ai",
   },
 ];
 
@@ -113,8 +114,18 @@ export function VariablePicker({ variables, onSelect }: Props) {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
 
-  const builtIn = variables.filter((v) => v.group === "built-in");
-  const workflow = variables.filter((v) => v.group === "workflow");
+  const sections: { title: string; items: WorkflowVariable[] }[] = [
+    { title: "Contact", items: variables.filter((v) => v.group === "contact") },
+    { title: "AI agent", items: variables.filter((v) => v.group === "ai") },
+    {
+      title: "Conversation",
+      items: variables.filter((v) => v.group === "conversation"),
+    },
+    {
+      title: "From workflow",
+      items: variables.filter((v) => v.group === "workflow"),
+    },
+  ].filter((section) => section.items.length > 0);
 
   return (
     <div ref={containerRef} className="relative flex-shrink-0">
@@ -129,34 +140,24 @@ export function VariablePicker({ variables, onSelect }: Props) {
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 shadow-lg">
-          {variables.length === 0 && (
+          {sections.length === 0 && (
             <p className="px-3 py-2.5 text-[11px] text-neutral-400">
               No variables available yet.
             </p>
           )}
 
-          {builtIn.length > 0 && (
+          {sections.map((section, i) => (
             <VariableGroup
-              title="Built-in"
-              items={builtIn}
+              key={section.title}
+              title={section.title}
+              items={section.items}
+              bordered={i > 0}
               onSelect={(name) => {
                 onSelect(name);
                 setOpen(false);
               }}
             />
-          )}
-
-          {workflow.length > 0 && (
-            <VariableGroup
-              title="From workflow"
-              items={workflow}
-              bordered={builtIn.length > 0}
-              onSelect={(name) => {
-                onSelect(name);
-                setOpen(false);
-              }}
-            />
-          )}
+          ))}
         </div>
       )}
     </div>

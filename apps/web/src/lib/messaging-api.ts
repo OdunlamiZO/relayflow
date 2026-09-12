@@ -860,10 +860,10 @@ export class MessagingApiClient {
     );
   }
 
-  sendAiDraft(workspaceId: string, conversationId: string) {
+  sendAiDraft(workspaceId: string, conversationId: string, text?: string) {
     return this.request<Message>(
       `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft/send`,
-      { method: "POST" }
+      { method: "POST", body: text ? { text } : undefined }
     );
   }
 

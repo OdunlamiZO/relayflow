@@ -129,6 +129,14 @@ type Props = {
   workspaceId: string;
 };
 
+function maxNodeIdSuffix(nodes: Node[]): number {
+  return nodes.reduce((max, node) => {
+    const match = /-(\d+)$/.exec(node.id);
+
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+}
+
 function EditorCanvas({ workflowId, workspaceId }: Props) {
   const {
     data: workflow,
@@ -179,9 +187,14 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     if (!workflow) return;
 
     const graph = workflow.draftGraph as { nodes?: Node[]; edges?: Edge[] };
+    const loadedNodes = graph.nodes ?? [];
 
-    setNodes(graph.nodes ?? []);
+    setNodes(loadedNodes);
     setEdges(graph.edges ?? []);
+    nodeIdRef.current = Math.max(
+      nodeIdRef.current,
+      maxNodeIdSuffix(loadedNodes)
+    );
   }, [workflow, setNodes, setEdges]);
 
   const isLocked = workflow?.enabled ?? false;
@@ -334,13 +347,10 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
           setName(parsed.name);
         }
 
-        // Keep future-generated node ids unique relative to the imported graph.
-        const maxId = importedNodes.reduce((max, node) => {
-          const match = /-(\d+)$/.exec(node.id);
-
-          return match ? Math.max(max, Number(match[1])) : max;
-        }, 0);
-        nodeIdRef.current = Math.max(nodeIdRef.current, maxId);
+        nodeIdRef.current = Math.max(
+          nodeIdRef.current,
+          maxNodeIdSuffix(importedNodes)
+        );
       } catch {
         setImportError("Couldn't import workflow: invalid file.");
       }
