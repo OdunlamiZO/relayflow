@@ -77,6 +77,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`ContactService`](#contactservice)
   - [`ContactMapper`](#contactmapper)
   - [`ReservedContactFieldResolver`](#reservedcontactfieldresolver)
+  - [`ContactDisplayNameSync`](#contactdisplaynamesync)
 - [Contact Domain Entities And Enums](#contact-domain-entities-and-enums)
   - [`Contact`](#contact)
   - [`ExternalIdentity`](#externalidentity)
@@ -118,6 +119,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`TelegramAdapter`](#telegramadapter)
   - [`TelegramWebhookRegistrar`](#telegramwebhookregistrar)
   - [`TelegramSendException`](#telegramsendexception)
+  - [`TelegramExceptionHandler`](#telegramexceptionhandler)
   - [Telegram DTO Records](#telegram-dto-records)
 - [WhatsApp Backend](#whatsapp-backend)
   - [`WhatsAppController`](#whatsappcontroller)
@@ -130,6 +132,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WorkflowService`](#workflowservice)
   - [`WorkflowGraphValidator`](#workflowgraphvalidator)
   - [`WorkflowValidationException`](#workflowvalidationexception)
+  - [`WorkflowExceptionHandler`](#workflowexceptionhandler)
 - [Workflow Domain Entities And Enums](#workflow-domain-entities-and-enums)
   - [`NodeType`](#nodetype)
   - [`WorkflowDefinition`](#workflowdefinition)
@@ -604,7 +607,9 @@ We need it so the frontend receives a consistent error shape regardless of which
 
 ### `CommonExceptionHandler`
 
-Global REST exception handler for exceptions that aren't specific to one domain — domain-specific exceptions (`ConversationLockedException`, `TelegramSendException`, `WorkflowValidationException`) each have their own small `@RestControllerAdvice` in their own package instead; Spring composes `@ExceptionHandler` methods across every advice bean regardless of which one declares them.
+Global REST exception handler for exceptions that aren't specific to one domain — domain-specific exceptions (`ConversationLockedException` in `MessagingExceptionHandler`, `TelegramSendException` in `TelegramExceptionHandler`, `WorkflowValidationException` in `WorkflowExceptionHandler`) each have their own small `@RestControllerAdvice` in their own package instead.
+
+`@Order(Ordered.LOWEST_PRECEDENCE)` on this class is load-bearing, not decorative: with no explicit `@Order` on any of the four advice beans, Spring resolves exception handlers per-advice-bean and stops at the first one (in whatever order tied-priority beans happen to land in) that has *any* matching method — it does not search every bean for the most specific match. This class's catch-all `Exception` handler matches everything, so without an explicit lowest-precedence order it could intercept e.g. a `WorkflowValidationException` before `WorkflowExceptionHandler` (`@Order(Ordered.HIGHEST_PRECEDENCE)`) ever got a chance, silently downgrading a specific `400` with a real message into a generic `500` — which is exactly what happened before this was fixed.
 
 Handles:
 
@@ -970,9 +975,15 @@ We need it to isolate the API response shape from the persistence entity shape.
 
 `@Component` in the `contact` package. `resolve(contact, identities)` returns the reserved contact field values ({@link ReservedContactField}) that can already be derived from existing data, without asking the AI agent or an operator: `displayName` from `Contact.displayName`, `firstName`/`lastName` from a Telegram `ExternalIdentity`'s `rawProfile` (populated by `TelegramAdapter.buildRawProfile` from the inbound update's `from` user), `phone` (and, via `libphonenumber`, `country`) from a WhatsApp or SMS `ExternalIdentity`, `email` from an EMAIL identity. A key is omitted (not included with an empty value) when nothing can be derived.
 
-Used by `ContactService.getContactDetail` to seed a contact's `customFields` response before the explicitly-stored values overwrite it (derived values only ever fill a gap, never override an explicit one), and by `ContactCustomFieldWriter` to check whether a reserved key is already effectively known before writing an AI extraction.
+Used by `ContactService.getContactDetail` to seed a contact's `customFields` response before the explicitly-stored values overwrite it (derived values only ever fill a gap, never override an explicit one), and by `AiAgentContextAssembler` to compute the "Already known"/"Still missing" contact footer. Not used by `ContactCustomFieldWriter` — that gap-fill check looks only at explicitly-stored `Contact.customFields`, so a reserved key the resolver could derive but that hasn't been explicitly stored yet is still written by the AI agent (recording that it was captured, and firing `contact.updated`).
 
 We need it so reserved fields are auto-filled wherever RelayFlow can already derive them, without hand-coding a Telegram-specific "share contact" flow or similar one-off hack for channels that don't expose the data.
+
+### `ContactDisplayNameSync`
+
+`apply(contact)` sets `Contact.displayName` to `"firstName lastName"` (trimmed) whenever either is present in `customFields`, leaving `displayName` untouched otherwise. Called by `ContactCustomFieldWriter` (after an AI extraction writes firstName/lastName) and `SetContactFieldNodeExecutor` (after a workflow's Set Contact Field node writes either).
+
+We need it because `displayName` is otherwise whatever the channel reported at contact-creation time — Telegram already concatenates firstName/lastName itself (`TelegramAdapter.buildDisplayName`), but WhatsApp's `displayName` is the contact's own freeform profile name (e.g. a nickname or emoji), which stays stuck on that value forever unless something reconciles it once a real name is collected.
 
 ## Contact Domain Entities And Enums
 
@@ -1054,7 +1065,7 @@ We need it to isolate the API response shape from the persistence entity shape.
 
 ### `MessagingExceptionHandler`
 
-`@RestControllerAdvice` scoped to this package's one domain-specific exception. See [`CommonExceptionHandler`](#commonexceptionhandler) for the generic handlers shared across all domains.
+`@RestControllerAdvice` scoped to this package's one domain-specific exception, `@Order(Ordered.HIGHEST_PRECEDENCE)` so it's always checked before `CommonExceptionHandler`'s catch-all. See [`CommonExceptionHandler`](#commonexceptionhandler) for the generic handlers shared across all domains, and why the order matters.
 
 Handles:
 
@@ -1318,6 +1329,14 @@ Exception threw when Telegram delivery fails.
 
 We need it so outbound message creation can roll back and surface a useful `502` to the frontend.
 
+### `TelegramExceptionHandler`
+
+`@RestControllerAdvice` scoped to `TelegramSendException`, `@Order(Ordered.HIGHEST_PRECEDENCE)` so it's always checked before `CommonExceptionHandler`'s catch-all. See [`CommonExceptionHandler`](#commonexceptionhandler) for why the order matters.
+
+Handles:
+
+- `TelegramSendException` as `502`.
+
 ### Telegram DTO Records
 
 - `TelegramWebhookPayload`
@@ -1434,6 +1453,7 @@ Important validation rules:
 - every node is reachable from the trigger.
 - Jump To links count as reachability paths even though they are stored in node data rather than edges.
 - every condition branch has an edge.
+- every non-last condition branch has at least one condition configured, and every condition has an operator selected — the last branch is exempt from both (see `ConditionNodeExecutor` — it's the implicit fallback and its conditions are never evaluated).
 - the required node content exists.
 - defined Ask Question options and "Other" branch are connected.
 - Jump To nodes have a configured target, cannot target themselves, and reference an existing node.
@@ -1449,6 +1469,14 @@ We need it because draft graphs can be incomplete, but published workflows must 
 Runtime exception for publish-time workflow validation failures.
 
 We need it so frontend can display actionable validation errors.
+
+### `WorkflowExceptionHandler`
+
+`@RestControllerAdvice` scoped to `WorkflowValidationException`, `@Order(Ordered.HIGHEST_PRECEDENCE)` so it's always checked before `CommonExceptionHandler`'s catch-all. See [`CommonExceptionHandler`](#commonexceptionhandler) for why the order matters.
+
+Handles:
+
+- `WorkflowValidationException` as `400`, with the exception's message as the response body.
 
 ## Workflow Domain Entities And Enums
 
@@ -1659,9 +1687,11 @@ We need it to let workflows respond to contacts through the active channel.
 
 ### `ConditionNodeExecutor`
 
-Evaluates configured branches against variables.
+Evaluates configured branches, in order, against variables — returns the first branch whose conditions pass.
 
 Supported operators include equality, comparison, contains, starts/ends with, is set, and is not set.
+
+The **last** branch in the list is always the fallback: it's taken unconditionally once every earlier branch has failed, and its own conditions (if any) are ignored entirely at that point — it doesn't need to have any configured. Every non-last branch, by contrast, must have at least one condition — a non-last branch with none always evaluates to `false` (never matches, effectively dead code), which `WorkflowGraphValidator` rejects at publish time (`"branch '<label>' ... has no conditions configured"`) precisely because it can't ever do anything. See `NodeConfigPanel`'s `ConditionForm` for how the config UI reflects this (no conditions/delete UI on the last branch).
 
 We need it for branching automation logic.
 
@@ -1708,6 +1738,7 @@ Important behavior:
 
 - Loads the `Conversation` (and its `Contact`/`Workspace`) via `ConversationRepository`, checks `fieldKey` against `ReservedContactField.isReserved` and `Workspace.contactFieldDefinitions` — an unwritable key is a no-op, recorded in the step output as `skipped`.
 - Unlike `ContactCustomFieldWriter`'s AI-extraction path, this always overwrites — it's a deliberate, operator-configured action (like a manual edit), not a speculative guess that needs a "don't clobber" guard.
+- Calls `ContactDisplayNameSync.apply(contact)` after writing, so setting `firstName`/`lastName` through this node keeps `displayName` in sync the same way an AI extraction does.
 
 We need it as the third way (alongside manual edit and AI extraction) to set a contact field value, for channels or data sources the AI agent can't reach and auto-derivation doesn't cover.
 
@@ -2007,6 +2038,7 @@ Shows an "Escalated" pill in the header (same slot as the "Workflow" lock pill) 
 Important state:
 
 - `composerPrefill`: lifted state that pre-fills the composer when the agent clicks Edit on a draft.
+- `isEditingAiDraft`: lifted state set alongside `composerPrefill` when Edit is clicked, passed to `MessageComposer` so its next send routes through `sendDraft` instead of a normal agent message. Reset to `false` on every conversation switch and whenever the draft disappears (sent/discarded), so it can never leak into an unrelated send.
 
 Renders `AiDraftBanner` above the composer when an AI draft exists for the conversation.
 
@@ -2030,8 +2062,9 @@ Important behavior:
 
 - disables itself and shows a workflow-ownership notice when `lockedByWorkflow` is true.
 - accepts `prefillText` and `onPrefillConsumed` props; a `useEffect` syncs the text and focuses the textarea when `prefillText` changes. Used when an agent clicks Edit on an AI draft.
+- accepts `isEditingAiDraft` and `onDraftSent` props (set by `MessageThread` when an AI draft's Edit button is clicked). When `isEditingAiDraft` is true, submitting calls `useSendAiDraft(text)` instead of the normal `useSendMessage({ senderType: "AGENT" })` path — so sending a human-edited AI draft is still recorded as a `SYSTEM` message and doesn't auto-assign the conversation or release the AI agent's lock the way a normal agent-composed message would (see `MessagingService.createMessage`). Calls `onDraftSent` on success so `MessageThread` can clear the editing flag.
 
-We need it to let agents reply from the inbox without interrupting active workflow runs.
+We need it to let agents reply from the inbox without interrupting active workflow runs, and to make editing an AI draft's wording behave as fine-tuning the AI's output rather than a human taking over the conversation.
 
 ## Frontend Contacts Components
 
@@ -2178,7 +2211,18 @@ We need it to make one-time secret handling explicit in the UI.
 
 Settings form for webhook URL, enabled state, subscribed events, secret rotation, and deletion.
 
+Important behavior:
+
+- Save button always reads "Save" (not "Create webhook" vs "Save changes"), and is disabled whenever the form's `url`/`enabled`/`events` match the currently-saved webhook (or the defaults, for a not-yet-created one) — same `isUnchanged`-gates-the-submit-button pattern as `AiAgentPanel`.
+- Renders `WebhookSecretModal` (lifted `revealedSecret` state) to show a newly-generated or newly-rotated secret — the one place a plaintext secret is ever shown, and only once.
+
 We need it to configure outbound workspace webhooks safely.
+
+### `WebhookSecretModal`
+
+Modal that reveals a webhook secret in plaintext exactly once, with a copy button — used for both webhook creation (`generatedSecret` from the save response) and secret rotation (`secret` from `useRotateWebhookSecret`). Replaces the earlier `RotateWebhookSecretModal`, unified since both flows show the identical one-time-reveal UI.
+
+We need it so a workspace owner can retrieve a webhook secret exactly once, at the moment it's generated or rotated — RelayFlow never stores or displays it again afterward.
 
 ## Frontend Workflow Builder Components
 
@@ -2198,10 +2242,11 @@ Important state:
 - `name`: workflow name.
 - `isDirty`: unsaved graph/name changes.
 - `publishError`: backend validation error.
-- `nodeIdRef`: local dropped-node ID counter.
+- `nodeIdRef`: local dropped-node ID counter, `${type}-${++nodeIdRef.current}`. Synced to the highest numeric ID suffix already present in the graph both when a workflow loads from the backend and when one is imported (`maxNodeIdSuffix`) — without the load-time sync, opening an existing workflow left this counter at `0`, so the first node dropped of a given type could collide with a real node's existing ID (e.g. dropping a second `condition` node into a saved graph that already has `condition-1` would generate `id: "condition-1"` again) — two array entries sharing one ID get merged/deduped, which looked like the newly-dropped node vanishing and an existing node's data getting silently overwritten.
 
 Important functions:
 
+- `maxNodeIdSuffix(nodes)`: module-level helper — highest `-<N>` suffix across the given nodes' IDs, used by both the load effect and the import handler.
 - `onConnect`: adds graph edges.
 - `onDragOver`: enables node drops.
 - `onDrop`: creates a new node from palette item.
@@ -2227,7 +2272,8 @@ Important helpers:
 - `insertAtCursor`: inserts `{{variable}}` into inputs/textareas.
 - `Field`: reusable label/action wrapper.
 - `ConditionValueField`, `HeaderRow`: smaller controlled field components with their own refs.
-- `writableContactFieldOptions`: `SelectOption[]` combining `RESERVED_CONTACT_FIELD_KEYS` and the workspace's `contactFieldDefinitions` — the dropdown source for `SetContactFieldForm`'s field picker. Separate from `contactFieldVariables` (the `contact.data.<key>` entries offered by the `{{…}}` variable picker for *reading*), which only covers workspace-defined fields, not reserved ones — reading and writing use different field lists on purpose.
+- `writableContactFieldOptions`: `SelectOption[]` combining `RESERVED_CONTACT_FIELD_KEYS` and the workspace's `contactFieldDefinitions` — the dropdown source for `SetContactFieldForm`'s field picker. `contactFieldVariables` (the `contact.data.<key>` entries offered by the `{{…}}` variable picker for *reading*) covers the same reserved-plus-workspace-defined set, so a field that's writable is also readable via the picker.
+- `extractionFieldVariables`: `agent.data.<key>` picker entries built from the AI Agent config's `extractionFields`, excluding any key that's also a reserved contact field or workspace `ContactFieldDefinition` — that data is already reachable via `contact.data.<key>`, so offering both would just be a confusing duplicate for the common case where every extraction field is a contact field (e.g. `firstName`, `phone`).
 
 Important constants:
 
@@ -2256,6 +2302,11 @@ Important form parts:
 - `EndConversationForm`
 - `WaitForReplyForm`
 
+`ConditionForm` notes:
+
+- The **last** branch in a condition node's branch list is the implicit "else"/default (see `ConditionNodeExecutor` — the backend always takes it once every earlier branch has failed, ignoring any conditions on it). The form reflects that: the last branch shows a "Default branch — taken when no other branch matches" note instead of the conditions list, "Add condition" button, and delete button — editing conditions or deleting it would have no effect (delete) or be silently ignored by the executor (conditions), so the UI doesn't offer either.
+- `addBranch()` appends the new branch to the end of the array with an empty `label`, rather than baking in a literal `"Branch N"` string — the label input's placeholder is `Branch ${idx + 1}` instead, so an unedited branch's displayed number tracks its current position (matching `ConditionNode`'s canvas-rendering fallback, `branch.label || \`Branch ${i + 1}\``) even as branches are added or removed around it. Only an actually-typed label is frozen regardless of position; a label baked in before this fix (a literal `"Branch N"` string already saved) is indistinguishable from a real custom label and stays frozen until manually edited.
+
 We need it to turn graph nodes into user-editable automation configuration.
 
 ### `VariablePicker`
@@ -2264,12 +2315,12 @@ Dropdown for inserting variables into text fields.
 
 Important values/components:
 
-- `WorkflowVariable`
-- `BUILT_IN_VARIABLES`
-- `VariablePicker`
-- `VariableGroup`
+- `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow"`.
+- `BUILT_IN_VARIABLES`: `contact.id`, `contact.name`, `contact.username`, `contact.message` (group `"contact"`); `conversation.channel` (group `"conversation"`); `agent.reply`, `agent.confidence` (group `"ai"`). `conversation.id` and `workspace.id` are populated at runtime (`WorkflowEngineService`) but deliberately excluded from this list — internal IDs not meant for the common case. `contact.id` used to be excluded for the same reason, but was added back since it has a real, common use (e.g. referencing the contact by RelayFlow's own ID in an HTTP Request header/body to an external system).
+- `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, then From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs) — instead of one flat "Built-in" bucket.
+- `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter).
 
-We need it so users can discover and insert valid `{{variable}}` placeholders without memorizing names.
+We need it so users can discover and insert valid `{{variable}}` placeholders without memorizing names, grouped so contact data, AI-agent data, and workflow-local variables aren't all mixed into one undifferentiated list.
 
 ### `WorkflowsShell`
 
@@ -2492,7 +2543,7 @@ We need them for real-time inbox state.
 - `useAiAgentConfig(workspaceId)`: fetches workspace AI agent config; query key `["ai-agent-config", workspaceId]`.
 - `useUpdateAiAgentConfig(workspaceId)`: mutation that PUTs config and updates the cached config via `setQueryData` on success.
 - `useConversationAiDraft(workspaceId, conversationId)`: fetches the active AI draft; `retry: false`; enabled only when both IDs are truthy.
-- `useSendAiDraft(workspaceId, conversationId)`: POSTs to `/ai-draft/send`; invalidates draft, messages, and conversations on success.
+- `useSendAiDraft(workspaceId, conversationId)`: mutation function takes an optional `text` — POSTs to `/ai-draft/send` with `{ text }` when provided (sends a human-edited version of the draft), or no body otherwise (sends the draft's own `proposedReply`); invalidates draft, messages, and conversations on success.
 - `useDiscardAiDraft(workspaceId, conversationId)`: DELETEs the draft; invalidates the draft query.
 - `useTriggerWorkflowFromDraft(workspaceId, conversationId)`: mutation that POSTs to `/ai-draft/trigger-workflow/{workflowId}`; invalidates the draft and conversations queries on success. Used by `AiDraftBanner` in workflow suggestion mode.
 
@@ -2781,8 +2832,9 @@ Important fields:
 - `invocationLogId`
 - `proposedReply`
 - `suggestedActions`: `List<String>` JSONB
+- `extractedData`: `Map<String, String>` JSONB — accumulates extraction across turns while the draft sits un-actioned, merged (not replaced) on each new AI turn by `AiAgentInvocationService.mergeWithPendingDraft`. The draft is deleted rather than merged into if it predates `Conversation.sessionStartedAt`.
 
-We need it to hold the AI-proposed reply until an agent sends, edits, or discards it.
+We need it to hold the AI-proposed reply — and what it has extracted so far — until an agent sends, edits, discards, or approves a workflow from it.
 
 ### `AiAgentConfigurationService`
 
@@ -2793,9 +2845,9 @@ Important methods:
 - `getOrCreateConfig(workspaceId)`: fetches or creates a default disabled config.
 - `updateConfig(workspaceId, request)`: applies partial updates.
 - `getDraft(workspaceId, conversationId)`: returns the active draft for a conversation.
-- `sendDraft(workspaceId, conversationId)`: sends the draft as an outbound `SYSTEM` message via `MessagingService` and deletes it.
+- `sendDraft(workspaceId, conversationId, editedReply)`: sends `editedReply` if non-blank, otherwise the draft's `proposedReply`, as an outbound `SYSTEM` message via `MessagingService`, then deletes the draft. Always `SYSTEM`, never `AGENT` — even a human-edited reply must not auto-assign the conversation to whoever clicked send or release the AI agent's lock on it (`MessagingService.createMessage`'s auto-assign/unlock logic only fires for `AGENT`-sent messages, so editing a draft's wording is fine-tuning the AI's output, not a human taking over).
 - `discardDraft(workspaceId, conversationId)`: deletes the draft without sending.
-- `triggerWorkflowFromDraft(workspaceId, conversationId, workflowId)`: validates that the draft's `suggestedActions` contains `trigger_workflow:<workflowId>`, deletes the draft, and calls `WorkflowEngineService.executeWorkflow()`.
+- `triggerWorkflowFromDraft(workspaceId, conversationId, workflowId)`: validates that the draft's `suggestedActions` contains `trigger_workflow:<workflowId>`, deletes the draft, and calls `WorkflowEngineService.executeWorkflow()`. The draft's `proposedReply` is never sent as a message here — it's only carried forward as the `agent.reply` workflow variable, so a workflow's own `Send Message` node must reference `{{agent.reply}}` explicitly to reuse that text.
 
 We need it to keep controller code thin.
 
@@ -2810,7 +2862,9 @@ REST controller at `/workspaces/{workspaceId}/ai-agent-config`.
 
 REST controller at `/workspaces/{workspaceId}/conversations/{conversationId}/ai-draft`.
 
-All endpoints require `INBOX` permission. Endpoints: `GET`, `POST /send`, `DELETE`, `POST /trigger-workflow/{workflowId}`.
+All endpoints require `INBOX` permission. Endpoints: `GET`, `POST /send` (optional `SendAiDraftRequest` body), `DELETE`, `POST /trigger-workflow/{workflowId}`.
+
+`POST /send`'s optional `{ text }` body replaces the draft's `proposedReply` as the sent message text — lets the frontend send a human-edited version of the AI's draft (see `AiAgentConfigurationService.sendDraft`).
 
 `POST /trigger-workflow/{workflowId}` validates that `workflowId` is in the draft's `suggestedActions`, discards the draft, and triggers the workflow — used when `DRAFT_ONLY` mode holds a workflow suggestion for human approval.
 
@@ -2824,26 +2878,30 @@ We need it because catching a constraint violation inside the same `@Transaction
 
 ### `AiAgentInvocationService`
 
-Core agent pipeline service. Runs `@Async` after the inbound message transaction commits.
+Core agent pipeline service. Runs `@Async` after the inbound message transaction commits, in its own `@Transactional(REQUIRES_NEW)`.
 
-Important method: `invoke(conversation, triggeringMessage)`
+Important method: `invoke(staleConversation, triggeringMessage)`
+
+`staleConversation` is the `Conversation` object `AiAgentTriggerListener` loaded inside its own, already-committed-and-closed transaction — by the time this `@Async` method runs, that object is detached and its lazy associations can't be resolved (a `LazyInitializationException` risk, not a session-boundary/reopen concept). `invoke()` reads only `staleConversation.getId()` and immediately re-fetches a fresh, session-attached `Conversation` for everything else.
 
 Flow:
 
-1. Load enabled `AiAgentConfiguration`; abort if absent.
-2. Close any prior `CLARIFYING` log for this conversation (frees the unique slot).
-3. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
-4. Re-check for an active `WorkflowRun` committed in the race window since step 3.
-5. Deterministic keyword escalation check.
-6. Assemble context via `AiAgentContextAssembler` and call LLM.
-7. Decision:
-   - `escalate` → stamp `Conversation.escalatedAt`/`escalationReason`, broadcast `ai.escalated` SSE + ESCALATED (see `broadcastEscalation`; cleared later by `MessagingService.createMessage` on the next human reply).
-   - `trigger_workflow:` in `suggestedActions` and autonomy ceiling is `AUTO_SEND` → `WorkflowEngineService.executeWorkflow()` + SENT.
-   - `trigger_workflow:` action and `DRAFT_ONLY` ceiling → save draft with the action in `suggestedActions` + broadcast + DRAFTED (human approves via `POST /trigger-workflow/{workflowId}`).
-   - `draftOnly` OR `confidence == "low"` OR `needsClarification` → save draft + broadcast + DRAFTED.
-   - else → send reply + SENT.
+1. Re-fetch a fresh `Conversation` by ID; abort if it no longer exists.
+2. Load enabled `AiAgentConfiguration`; abort if absent.
+3. Close any prior `CLARIFYING` log for this conversation (frees the unique slot).
+4. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
+5. Re-check for an active `WorkflowRun` committed in the race window since step 4.
+6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call the LLM.
+7. `contactCustomFieldWriter.apply(...)` runs unconditionally right after the LLM responds — before any branching below, including the draft path. Extraction is no longer deferred until a human approves a draft.
+8. `mergeWithPendingDraft(conversation, response.extractedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
+9. `sanitizeSuggestedActions(response.suggestedActions(), configuration.getWorkflowMappings())` drops any `trigger_workflow:<id>` action whose `<id>` isn't in a configured `WorkflowMapping` — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging.
+10. Decision:
+    - `escalate` → stamp `Conversation.escalatedAt`/`escalationReason`, broadcast `ai.escalated` SSE + ESCALATED (see `broadcastEscalation`; cleared later by `MessagingService.createMessage` on the next human reply).
+    - sanitized `trigger_workflow:` action present and autonomy ceiling is not `DRAFT_ONLY` → `triggerWorkflow()` — builds `AgentWorkflowContext` from `accumulatedExtractedData`, deletes the pending draft, calls `WorkflowEngineService.executeWorkflow()` + SENT.
+    - `draftOnly` OR `confidence == "low"` OR `needsClarification` → `saveDraft()` updates the existing `ConversationAiDraft` in place (merging `accumulatedExtractedData` and the sanitized `suggestedActions`) instead of delete-and-recreate, so a workflow suggestion isn't lost across drafted turns + broadcast + DRAFTED (human approves via `POST /trigger-workflow/{workflowId}`).
+    - else → send reply + SENT.
 
-We need it to handle the full agent decision loop safely with an isolated slot-claim mechanism.
+We need it to handle the full agent decision loop safely with an isolated slot-claim mechanism, and to make contact-field extraction and draft state resilient to a conversation being reopened mid-collection.
 
 ### `AiAgentTriggerListener`
 
@@ -2861,27 +2919,29 @@ Important behavior:
 
 - Fetches the last 20 messages created at or after `conversation.sessionStartedAt` (newest-first), reverses to chronological order. This scopes history to the current session so prior closed-conversation messages never pollute the context.
 - Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from `workflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from `knowledgeBase`).
-- Appends a `[Contact: name | Channel: PROVIDER]` footer to the last inbound message only. When `extractionFields` is configured, also appends `| Already known: key=value, ...` and `| Still missing: key, ...` — the same effective-value precedence as `ContactService.getContactDetail` (explicitly-stored `Contact.customFields` over `ReservedContactFieldResolver`'s derived values), computed via an injected `ExternalIdentityRepository` and `ReservedContactFieldResolver`. Either segment is omitted if empty; with no extraction fields configured the footer is unchanged from the plain `[Contact: ... | Channel: ...]` form. This steers the agent toward asking only for fields it doesn't already effectively know, instead of re-asking for information already on file.
+- Appends a `<context>Contact: name | Channel: PROVIDER</context>` block to the last inbound message only — an XML-style tag rather than a bare `[...]` bracket specifically so `LlmPrompts`'s format instruction can tell the model this is internal metadata never to repeat verbatim in its reply; the bracket-only form was previously echoed by the LLM straight into a live customer-facing message. When `extractionFields` is configured, also appends `| Already known: key=value, ...` and `| Still missing: key, ...` inside the tag — the same effective-value precedence as `ContactService.getContactDetail` (explicitly-stored `Contact.customFields` over `ReservedContactFieldResolver`'s derived values), computed via an injected `ExternalIdentityRepository` and `ReservedContactFieldResolver`. Either segment is omitted if empty; with no extraction fields configured the block is just `<context>Contact: ... | Channel: ...</context>`. This steers the agent toward asking only for fields it doesn't already effectively know, instead of re-asking for information already on file.
 
 We need it to keep LLM prompt construction separate from the invocation pipeline, and to give the agent visibility into what it already knows about the contact so extraction feels like a conversation, not a form.
 
 ### `ContactCustomFieldWriter`
 
-`@Service` in the `agent` package. `apply(conversation, extractedData, extractionFields)` persists LLM-extracted data onto the contact's `customFields`.
+`@Service` in the `agent` package. `apply(conversation, extractedData, extractionFields)` persists LLM-extracted data onto the contact's `customFields`. Called unconditionally and immediately after every LLM response — not deferred until a human approves a draft.
 
 Important behavior:
 
 - A key is only ever written if it's both a configured `extractionFields` key *and* a writable contact field key — one of the reserved keys (`ReservedContactField`) or a key the workspace has defined (`Workspace.contactFieldDefinitions`). A hallucinated or unconfigured key is dropped rather than persisted.
-- Checks the *effective* value before writing, not just the raw `customFields` map — for a reserved key it also resolves what `ReservedContactFieldResolver` can already derive (e.g. `displayName` from the contact record, `phone` from a WhatsApp identity), fetching `ExternalIdentity` rows only when a candidate key is actually reserved (avoids an unconditional extra query on every call).
-- Gap-filling only: never overwrites a value that's already effectively present, whether explicitly stored or auto-derived.
+- Checks only the *explicitly-stored* value in `Contact.customFields` before writing — not `ReservedContactFieldResolver`'s derived-effective value. A reserved key the resolver could already derive (e.g. `firstName` from a Telegram profile) but that hasn't been explicitly stored yet is still written: the point is to record that the AI itself captured it, and to fire `contact.updated` so a webhook consumer sees the field even when it was independently derivable.
+- Skips a candidate key whose extracted value is blank — the LLM sometimes includes a still-unknown field in `extractedData` as an empty string instead of omitting the key; treating that as "nothing to write" avoids both a spurious blank value and a pointless `contact.updated` dispatch.
+- Gap-filling only within what it does write: never overwrites an already-stored non-blank value.
+- Calls `ContactDisplayNameSync.apply(contact)` after a change, so writing `firstName`/`lastName` keeps `displayName` in sync.
 
-Called from `AiAgentInvocationService` (escalate / workflow-trigger / send paths — not the draft-creation path, which defers persistence until a human approves) and `AiAgentConfigurationService` (`sendDraft`, `triggerWorkflowFromDraft`).
+Called unconditionally from `AiAgentInvocationService.runPipeline` right after the LLM responds, before any decision branching. No longer called from `AiAgentConfigurationService` (`sendDraft`/`triggerWorkflowFromDraft`) — extraction now happens at invocation time, not at human-approval time.
 
-We need it so AI-extracted data flows onto the contact record without ever clobbering a value someone already configured, and without polluting the contact with keys the workspace never asked the agent to extract.
+We need it so AI-extracted data flows onto the contact record the moment the AI captures it — not gated behind a human approving a draft — without ever clobbering a value someone already explicitly set, and without polluting the contact with keys the workspace never asked the agent to extract.
 
 ### `AgentWorkflowContext`
 
-Package-private static builder in the `agent` package. `build(reply, confidence, extractedData, extractionFields)` returns the workflow variable map seeded when the AI agent triggers a workflow run.
+Package-private static builder in the `agent` package. `build(reply, confidence, extractedData, extractionFields)` returns the workflow variable map seeded when the AI agent triggers a workflow run — called with `accumulatedExtractedData` (merged across turns while a draft sits un-actioned; see `AiAgentInvocationService.mergeWithPendingDraft`), not just the triggering turn's own extraction.
 
 Always includes `agent.reply` (empty string if null) and `agent.confidence` (omitted if null). For `extractedData`, only a key matching a configured `extractionFields` key becomes an `agent.data.<key>` variable — same "known keys only" filter as `ContactCustomFieldWriter`, applied independently since a workflow variable and a persisted contact field are separate concerns.
 
@@ -2913,11 +2973,11 @@ Record: `role` (`"user"` / `"assistant"`), `content`. Factory methods: `LlmMessa
 
 #### `AgentLlmResponse`
 
-Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`, `escalate`, `needsClarification`.
+Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`, `escalate`, `needsClarification`, `extractedData` (`Map<String, String>`, may be empty).
 
 #### `LlmPrompts`
 
-Package-private constants class holding the shared `JSON_FORMAT_INSTRUCTION` string appended to every LLM system prompt. Shared by all three client implementations.
+Package-private class holding `buildFormatInstruction(extractionFields)`, appended by each LLM client to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description and two directives added after real extraction misses: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved.
 
 #### `AnthropicLlmClient`
 
@@ -2951,7 +3011,8 @@ Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getActiveC
 
 - `AiAgentConfigurationResponse`: full config including `name` and all JSONB fields.
 - `UpdateAiAgentConfigurationRequest`: partial update record; compact constructor normalizes null lists to empty.
-- `ConversationAiDraftResponse`: draft fields including `proposedReply` and `suggestedActions`.
+- `ConversationAiDraftResponse`: draft fields including `proposedReply`, `suggestedActions`, and `extractedData`.
+- `SendAiDraftRequest`: optional `{ text }` body for `POST /send` — when set, replaces the draft's `proposedReply` as the sent message text.
 
 ### AI Agent Repositories
 
@@ -2986,14 +3047,14 @@ Banner rendered above the `MessageComposer` in `MessageThread` when `useConversa
 It detects whether the draft carries a `trigger_workflow:<id>` entry in `suggestedActions` and renders one of two modes:
 
 **Draft mode** (no workflow action):
-- **Send** — calls `useSendAiDraft`.
-- **Edit** — calls `onEdit(draft.proposedReply)` to pre-fill the composer, then `useDiscardAiDraft`.
+- **Send** — calls `useSendAiDraft` with no override text.
+- **Edit** — calls `onEdit(draft.proposedReply)` to pre-fill the composer. Does *not* discard the draft — the draft stays alive so a subsequent send from the composer still routes through `sendDraft` (see `MessageComposer`) instead of the normal human-message send path.
 - **Discard** — calls `useDiscardAiDraft`.
 
 **Workflow suggestion mode** (`trigger_workflow:` present):
 - Header reads "AI workflow suggestion".
-- Body reads "The AI suggests running a workflow to handle this conversation."
-- **Run Workflow** button — calls `useTriggerWorkflowFromDraft(workflowId)`.
+- Body names the actual workflow(s) via `useWorkflows(workspaceId)`, resolving each `workflowId` to its `WorkflowDefinition.name` (falls back to "a workflow" if not found yet), e.g. "The AI suggests running Loan Workflow to handle this conversation."
+- One **Run `<workflow name>`** button per suggested workflow ID — calls `useTriggerWorkflowFromDraft(workflowId)`.
 - **Discard** — calls `useDiscardAiDraft`.
 
 Button row uses `flex-wrap` for mobile responsiveness. All buttons disabled while any mutation is pending.
