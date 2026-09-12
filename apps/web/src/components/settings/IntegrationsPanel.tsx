@@ -218,11 +218,7 @@ function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
         </div>
 
         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-neutral-400">
-          <span>
-            <code className="rounded bg-neutral-100 px-1">
-              {apiKey.keyPrefix}…
-            </code>
-          </span>
+          <code>{apiKey.keyPrefix}…</code>
 
           <span>
             Created{" "}

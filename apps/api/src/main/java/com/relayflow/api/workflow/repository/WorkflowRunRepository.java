@@ -3,7 +3,6 @@ package com.relayflow.api.workflow.repository;
 import com.relayflow.api.workflow.domain.WorkflowRun;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,10 +65,6 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
     @Modifying
     @Query("delete from WorkflowRun r where r.startedAt < :cutoff")
     int deleteByStartedAtBefore(@Param("cutoff") Instant cutoff);
-
-    @Modifying
-    @Query("delete from WorkflowRun r where r.conversation.id in :conversationIds")
-    void deleteByConversations(@Param("conversationIds") Collection<UUID> conversationIds);
 
     /** Returns the ids of WAITING runs whose "Wait for Reply" timeout has elapsed. */
     @Query("select r.id from WorkflowRun r where r.status = :status and r.expiresAt < :now")

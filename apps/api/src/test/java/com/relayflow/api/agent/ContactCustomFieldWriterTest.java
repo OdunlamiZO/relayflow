@@ -2,17 +2,16 @@ package com.relayflow.api.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.relayflow.api.agent.domain.ExtractionField;
-import com.relayflow.api.contact.ReservedContactFieldResolver;
 import com.relayflow.api.contact.domain.Contact;
 import com.relayflow.api.contact.repository.ContactRepository;
-import com.relayflow.api.contact.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.webhook.WebhookDispatchService;
+import com.relayflow.api.webhook.domain.WebhookEventType;
 import com.relayflow.api.workspace.domain.ContactFieldDefinition;
 import com.relayflow.api.workspace.domain.Workspace;
 import java.util.List;
@@ -28,18 +27,10 @@ class ContactCustomFieldWriterTest {
 
     @Mock private ContactRepository contactRepository;
 
-    @Mock private ExternalIdentityRepository externalIdentityRepository;
-
-    @Mock private ReservedContactFieldResolver reservedContactFieldResolver;
-
     @Mock private WebhookDispatchService webhookDispatchService;
 
     private ContactCustomFieldWriter writer() {
-        return new ContactCustomFieldWriter(
-                contactRepository,
-                externalIdentityRepository,
-                reservedContactFieldResolver,
-                webhookDispatchService);
+        return new ContactCustomFieldWriter(contactRepository, webhookDispatchService);
     }
 
     private Conversation conversationWithDefinedFields(String... keys) {
@@ -75,6 +66,11 @@ class ContactCustomFieldWriterTest {
         assertThat(conversation.getContact().getCustomFields())
                 .containsExactly(Map.entry("orderNumber", "12345"));
         verify(contactRepository).save(conversation.getContact());
+        verify(webhookDispatchService)
+                .dispatch(
+                        eq(conversation.getWorkspace().getId()),
+                        eq(WebhookEventType.CONTACT_UPDATED),
+                        any());
     }
 
     @Test
@@ -85,6 +81,7 @@ class ContactCustomFieldWriterTest {
 
         assertThat(conversation.getContact().getCustomFields()).isEmpty();
         verify(contactRepository, never()).save(any());
+        verify(webhookDispatchService, never()).dispatch(any(), any(), any());
     }
 
     @Test
@@ -111,17 +108,30 @@ class ContactCustomFieldWriterTest {
     }
 
     @Test
-    void writesAReservedKeyThatIsNeitherStoredNorDerivable() {
+    void doesNothingWhenTheExtractedValueIsBlank() {
         Conversation conversation = conversationWithDefinedFields();
-        Contact contact = conversation.getContact();
-        when(externalIdentityRepository.findByContact(contact.getId())).thenReturn(List.of());
-        when(reservedContactFieldResolver.resolve(contact, List.of())).thenReturn(Map.of());
+
+        writer().apply(conversation, Map.of("phone", ""), extractionFields("phone"));
+
+        assertThat(conversation.getContact().getCustomFields()).isEmpty();
+        verify(contactRepository, never()).save(any());
+        verify(webhookDispatchService, never()).dispatch(any(), any(), any());
+    }
+
+    @Test
+    void writesAReservedKeyThatIsNotYetStored() {
+        Conversation conversation = conversationWithDefinedFields();
 
         writer().apply(conversation, Map.of("phone", "2348012345678"), extractionFields("phone"));
 
         assertThat(conversation.getContact().getCustomFields())
                 .containsEntry("phone", "2348012345678");
-        verify(contactRepository).save(contact);
+        verify(contactRepository).save(conversation.getContact());
+        verify(webhookDispatchService)
+                .dispatch(
+                        eq(conversation.getWorkspace().getId()),
+                        eq(WebhookEventType.CONTACT_UPDATED),
+                        any());
     }
 
     @Test
@@ -137,23 +147,7 @@ class ContactCustomFieldWriterTest {
         assertThat(conversation.getContact().getCustomFields())
                 .containsEntry("orderNumber", "existing-value");
         verify(contactRepository, never()).save(any());
-    }
-
-    @Test
-    void doesNotWriteAReservedKeyThatIsAlreadyDerivableEvenIfNeverExplicitlyStored() {
-        Conversation conversation = conversationWithDefinedFields();
-        Contact contact = conversation.getContact();
-        when(externalIdentityRepository.findByContact(contact.getId())).thenReturn(List.of());
-        when(reservedContactFieldResolver.resolve(contact, List.of()))
-                .thenReturn(Map.of("displayName", "Ada Lovelace"));
-
-        writer().apply(
-                        conversation,
-                        Map.of("displayName", "New Name"),
-                        extractionFields("displayName"));
-
-        assertThat(conversation.getContact().getCustomFields()).isEmpty();
-        verify(contactRepository, never()).save(any());
+        verify(webhookDispatchService, never()).dispatch(any(), any(), any());
     }
 
     @Test
@@ -164,5 +158,24 @@ class ContactCustomFieldWriterTest {
 
         assertThat(conversation.getContact().getCustomFields()).isEmpty();
         verify(contactRepository, never()).save(any());
+    }
+
+    @Test
+    void syncsDisplayNameWhenFirstNameIsExtracted() {
+        Conversation conversation = conversationWithDefinedFields();
+
+        writer().apply(conversation, Map.of("firstName", "Jane"), extractionFields("firstName"));
+
+        assertThat(conversation.getContact().getDisplayName()).isEqualTo("Jane");
+    }
+
+    @Test
+    void syncsDisplayNameFromFirstAndLastNameOnceBothAreKnown() {
+        Conversation conversation = conversationWithDefinedFields();
+        conversation.getContact().getCustomFields().put("firstName", "Jane");
+
+        writer().apply(conversation, Map.of("lastName", "Doe"), extractionFields("lastName"));
+
+        assertThat(conversation.getContact().getDisplayName()).isEqualTo("Jane Doe");
     }
 }

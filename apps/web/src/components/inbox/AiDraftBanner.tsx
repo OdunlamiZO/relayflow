@@ -4,6 +4,7 @@ import { LoadingButton } from "@/components/common/LoadingButton";
 import { useDiscardAiDraft } from "@/hooks/use-discard-ai-draft";
 import { useSendAiDraft } from "@/hooks/use-send-ai-draft";
 import { useTriggerWorkflowFromDraft } from "@/hooks/use-trigger-workflow-from-draft";
+import { useWorkflows } from "@/hooks/use-workflows";
 import type { ConversationAiDraft } from "@/lib/messaging-api";
 
 type Props = {
@@ -31,15 +32,23 @@ export function AiDraftBanner({
     workspaceId,
     conversationId
   );
+  const workflows = useWorkflows(workspaceId);
 
   const workflowIds = parseWorkflowActions(draft.suggestedActions);
   const isWorkflowDraft = workflowIds.length > 0;
+
+  function workflowName(workflowId: string) {
+    return (
+      workflows.data?.find((workflow) => workflow.id === workflowId)?.name ??
+      "a workflow"
+    );
+  }
+
   const isBusy =
     sendDraft.isPending || discardDraft.isPending || triggerWorkflow.isPending;
 
   function handleEdit() {
     onEdit(draft.proposedReply);
-    discardDraft.mutate();
   }
 
   return (
@@ -62,7 +71,8 @@ export function AiDraftBanner({
 
       {isWorkflowDraft && (
         <p className="mb-3 text-sm text-neutral-500">
-          The AI suggests running a workflow to handle this conversation.
+          The AI suggests running {workflowIds.map(workflowName).join(", ")} to
+          handle this conversation.
         </p>
       )}
 
@@ -77,7 +87,7 @@ export function AiDraftBanner({
               onClick={() => triggerWorkflow.mutate(workflowId)}
               className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Run Workflow
+              Run {workflowName(workflowId)}
             </LoadingButton>
           ))
         ) : (
@@ -86,7 +96,7 @@ export function AiDraftBanner({
               type="button"
               disabled={isBusy}
               isLoading={sendDraft.isPending}
-              onClick={() => sendDraft.mutate()}
+              onClick={() => sendDraft.mutate(undefined)}
               className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               Send

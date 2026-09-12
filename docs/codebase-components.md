@@ -396,7 +396,6 @@ Endpoints:
 - `getProfile`
 - `updateProfile`
 - `requestPasswordReset`: emails the current user a password reset link via `PasswordResetService.issueForUser`.
-- `deleteAccount`
 - `setup2FA`
 - `enable2FA`
 - `disable2FA`
@@ -405,19 +404,18 @@ We need it to keep account management separate from login/session endpoints.
 
 ### `ProfileService`
 
-Business service for profile, account deletion, preferences, and MFA state.
+Business service for profile and MFA state.
 
 Important methods:
 
 - `getProfile`
 - `updateProfile`
 - `requestPasswordReset`: thin delegate to `PasswordResetService.issueForUser`.
-- `deleteAccount`
 - `setup2FA`
 - `enable2FA`
 - `disable2FA`
 
-We need it to coordinate user, identity, preferences, and MFA tables in one account-management layer.
+We need it to coordinate user, identity, and MFA tables in one account-management layer.
 
 ### `TwoFactorService`
 
@@ -527,7 +525,6 @@ We need these records as stable API contracts between backend and frontend.
 
 - `ProfileResponse`: user profile, providers, and 2FA state.
 - `UpdateProfileRequest`: display name.
-- `DeleteAccountRequest`: optional password for account deletion.
 - `Setup2FAResponse`: `otpauth://` URI for QR display.
 - `OtpRequest`: authenticator code.
 
@@ -2087,7 +2084,6 @@ Important sections:
 - personal information (display name, read-only email).
 - password, for email/password accounts — no in-place change form; `PasswordSection` sends the current user a reset link (`useRequestPasswordReset` → `POST /profile/request-password-reset`) and shows a toast, matching how the flow completes at `/reset-password/{token}` rather than on this page.
 - TOTP two-factor setup, enable, and disable flow.
-- account deletion danger zone.
 
 Important dependency:
 
@@ -2431,7 +2427,6 @@ We need them to keep auth forms/components declarative.
 - `useProfile`: fetches current profile state.
 - `useUpdateProfile`: updates display name.
 - `useRequestPasswordReset`: emails the current user a password reset link; success/error surfaced via toast.
-- `useDeleteAccount`: deletes the current account and clears auth state.
 - `useSetup2FA`: starts TOTP setup and returns an `otpauth://` URI.
 - `useEnable2FA`: verifies OTP and enables TOTP.
 - `useDisable2FA`: verifies OTP and disables TOTP.
@@ -2543,7 +2538,6 @@ Important types:
 - `ProfileResponse`
 - `UpdateProfilePayload`
 - `ResetPasswordPayload`
-- `DeleteAccountPayload`
 - `Setup2FAResponse`
 - `OtpPayload`
 
@@ -2558,7 +2552,6 @@ Important functions:
 - `getProfile`
 - `updateProfile`
 - `requestPasswordReset`
-- `deleteAccount`
 - `setup2FA`
 - `enable2FA`
 - `disable2FA`
@@ -2868,9 +2861,9 @@ Important behavior:
 
 - Fetches the last 20 messages created at or after `conversation.sessionStartedAt` (newest-first), reverses to chronological order. This scopes history to the current session so prior closed-conversation messages never pollute the context.
 - Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from `workflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from `knowledgeBase`).
-- Appends a `[Contact: name | Channel: PROVIDER]` footer to the last inbound message only.
+- Appends a `[Contact: name | Channel: PROVIDER]` footer to the last inbound message only. When `extractionFields` is configured, also appends `| Already known: key=value, ...` and `| Still missing: key, ...` — the same effective-value precedence as `ContactService.getContactDetail` (explicitly-stored `Contact.customFields` over `ReservedContactFieldResolver`'s derived values), computed via an injected `ExternalIdentityRepository` and `ReservedContactFieldResolver`. Either segment is omitted if empty; with no extraction fields configured the footer is unchanged from the plain `[Contact: ... | Channel: ...]` form. This steers the agent toward asking only for fields it doesn't already effectively know, instead of re-asking for information already on file.
 
-We need it to keep LLM prompt construction separate from the invocation pipeline.
+We need it to keep LLM prompt construction separate from the invocation pipeline, and to give the agent visibility into what it already knows about the contact so extraction feels like a conversation, not a form.
 
 ### `ContactCustomFieldWriter`
 

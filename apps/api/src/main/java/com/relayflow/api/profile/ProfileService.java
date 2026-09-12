@@ -8,21 +8,17 @@ import com.relayflow.api.authentication.domain.UserIdentity;
 import com.relayflow.api.authentication.domain.UserMfaMethod;
 import com.relayflow.api.authentication.repository.UserIdentityRepository;
 import com.relayflow.api.authentication.repository.UserMfaMethodRepository;
-import com.relayflow.api.authentication.repository.UserPreferencesRepository;
 import com.relayflow.api.authentication.repository.UserRepository;
-import com.relayflow.api.profile.dto.DeleteAccountRequest;
 import com.relayflow.api.profile.dto.OtpRequest;
 import com.relayflow.api.profile.dto.ProfileResponse;
 import com.relayflow.api.profile.dto.Setup2FAResponse;
 import com.relayflow.api.profile.dto.UpdateProfileRequest;
 import com.relayflow.api.security.CredentialEncryptionService;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -36,11 +32,7 @@ public class ProfileService {
 
     private final UserIdentityRepository identityRepository;
 
-    private final UserPreferencesRepository prefsRepository;
-
     private final UserMfaMethodRepository mfaMethodRepository;
-
-    private final PasswordEncoder passwordEncoder;
 
     private final CredentialEncryptionService encryptionService;
 
@@ -51,17 +43,13 @@ public class ProfileService {
     public ProfileService(
             UserRepository userRepository,
             UserIdentityRepository identityRepository,
-            UserPreferencesRepository prefsRepository,
             UserMfaMethodRepository mfaMethodRepository,
-            PasswordEncoder passwordEncoder,
             CredentialEncryptionService encryptionService,
             TwoFactorService twoFactorService,
             PasswordResetService passwordResetService) {
         this.userRepository = userRepository;
         this.identityRepository = identityRepository;
-        this.prefsRepository = prefsRepository;
         this.mfaMethodRepository = mfaMethodRepository;
-        this.passwordEncoder = passwordEncoder;
         this.encryptionService = encryptionService;
         this.twoFactorService = twoFactorService;
         this.passwordResetService = passwordResetService;
@@ -82,38 +70,6 @@ public class ProfileService {
 
     public void requestPasswordReset(UUID userId) {
         passwordResetService.issueForUser(userId);
-    }
-
-    @Transactional
-    public void deleteAccount(UUID userId, DeleteAccountRequest request) {
-        User user = requireUser(userId);
-
-        identityRepository
-                .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
-                .ifPresent(
-                        identity -> {
-                            if (request.password() == null || request.password().isBlank()) {
-                                throw new ResponseStatusException(
-                                        HttpStatus.BAD_REQUEST,
-                                        "Password is required to delete your account.");
-                            }
-
-                            if (!passwordEncoder.matches(
-                                    request.password(), identity.getCredential())) {
-                                throw new ResponseStatusException(
-                                        HttpStatus.BAD_REQUEST, "Incorrect password.");
-                            }
-                        });
-
-        // Hard-delete satellite rows so the email address can be re-registered later.
-        identityRepository.deleteAllByUser(user);
-        mfaMethodRepository.deleteAllByUser(user);
-        prefsRepository.deleteById(userId);
-
-        user.setDeletedAt(Instant.now());
-        userRepository.save(user);
-
-        log.info("Account deleted: userId={}", userId);
     }
 
     // ── 2FA ──────────────────────────────────────────────────────────────────

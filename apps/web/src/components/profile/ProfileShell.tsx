@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { QRCodeSVG } from "qrcode.react";
 
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
-import { useDeleteAccount } from "@/hooks/use-delete-account";
 import { useDisable2FA } from "@/hooks/use-disable-2fa";
 import { useEnable2FA } from "@/hooks/use-enable-2fa";
 import { useProfile } from "@/hooks/use-profile";
@@ -17,7 +15,6 @@ import { useSetup2FA } from "@/hooks/use-setup-2fa";
 import { useUpdateProfile } from "@/hooks/use-update-profile";
 
 export function ProfileShell() {
-  const router = useRouter();
   const { data: profile, isLoading, isError } = useProfile();
 
   if (isLoading) {
@@ -72,13 +69,6 @@ export function ProfileShell() {
         {hasEmailLogin && (
           <TwoFactorSection twoFactorEnabled={profile.twoFactorEnabled} />
         )}
-
-        <DangerZoneSection
-          isEmailProvider={hasEmailLogin}
-          onDeleted={() => {
-            router.push("/login");
-          }}
-        />
       </div>
     </div>
   );
@@ -401,147 +391,6 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
             </button>
           </div>
         </form>
-      )}
-    </section>
-  );
-}
-
-// ── Danger zone ───────────────────────────────────────────────────────────────
-
-type DangerZoneProps = {
-  isEmailProvider: boolean;
-  onDeleted: () => void;
-};
-
-function DangerZoneSection({ isEmailProvider, onDeleted }: DangerZoneProps) {
-  const { mutate: deleteAccount, isPending } = useDeleteAccount();
-
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [password, setPassword] = useState("");
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-
-  function handleDelete() {
-    if (isEmailProvider && !password.trim()) {
-      setPasswordError("Password is required to delete your account.");
-
-      return;
-    }
-
-    setPasswordError(null);
-    deleteAccount(
-      { password: isEmailProvider ? password : null },
-      {
-        onSuccess: () => {
-          onDeleted();
-        },
-      }
-    );
-  }
-
-  return (
-    <section className="rounded-2xl border border-red-text/30 bg-red-bg/30 p-4 sm:p-6">
-      <h2 className="mb-1 text-base font-semibold text-red-text">
-        Danger zone
-      </h2>
-
-      <p className="mb-5 text-sm text-neutral-500">
-        Permanently delete your account and all associated data. This cannot be
-        undone.
-      </p>
-
-      <button
-        type="button"
-        onClick={() => {
-          setShowConfirm(true);
-          setPassword("");
-          setPasswordError(null);
-        }}
-        className="rounded-lg border border-red-text px-4 py-2 text-sm font-semibold text-red-text transition-colors hover:bg-red-bg"
-      >
-        Delete account
-      </button>
-
-      {showConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          aria-modal="true"
-          role="dialog"
-        >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-neutral-900/40"
-            onClick={() => {
-              setShowConfirm(false);
-            }}
-            aria-hidden="true"
-          />
-
-          {/* Dialog */}
-          <div className="relative w-full max-w-sm rounded-2xl bg-neutral-100 p-6 shadow-xl">
-            <h2 className="text-base font-semibold text-primary">
-              Delete account
-            </h2>
-
-            <p className="mt-1.5 text-sm text-neutral-500">
-              This will permanently delete your account and all your data. This
-              action cannot be reversed.
-            </p>
-
-            {isEmailProvider && (
-              <div className="mt-4 flex flex-col gap-1.5">
-                <label
-                  htmlFor="delete-password"
-                  className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
-                >
-                  Confirm with your password
-                </label>
-
-                <input
-                  id="delete-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setPasswordError(null);
-                  }}
-                  placeholder="••••••••"
-                  className={`w-full rounded-lg border px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:ring-2 ${
-                    passwordError
-                      ? "border-red-text focus:border-red-text focus:ring-red-text/20"
-                      : "border-neutral-300 focus:border-secondary focus:ring-secondary/20"
-                  }`}
-                />
-
-                {passwordError && (
-                  <p className="text-xs text-red-text">{passwordError}</p>
-                )}
-              </div>
-            )}
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowConfirm(false);
-                }}
-                disabled={isPending}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <LoadingButton
-                type="button"
-                onClick={handleDelete}
-                isLoading={isPending}
-                className="rounded-lg bg-red-text px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:opacity-60"
-              >
-                Delete account
-              </LoadingButton>
-            </div>
-          </div>
-        </div>
       )}
     </section>
   );

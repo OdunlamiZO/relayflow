@@ -1,6 +1,7 @@
 package com.relayflow.api.agent;
 
 import com.relayflow.api.agent.dto.ConversationAiDraftResponse;
+import com.relayflow.api.agent.dto.SendAiDraftRequest;
 import com.relayflow.api.messaging.dto.MessageResponse;
 import com.relayflow.api.workspace.WorkspaceAuthorizationService;
 import com.relayflow.api.workspace.domain.WorkspacePermission;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,11 +47,13 @@ public class ConversationAiDraftController {
     MessageResponse sendDraft(
             @PathVariable UUID workspaceId,
             @PathVariable UUID conversationId,
+            @RequestBody(required = false) SendAiDraftRequest request,
             Authentication authentication) {
         authorizationService.assertPermission(
                 workspaceId, authentication, WorkspacePermission.INBOX);
 
-        return aiAgentConfigurationService.sendDraft(workspaceId, conversationId);
+        return aiAgentConfigurationService.sendDraft(
+                workspaceId, conversationId, request != null ? request.text() : null);
     }
 
     @PostMapping("/trigger-workflow/{workflowId}")

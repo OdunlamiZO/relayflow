@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Spinner } from "@/components/common/Spinner";
+import { useSendAiDraft } from "@/hooks/use-send-ai-draft";
 import { useSendMessage } from "@/hooks/use-send-message";
 
 type Props = {
@@ -11,6 +12,8 @@ type Props = {
   lockedByWorkflow?: boolean;
   prefillText?: string;
   onPrefillConsumed?: () => void;
+  isEditingAiDraft?: boolean;
+  onDraftSent?: () => void;
 };
 
 export function MessageComposer({
@@ -19,6 +22,8 @@ export function MessageComposer({
   lockedByWorkflow = false,
   prefillText,
   onPrefillConsumed,
+  isEditingAiDraft = false,
+  onDraftSent,
 }: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -31,10 +36,16 @@ export function MessageComposer({
     textareaRef.current?.focus();
   }, [prefillText, onPrefillConsumed]);
 
-  const { mutate: sendMessage, isPending } = useSendMessage(
+  const { mutate: sendMessage, isPending: isSendingMessage } = useSendMessage(
     workspaceId,
     conversationId
   );
+  const { mutate: sendAiDraft, isPending: isSendingDraft } = useSendAiDraft(
+    workspaceId,
+    conversationId
+  );
+
+  const isPending = isSendingMessage || isSendingDraft;
 
   function resize() {
     const el = textareaRef.current;
@@ -43,20 +54,30 @@ export function MessageComposer({
     el.style.height = `${el.scrollHeight}px`;
   }
 
+  function clear() {
+    setText("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  }
+
   function submit() {
     const trimmed = text.trim();
     if (!trimmed || isPending) return;
 
+    if (isEditingAiDraft) {
+      sendAiDraft(trimmed, {
+        onSuccess: () => {
+          clear();
+          onDraftSent?.();
+        },
+      });
+      return;
+    }
+
     sendMessage(
       { direction: "OUTBOUND", senderType: "AGENT", text: trimmed },
-      {
-        onSuccess: () => {
-          setText("");
-          if (textareaRef.current) {
-            textareaRef.current.style.height = "auto";
-          }
-        },
-      }
+      { onSuccess: clear }
     );
   }
 

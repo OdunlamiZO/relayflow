@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,7 +17,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * {@code @Order(LOWEST_PRECEDENCE)} — without it, Spring picks among tied-priority
+ * {@code @RestControllerAdvice} beans in an unspecified order, and this class's catch-all {@code
+ * Exception} handler can intercept an exception before a more specific advice bean (e.g. {@link
+ * com.relayflow.api.workflow.WorkflowExceptionHandler}) ever gets a chance.
+ */
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class CommonExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(CommonExceptionHandler.class);

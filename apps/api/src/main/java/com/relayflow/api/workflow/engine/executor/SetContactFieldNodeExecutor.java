@@ -1,5 +1,6 @@
 package com.relayflow.api.workflow.engine.executor;
 
+import com.relayflow.api.contact.ContactDisplayNameSync;
 import com.relayflow.api.contact.domain.Contact;
 import com.relayflow.api.contact.repository.ContactRepository;
 import com.relayflow.api.messaging.domain.Conversation;
@@ -82,6 +83,7 @@ public class SetContactFieldNodeExecutor implements NodeExecutor {
 
         Contact contact = conversation.getContact();
         contact.getCustomFields().put(key, resolvedValue);
+        ContactDisplayNameSync.apply(contact);
         contactRepository.save(contact);
 
         webhookDispatchService.dispatch(

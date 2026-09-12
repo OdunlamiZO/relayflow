@@ -44,8 +44,6 @@ public class AiAgentConfigurationService {
 
     private final MessagingService messagingService;
 
-    private final ContactCustomFieldWriter contactCustomFieldWriter;
-
     public AiAgentConfigurationService(
             AiAgentConfigurationRepository configurationRepository,
             ConversationAiDraftRepository draftRepository,
@@ -53,8 +51,7 @@ public class AiAgentConfigurationService {
             ConversationRepository conversationRepository,
             WorkflowDefinitionRepository workflowDefinitionRepository,
             WorkflowEngineService workflowEngineService,
-            MessagingService messagingService,
-            ContactCustomFieldWriter contactCustomFieldWriter) {
+            MessagingService messagingService) {
         this.configurationRepository = configurationRepository;
         this.draftRepository = draftRepository;
         this.workspaceRepository = workspaceRepository;
@@ -62,7 +59,6 @@ public class AiAgentConfigurationService {
         this.workflowDefinitionRepository = workflowDefinitionRepository;
         this.workflowEngineService = workflowEngineService;
         this.messagingService = messagingService;
-        this.contactCustomFieldWriter = contactCustomFieldWriter;
     }
 
     @Transactional
@@ -105,12 +101,17 @@ public class AiAgentConfigurationService {
     }
 
     @Transactional
-    public MessageResponse sendDraft(UUID workspaceId, UUID conversationId) {
+    public MessageResponse sendDraft(UUID workspaceId, UUID conversationId, String editedReply) {
         ConversationAiDraft draft =
                 draftRepository
                         .findByConversationId(conversationId)
                         .filter(d -> d.getWorkspace().getId().equals(workspaceId))
                         .orElseThrow(() -> new ResourceNotFoundException("AI draft not found"));
+
+        String text =
+                (editedReply != null && !editedReply.isBlank())
+                        ? editedReply.trim()
+                        : draft.getProposedReply();
 
         MessageResponse sent =
                 messagingService.createMessage(
@@ -119,17 +120,10 @@ public class AiAgentConfigurationService {
                         new CreateMessageRequest(
                                 MessageDirection.OUTBOUND,
                                 MessageSenderType.SYSTEM,
-                                draft.getProposedReply(),
+                                text,
                                 null,
                                 Map.of()),
                         null);
-
-        Conversation conversation =
-                conversationRepository
-                        .findById(conversationId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
-        contactCustomFieldWriter.apply(
-                conversation, draft.getExtractedData(), extractionFieldsFor(workspaceId));
 
         draftRepository.delete(draft);
 
@@ -173,7 +167,6 @@ public class AiAgentConfigurationService {
         List<ExtractionField> extractionFields = extractionFieldsFor(workspaceId);
 
         draftRepository.delete(draft);
-        contactCustomFieldWriter.apply(conversation, draft.getExtractedData(), extractionFields);
 
         // Triggered by a human approving the draft — no originating message, no confidence
         // score (that lived on the invocation's LLM response, not the persisted draft).

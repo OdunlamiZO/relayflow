@@ -6,6 +6,7 @@ import com.relayflow.api.agent.domain.AiAgentInvocationStatus;
 import com.relayflow.api.agent.domain.AutonomyCeiling;
 import com.relayflow.api.agent.domain.ConversationAiDraft;
 import com.relayflow.api.agent.domain.ExtractionField;
+import com.relayflow.api.agent.domain.WorkflowMapping;
 import com.relayflow.api.agent.llm.AgentLlmRequest;
 import com.relayflow.api.agent.llm.AgentLlmResponse;
 import com.relayflow.api.agent.llm.LlmClientFactory;
@@ -27,10 +28,13 @@ import com.relayflow.api.workflow.engine.WorkflowEngineService;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import com.relayflow.api.workflow.repository.WorkflowRunRepository;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -101,9 +105,17 @@ public class AiAgentInvocationService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void invoke(Conversation conversation, Message triggeringMessage) {
+    public void invoke(Conversation staleConversation, Message triggeringMessage) {
+        UUID conversationId = staleConversation.getId();
+
+        // staleConversation's lazy associations belong to an already-closed session.
+        Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+
+        if (conversation == null) {
+            return;
+        }
+
         UUID workspaceId = conversation.getWorkspace().getId();
-        UUID conversationId = conversation.getId();
 
         Optional<AiAgentConfiguration> agentConfigurationOptional =
                 configurationRepository.findByWorkspaceIdAndEnabledTrue(workspaceId);
@@ -215,13 +227,21 @@ public class AiAgentInvocationService {
                         "suggestedActions", response.suggestedActions(),
                         "extractedData", response.extractedData()));
 
+        contactCustomFieldWriter.apply(
+                conversation, response.extractedData(), configuration.getExtractionFields());
+
+        Map<String, String> accumulatedExtractedData =
+                mergeWithPendingDraft(conversation, response.extractedData());
+
+        List<String> suggestedActions =
+                sanitizeSuggestedActions(
+                        response.suggestedActions(), configuration.getWorkflowMappings());
+
         // Decision flow
         boolean draftOnly = configuration.getAutonomyCeiling() == AutonomyCeiling.DRAFT_ONLY;
 
         if (response.escalate()) {
             String reason = "LLM requested escalation";
-            contactCustomFieldWriter.apply(
-                    conversation, response.extractedData(), configuration.getExtractionFields());
             finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
             broadcastEscalation(conversation, reason);
 
@@ -229,20 +249,19 @@ public class AiAgentInvocationService {
         }
 
         Optional<String> workflowAction =
-                response.suggestedActions().stream()
+                suggestedActions.stream()
                         .filter(action -> action.startsWith(WORKFLOW_ACTION_PREFIX))
                         .findFirst();
 
         if (workflowAction.isPresent() && !draftOnly) {
             String rawId = workflowAction.get().substring(WORKFLOW_ACTION_PREFIX.length());
-            contactCustomFieldWriter.apply(
-                    conversation, response.extractedData(), configuration.getExtractionFields());
             triggerWorkflow(
                     rawId,
                     workspaceId,
                     conversation,
                     triggeringMessage,
                     response,
+                    accumulatedExtractedData,
                     configuration.getExtractionFields(),
                     invocationLog);
 
@@ -252,20 +271,40 @@ public class AiAgentInvocationService {
         boolean shouldDraft =
                 draftOnly || "low".equals(response.confidence()) || response.needsClarification();
 
-        // Drafts defer writing to the contact until a human approves — extraction from an
-        // unreviewed draft may be wrong, and this record persists past a single workflow run.
         if (shouldDraft) {
-            saveDraft(conversation, response, invocationLog);
+            saveDraft(
+                    conversation,
+                    response,
+                    suggestedActions,
+                    accumulatedExtractedData,
+                    invocationLog);
             broadcastDraftCreated(workspaceId, conversationId);
             finalise(invocationLog, AiAgentInvocationStatus.DRAFTED, null);
 
             return;
         }
 
-        contactCustomFieldWriter.apply(
-                conversation, response.extractedData(), configuration.getExtractionFields());
         sendOutbound(workspaceId, conversationId, response.reply());
         finalise(invocationLog, AiAgentInvocationStatus.SENT, null);
+    }
+
+    private Map<String, String> mergeWithPendingDraft(
+            Conversation conversation, Map<String, String> newData) {
+        Optional<ConversationAiDraft> pending =
+                draftRepository.findByConversationId(conversation.getId());
+
+        if (pending.isPresent()
+                && pending.get().getCreatedAt().isBefore(conversation.getSessionStartedAt())) {
+            draftRepository.delete(pending.get());
+            pending = Optional.empty();
+        }
+
+        Map<String, String> merged =
+                pending.map(draft -> new LinkedHashMap<>(draft.getExtractedData()))
+                        .orElseGet(LinkedHashMap::new);
+        merged.putAll(newData);
+
+        return merged;
     }
 
     private void sendOutbound(UUID workspaceId, UUID conversationId, String text) {
@@ -283,6 +322,7 @@ public class AiAgentInvocationService {
             Conversation conversation,
             Message triggeringMessage,
             AgentLlmResponse response,
+            Map<String, String> accumulatedExtractedData,
             List<ExtractionField> extractionFields,
             AiAgentInvocationLog invocationLog) {
         UUID workflowId;
@@ -322,8 +362,12 @@ public class AiAgentInvocationService {
                 AgentWorkflowContext.build(
                         response.reply(),
                         response.confidence(),
-                        response.extractedData(),
+                        accumulatedExtractedData,
                         extractionFields);
+
+        draftRepository
+                .findByConversationId(conversation.getId())
+                .ifPresent(draftRepository::delete);
 
         workflowEngineService.executeWorkflow(
                 workflowDefinitionOptional.get(), conversation, triggeringMessage, agentContext);
@@ -334,20 +378,37 @@ public class AiAgentInvocationService {
     private void saveDraft(
             Conversation conversation,
             AgentLlmResponse response,
+            List<String> suggestedActions,
+            Map<String, String> accumulatedExtractedData,
             AiAgentInvocationLog invocationLog) {
-        // Replace any existing draft (one draft per conversation at a time)
-        draftRepository
-                .findByConversationId(conversation.getId())
-                .ifPresent(draftRepository::delete);
+        ConversationAiDraft draft =
+                draftRepository
+                        .findByConversationId(conversation.getId())
+                        .orElseGet(ConversationAiDraft::new);
 
-        ConversationAiDraft draft = new ConversationAiDraft();
         draft.setWorkspace(conversation.getWorkspace());
         draft.setConversation(conversation);
         draft.setInvocationLogId(invocationLog.getId());
         draft.setProposedReply(response.reply());
-        draft.setSuggestedActions(response.suggestedActions());
-        draft.setExtractedData(response.extractedData());
+        draft.setSuggestedActions(suggestedActions);
+        draft.setExtractedData(accumulatedExtractedData);
         draftRepository.save(draft);
+    }
+
+    private List<String> sanitizeSuggestedActions(
+            List<String> actions, List<WorkflowMapping> workflowMappings) {
+        Set<String> configuredWorkflowIds =
+                workflowMappings.stream()
+                        .map(mapping -> mapping.workflowId().toString())
+                        .collect(Collectors.toSet());
+
+        return actions.stream()
+                .filter(
+                        action ->
+                                !action.startsWith(WORKFLOW_ACTION_PREFIX)
+                                        || configuredWorkflowIds.contains(
+                                                action.substring(WORKFLOW_ACTION_PREFIX.length())))
+                .toList();
     }
 
     private void broadcastEscalation(Conversation conversation, String reason) {

@@ -24,20 +24,14 @@ We're a small online store selling handmade crafts.
 # TONE & STYLE
 Be warm, friendly, and brief. Always ask what the customer needs before acting.
 
-# WHAT YOU CAN ANSWER DIRECTLY
-- Business hours: Monday to Saturday, 9am–5pm
-- How to place an order: visit our website and add items to your cart
-- Delivery: 3–5 business days
-- We don't ship internationally yet
-If asked about anything not listed above, say you're not sure and offer to connect them with a team member — never guess.
-
-# ESCALATION
-Escalate immediately if the customer mentions: refund, chargeback, cancel my order, or a lawyer. Also escalate if they seem upset.
+# WHAT TO DO
+When a customer wants to place an order, ask what item they want and their delivery address before confirming anything.
+When a customer wants to return or exchange an item, ask for their order number, then let them know a team member will follow up.
 
 # NEVER DO
 - Never respond without first asking what the customer needs
 - Never make promises you can't keep
-- Never guess at information not listed above
+- Never guess at information you don't have — check the knowledge base below, or say you're not sure
 `;
 
 const INSTRUCTIONS_TEMPLATE = `# ABOUT YOUR BUSINESS
@@ -46,10 +40,7 @@ const INSTRUCTIONS_TEMPLATE = `# ABOUT YOUR BUSINESS
 # TONE & STYLE
 
 
-# WHAT YOU CAN ANSWER DIRECTLY
-
-
-# ESCALATION
+# WHAT TO DO
 
 
 # NEVER DO
@@ -390,8 +381,9 @@ function AiAgentForm({ workspaceId, configuration }: AiAgentFormProps) {
             </div>
           </div>
           <p className="mb-2 text-xs text-neutral-500">
-            Tell the agent about your business, tone, what it can handle, and
-            when to escalate to a human.
+            Tell the agent about your business, its tone, and what to do — what
+            to ask for and when to hand a conversation off. Facts go in the
+            knowledge base below; escalation triggers go in escalation keywords.
           </p>
           <textarea
             value={instructions || INSTRUCTIONS_TEMPLATE}

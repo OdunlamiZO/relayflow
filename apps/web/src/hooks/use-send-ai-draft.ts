@@ -6,7 +6,8 @@ export function useSendAiDraft(workspaceId: string, conversationId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => messagingApi.sendAiDraft(workspaceId, conversationId),
+    mutationFn: (text?: string) =>
+      messagingApi.sendAiDraft(workspaceId, conversationId, text),
 
     onSuccess: () => {
       void queryClient.invalidateQueries({

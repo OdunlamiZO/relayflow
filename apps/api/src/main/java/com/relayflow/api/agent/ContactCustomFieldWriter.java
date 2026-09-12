@@ -1,11 +1,9 @@
 package com.relayflow.api.agent;
 
 import com.relayflow.api.agent.domain.ExtractionField;
-import com.relayflow.api.contact.ReservedContactFieldResolver;
+import com.relayflow.api.contact.ContactDisplayNameSync;
 import com.relayflow.api.contact.domain.Contact;
-import com.relayflow.api.contact.domain.ExternalIdentity;
 import com.relayflow.api.contact.repository.ContactRepository;
-import com.relayflow.api.contact.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.webhook.ContactSnapshotBuilder;
 import com.relayflow.api.webhook.WebhookDispatchService;
@@ -14,7 +12,6 @@ import com.relayflow.api.workspace.domain.ContactFieldDefinition;
 import com.relayflow.api.workspace.domain.ReservedContactField;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -25,28 +22,21 @@ import org.springframework.stereotype.Service;
 /**
  * Persists AI-extracted data onto a contact's custom fields — only a key that is both a configured
  * {@code extractionField} and a writable contact field ({@link ReservedContactField} or a
- * workspace-defined {@link ContactFieldDefinition}), and only when not already effectively set
- * (including a value {@link ReservedContactFieldResolver} can derive).
+ * workspace-defined {@link ContactFieldDefinition}), and only when not already explicitly stored. A
+ * reserved key that {@link com.relayflow.api.contact.ReservedContactFieldResolver} could derive but
+ * hasn't yet been stored is still written — the point is to record that the AI captured it, and to
+ * fire {@code contact.updated}.
  */
 @Service
 public class ContactCustomFieldWriter {
 
     private final ContactRepository contactRepository;
 
-    private final ExternalIdentityRepository externalIdentityRepository;
-
-    private final ReservedContactFieldResolver reservedContactFieldResolver;
-
     private final WebhookDispatchService webhookDispatchService;
 
     public ContactCustomFieldWriter(
-            ContactRepository contactRepository,
-            ExternalIdentityRepository externalIdentityRepository,
-            ReservedContactFieldResolver reservedContactFieldResolver,
-            WebhookDispatchService webhookDispatchService) {
+            ContactRepository contactRepository, WebhookDispatchService webhookDispatchService) {
         this.contactRepository = contactRepository;
-        this.externalIdentityRepository = externalIdentityRepository;
-        this.reservedContactFieldResolver = reservedContactFieldResolver;
         this.webhookDispatchService = webhookDispatchService;
     }
 
@@ -81,28 +71,26 @@ public class ContactCustomFieldWriter {
         Contact contact = conversation.getContact();
         Map<String, String> customFields = contact.getCustomFields();
 
-        Map<String, String> effectiveValues = customFields;
-        if (candidateKeys.stream().anyMatch(ReservedContactField::isReserved)) {
-            List<ExternalIdentity> identities =
-                    externalIdentityRepository.findByContact(contact.getId());
-            effectiveValues =
-                    new LinkedHashMap<>(reservedContactFieldResolver.resolve(contact, identities));
-            effectiveValues.putAll(customFields);
-        }
-
         boolean changed = false;
 
         for (String key : candidateKeys) {
-            String existing = effectiveValues.get(key);
-            boolean alreadyConfigured = existing != null && !existing.isBlank();
+            String incoming = extractedData.get(key);
 
-            if (!alreadyConfigured) {
-                customFields.put(key, extractedData.get(key));
+            if (incoming == null || incoming.isBlank()) {
+                continue;
+            }
+
+            String existing = customFields.get(key);
+            boolean alreadyStored = existing != null && !existing.isBlank();
+
+            if (!alreadyStored) {
+                customFields.put(key, incoming);
                 changed = true;
             }
         }
 
         if (changed) {
+            ContactDisplayNameSync.apply(contact);
             contactRepository.save(contact);
 
             webhookDispatchService.dispatch(
