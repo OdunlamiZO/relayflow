@@ -3,7 +3,6 @@ package com.relayflow.api.agent.repository;
 import com.relayflow.api.agent.domain.AiAgentInvocationLog;
 import com.relayflow.api.agent.domain.AiAgentInvocationStatus;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,8 +11,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AiAgentInvocationLogRepository extends JpaRepository<AiAgentInvocationLog, UUID> {
-
-    List<AiAgentInvocationLog> findByConversationIdOrderByStartedAtDesc(UUID conversationId);
 
     Optional<AiAgentInvocationLog> findByConversationIdAndStatus(
             UUID conversationId, AiAgentInvocationStatus status);

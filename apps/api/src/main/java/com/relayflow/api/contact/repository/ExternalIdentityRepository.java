@@ -69,8 +69,4 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
     @Modifying
     @Query("UPDATE ExternalIdentity e SET e.contact = :target WHERE e.contact.id = :sourceId")
     void reassignContact(@Param("target") Contact target, @Param("sourceId") UUID sourceId);
-
-    @Modifying
-    @Query("delete from ExternalIdentity e where e.channelAccount.id = :channelAccountId")
-    void deleteByChannelAccount(@Param("channelAccountId") UUID channelAccountId);
 }
