@@ -8,6 +8,7 @@ import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAuthentication } from "@/hooks/use-authentication";
+import { useChannelAccounts } from "@/hooks/use-channel-accounts";
 import { useContact } from "@/hooks/use-contact";
 import { useCurrentMember } from "@/hooks/use-current-member";
 import { useUpdateContactCustomFields } from "@/hooks/use-update-contact-custom-fields";
@@ -92,6 +93,7 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
     isPending,
     isError,
   } = useContact(contactId, workspaceId);
+  const { data: channelAccounts = [] } = useChannelAccounts(workspaceId);
 
   return (
     <div className="flex h-full flex-col overflow-hidden border-l border-neutral-300 bg-neutral-100">
@@ -186,6 +188,9 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
                 <ul className="space-y-2">
                   {contact.identities.map((identity) => {
                     const meta = CHANNEL_META[identity.provider];
+                    const channelAccountName = channelAccounts.find(
+                      (channel) => channel.id === identity.channelAccountId
+                    )?.name;
 
                     return (
                       <li
@@ -207,8 +212,14 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
 
                         {/* Identity details */}
                         <div className="min-w-0 flex-1">
-                          {identity.username && (
+                          {channelAccountName && (
                             <p className="truncate text-sm font-medium text-neutral-800">
+                              {channelAccountName}
+                            </p>
+                          )}
+
+                          {identity.username && (
+                            <p className="truncate text-xs text-neutral-500">
                               @{identity.username}
                             </p>
                           )}
@@ -335,14 +346,16 @@ function ContactCustomFieldsSection({
       </div>
 
       {canEdit && !isUnchanged && (
-        <LoadingButton
-          type="button"
-          onClick={handleSave}
-          isLoading={updateCustomFields.isPending}
-          className="mt-3 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Save
-        </LoadingButton>
+        <div className="mt-3 flex justify-end">
+          <LoadingButton
+            type="button"
+            onClick={handleSave}
+            isLoading={updateCustomFields.isPending}
+            className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Save
+          </LoadingButton>
+        </div>
       )}
     </div>
   );

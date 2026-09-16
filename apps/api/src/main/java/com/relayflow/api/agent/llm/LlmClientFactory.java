@@ -20,7 +20,17 @@ public class LlmClientFactory {
     }
 
     public LlmClient getActiveClient() {
-        LlmProvider provider = configService.getActiveProvider();
+        return getClient(null);
+    }
+
+    /**
+     * Returns the client for {@code providerOverride}, or the platform's active provider when
+     * {@code providerOverride} is null — this is how an AI agent config with no explicit LLM
+     * provider falls back to the platform default.
+     */
+    public LlmClient getClient(LlmProvider providerOverride) {
+        LlmProvider provider =
+                providerOverride != null ? providerOverride : configService.getActiveProvider();
 
         return clients.getOrDefault(provider, clients.get(LlmProvider.ANTHROPIC));
     }

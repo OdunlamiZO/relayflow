@@ -1,4 +1,4 @@
-# RelayFlow
+_# RelayFlow
 
 RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation. Telegram is the first adapter, WhatsApp Business Cloud API support has started, and Instagram is planned. The core model is channel-agnostic.
 
@@ -126,7 +126,6 @@ There is no self-service "change password" form — a password only ever changes
 - `GET    /profile`
 - `PATCH  /profile`
 - `POST   /profile/request-password-reset` — emails the current user a password reset link
-- `DELETE /profile`
 - `POST   /profile/2fa/setup`
 - `POST   /profile/2fa/enable`
 - `POST   /profile/2fa/disable`
@@ -150,7 +149,8 @@ There is no self-service "change password" form — a password only ever changes
 - `POST   /invites/{token}/accept`
 - `GET    /channel-accounts?workspaceId={workspaceId}`
 - `POST   /channel-accounts`
-- `DELETE /channel-accounts/{id}?workspaceId={workspaceId}`
+- `POST   /channel-accounts/{id}/disconnect?workspaceId={workspaceId}` — sets the channel to `DISABLED`; reversible via reconnect. Requires `CHANNELS_WRITE`.
+- `DELETE /channel-accounts/{id}?workspaceId={workspaceId}` — permanently removes the channel; conversations and message history are preserved. Requires `CHANNELS_DELETE`.
 - `POST   /channel-accounts/{id}/reconnect?workspaceId={workspaceId}`
 - `GET    /contacts?workspaceId={workspaceId}`
 - `POST   /contacts`
@@ -172,10 +172,13 @@ There is no self-service "change password" form — a password only ever changes
 - `GET    /workspaces/{workspaceId}/api-keys`
 - `POST   /workspaces/{workspaceId}/api-keys`
 - `DELETE /workspaces/{workspaceId}/api-keys/{keyId}`
-- `GET    /workspaces/{workspaceId}/webhook`
-- `PUT    /workspaces/{workspaceId}/webhook`
-- `DELETE /workspaces/{workspaceId}/webhook`
-- `POST   /workspaces/{workspaceId}/webhook/rotate-secret`
+- `GET    /workspaces/{workspaceId}/webhooks` — list every webhook configured for the workspace
+- `POST   /workspaces/{workspaceId}/webhooks` — create a new webhook
+- `PUT    /workspaces/{workspaceId}/webhooks/{webhookId}` — update a webhook's URL, enabled state, or subscribed event types
+- `DELETE /workspaces/{workspaceId}/webhooks/{webhookId}`
+- `POST   /workspaces/{workspaceId}/webhooks/{webhookId}/rotate-secret` — generates a new HMAC secret and returns it once; it can't be retrieved again after this response
+
+All webhook endpoints require `WEBHOOKS_WRITE` permission or owner role. A workspace can have any number of webhooks, each with its own URL and event subscriptions.
 
 Public API requests authenticate with `X-Api-Key`:
 
@@ -209,10 +212,15 @@ The `GET` path handles Meta webhook verification using the channel account's sto
 
 ### AI Agent
 
-- `GET    /workspaces/{workspaceId}/ai-agent-config` — get (or auto-create) workspace AI agent config
-- `PUT    /workspaces/{workspaceId}/ai-agent-config` — update config; requires `AI_AGENT_WRITE` permission or owner role
+- `GET    /workspaces/{workspaceId}/ai-agent-configs` — list every named AI agent config in the workspace
+- `POST   /workspaces/{workspaceId}/ai-agent-configs` — create a new agent config; requires `AI_AGENT_WRITE` permission or owner role
+- `PUT    /workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — update a config; requires `AI_AGENT_WRITE`
+- `DELETE /workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — requires `AI_AGENT_WRITE`. Deleting the current default promotes another remaining config to default, if any exist.
+- `POST   /workspaces/{workspaceId}/ai-agent-configs/{configurationId}/set-default` — mark this config as the workspace's default; requires `AI_AGENT_WRITE`
+- `GET    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — which config a channel is assigned to (`configurationId: null` means it uses the workspace default)
+- `PUT    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — assign a config to a channel, or `null` to revert it to the workspace default; requires `AI_AGENT_WRITE`
 - `GET    /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — get active AI draft for a conversation
-- `POST   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/send` — send the draft as an outbound message
+- `POST   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/send` — send the draft as an outbound message; optional `{ text }` body sends a human-edited version instead of the draft's own wording
 - `DELETE /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — discard the draft
 - `POST   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/trigger-workflow/{workflowId}` — approve and execute an AI-suggested workflow (DRAFT_ONLY mode); validates the workflow ID is in `suggestedActions`, discards the draft, and starts the workflow
 
@@ -230,22 +238,22 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Telegram adapter — inbound webhook ingestion, outbound relay, and webhook authenticity verification via `X-Telegram-Bot-Api-Secret-Token`.
 - [x] WhatsApp Business Cloud API adapter — channel connection form, webhook verification, inbound text ingestion, outbound text relay, and per-channel webhook URL display.
 - [x] Outbound message delivery guarantee — Telegram and WhatsApp sends are retried once; final failure rolls back the transaction so the message is never saved and the caller receives a descriptive error.
-- [x] Channel account disconnect — sets status to `DISABLED`; inbound and outbound are gated on `ACTIVE` so messages stop immediately. History is preserved.
+- [x] Channel account disconnect and delete — disconnect sets status to `DISABLED` (inbound/outbound gated on `ACTIVE`, so messages stop immediately) and is reversible via reconnect; delete permanently removes the channel account and can't be undone. Both preserve conversation and message history. Disconnect requires `CHANNELS_WRITE`, delete requires `CHANNELS_DELETE`.
 - [x] Closed conversation reopening — when a contact messages a closed conversation it is set back to `OPEN` and workflow automation fires again.
 - [x] Contact management — paginated contacts list, detail panel, delete, and guarded contact merge that moves identities/conversations to the target contact.
-- [x] Contact custom fields — per-workspace field schema (key/label/description) plus six reserved fields (`displayName`, `firstName`, `lastName`, `phone`, `email`, `country`) that can't be redefined. Reserved values auto-derive from existing data (e.g. phone from a WhatsApp identity, first/last name from Telegram) when not explicitly set, editable manually, by the AI agent (gap-filling only — never overwrites a value already in place), or by a workflow's **Set Contact Field** node (always overwrites, like a manual edit). Gated by the `CONTACT_FIELDS_WRITE` permission.
+- [x] Contact custom fields — per-workspace field schema (key/label/description) plus six reserved fields (`displayName`, `firstName`, `lastName`, `phone`, `email`, `country`) that can't be redefined. Reserved values auto-derive from existing data (e.g. phone from a WhatsApp identity, first/last name from Telegram) when not explicitly set, editable manually, by the AI agent (gap-filling — never overwrites an already explicitly-stored value, but a reserved field the resolver could derive but hasn't yet stored is still written and fires `contact.updated`), or by a workflow's **Set Contact Field** node (always overwrites, like a manual edit). Writing `firstName`/`lastName` through either the AI agent or the Set Contact Field node keeps `displayName` in sync (`"firstName lastName"`), which matters for channels like WhatsApp where the display name otherwise stays stuck on the contact's own freeform profile name. Gated by the `CONTACT_FIELDS_WRITE` permission.
 - [x] Per-channel-account identities — external identities are scoped to a channel account/bot so the same Telegram user can appear in separate connected bots without collision.
 - [x] Conversation workflow lock — active workflows own the conversation and agent replies return `409 Conflict` until the workflow finishes, fails, or closes the conversation.
 - [x] Conversation assignment — conversations can be assigned to (or unassigned from) a workspace member via a dropdown in the message thread.
 - [x] Workspace member permissions — owners manage members, transfer ownership, grant granular access for inbox, contacts (including contact field schema/values), workflows, channels, API keys, and webhooks, and generate a password reset link for a member.
 - [x] Workspace invites — owners create/revoke expiring email invites; authenticated users can preview and accept matching invites.
 - [x] API keys and public API — workspace API keys can list conversations/messages and send outbound agent messages through `/public/v1`.
-- [x] Workspace webhooks — configurable signed webhooks currently emit `contact.created` and `contact.updated` with retry/backoff delivery. SSRF protection rejects webhook URLs that resolve to loopback, link-local, private, multicast, or wildcard addresses, both when saving the URL and at delivery time.
+- [x] Workspace webhooks — a workspace can configure any number of signed webhooks, each with its own URL and event subscriptions. Events currently emitted: `contact.created` and `contact.updated`, with retry/backoff delivery. SSRF protection rejects webhook URLs that resolve to loopback, link-local, private, multicast, or wildcard addresses, both when saving the URL and at delivery time.
 
 ### Authentication
 - [x] Instance bootstrap — the first account on a fresh instance is a one-time `POST /auth/bootstrap` call (guarded by `userRepository.count() == 0`) that creates the first admin and their workspace with no email round-trip. Every subsequent account requires a valid workspace invite token (`POST /auth/signup` takes `inviteToken`); there is no open public signup.
 - [x] Google OAuth2 login with user provisioning.
-- [x] Profile management — display name, account deletion, and profile page.
+- [x] Profile management — display name and profile page.
 - [x] Password reset — no self-service "change password" form; a single-use, 1-hour link (`PasswordResetToken`) is requested from the profile page or generated by a workspace owner for a member, then consumed at `/reset-password/{token}` to set a new password.
 - [x] TOTP two-factor authentication — setup QR code, enable/disable, and 2FA login challenge.
 - [x] Split user model — identities, preferences, and MFA methods live outside the core `users` table.
@@ -270,7 +278,7 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Variable interpolation — `{{variable}}` placeholders resolved at execution time in all text fields.
 - [x] **Trigger node** — fires on `conversation_opened`; multiple concurrent workflows supported per conversation.
 - [x] **Send Message node** — sends an outbound message through the active channel adapter.
-- [x] **Condition node** — multi-branch with configurable variable, operator, and value per branch; `is_set` / `is_not_set` operators need no value.
+- [x] **Condition node** — multi-branch with configurable variable, operator, and value per branch; `is_set` / `is_not_set` operators need no value. The last branch is always the implicit "else" — taken once every earlier branch fails, with its own conditions (if any) ignored — so it's the only branch exempt from the graph validator's "must have at least one condition" rule.
 - [x] **HTTP Request node** — method, URL, headers, body, content-type, timeout; response status and JSON path mappings saved to workflow variables.
 - [x] **Set Variable node** — creates or overwrites a named workflow variable.
 - [x] **Set Contact Field node** — writes a value to a reserved or workspace-defined contact field; always overwrites (unlike the AI agent's gap-filling extraction writes).
@@ -289,13 +297,15 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Run logs UI — `/workflows/{id}/runs` lists run history with status, error preview, and a step-by-step breakdown of input/output snapshots and durations.
 
 ### AI Agent
-- [x] Per-workspace AI agent config — enabled toggle, autonomy ceiling (`DRAFT_ONLY` / `AUTO_SEND`), free-text instructions, knowledge base Q&A pairs, escalation keywords, workflow mappings, and data extraction fields (key + description).
-- [x] Data extraction — the LLM is prompted to populate configured extraction fields from the conversation. Only keys matching a configured extraction field are exposed as `agent.data.<key>` variables to a triggered workflow or persisted to the contact (via `ContactCustomFieldWriter`, gap-filling only — a hallucinated or unconfigured key never leaks through either path). Contact persistence additionally requires the key to be a reserved or workspace-defined contact field, and checks the *effective* value (including anything `ReservedContactFieldResolver` can already derive) before writing.
-- [x] Multi-provider LLM layer — Anthropic, OpenAI, Groq (free tier), and Ollama (self-hosted). Provider and model are platform-level Redis config; switching takes effect without restart. See [AI Agent Configuration](#ai-agent-configuration) below.
-- [x] Decision pipeline — deterministic keyword escalation → LLM call → escalate → workflow action (auto-trigger on `AUTO_SEND`, draft for approval on `DRAFT_ONLY`) → low-confidence / `DRAFT_ONLY` / `needsClarification` → draft → else auto-send.
+- [x] Named, reusable AI agent configs — a workspace can define any number of named agents, each with its own enabled toggle, autonomy ceiling (`DRAFT_ONLY` / `AUTO_SEND`), LLM provider (see [AI Agent Configuration](#ai-agent-configuration) below), free-text instructions, knowledge base Q&A pairs, escalation keywords, workflow mappings, and data extraction fields (key + description). Exactly one config is flagged as the workspace's default at a time. Manage agents in **Settings → AI Agent**; each channel gets a dropdown in **Settings → Channels** to assign it a specific agent, or leave it unassigned to use whichever config is currently the default. An explicit channel assignment is authoritative — it does not fall back to the default even if the assigned agent is disabled.
+- [x] Data extraction — the LLM is prompted to populate configured extraction fields from the conversation, and extraction is written to the contact immediately, every turn. Only keys matching a configured extraction field are exposed as `agent.data.<key>` variables to a triggered workflow or persisted to the contact (via `ContactCustomFieldWriter`; a hallucinated or unconfigured key never leaks through either path). Contact persistence additionally requires the key to be a reserved or workspace-defined contact field, and checks only the *explicitly-stored* value (not anything auto-derivable) before writing — so an AI-confirmed reserved field is always recorded and fires `contact.updated`, even for a value RelayFlow could also derive on its own.
+- [x] Session-scoped extraction while a draft sits un-actioned — a `DRAFT_ONLY`/low-confidence turn's extraction accumulates into the pending draft across turns (used for both the eventual workflow trigger and the draft itself), but is discarded rather than merged if the draft predates the conversation's current session (`Conversation.sessionStartedAt`), so extracted data never leaks from a previous session into a new one.
+- [x] Hallucinated workflow suggestions filtered — a `trigger_workflow:<id>` the LLM suggests is dropped unless `<id>` matches a workspace-configured `WorkflowMapping`; the raw, unfiltered suggestion is still kept in the invocation log for debugging.
+- [x] Multi-provider LLM layer — Anthropic, OpenAI, Groq (free tier), and Ollama (self-hosted). The model for each provider is platform-level Redis config, set by the administrator; switching takes effect without restart. Each named AI agent config can pin itself to a specific provider, or leave it as "Platform default" to always follow the platform's currently active provider. See [AI Agent Configuration](#ai-agent-configuration) below.
+- [x] Decision pipeline — deterministic keyword escalation → LLM call → escalate → workflow action (auto-trigger unless `DRAFT_ONLY`, draft for approval on `DRAFT_ONLY`) → low-confidence / `DRAFT_ONLY` / `needsClarification` → draft → else auto-send.
 - [x] Race-condition prevention — `AiAgentInvocationSlotClaimer` (`REQUIRES_NEW`) uses a unique partial index on active invocation logs to serialize concurrent invocations; symmetric guard in `WorkflowTriggerListener`.
-- [x] Session-scoped LLM history — `conversation.sessionStartedAt` is reset on reopen; `AiAgentContextAssembler` scopes message history to the current session to prevent past closed-conversation messages from polluting the context.
-- [x] AI draft inbox banner — `DRAFT_ONLY` ceiling or low-confidence replies create a draft; inbox shows **Send / Edit / Discard** for text replies and **Run Workflow / Discard** for AI-suggested workflows. SSE pushes `ai.draft.created` for instant updates.
+- [x] Session-scoped LLM history — `conversation.sessionStartedAt` is reset on reopen; `AiAgentContextAssembler` scopes message history to the current session to prevent past closed-conversation messages from polluting the context. The per-message contact context is wrapped in a `<context>...</context>` block, with an explicit instruction telling the LLM never to repeat it verbatim in a reply.
+- [x] AI draft inbox banner — `DRAFT_ONLY` ceiling or low-confidence replies create a draft; inbox shows **Send / Edit / Discard** for text replies (naming the actual workflow, e.g. "Run Loan Workflow") and **Run Workflow / Discard** for AI-suggested workflows. Editing a draft's wording before sending still records it as the AI's own message — it doesn't reassign the conversation to whoever clicked send or release the AI agent's hold on it, the way a normal human-composed reply would. SSE pushes `ai.draft.created` for instant updates.
 - [x] Escalation indicator — a keyword match or LLM-requested escalation stamps `Conversation.escalatedAt`/`escalationReason` and pushes `ai.escalated`; the inbox shows a red badge on the conversation row and header until a human agent sends the next reply, which clears it.
 - [x] Invocation log retention — hourly cleanup, configurable via `AGENT_INVOCATION_LOG_RETENTION_DAYS` (default 90 days).
 
@@ -311,7 +321,7 @@ The AI agent is off by default. Enable it per workspace in **Settings → AI Age
 
 ### LLM provider
 
-The active provider is a platform-level Redis key — not a per-workspace setting. Switch at any time without restarting:
+The platform's default provider is a Redis key, not a per-workspace setting. Any named agent config left on "Platform default" (the default for a new agent) follows this value; an agent can also be pinned to a specific provider from its settings, overriding this default just for that agent. Switch the platform default at any time without restarting:
 
 ```bash
 redis-cli SET platform:llm:provider 'GROQ'        # free tier — recommended default
@@ -338,11 +348,13 @@ export GROQ_API_KEY=gsk_...
 redis-cli SET platform:llm:provider 'GROQ'
 ```
 
-Groq's free tier supports Llama models with generous daily limits — no credit card required. To use a different model:
+Groq's free tier supports several open-weight models with generous daily limits — no credit card required. To use a different model:
 
 ```bash
-redis-cli SET 'platform:llm:groq:model' 'llama-3.3-70b-versatile'
+redis-cli SET 'platform:llm:groq:model' 'openai/gpt-oss-120b'
 ```
+
+See [console.groq.com/docs/models](https://console.groq.com/docs/models) for the current catalog. Pick a general-purpose chat model — Groq also hosts TTS, speech-to-text, and safety-classifier models that won't work here.
 
 ### Anthropic
 
@@ -379,7 +391,7 @@ ollama pull llama3.2  # terminal 2
 redis-cli SET platform:llm:provider 'OLLAMA'
 ```
 
-Ollama exposes an OpenAI-compatible `/v1/chat/completions` endpoint. Any model that supports `response_format: json_object` works with RelayFlow. To change the model (no restart required):
+Ollama exposes an OpenAI-compatible `/v1/chat/completions` endpoint. Any model that supports `response_format: json_object` works with RelayFlow. The default `llama3.2` pull is a small (~3B) model; larger local models or a hosted provider follow the LLM instructions more reliably. To change the model (no restart required):
 
 ```bash
 redis-cli SET 'platform:llm:ollama:model' 'qwen2.5:3b'

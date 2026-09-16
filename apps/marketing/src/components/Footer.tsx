@@ -33,8 +33,8 @@ export function Footer() {
             </Link>
 
             <p className="m-0 text-xs text-neutral-500">
-              &copy; {new Date().getFullYear()} RelayFlow &nbsp;&mdash;&nbsp;
-              Built for developer-grade reliability.
+              &copy; {new Date().getFullYear()}
+              {" RelayFlow — Built for developer-grade reliability."}
             </p>
           </div>
         </div>

@@ -11,6 +11,7 @@ import { Spinner } from "@/components/common/Spinner";
 import { ContactDetailPanel } from "@/components/contacts/ContactDetailPanel";
 import { MergeContactModal } from "@/components/contacts/MergeContactModal";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
+import { useChannelAccounts } from "@/hooks/use-channel-accounts";
 import { useContacts } from "@/hooks/use-contacts";
 import { useDeleteContact } from "@/hooks/use-delete-contact";
 import type { Contact } from "@/lib/messaging-api";
@@ -196,6 +197,7 @@ function ContactRow({
   onMergeRequest,
 }: RowProps) {
   const initial = contactInitial(contact);
+  const { data: channelAccounts = [] } = useChannelAccounts(workspaceId);
 
   return (
     <tr
@@ -229,14 +231,23 @@ function ContactRow({
           {contact.identities.length === 0 ? (
             <span className="text-xs text-neutral-400">—</span>
           ) : (
-            contact.identities.map((identity) => (
-              <span
-                key={identity.id}
-                className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${CHANNEL_COLOR[identity.provider] ?? "bg-neutral-100 text-neutral-600"}`}
-              >
-                {CHANNEL_LABEL[identity.provider] ?? identity.provider}
-              </span>
-            ))
+            contact.identities.map((identity) => {
+              const channelAccountName = channelAccounts.find(
+                (channel) => channel.id === identity.channelAccountId
+              )?.name;
+              const label =
+                CHANNEL_LABEL[identity.provider] ?? identity.provider;
+
+              return (
+                <span
+                  key={identity.id}
+                  title={channelAccountName}
+                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${CHANNEL_COLOR[identity.provider] ?? "bg-neutral-100 text-neutral-600"}`}
+                >
+                  {label}
+                </span>
+              );
+            })
           )}
         </div>
       </td>

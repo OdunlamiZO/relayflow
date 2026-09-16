@@ -6,9 +6,9 @@ import com.relayflow.api.webhook.dto.WebhookConfigResponse;
 import com.relayflow.api.workspace.WorkspaceAuthorizationService;
 import com.relayflow.api.workspace.domain.WorkspacePermission;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping("/workspaces/{workspaceId}/webhook")
+@RequestMapping("/workspaces/{workspaceId}/webhooks")
 public class WebhookController {
 
     private final WebhookService webhookService;
@@ -36,51 +36,66 @@ public class WebhookController {
         this.authorizationService = authorizationService;
     }
 
-    /** Returns the workspace webhook configuration, or 404 if none is configured. */
+    /** Lists every webhook configured for this workspace. */
     @GetMapping
-    ResponseEntity<WebhookConfigResponse> getWebhook(
+    List<WebhookConfigResponse> listWebhooks(
             @PathVariable UUID workspaceId, Authentication authentication) {
         authorizationService.assertPermission(
                 workspaceId, authentication, WorkspacePermission.WEBHOOKS_WRITE);
 
-        return webhookService
-                .getWebhook(workspaceId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return webhookService.listWebhooks(workspaceId);
     }
 
-    /** Creates or updates the webhook configuration for this workspace. */
-    @PutMapping
-    WebhookConfigResponse saveWebhook(
+    /** Creates a new webhook for this workspace. */
+    @PostMapping
+    WebhookConfigResponse createWebhook(
             @PathVariable UUID workspaceId,
             @Valid @RequestBody SaveWebhookRequest request,
             Authentication authentication) {
         authorizationService.assertPermission(
                 workspaceId, authentication, WorkspacePermission.WEBHOOKS_WRITE);
 
-        return webhookService.saveWebhook(workspaceId, request);
+        return webhookService.createWebhook(workspaceId, request);
     }
 
-    /** Deletes the webhook configuration. Returns 404 if none was configured. */
-    @DeleteMapping
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    void deleteWebhook(@PathVariable UUID workspaceId, Authentication authentication) {
+    /** Updates an existing webhook. */
+    @PutMapping("/{webhookId}")
+    WebhookConfigResponse updateWebhook(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID webhookId,
+            @Valid @RequestBody SaveWebhookRequest request,
+            Authentication authentication) {
         authorizationService.assertPermission(
                 workspaceId, authentication, WorkspacePermission.WEBHOOKS_WRITE);
 
-        webhookService.deleteWebhook(workspaceId);
+        return webhookService.updateWebhook(workspaceId, webhookId, request);
+    }
+
+    /** Deletes a webhook. */
+    @DeleteMapping("/{webhookId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteWebhook(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID webhookId,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.WEBHOOKS_WRITE);
+
+        webhookService.deleteWebhook(workspaceId, webhookId);
     }
 
     /**
-     * Generates a new HMAC secret, stores it encrypted, and returns the plaintext value once. The
-     * caller must persist this value — it cannot be retrieved after this response.
+     * Generates a new HMAC secret for a webhook, stores it encrypted, and returns the plaintext
+     * value once. The caller must persist this value — it cannot be retrieved after this response.
      */
-    @PostMapping("/rotate-secret")
+    @PostMapping("/{webhookId}/rotate-secret")
     RotateWebhookSecretResponse rotateSecret(
-            @PathVariable UUID workspaceId, Authentication authentication) {
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID webhookId,
+            Authentication authentication) {
         authorizationService.assertPermission(
                 workspaceId, authentication, WorkspacePermission.WEBHOOKS_WRITE);
 
-        return webhookService.rotateSecret(workspaceId);
+        return webhookService.rotateSecret(workspaceId, webhookId);
     }
 }

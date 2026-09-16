@@ -5,10 +5,11 @@ import { useState } from "react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
+import { useCreateWebhook } from "@/hooks/use-create-webhook";
 import { useDeleteWebhook } from "@/hooks/use-delete-webhook";
 import { useRotateWebhookSecret } from "@/hooks/use-rotate-webhook-secret";
-import { useSaveWebhook } from "@/hooks/use-save-webhook";
-import { useWorkspaceWebhook } from "@/hooks/use-workspace-webhook";
+import { useUpdateWebhook } from "@/hooks/use-update-webhook";
+import { useWebhooks } from "@/hooks/use-webhooks";
 import { errorMessage } from "@/lib/error-message";
 import { type WebhookConfig, type WebhookEventType } from "@/lib/messaging-api";
 
@@ -19,15 +20,32 @@ const ALL_EVENTS: { value: WebhookEventType; payloadName: string }[] = [
   { value: "CONTACT_UPDATED", payloadName: "contact.updated" },
 ];
 
+function webhookLabel(url: string): string {
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url || "Webhook";
+  }
+}
+
 type Props = {
   workspaceId: string;
 };
 
 export function WebhookConfigPanel({ workspaceId }: Props) {
-  const { data: webhook, isLoading } = useWorkspaceWebhook(workspaceId);
+  const { data: webhooks = [], isLoading } = useWebhooks(workspaceId);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // Not in WebhookForm: it remounts on create, which would wipe this.
+  // Not lifted into WebhookForm: forms remount on tab switch/create/delete, which would wipe this.
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+
+  const selected =
+    webhooks.find((webhook) => webhook.id === selectedId) ??
+    webhooks[0] ??
+    null;
+
+  const showingNew = isCreatingNew || (!selected && !isLoading);
 
   if (isLoading) {
     return (
@@ -39,11 +57,53 @@ export function WebhookConfigPanel({ workspaceId }: Props) {
 
   return (
     <>
+      {webhooks.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {webhooks.map((webhook) => (
+            <WebhookTab
+              key={webhook.id}
+              label={webhookLabel(webhook.url)}
+              enabled={webhook.enabled}
+              active={!showingNew && webhook.id === selected?.id}
+              onClick={() => {
+                setSelectedId(webhook.id);
+                setIsCreatingNew(false);
+              }}
+            />
+          ))}
+
+          <button
+            type="button"
+            onClick={() => setIsCreatingNew(true)}
+            className={`flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-xs font-medium transition-colors ${
+              showingNew
+                ? "border-secondary bg-secondary/10 text-secondary"
+                : "border-neutral-300 text-neutral-500 hover:border-neutral-400 hover:text-neutral-700"
+            }`}
+          >
+            <span
+              className="material-symbols-rounded text-[14px] leading-none"
+              aria-hidden="true"
+            >
+              add
+            </span>
+            New webhook
+          </button>
+        </div>
+      )}
+
       <WebhookForm
-        key={webhook?.id ?? "new"}
+        key={showingNew ? "new" : selected?.id}
         workspaceId={workspaceId}
-        webhook={webhook ?? null}
+        webhook={showingNew ? null : selected}
         onSecretRevealed={setRevealedSecret}
+        onCreated={(id) => {
+          setSelectedId(id);
+          setIsCreatingNew(false);
+        }}
+        onCancel={
+          webhooks.length > 0 ? () => setIsCreatingNew(false) : undefined
+        }
       />
 
       {revealedSecret && (
@@ -56,18 +116,61 @@ export function WebhookConfigPanel({ workspaceId }: Props) {
   );
 }
 
-// ── Inner form — re-mounts when webhook id changes, so state is always fresh ──
+function WebhookTab({
+  label,
+  enabled,
+  active,
+  onClick,
+}: {
+  label: string;
+  enabled: boolean;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+        active
+          ? "border-secondary bg-secondary/10 text-secondary"
+          : "border-neutral-300 bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+      }`}
+    >
+      <span
+        className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+          enabled ? "bg-green-text" : "bg-neutral-400"
+        }`}
+        aria-hidden="true"
+      />
+      <span className="max-w-[9rem] truncate">{label}</span>
+    </button>
+  );
+}
+
+// ── One webhook's form — remounts on tab switch/create/delete, so state is always fresh ──
 
 type FormProps = {
   workspaceId: string;
   webhook: WebhookConfig | null;
   onSecretRevealed: (secret: string) => void;
+  onCreated: (id: string) => void;
+  onCancel?: () => void;
 };
 
-function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
-  const saveWebhook = useSaveWebhook(workspaceId);
-  const deleteWebhook = useDeleteWebhook(workspaceId);
-  const rotateSecret = useRotateWebhookSecret(workspaceId);
+function WebhookForm({
+  workspaceId,
+  webhook,
+  onSecretRevealed,
+  onCreated,
+  onCancel,
+}: FormProps) {
+  const isNew = !webhook;
+
+  const createWebhook = useCreateWebhook(workspaceId);
+  const updateWebhook = useUpdateWebhook(workspaceId, webhook?.id ?? "");
+  const deleteWebhook = useDeleteWebhook(workspaceId, webhook?.id ?? "");
+  const rotateSecret = useRotateWebhookSecret(workspaceId, webhook?.id ?? "");
 
   const [url, setUrl] = useState(webhook?.url ?? "");
   const [enabled, setEnabled] = useState(webhook?.enabled ?? false);
@@ -77,9 +180,10 @@ function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const isNew = !webhook;
+  const isSaving = createWebhook.isPending || updateWebhook.isPending;
 
   const isUnchanged =
+    !isNew &&
     (webhook?.url ?? "") === url.trim() &&
     (webhook?.enabled ?? false) === enabled &&
     JSON.stringify(webhook?.events ?? []) === JSON.stringify(events);
@@ -93,29 +197,34 @@ function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
 
+    const request = { url: url.trim(), enabled, events };
+
     // Don't clear formError here — let it stay until the new outcome is known.
-    saveWebhook.mutate(
-      { url: url.trim(), enabled, events },
-      {
+    if (isNew) {
+      createWebhook.mutate(request, {
         onSuccess: (data) => {
           setFormError(null);
+          onCreated(data.id);
 
           if (data.generatedSecret) {
             onSecretRevealed(data.generatedSecret);
           }
         },
-        onError: (err) => {
-          setFormError(errorMessage(err));
-        },
-      }
-    );
+        onError: (err) => setFormError(errorMessage(err)),
+      });
+
+      return;
+    }
+
+    updateWebhook.mutate(request, {
+      onSuccess: () => setFormError(null),
+      onError: (err) => setFormError(errorMessage(err)),
+    });
   }
 
   function handleDelete() {
     deleteWebhook.mutate(undefined, {
-      onSuccess: () => {
-        setShowDeleteConfirm(false);
-      },
+      onSuccess: () => setShowDeleteConfirm(false),
     });
   }
 
@@ -125,9 +234,7 @@ function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
         setFormError(null);
         onSecretRevealed(data.secret);
       },
-      onError: (err) => {
-        setFormError(errorMessage(err));
-      },
+      onError: (err) => setFormError(errorMessage(err)),
     });
   }
 
@@ -137,13 +244,13 @@ function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
         {/* Endpoint URL */}
         <div>
           <label
-            htmlFor="webhook-url"
+            htmlFor={`webhook-url-${webhook?.id ?? "new"}`}
             className="mb-1.5 block text-sm font-medium text-neutral-700"
           >
             Endpoint URL
           </label>
           <input
-            id="webhook-url"
+            id={`webhook-url-${webhook?.id ?? "new"}`}
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -205,33 +312,43 @@ function WebhookForm({ workspaceId, webhook, onSecretRevealed }: FormProps) {
         {formError && <p className="text-sm text-red-text">{formError}</p>}
 
         {/* Actions */}
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex gap-2">
-            {!isNew && (
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="rounded-lg border border-red-text/30 px-3 py-1.5 text-sm font-medium text-red-text transition-colors hover:bg-red-bg"
-              >
-                Delete webhook
-              </button>
-            )}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex flex-wrap gap-2">
+            {isNew ? (
+              onCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100"
+                >
+                  Cancel
+                </button>
+              )
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="rounded-lg border border-red-text/30 px-3 py-1.5 text-sm font-medium text-red-text transition-colors hover:bg-red-bg"
+                >
+                  Delete webhook
+                </button>
 
-            {!isNew && (
-              <LoadingButton
-                type="button"
-                onClick={handleRotate}
-                isLoading={rotateSecret.isPending}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 disabled:opacity-60"
-              >
-                Rotate secret
-              </LoadingButton>
+                <LoadingButton
+                  type="button"
+                  onClick={handleRotate}
+                  isLoading={rotateSecret.isPending}
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:border-secondary hover:bg-secondary/10 hover:text-secondary disabled:opacity-60"
+                >
+                  Rotate secret
+                </LoadingButton>
+              </>
             )}
           </div>
 
           <LoadingButton
             type="submit"
-            isLoading={saveWebhook.isPending}
+            isLoading={isSaving}
             disabled={isUnchanged}
             className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >

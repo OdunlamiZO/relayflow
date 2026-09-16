@@ -8,7 +8,7 @@ import com.relayflow.api.webhook.dto.WebhookConfigResponse;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,28 +38,42 @@ public class WebhookService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<WebhookConfigResponse> getWebhook(UUID workspaceId) {
-        return webhookRepository.findByWorkspace(workspaceId).map(w -> toResponse(w, null));
+    public List<WebhookConfigResponse> listWebhooks(UUID workspaceId) {
+        return webhookRepository.findByWorkspace(workspaceId).stream()
+                .map(w -> toResponse(w, null))
+                .toList();
     }
 
-    /**
-     * Creates or updates the webhook configuration for a workspace. Creating one auto-generates its
-     * secret, returned once via {@code generatedSecret}.
-     */
+    /** Creates a new webhook for the workspace. The generated secret is returned once. */
     @Transactional
-    public WebhookConfigResponse saveWebhook(UUID workspaceId, SaveWebhookRequest request) {
+    public WebhookConfigResponse createWebhook(UUID workspaceId, SaveWebhookRequest request) {
         urlValidator.validate(request.url());
 
-        WorkspaceWebhook webhook = webhookRepository.findByWorkspace(workspaceId).orElse(null);
-        String generatedSecret = null;
+        String generatedSecret = generateSecret();
 
-        if (webhook == null) {
-            webhook = new WorkspaceWebhook();
-            webhook.setWorkspaceId(workspaceId);
+        WorkspaceWebhook webhook = new WorkspaceWebhook();
+        webhook.setWorkspaceId(workspaceId);
+        webhook.setSecret(encryptionService.encrypt(generatedSecret));
+        webhook.setUrl(request.url());
+        webhook.setEnabled(request.enabled());
+        webhook.setEvents(
+                request.events() == null
+                        ? new LinkedHashSet<>()
+                        : new LinkedHashSet<>(request.events()));
 
-            generatedSecret = generateSecret();
-            webhook.setSecret(encryptionService.encrypt(generatedSecret));
-        }
+        webhook = webhookRepository.save(webhook);
+
+        log.info("Webhook created: workspaceId={}, url={}", workspaceId, webhook.getUrl());
+
+        return toResponse(webhook, generatedSecret);
+    }
+
+    @Transactional
+    public WebhookConfigResponse updateWebhook(
+            UUID workspaceId, UUID webhookId, SaveWebhookRequest request) {
+        urlValidator.validate(request.url());
+
+        WorkspaceWebhook webhook = getOrThrow(workspaceId, webhookId);
 
         webhook.setUrl(request.url());
         webhook.setEnabled(request.enabled());
@@ -70,25 +84,16 @@ public class WebhookService {
 
         webhook = webhookRepository.save(webhook);
 
-        log.info("Webhook saved: workspaceId={}, url={}", workspaceId, webhook.getUrl());
+        log.info("Webhook updated: workspaceId={}, webhookId={}", workspaceId, webhookId);
 
-        return toResponse(webhook, generatedSecret);
+        return toResponse(webhook, null);
     }
 
     @Transactional
-    public void deleteWebhook(UUID workspaceId) {
-        webhookRepository
-                .findByWorkspace(workspaceId)
-                .ifPresentOrElse(
-                        w -> {
-                            webhookRepository.delete(w);
-                            log.info("Webhook deleted: workspaceId={}", workspaceId);
-                        },
-                        () -> {
-                            throw new ResponseStatusException(
-                                    HttpStatus.NOT_FOUND,
-                                    "No webhook configured for this workspace");
-                        });
+    public void deleteWebhook(UUID workspaceId, UUID webhookId) {
+        webhookRepository.delete(getOrThrow(workspaceId, webhookId));
+
+        log.info("Webhook deleted: workspaceId={}, webhookId={}", workspaceId, webhookId);
     }
 
     /**
@@ -96,23 +101,25 @@ public class WebhookService {
      * value once. The secret cannot be retrieved after this call — callers must persist it.
      */
     @Transactional
-    public RotateWebhookSecretResponse rotateSecret(UUID workspaceId) {
-        WorkspaceWebhook webhook =
-                webhookRepository
-                        .findByWorkspace(workspaceId)
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND,
-                                                "No webhook configured for this workspace"));
+    public RotateWebhookSecretResponse rotateSecret(UUID workspaceId, UUID webhookId) {
+        WorkspaceWebhook webhook = getOrThrow(workspaceId, webhookId);
 
         String newSecret = generateSecret();
         webhook.setSecret(encryptionService.encrypt(newSecret));
         webhookRepository.save(webhook);
 
-        log.info("Webhook secret rotated: workspaceId={}", workspaceId);
+        log.info("Webhook secret rotated: workspaceId={}, webhookId={}", workspaceId, webhookId);
 
         return new RotateWebhookSecretResponse(newSecret);
+    }
+
+    private WorkspaceWebhook getOrThrow(UUID workspaceId, UUID webhookId) {
+        return webhookRepository
+                .findInWorkspace(webhookId, workspaceId)
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND, "Webhook not found"));
     }
 
     private WebhookConfigResponse toResponse(WorkspaceWebhook w, String generatedSecret) {

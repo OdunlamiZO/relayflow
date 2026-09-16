@@ -18,7 +18,7 @@ export function useDeleteChannelAccount(workspaceId: string) {
       void queryClient.invalidateQueries({
         queryKey: ["channel-accounts", workspaceId],
       });
-      showToast({ kind: "success", message: "Channel disconnected." });
+      showToast({ kind: "success", message: "Channel deleted." });
     },
   });
 }

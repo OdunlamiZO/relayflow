@@ -1,5 +1,6 @@
 package com.relayflow.api.channel.domain;
 
+import com.relayflow.api.agent.domain.AiAgentConfiguration;
 import com.relayflow.api.workspace.domain.Workspace;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -57,6 +58,11 @@ public class ChannelAccount {
     /** Secret Telegram echoes back in the {@code X-Telegram-Bot-Api-Secret-Token} header. */
     @Column(name = "webhook_secret")
     private String webhookSecret;
+
+    /** Null means this channel uses the workspace's default AI agent config. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ai_agent_configuration_id")
+    private AiAgentConfiguration aiAgentConfiguration;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")

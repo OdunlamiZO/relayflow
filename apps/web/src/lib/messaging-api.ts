@@ -387,6 +387,8 @@ export type WorkflowRunDetail = WorkflowRun & {
 
 export type AutonomyCeiling = "DRAFT_ONLY" | "AUTO_SEND";
 
+export type LlmProvider = "ANTHROPIC" | "OPENAI" | "GROQ" | "OLLAMA";
+
 export type KnowledgeEntry = {
   question: string;
   answer: string;
@@ -407,8 +409,12 @@ export type AiAgentConfiguration = {
   id: string;
   workspaceId: string;
   name: string;
+  /** The config a channel account uses when it has no explicit assignment of its own. */
+  isDefault: boolean;
   enabled: boolean;
   autonomyCeiling: AutonomyCeiling;
+  /** Null means this agent uses the platform's active LLM provider. */
+  llmProvider: LlmProvider | null;
   instructions: string | null;
   knowledgeBase: KnowledgeEntry[];
   escalationKeywords: string[];
@@ -422,11 +428,17 @@ export type UpdateAiAgentConfigurationRequest = {
   name?: string;
   enabled: boolean;
   autonomyCeiling: AutonomyCeiling;
+  llmProvider?: LlmProvider | null;
   instructions?: string | null;
   knowledgeBase?: KnowledgeEntry[];
   escalationKeywords?: string[];
   workflowMappings?: WorkflowMapping[];
   extractionFields?: ExtractionField[];
+};
+
+export type ChannelAiAgentAssignment = {
+  /** Null means the channel uses the workspace's default config. */
+  configurationId: string | null;
 };
 
 export type ConversationAiDraft = {
@@ -504,6 +516,13 @@ export class MessagingApiClient {
       method: "POST",
       body: request,
     });
+  }
+
+  disconnectChannelAccount(id: string, workspaceId: string) {
+    return this.request<void>(
+      `/channel-accounts/${id}/disconnect?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "POST" }
+    );
   }
 
   deleteChannelAccount(id: string, workspaceId: string) {
@@ -811,46 +830,99 @@ export class MessagingApiClient {
 
   // ── Webhooks ──────────────────────────────────────────────────────────────
 
-  getWebhook(workspaceId: string) {
-    return this.request<WebhookConfig>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/webhook`
+  listWebhooks(workspaceId: string) {
+    return this.request<WebhookConfig[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks`
     );
   }
 
-  saveWebhook(workspaceId: string, request: SaveWebhookRequest) {
+  createWebhook(workspaceId: string, request: SaveWebhookRequest) {
     return this.request<WebhookConfig>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/webhook`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateWebhook(
+    workspaceId: string,
+    webhookId: string,
+    request: SaveWebhookRequest
+  ) {
+    return this.request<WebhookConfig>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks/${encodeURIComponent(webhookId)}`,
       { method: "PUT", body: request }
     );
   }
 
-  deleteWebhook(workspaceId: string) {
+  deleteWebhook(workspaceId: string, webhookId: string) {
     return this.request<void>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/webhook`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks/${encodeURIComponent(webhookId)}`,
       { method: "DELETE" }
     );
   }
 
-  rotateWebhookSecret(workspaceId: string) {
+  rotateWebhookSecret(workspaceId: string, webhookId: string) {
     return this.request<RotateWebhookSecretResponse>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/webhook/rotate-secret`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks/${encodeURIComponent(webhookId)}/rotate-secret`,
       { method: "POST" }
     );
   }
 
-  getAiAgentConfiguration(workspaceId: string) {
+  listAiAgentConfigurations(workspaceId: string) {
+    return this.request<AiAgentConfiguration[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs`
+    );
+  }
+
+  createAiAgentConfiguration(
+    workspaceId: string,
+    request: UpdateAiAgentConfigurationRequest
+  ) {
     return this.request<AiAgentConfiguration>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-config`
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs`,
+      { method: "POST", body: request }
     );
   }
 
   updateAiAgentConfiguration(
     workspaceId: string,
+    configurationId: string,
     request: UpdateAiAgentConfigurationRequest
   ) {
     return this.request<AiAgentConfiguration>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-config`,
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/${encodeURIComponent(configurationId)}`,
       { method: "PUT", body: request }
+    );
+  }
+
+  deleteAiAgentConfiguration(workspaceId: string, configurationId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/${encodeURIComponent(configurationId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  setDefaultAiAgentConfiguration(workspaceId: string, configurationId: string) {
+    return this.request<AiAgentConfiguration>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/${encodeURIComponent(configurationId)}/set-default`,
+      { method: "POST" }
+    );
+  }
+
+  getChannelAiAgentAssignment(workspaceId: string, channelAccountId: string) {
+    return this.request<ChannelAiAgentAssignment>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/channel-accounts/${encodeURIComponent(channelAccountId)}/ai-agent-config`
+    );
+  }
+
+  setChannelAiAgentAssignment(
+    workspaceId: string,
+    channelAccountId: string,
+    configurationId: string | null
+  ) {
+    return this.request<ChannelAiAgentAssignment>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/channel-accounts/${encodeURIComponent(channelAccountId)}/ai-agent-config`,
+      { method: "PUT", body: { configurationId } }
     );
   }
 

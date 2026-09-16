@@ -1,5 +1,6 @@
 package com.relayflow.api.channel.repository;
 
+import com.relayflow.api.agent.domain.AiAgentConfiguration;
 import com.relayflow.api.channel.domain.ChannelAccount;
 import java.time.Instant;
 import java.util.List;
@@ -22,4 +23,9 @@ public interface ChannelAccountRepository extends JpaRepository<ChannelAccount, 
     @Query("select ca from ChannelAccount ca where ca.id = :id and ca.workspace.id = :workspaceId")
     Optional<ChannelAccount> findInWorkspace(
             @Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
+
+    /** The channel's own assigned config, resolved in one query — safe to call on a detached ID. */
+    @Query("select ca.aiAgentConfiguration from ChannelAccount ca where ca.id = :channelAccountId")
+    Optional<AiAgentConfiguration> findAiAgentConfiguration(
+            @Param("channelAccountId") UUID channelAccountId);
 }

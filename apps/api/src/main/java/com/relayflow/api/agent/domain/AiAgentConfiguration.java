@@ -1,5 +1,6 @@
 package com.relayflow.api.agent.domain;
 
+import com.relayflow.api.agent.llm.LlmProvider;
 import com.relayflow.api.workspace.domain.Workspace;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,12 +41,21 @@ public class AiAgentConfiguration {
     @Column(nullable = false, length = 100)
     private String name = "AI Agent";
 
+    /** The config a channel account uses when it has no explicit assignment of its own. */
+    @Column(name = "is_default", nullable = false)
+    private boolean defaultConfig = false;
+
     @Column(nullable = false)
     private boolean enabled = false;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "autonomy_ceiling", nullable = false, length = 40)
     private AutonomyCeiling autonomyCeiling = AutonomyCeiling.DRAFT_ONLY;
+
+    /** Null means this agent uses the platform's active LLM provider. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "llm_provider", length = 40)
+    private LlmProvider llmProvider;
 
     @Column(columnDefinition = "text")
     private String instructions;

@@ -160,6 +160,7 @@ public class ContactService {
             UUID contactId, UUID workspaceId, Map<String, String> customFields) {
         Contact contact = getContact(contactId, workspaceId);
         contact.setCustomFields(customFields);
+        ContactDisplayNameSync.apply(contact);
         contactRepository.save(contact);
 
         webhookDispatchService.dispatch(

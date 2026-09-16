@@ -1,6 +1,5 @@
 package com.relayflow.api.agent;
 
-import com.relayflow.api.agent.repository.AiAgentConfigurationRepository;
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
@@ -27,7 +26,7 @@ public class AiAgentTriggerListener {
 
     private static final Logger log = LoggerFactory.getLogger(AiAgentTriggerListener.class);
 
-    private final AiAgentConfigurationRepository configurationRepository;
+    private final AiAgentConfigurationService aiAgentConfigurationService;
 
     private final AiAgentInvocationLogRepository invocationLogRepository;
 
@@ -36,11 +35,11 @@ public class AiAgentTriggerListener {
     private final AiAgentInvocationService invocationService;
 
     public AiAgentTriggerListener(
-            AiAgentConfigurationRepository configurationRepository,
+            AiAgentConfigurationService aiAgentConfigurationService,
             AiAgentInvocationLogRepository invocationLogRepository,
             WorkflowRunRepository workflowRunRepository,
             AiAgentInvocationService invocationService) {
-        this.configurationRepository = configurationRepository;
+        this.aiAgentConfigurationService = aiAgentConfigurationService;
         this.invocationLogRepository = invocationLogRepository;
         this.workflowRunRepository = workflowRunRepository;
         this.invocationService = invocationService;
@@ -85,9 +84,12 @@ public class AiAgentTriggerListener {
         }
 
         UUID workspaceId = conversation.getWorkspace().getId();
+        UUID channelAccountId = conversation.getChannelAccount().getId();
         UUID conversationId = conversation.getId();
 
-        if (configurationRepository.findByWorkspaceIdAndEnabledTrue(workspaceId).isEmpty()) {
+        if (aiAgentConfigurationService
+                .resolveEnabledConfiguration(workspaceId, channelAccountId)
+                .isEmpty()) {
             return false;
         }
 

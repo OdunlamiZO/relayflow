@@ -7,7 +7,7 @@ import { type Node, useReactFlow } from "@xyflow/react";
 
 import { Select } from "@/components/common/Select";
 import { type SelectOption } from "@/components/common/Select";
-import { useAiAgentConfiguration } from "@/hooks/use-ai-agent-configuration";
+import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
 import { useWorkspace } from "@/hooks/use-workspaces";
 import {
   RESERVED_CONTACT_FIELDS,
@@ -1378,9 +1378,13 @@ export function NodeConfigPanel({
     ...(workspace?.contactFieldDefinitions ?? []).map((field) => field.key),
   ]);
 
-  const { data: aiAgentConfiguration } = useAiAgentConfiguration(workspaceId);
+  const { data: aiAgentConfigurations = [] } =
+    useAiAgentConfigurations(workspaceId);
+  const defaultAiAgentConfiguration = aiAgentConfigurations.find(
+    (c) => c.isDefault
+  );
   const extractionFieldVariables: WorkflowVariable[] = (
-    aiAgentConfiguration?.extractionFields ?? []
+    defaultAiAgentConfiguration?.extractionFields ?? []
   )
     .filter((field) => !contactFieldKeys.has(field.key))
     .map((field) => ({

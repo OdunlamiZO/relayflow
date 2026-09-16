@@ -42,7 +42,8 @@ const ENV_VAR_ROWS: Array<{
   {
     name: "ANTHROPIC_API_KEY / OPENAI_API_KEY / GROQ_API_KEY",
     required: false,
-    notes: "At least one needed for AI agent features",
+    notes:
+      "At least one needed for AI agent features. You also need to pick the active provider in Redis — see the first-run walkthrough below.",
   },
   {
     name: "SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD / SMTP_FROM",
@@ -228,6 +229,34 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
               Visit <code>https://&lt;RELAYFLOW_WEB_DOMAIN&gt;</code> and
               complete the first admin signup.
             </li>
+            <li>
+              If you set an LLM API key, also tell RelayFlow which provider to
+              use. This lives in Redis, so you can change it later without
+              restarting:
+              <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
+                <code>{`docker compose --profile prod exec redis \\
+  redis-cli SET platform:llm:provider GROQ   # or ANTHROPIC / OPENAI / OLLAMA`}</code>
+              </pre>
+              Defaults to <code>ANTHROPIC</code>
+              {
+                " if unset. If that's not the provider you configured a key for, AI agent features will fail until you set this."
+              }
+            </li>
+            <li>
+              Each provider has a default model. Only set these if you want a
+              different one:
+              <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
+                <code>{`docker compose --profile prod exec redis redis-cli SET platform:llm:groq:model      llama-3.1-8b-instant  # default
+docker compose --profile prod exec redis redis-cli SET platform:llm:anthropic:model claude-haiku-4-5       # default
+docker compose --profile prod exec redis redis-cli SET platform:llm:openai:model    gpt-4o-mini            # default`}</code>
+              </pre>
+              Ollama isn&apos;t bundled here — run it separately and point
+              RelayFlow at its address:
+              <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
+                <code>{`docker compose --profile prod exec redis redis-cli SET platform:llm:ollama:url   http://<ollama-host>:11434
+docker compose --profile prod exec redis redis-cli SET platform:llm:ollama:model llama3.2   # or whatever you've pulled`}</code>
+              </pre>
+            </li>
           </ol>
         </section>
 
@@ -274,8 +303,8 @@ docker compose --profile prod up -d`}</code>
             </li>
           </ol>
           <p className="mt-4 text-sm leading-6 text-neutral-600">
-            Migrations are forward-only — there are no down-migrations, so plan
-            upgrades accordingly.
+            Migrations are forward-only. There&apos;s no down-migration path, so
+            plan upgrades accordingly.
           </p>
         </section>
 
@@ -310,9 +339,11 @@ docker compose --profile prod up -d`}</code>
             </li>
             <li>
               <strong>AI agent features return errors or do nothing</strong> —
-              no LLM provider key is configured — set at least one of{" "}
-              <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, or{" "}
-              <code>GROQ_API_KEY</code>.
+              you need both an API key env var (<code>ANTHROPIC_API_KEY</code>,{" "}
+              <code>OPENAI_API_KEY</code>, or <code>GROQ_API_KEY</code>) and the{" "}
+              <code>platform:llm:provider</code> Redis key set to match
+              (defaults to <code>ANTHROPIC</code>, see the first-run walkthrough
+              above). Forgetting the second one is the usual cause.
             </li>
             <li>
               <strong>
