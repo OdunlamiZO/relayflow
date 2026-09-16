@@ -6,10 +6,7 @@ import type {
 } from "@/lib/messaging-api";
 import { messagingApi } from "@/lib/messaging-api";
 
-export function useUpdateAiAgentConfiguration(
-  workspaceId: string,
-  configurationId: string
-) {
+export function useCreateAiAgentConfiguration(workspaceId: string) {
   const queryClient = useQueryClient();
 
   return useMutation<
@@ -18,11 +15,7 @@ export function useUpdateAiAgentConfiguration(
     UpdateAiAgentConfigurationRequest
   >({
     mutationFn: (request) =>
-      messagingApi.updateAiAgentConfiguration(
-        workspaceId,
-        configurationId,
-        request
-      ),
+      messagingApi.createAiAgentConfiguration(workspaceId, request),
 
     onSuccess: () => {
       void queryClient.invalidateQueries({

@@ -5,12 +5,17 @@ import { useState } from "react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { CopyButton } from "@/components/common/CopyButton";
 import { LoadingButton } from "@/components/common/LoadingButton";
+import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
 import { ConnectTelegramForm } from "@/components/inbox/ConnectTelegramForm";
 import { ConnectWhatsAppForm } from "@/components/inbox/ConnectWhatsAppForm";
+import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
 import { useChannelAccounts } from "@/hooks/use-channel-accounts";
+import { useChannelAiAgentAssignment } from "@/hooks/use-channel-ai-agent-assignment";
 import { useDeleteChannelAccount } from "@/hooks/use-delete-channel-account";
+import { useDisconnectChannelAccount } from "@/hooks/use-disconnect-channel-account";
 import { useReconnectChannelAccount } from "@/hooks/use-reconnect-channel-account";
+import { useSetChannelAiAgentAssignment } from "@/hooks/use-set-channel-ai-agent-assignment";
 import { type ChannelAccount } from "@/lib/messaging-api";
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -216,10 +221,13 @@ function ChannelItem({
   workspaceId: string;
 }) {
   const { mutate: disconnect, isPending: isDisconnecting } =
+    useDisconnectChannelAccount(workspaceId);
+  const { mutate: deleteChannel, isPending: isDeleting } =
     useDeleteChannelAccount(workspaceId);
   const { mutate: reconnect, isPending: isReconnecting } =
     useReconnectChannelAccount(workspaceId);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -277,7 +285,7 @@ function ChannelItem({
 
             {channel.status === "ACTIVE" ? (
               <button
-                onClick={() => setShowConfirm(true)}
+                onClick={() => setShowDisconnectConfirm(true)}
                 className="text-xs font-medium text-neutral-400 transition-colors hover:text-red-text"
               >
                 Disconnect
@@ -291,8 +299,20 @@ function ChannelItem({
                 Reconnect
               </LoadingButton>
             )}
+
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-xs font-medium text-neutral-400 transition-colors hover:text-red-text"
+            >
+              Delete
+            </button>
           </div>
         </div>
+
+        <AiAgentAssignmentRow
+          workspaceId={workspaceId}
+          channelAccountId={channel.id}
+        />
 
         {webhookUrl && (
           <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
@@ -322,7 +342,7 @@ function ChannelItem({
         )}
       </li>
 
-      {showConfirm && (
+      {showDisconnectConfirm && (
         <ConfirmModal
           title="Disconnect channel?"
           description="New messages will stop coming in. Your existing conversations and history are preserved. You can reconnect at any time."
@@ -331,12 +351,72 @@ function ChannelItem({
           isPending={isDisconnecting}
           onConfirm={() =>
             disconnect(channel.id, {
-              onSettled: () => setShowConfirm(false),
+              onSettled: () => setShowDisconnectConfirm(false),
             })
           }
-          onCancel={() => setShowConfirm(false)}
+          onCancel={() => setShowDisconnectConfirm(false)}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete channel?"
+          description="This permanently removes the channel connection. Existing conversations and message history are preserved, but this can't be undone — to use it again, you'll need to reconnect it as a new channel."
+          confirmLabel="Delete"
+          destructive
+          isPending={isDeleting}
+          onConfirm={() =>
+            deleteChannel(channel.id, {
+              onSettled: () => setShowDeleteConfirm(false),
+            })
+          }
+          onCancel={() => setShowDeleteConfirm(false)}
         />
       )}
     </>
+  );
+}
+
+function AiAgentAssignmentRow({
+  workspaceId,
+  channelAccountId,
+}: {
+  workspaceId: string;
+  channelAccountId: string;
+}) {
+  const { data: configurations = [] } = useAiAgentConfigurations(workspaceId);
+  const { data: assignment, isLoading } = useChannelAiAgentAssignment(
+    workspaceId,
+    channelAccountId
+  );
+  const setAssignment = useSetChannelAiAgentAssignment(
+    workspaceId,
+    channelAccountId
+  );
+
+  if (configurations.length === 0 || isLoading) {
+    return null;
+  }
+
+  const defaultName =
+    configurations.find((c) => c.isDefault)?.name || "AI Agent";
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+      <span className="text-xs font-medium text-neutral-600">AI Agent</span>
+
+      <div className="w-48">
+        <Select
+          value={assignment?.configurationId ?? ""}
+          onChange={(value) => setAssignment.mutate(value || null)}
+          options={[
+            { value: "", label: `Workspace Default (${defaultName})` },
+            ...configurations
+              .filter((c) => !c.isDefault)
+              .map((c) => ({ value: c.id, label: c.name || "AI Agent" })),
+          ]}
+        />
+      </div>
+    </div>
   );
 }

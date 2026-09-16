@@ -34,25 +34,6 @@ export function IntegrationsPanel({
 
       {canManageApiKeys && (
         <section className="mb-10">
-          <div className="mb-4 flex items-center gap-2">
-            <span
-              className="material-symbols-rounded text-[20px] leading-none text-neutral-500"
-              aria-hidden="true"
-            >
-              key
-            </span>
-            <h2 className="text-base font-semibold text-primary">API Keys</h2>
-          </div>
-
-          <p className="mb-4 text-sm text-neutral-500">
-            API keys allow external systems to send messages via the public API.
-            Keys authenticate with the{" "}
-            <code className="rounded bg-neutral-100 px-1 text-[11px]">
-              X-Api-Key
-            </code>{" "}
-            header.
-          </p>
-
           <ApiKeysList workspaceId={workspaceId} />
         </section>
       )}
@@ -140,6 +121,41 @@ function ApiKeysList({ workspaceId }: ApiKeysListProps) {
 
   return (
     <>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className="material-symbols-rounded text-[20px] leading-none text-neutral-500"
+            aria-hidden="true"
+          >
+            key
+          </span>
+          <h2 className="text-base font-semibold text-primary">API Keys</h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:border-secondary hover:bg-secondary/10 hover:text-secondary"
+        >
+          <span
+            className="material-symbols-rounded text-[14px] leading-none"
+            aria-hidden="true"
+          >
+            add
+          </span>
+          New key
+        </button>
+      </div>
+
+      <p className="mb-4 text-sm text-neutral-500">
+        API keys allow external systems to send messages via the public API.
+        Keys authenticate with the{" "}
+        <code className="rounded bg-neutral-100 px-1 text-[11px]">
+          X-Api-Key
+        </code>{" "}
+        header.
+      </p>
+
       {activeKeys.length === 0 ? (
         <div className="mb-4 rounded-xl border border-dashed border-neutral-300 px-4 py-6 text-center">
           <p className="text-sm text-neutral-400">No API keys yet.</p>
@@ -155,17 +171,6 @@ function ApiKeysList({ workspaceId }: ApiKeysListProps) {
           ))}
         </ul>
       )}
-
-      <button
-        type="button"
-        onClick={() => setShowCreateModal(true)}
-        className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100"
-      >
-        <span className="material-symbols-rounded text-[16px] leading-none">
-          add
-        </span>
-        New API key
-      </button>
 
       {(showCreateModal || createdKey) && (
         <CreateApiKeyModal

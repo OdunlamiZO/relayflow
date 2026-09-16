@@ -268,7 +268,9 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`AiAgentInvocationLog`](#aiagentinvocationlog)
   - [`ConversationAiDraft`](#conversationaidraft)
   - [`AiAgentConfigurationService`](#aiagentconfigurationservice)
-  - [`AiAgentConfigurationController`](#aiagentconfigurationcontroller)
+  - [`AiAgentConfigurationsController`](#aiagentconfigurationscontroller)
+  - [`AiAgentConfigurationDetailController`](#aiagentconfigurationdetailcontroller)
+  - [`ChannelAiAgentConfigurationController`](#channelaiagentconfigurationcontroller)
   - [`ConversationAiDraftController`](#conversationaidraftcontroller)
   - [`AiAgentInvocationSlotClaimer`](#aiagentinvocationslotclaimer)
   - [`AiAgentInvocationService`](#aiagentinvocationservice)
@@ -870,7 +872,9 @@ HTTP controller for channel account routes.
 
 Important methods:
 
-- `listChannelAccounts`, `createChannelAccount`, `disconnectChannelAccount`, `reconnectChannelAccount`
+- `listChannelAccounts`, `createChannelAccount`, `reconnectChannelAccount` — require `CHANNELS_WRITE`.
+- `disconnectChannelAccount` (`POST /{id}/disconnect`) — reversible, requires `CHANNELS_WRITE`.
+- `deleteChannelAccount` (`DELETE /{id}`) — permanent, requires `CHANNELS_DELETE` (which itself requires `CHANNELS_WRITE` — see `WorkspacePermission.validateDependencies`).
 
 We need it as the REST boundary for channel connection management.
 
@@ -881,7 +885,8 @@ Business service for channel account persistence.
 Important methods:
 
 - `createChannelAccount`: persists encrypted channel credentials and registers Telegram webhook.
-- `disconnectChannelAccount` / `reconnectChannelAccount`: toggles channel availability without deleting history.
+- `disconnectChannelAccount` / `reconnectChannelAccount`: toggles `ChannelAccountStatus` between `ACTIVE`/`DISABLED` without deleting anything; inbound/outbound message flow is gated on `ACTIVE`.
+- `deleteChannelAccount`: calls `channelAccountRepository.delete(channelAccount)`, which Hibernate turns into a soft delete (see `ChannelAccount`'s `@SQLDelete`/`@SQLRestriction`) rather than an actual row delete — conversations and messages tied to the channel are preserved, the channel just disappears from every query and can't be reconnected.
 - `getChannelAccount`: looks up a channel account within a workspace or throws `ResourceNotFoundException`. Called by `ContactService` (creating an external identity) and `MessagingService` (creating a conversation).
 
 We need it because channel account provisioning has credential-encryption and webhook-registration rules that should not live in a controller.
@@ -896,15 +901,16 @@ We need it to isolate the API response shape from the persistence entity shape.
 
 ### `ChannelAccount`
 
-JPA entity representing a connected channel, currently Telegram.
+JPA entity for a connected channel. `@SQLDelete`/`@SQLRestriction` make every `repository.delete(...)` call a soft delete (`deleted_at = NOW()`) and every query exclude soft-deleted rows automatically — callers never need to filter `deletedAt` themselves.
 
 Important fields:
 
 - `workspace`: owner workspace.
 - `provider`: channel provider.
 - `name`: display name.
-- `status`: active or disabled.
+- `status`: `ACTIVE` or `DISABLED` — independent of `deletedAt`; disconnect/reconnect toggle this, delete sets `deletedAt`.
 - `encryptedCredentials`: encrypted bot token or provider credentials.
+- `aiAgentConfiguration`: nullable `ManyToOne` to `AiAgentConfiguration` — this channel's explicit AI agent assignment; null means it uses whichever config is currently the workspace default (see [AI Agent Backend](#ai-agent-backend)).
 - `metadata`: provider-specific data.
 
 We need it to route inbound/outbound messages through the correct adapter.
@@ -958,7 +964,7 @@ Business service for contact and external identity persistence.
 Important methods:
 
 - `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
-- `updateContactCustomFields`: replaces `Contact.customFields`, then returns `getContactDetail`.
+- `updateContactCustomFields`: replaces `Contact.customFields`, calls `ContactDisplayNameSync.apply(contact)` (so manually editing `firstName`/`lastName` keeps `displayName` in sync, the same as the AI extraction and workflow Set Contact Field paths), then returns `getContactDetail`.
 - `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
 - `createExternalIdentity`
 - `getContact`: looks up a contact within a workspace or throws `ResourceNotFoundException`. Called by `MessagingService` when creating a conversation.
@@ -981,7 +987,7 @@ We need it so reserved fields are auto-filled wherever RelayFlow can already der
 
 ### `ContactDisplayNameSync`
 
-`apply(contact)` sets `Contact.displayName` to `"firstName lastName"` (trimmed) whenever either is present in `customFields`, leaving `displayName` untouched otherwise. Called by `ContactCustomFieldWriter` (after an AI extraction writes firstName/lastName) and `SetContactFieldNodeExecutor` (after a workflow's Set Contact Field node writes either).
+`apply(contact)` sets `Contact.displayName` to `"firstName lastName"` (trimmed) whenever either is present in `customFields`, leaving `displayName` untouched otherwise. Called by all three writers of `Contact.customFields`: `ContactCustomFieldWriter` (AI extraction), `SetContactFieldNodeExecutor` (a workflow's Set Contact Field node), and `ContactService.updateContactCustomFields` (a human manually editing a contact's fields).
 
 We need it because `displayName` is otherwise whatever the channel reported at contact-creation time — Telegram already concatenates firstName/lastName itself (`TelegramAdapter.buildDisplayName`), but WhatsApp's `displayName` is the contact's own freeform profile name (e.g. a nickname or emoji), which stays stuck on that value forever unless something reconciles it once a real name is collected.
 
@@ -1174,12 +1180,15 @@ We need it so third-party systems can inspect conversations and send outbound re
 
 ### `WebhookService`
 
-Creates, updates, deletes, retrieves, and rotates workspace webhook configuration, in `com.relayflow.api.webhook`.
+Creates, lists, updates, deletes, and rotates a workspace's webhooks, in `com.relayflow.api.webhook`. A workspace can have any number of webhooks, each its own row (`WorkspaceWebhook`) with its own URL, enabled state, and event subscriptions.
 
-Important behavior:
+Important methods:
 
-- the signing secret is never client-supplied. Creating a webhook auto-generates one, returned once as `generatedSecret` on that response only.
-- `saveWebhook` never touches the secret, on create or update — changing it is only possible through `rotateSecret`.
+- `listWebhooks(workspaceId)`: every webhook for the workspace.
+- `createWebhook(workspaceId, request)`: validates the URL (`WebhookUrlValidator`, SSRF protection), auto-generates a signing secret, persists, returns the config with `generatedSecret` populated (the only response that ever includes it).
+- `updateWebhook(workspaceId, webhookId, request)`: updates URL/enabled/events; never touches the secret.
+- `deleteWebhook(workspaceId, webhookId)`.
+- `rotateSecret(workspaceId, webhookId)`: generates and persists a new secret, returns the plaintext value once.
 
 We need it to centralize webhook URL, encrypted secret, enabled state, and subscribed events.
 
@@ -1198,14 +1207,15 @@ We need it to notify external systems when RelayFlow creates important records.
 
 ### `WebhookController`
 
-REST controller for workspace webhook configuration.
+REST controller at `/workspaces/{workspaceId}/webhooks` for a workspace's webhooks. All endpoints require `WEBHOOKS_WRITE` permission or owner role, including the list read — webhook URLs are treated as sensitive, unlike most other list endpoints.
 
 Endpoints:
 
-- `getWebhook`
-- `saveWebhook`
-- `deleteWebhook`
-- `rotateSecret`
+- `GET` — `listWebhooks`
+- `POST` — `createWebhook`
+- `PUT /{webhookId}` — `updateWebhook`
+- `DELETE /{webhookId}` — `deleteWebhook`
+- `POST /{webhookId}/rotate-secret` — `rotateSecret`
 
 We need it so authorized users can manage outbound integration webhooks.
 
@@ -1221,10 +1231,11 @@ We need them so invite/verification/reset delivery can be swapped or disabled wi
 
 ### `WorkspaceWebhook`
 
-JPA entity for a workspace's outbound webhook configuration, in `com.relayflow.api.webhook.domain`.
+JPA entity for one of a workspace's outbound webhooks, in `com.relayflow.api.webhook.domain`. A workspace can own any number of rows — `id` is its own primary key, `workspaceId` just scopes it (no longer a one-row-per-workspace unique constraint).
 
 Important fields:
 
+- `id`
 - `workspaceId`
 - `url`
 - `secret`
@@ -2077,7 +2088,7 @@ Important helpers:
 - `formatDate`
 - `contactInitial`
 - `ActionMenu`
-- `ContactRow`
+- `ContactRow`: the Channels column shows each identity's provider badge (e.g. "Telegram") only — not the specific channel account name, since the list narrows to `md:w-80`/`lg:w-96` whenever the detail panel is open and there's no room for a longer label there. The channel account name (`useChannelAccounts`, matched via `identity.channelAccountId`) is still surfaced as a `title` hover tooltip on the badge at no layout cost; the full breakdown lives in `ContactDetailPanel`, which has room for it.
 
 We need it for browsing, selecting, deleting, and merging contacts.
 
@@ -2090,7 +2101,8 @@ Important helpers/constants:
 - `CHANNEL_META`
 - `formatDateFull`
 - `contactInitial`
-- `ContactCustomFieldsSection`: lists reserved fields (`RESERVED_CONTACT_FIELD_KEYS`) and the workspace's defined `contactFieldDefinitions` together as one field list. Always viewable; editable only when the current member has `CONTACT_FIELDS_WRITE` (or is owner) — a member without it sees the same rows read-only, with "Not set" for an empty value, rather than the section being hidden. Keyed by `contact.id` on the parent so switching contacts remounts fresh local edit state instead of needing a sync effect.
+- Each connected-channel list item shows the specific `ChannelAccount`'s name (`useChannelAccounts`, matched via `identity.channelAccountId`) above the `@username`/`ID:` lines, alongside the provider badge — this is what actually differentiates two channel accounts of the same provider (e.g. two separate Telegram bots), which the provider badge alone can't.
+- `ContactCustomFieldsSection`: lists reserved fields (`RESERVED_CONTACT_FIELD_KEYS`) and the workspace's defined `contactFieldDefinitions` together as one field list. Always viewable; editable only when the current member has `CONTACT_FIELDS_WRITE` (or is owner) — a member without it sees the same rows read-only, with "Not set" for an empty value, rather than the section being hidden. Keyed by `contact.id` on the parent so switching contacts remounts fresh local edit state instead of needing a sync effect. Its Save button is right-aligned.
 
 We need it to show linked channel identities and jump to the contact's inbox conversations.
 
@@ -2155,16 +2167,17 @@ We need it to create a stable place for general, channel, member, invite, AI age
 
 ### `ChannelsList`
 
-Lists connected channel accounts and provides the connect/disconnect/reconnect UI.
+Lists connected channel accounts and provides the connect/disconnect/delete/reconnect UI, plus each channel's AI agent assignment.
 
 Important constants:
 
 - `PROVIDER_LABEL`: provider display names.
 - `PROVIDER_ICON`: provider icon names.
 
-Important helper:
+Important helpers:
 
-- `ChannelItem`: renders one channel, its provider-specific webhook URL with a `CopyButton` when active, and a disconnect/reconnect confirmation.
+- `ChannelItem`: renders one channel, its provider-specific webhook URL with a `CopyButton` when active, and separate Disconnect/Delete actions, each with its own `ConfirmModal`. Disconnect (`useDisconnectChannelAccount`) is reversible via Reconnect; Delete (`useDeleteChannelAccount`) is permanent.
+- `AiAgentAssignmentRow`: a `Select` dropdown per channel to assign one of the workspace's named AI agent configs (`useAiAgentConfigurations`), or leave it unassigned ("Workspace Default (‹name›)") to always follow whichever config is currently flagged default. Reads/writes via `useChannelAiAgentAssignment`/`useSetChannelAiAgentAssignment`.
 - `ProviderButton`: selects Telegram or WhatsApp connection flow.
 
 We need it because channel setup should live in workspace settings rather than the inbox conversation list.
@@ -2209,12 +2222,14 @@ We need it to make one-time secret handling explicit in the UI.
 
 ### `WebhookConfigPanel`
 
-Settings form for webhook URL, enabled state, subscribed events, secret rotation, and deletion.
+Settings panel for a workspace's webhooks (`useWebhooks` — any number of them), tab-structured the same way as `AiAgentPanel`: a row of `WebhookTab`s (one per webhook, labeled by URL hostname with an enabled/disabled dot, truncated at `max-w-[9rem]` since hostnames can run long) plus a dashed "New webhook" tab. Selecting a tab shows that webhook's form below.
 
 Important behavior:
 
-- Save button always reads "Save" (not "Create webhook" vs "Save changes"), and is disabled whenever the form's `url`/`enabled`/`events` match the currently-saved webhook (or the defaults, for a not-yet-created one) — same `isUnchanged`-gates-the-submit-button pattern as `AiAgentPanel`.
-- Renders `WebhookSecretModal` (lifted `revealedSecret` state) to show a newly-generated or newly-rotated secret — the one place a plaintext secret is ever shown, and only once.
+- `WebhookForm` renders the selected webhook's fields (create form when `webhook` is `null`, edit form otherwise) — URL, enabled toggle, subscribed events, secret rotation, and deletion. It's remounted via a `key` on the tab/create identity, so its local form state is always fresh when switching tabs, not stale from the previously selected webhook.
+- Cancel (in the new-webhook form) only renders when `onCancel` is passed — omitted when the workspace has zero webhooks yet, since there's nothing to cancel back to.
+- Save button always reads "Save" (not "Create webhook" vs "Save changes"), and is disabled whenever the form's `url`/`enabled`/`events` match the currently-saved webhook (or the defaults, for a not-yet-created one) — same `isUnchanged`-gates-the-submit-button pattern as `AiAgentPanel`. A new webhook defaults `enabled` to `false`, not `true` — creating one shouldn't start delivering events until the owner explicitly turns it on.
+- `revealedSecret` is lifted to the parent panel (not owned by `WebhookForm`) since a form remounts on tab switch/create/delete, which would otherwise wipe it. Renders `WebhookSecretModal` to show a newly-generated or newly-rotated secret — the one place a plaintext secret is ever shown, and only once.
 
 We need it to configure outbound workspace webhooks safely.
 
@@ -2273,7 +2288,7 @@ Important helpers:
 - `Field`: reusable label/action wrapper.
 - `ConditionValueField`, `HeaderRow`: smaller controlled field components with their own refs.
 - `writableContactFieldOptions`: `SelectOption[]` combining `RESERVED_CONTACT_FIELD_KEYS` and the workspace's `contactFieldDefinitions` — the dropdown source for `SetContactFieldForm`'s field picker. `contactFieldVariables` (the `contact.data.<key>` entries offered by the `{{…}}` variable picker for *reading*) covers the same reserved-plus-workspace-defined set, so a field that's writable is also readable via the picker.
-- `extractionFieldVariables`: `agent.data.<key>` picker entries built from the AI Agent config's `extractionFields`, excluding any key that's also a reserved contact field or workspace `ContactFieldDefinition` — that data is already reachable via `contact.data.<key>`, so offering both would just be a confusing duplicate for the common case where every extraction field is a contact field (e.g. `firstName`, `phone`).
+- `extractionFieldVariables`: `agent.data.<key>` picker entries built from the workspace's default AI Agent config's `extractionFields` (`useAiAgentConfigurations().find(c => c.isDefault)`, not any config a channel is specifically assigned to), excluding any key that's also a reserved contact field or workspace `ContactFieldDefinition` — that data is already reachable via `contact.data.<key>`, so offering both would just be a confusing duplicate for the common case where every extraction field is a contact field (e.g. `firstName`, `phone`). An extraction field defined only on a non-default config doesn't appear here.
 
 Important constants:
 
@@ -2316,7 +2331,7 @@ Dropdown for inserting variables into text fields.
 Important values/components:
 
 - `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow"`.
-- `BUILT_IN_VARIABLES`: `contact.id`, `contact.name`, `contact.username`, `contact.message` (group `"contact"`); `conversation.channel` (group `"conversation"`); `agent.reply`, `agent.confidence` (group `"ai"`). `conversation.id` and `workspace.id` are populated at runtime (`WorkflowEngineService`) but deliberately excluded from this list — internal IDs not meant for the common case. `contact.id` used to be excluded for the same reason, but was added back since it has a real, common use (e.g. referencing the contact by RelayFlow's own ID in an HTTP Request header/body to an external system).
+- `BUILT_IN_VARIABLES`: `contact.id`, `contact.name`, `contact.username`, `contact.message` (group `"contact"`); `conversation.channel` (group `"conversation"`); `agent.reply`, `agent.confidence` (group `"ai"`). `conversation.id` and `workspace.id` are populated at runtime (`WorkflowEngineService`) but deliberately excluded from this list — internal IDs not meant for the common case. `contact.id` is included despite being an internal ID too, since it has a real, common use: referencing the contact by RelayFlow's own ID in an HTTP Request header/body to an external system.
 - `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, then From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs) — instead of one flat "Built-in" bucket.
 - `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter).
 
@@ -2508,8 +2523,10 @@ We need them for workspace-first navigation.
 - `useChannelAccounts`: fetches connected channels.
 - `useConnectTelegram`: connects a Telegram bot token.
 - `useConnectWhatsApp`: connects WhatsApp Business Cloud API credentials.
-- `useDeleteChannelAccount`: disconnects a channel.
+- `useDisconnectChannelAccount`: reversible — sets a channel to `DISABLED`.
+- `useDeleteChannelAccount`: permanently deletes a channel.
 - `useReconnectChannelAccount`: re-enables a disabled channel.
+- `useChannelAiAgentAssignment` / `useSetChannelAiAgentAssignment`: read/write which named AI agent config a channel is assigned to (`null` means it follows the workspace default).
 
 We need them for settings/channel management.
 
@@ -2540,8 +2557,11 @@ We need them for real-time inbox state.
 
 ### AI Agent Hooks
 
-- `useAiAgentConfig(workspaceId)`: fetches workspace AI agent config; query key `["ai-agent-config", workspaceId]`.
-- `useUpdateAiAgentConfig(workspaceId)`: mutation that PUTs config and updates the cached config via `setQueryData` on success.
+- `useAiAgentConfigurations(workspaceId)`: fetches every named AI agent config in the workspace; query key `["ai-agent-configurations", workspaceId]`.
+- `useCreateAiAgentConfiguration(workspaceId)`: creates a new named config.
+- `useUpdateAiAgentConfiguration(workspaceId, configurationId)`: PUTs a config and updates the cache via `setQueryData` on success.
+- `useDeleteAiAgentConfiguration(workspaceId)`: deletes a config.
+- `useSetDefaultAiAgentConfiguration(workspaceId)`: flags a config as the workspace's default.
 - `useConversationAiDraft(workspaceId, conversationId)`: fetches the active AI draft; `retry: false`; enabled only when both IDs are truthy.
 - `useSendAiDraft(workspaceId, conversationId)`: mutation function takes an optional `text` — POSTs to `/ai-draft/send` with `{ text }` when provided (sends a human-edited version of the draft), or no body otherwise (sends the draft's own `proposedReply`); invalidates draft, messages, and conversations on success.
 - `useDiscardAiDraft(workspaceId, conversationId)`: DELETEs the draft; invalidates the draft query.
@@ -2563,10 +2583,10 @@ We need them to keep workflow builder API access outside UI components.
 - `useApiKeys`: fetches workspace API keys.
 - `useCreateApiKey`: creates a key and exposes the one-time plaintext secret.
 - `useRevokeApiKey`: revokes a key.
-- `useWorkspaceWebhook`: fetches webhook configuration.
-- `useSaveWebhook`: creates/updates webhook configuration.
-- `useDeleteWebhook`: deletes webhook configuration.
-- `useRotateWebhookSecret`: rotates the signing secret and exposes the one-time plaintext value.
+- `useWebhooks`: fetches every webhook configured for the workspace.
+- `useCreateWebhook` / `useUpdateWebhook`: create or update one webhook.
+- `useDeleteWebhook`: deletes one webhook.
+- `useRotateWebhookSecret`: rotates one webhook's signing secret and exposes the one-time plaintext value.
 
 We need them for API key and webhook settings without embedding fetch logic in components.
 
@@ -2790,21 +2810,23 @@ We need them to keep local development, linting, tests, and builds predictable.
 
 ### `AiAgentConfiguration`
 
-JPA entity mapped to `ai_agent_configs`. One row per workspace (unique constraint enforced at DB level).
+JPA entity mapped to `ai_agent_configs`. A workspace can have any number of named, reusable agent configs; exactly one is flagged as the workspace's default at a time (`is_default`, enforced by the partial unique index `uq_ai_agent_config_default` on `(workspace_id) WHERE is_default IS TRUE`). A `ChannelAccount` optionally references one via its own nullable `ai_agent_configuration_id` FK — the entity itself has no back-reference to any channel, since the relationship is now channel-owns-the-pointer rather than one-config-per-channel.
 
 Important fields:
 
 - `workspace`
 - `name`: display name shown in the AI Agent settings panel (default `"AI Agent"`).
+- `defaultConfig`: maps to `is_default` — whether this is the workspace's default config, used by any channel with no explicit assignment. (Named `defaultConfig`, not `isDefault`, to sidestep a Lombok boolean-getter naming quirk with an `is`-prefixed field.)
 - `enabled`
 - `autonomyCeiling`: `DRAFT_ONLY` or `AUTO_SEND`
+- `llmProvider`: nullable `LlmProvider` — which LLM this agent calls. Null means it follows the platform's active provider (`LlmPlatformConfigService`); set means it always uses that provider regardless of the platform default. The model for a provider is still admin-controlled platform-wide (see [LLM Abstraction](#llm-abstraction)) — an agent picks a provider, not a model.
 - `instructions`: free-text system prompt for the LLM
 - `knowledgeBase`: `List<KnowledgeEntry>` stored as JSONB — Q&A pairs injected into the system prompt
 - `escalationKeywords`: `List<String>` JSONB — deterministic pre-LLM keyword check
 - `workflowMappings`: `List<WorkflowMapping>` JSONB — maps workflow IDs to trigger descriptions shown to the LLM
 - `extractionFields`: `List<ExtractionField>` JSONB (key + description) — fields the LLM is prompted to pull from the conversation; only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence (see `AgentWorkflowContext` and `ContactCustomFieldWriter`)
 
-We need it to give each workspace a customizable agent persona and routing configuration.
+We need it to let a workspace define multiple agent personas (e.g. a sales agent and a support agent) and assign each channel to the one it should use, without duplicating shared identity/routing fields onto the channel itself.
 
 ### `AiAgentInvocationLog`
 
@@ -2842,8 +2864,13 @@ Business service for AI agent configuration CRUD and draft actions.
 
 Important methods:
 
-- `getOrCreateConfig(workspaceId)`: fetches or creates a default disabled config.
-- `updateConfig(workspaceId, request)`: applies partial updates.
+- `listConfigurations(workspaceId)`: every named config in the workspace.
+- `createConfiguration(workspaceId, request)`: creates a new named config; the workspace's first-ever config is automatically flagged as the default.
+- `updateConfiguration(workspaceId, configurationId, request)`: applies partial updates to one config.
+- `deleteConfiguration(workspaceId, configurationId)`: deletes a config. If it was the workspace's default, another remaining config (the first one found) is automatically promoted to default — a workspace with any configs at all always has exactly one default.
+- `setDefaultConfiguration(workspaceId, configurationId)`: clears the workspace's current default (`AiAgentConfigurationRepository.clearDefault`) and flags this one instead.
+- `getChannelAssignment(workspaceId, channelAccountId)` / `assignConfigurationToChannel(workspaceId, channelAccountId, configurationId)`: read/write a channel's `aiAgentConfiguration` FK directly; `configurationId: null` clears the assignment, reverting the channel to the workspace default.
+- `resolveEnabledConfiguration(workspaceId, channelAccountId)` (package-private, used by the invocation pipeline): the channel's own assignment if present and enabled — an explicit assignment is authoritative and does **not** fall back to the default even if it's disabled — otherwise the workspace's enabled default. Returns empty if neither applies, meaning the agent doesn't run for this conversation.
 - `getDraft(workspaceId, conversationId)`: returns the active draft for a conversation.
 - `sendDraft(workspaceId, conversationId, editedReply)`: sends `editedReply` if non-blank, otherwise the draft's `proposedReply`, as an outbound `SYSTEM` message via `MessagingService`, then deletes the draft. Always `SYSTEM`, never `AGENT` — even a human-edited reply must not auto-assign the conversation to whoever clicked send or release the AI agent's lock on it (`MessagingService.createMessage`'s auto-assign/unlock logic only fires for `AGENT`-sent messages, so editing a draft's wording is fine-tuning the AI's output, not a human taking over).
 - `discardDraft(workspaceId, conversationId)`: deletes the draft without sending.
@@ -2851,12 +2878,27 @@ Important methods:
 
 We need it to keep controller code thin.
 
-### `AiAgentConfigurationController`
+### `AiAgentConfigurationsController`
 
-REST controller at `/workspaces/{workspaceId}/ai-agent-config`.
+REST controller at `/workspaces/{workspaceId}/ai-agent-configs`.
 
-- `GET`: any workspace member.
-- `PUT`: requires `AI_AGENT_WRITE` permission or owner role.
+- `GET`: any workspace member (`assertMember`) — lists every named config in the workspace.
+- `POST`: requires `AI_AGENT_WRITE` permission or owner role — creates a new config.
+
+### `AiAgentConfigurationDetailController`
+
+REST controller at `/workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — one config.
+
+- `PUT`: requires `AI_AGENT_WRITE`.
+- `DELETE`: requires `AI_AGENT_WRITE`.
+- `POST /set-default`: requires `AI_AGENT_WRITE` — flags this config as the workspace's default.
+
+### `ChannelAiAgentConfigurationController`
+
+REST controller at `/workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — one channel's assignment.
+
+- `GET`: any workspace member (`assertMember`) — `{ configurationId }`, null when the channel has no explicit assignment (it uses the workspace default).
+- `PUT`: requires `AI_AGENT_WRITE` permission or owner role — sets or clears (`configurationId: null`) the channel's assignment.
 
 ### `ConversationAiDraftController`
 
@@ -2887,12 +2929,12 @@ Important method: `invoke(staleConversation, triggeringMessage)`
 Flow:
 
 1. Re-fetch a fresh `Conversation` by ID; abort if it no longer exists.
-2. Load enabled `AiAgentConfiguration`; abort if absent.
+2. Resolve the enabled `AiAgentConfiguration` for the conversation's channel account (`AiAgentConfigurationService.resolveEnabledConfiguration`) — the channel's own explicit assignment if present and enabled (authoritative — no fallback even if disabled), otherwise the workspace's enabled default; abort if neither applies.
 3. Close any prior `CLARIFYING` log for this conversation (frees the unique slot).
 4. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
 5. Re-check for an active `WorkflowRun` committed in the race window since step 4.
-6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call the LLM.
-7. `contactCustomFieldWriter.apply(...)` runs unconditionally right after the LLM responds — before any branching below, including the draft path. Extraction is no longer deferred until a human approves a draft.
+6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call `llmClientFactory.getClient(configuration.getLlmProvider())` — the config's own provider if set, otherwise the platform's active provider (see [LLM Abstraction](#llm-abstraction)).
+7. `contactCustomFieldWriter.apply(...)` runs unconditionally right after the LLM responds, before any branching below — including the draft path.
 8. `mergeWithPendingDraft(conversation, response.extractedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
 9. `sanitizeSuggestedActions(response.suggestedActions(), configuration.getWorkflowMappings())` drops any `trigger_workflow:<id>` action whose `<id>` isn't in a configured `WorkflowMapping` — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging.
 10. Decision:
@@ -2907,7 +2949,7 @@ We need it to handle the full agent decision loop safely with an isolated slot-c
 
 Spring event listener with `@Async @TransactionalEventListener(phase = AFTER_COMMIT)`.
 
-Listens for `ConversationOpenedEvent` and `ConversationMessageReceivedEvent`. On each event, checks that the workspace has an enabled config and no active `WorkflowRun` before calling `AiAgentInvocationService.invoke()`.
+Listens for `ConversationOpenedEvent` and `ConversationMessageReceivedEvent`. On each event, checks that the conversation's channel account (or, absent an override, the workspace) has an enabled config, and that no `WorkflowRun` is active, before calling `AiAgentInvocationService.invoke()`.
 
 We need it to run the agent asynchronously after the inbound message transaction commits.
 
@@ -2919,13 +2961,13 @@ Important behavior:
 
 - Fetches the last 20 messages created at or after `conversation.sessionStartedAt` (newest-first), reverses to chronological order. This scopes history to the current session so prior closed-conversation messages never pollute the context.
 - Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from `workflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from `knowledgeBase`).
-- Appends a `<context>Contact: name | Channel: PROVIDER</context>` block to the last inbound message only — an XML-style tag rather than a bare `[...]` bracket specifically so `LlmPrompts`'s format instruction can tell the model this is internal metadata never to repeat verbatim in its reply; the bracket-only form was previously echoed by the LLM straight into a live customer-facing message. When `extractionFields` is configured, also appends `| Already known: key=value, ...` and `| Still missing: key, ...` inside the tag — the same effective-value precedence as `ContactService.getContactDetail` (explicitly-stored `Contact.customFields` over `ReservedContactFieldResolver`'s derived values), computed via an injected `ExternalIdentityRepository` and `ReservedContactFieldResolver`. Either segment is omitted if empty; with no extraction fields configured the block is just `<context>Contact: ... | Channel: ...</context>`. This steers the agent toward asking only for fields it doesn't already effectively know, instead of re-asking for information already on file.
+- Appends a `<context>Contact: name | Channel: PROVIDER</context>` block to the last inbound message only — an XML-style tag rather than a bare `[...]` bracket, so `LlmPrompts`'s format instruction can tell the model this is internal metadata it must never repeat verbatim in its reply. When `extractionFields` is configured, also appends `| Already known: key=value, ...` and `| Still missing: key, ...` inside the tag — the same effective-value precedence as `ContactService.getContactDetail` (explicitly-stored `Contact.customFields` over `ReservedContactFieldResolver`'s derived values), computed via an injected `ExternalIdentityRepository` and `ReservedContactFieldResolver`. Either segment is omitted if empty; with no extraction fields configured the block is just `<context>Contact: ... | Channel: ...</context>`. This steers the agent toward asking only for fields it doesn't already effectively know, instead of re-asking for information already on file.
 
 We need it to keep LLM prompt construction separate from the invocation pipeline, and to give the agent visibility into what it already knows about the contact so extraction feels like a conversation, not a form.
 
 ### `ContactCustomFieldWriter`
 
-`@Service` in the `agent` package. `apply(conversation, extractedData, extractionFields)` persists LLM-extracted data onto the contact's `customFields`. Called unconditionally and immediately after every LLM response — not deferred until a human approves a draft.
+`@Service` in the `agent` package. `apply(conversation, extractedData, extractionFields)` persists LLM-extracted data onto the contact's `customFields`. Called unconditionally, immediately after every LLM response.
 
 Important behavior:
 
@@ -2935,7 +2977,7 @@ Important behavior:
 - Gap-filling only within what it does write: never overwrites an already-stored non-blank value.
 - Calls `ContactDisplayNameSync.apply(contact)` after a change, so writing `firstName`/`lastName` keeps `displayName` in sync.
 
-Called unconditionally from `AiAgentInvocationService.runPipeline` right after the LLM responds, before any decision branching. No longer called from `AiAgentConfigurationService` (`sendDraft`/`triggerWorkflowFromDraft`) — extraction now happens at invocation time, not at human-approval time.
+Called unconditionally from `AiAgentInvocationService.runPipeline` right after the LLM responds, before any decision branching.
 
 We need it so AI-extracted data flows onto the contact record the moment the AI captures it — not gated behind a human approving a draft — without ever clobbering a value someone already explicitly set, and without polluting the contact with keys the workspace never asked the agent to extract.
 
@@ -3005,40 +3047,49 @@ Reads the active `LlmProvider` from Redis key `platform:llm:provider`. Falls bac
 
 #### `LlmClientFactory`
 
-Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getActiveClient()` resolves the provider at call-time so a Redis update takes effect immediately without restart.
+Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getClient(providerOverride)` returns the client for `providerOverride` when non-null (an `AiAgentConfiguration`'s own `llmProvider`), otherwise resolves `LlmPlatformConfigService.getActiveProvider()` — so a Redis update to the platform default takes effect immediately without restart, for any agent left on "Platform default". `getActiveClient()` is `getClient(null)`, kept as a convenience for always wanting the platform default.
 
 ### AI Agent DTO Records
 
-- `AiAgentConfigurationResponse`: full config including `name` and all JSONB fields.
-- `UpdateAiAgentConfigurationRequest`: partial update record; compact constructor normalizes null lists to empty.
+- `AiAgentConfigurationResponse`: full config including `isDefault`, `llmProvider`, `name`, and all JSONB fields. No `channelAccountId` — that relationship now lives on `ChannelAccount`, not the config.
+- `UpdateAiAgentConfigurationRequest`: partial update record (`name`, `enabled`, `autonomyCeiling`, `llmProvider`, `instructions`, and the JSONB list fields); compact constructor normalizes null lists to empty.
+- `SetChannelAiAgentConfigurationRequest`: `{ configurationId }` — body for `PUT .../ai-agent-config`; null clears the channel's assignment.
+- `ChannelAiAgentAssignmentResponse`: `{ configurationId }` — null means the channel has no explicit assignment.
 - `ConversationAiDraftResponse`: draft fields including `proposedReply`, `suggestedActions`, and `extractedData`.
 - `SendAiDraftRequest`: optional `{ text }` body for `POST /send` — when set, replaces the draft's `proposedReply` as the sent message text.
 
 ### AI Agent Repositories
 
-- `AiAgentConfigurationRepository`: `findByWorkspaceId`, `findByWorkspaceIdAndEnabledTrue`.
+- `AiAgentConfigurationRepository`: `findAllByWorkspaceId`, `findByIdAndWorkspaceId`, `findByWorkspaceIdAndDefaultConfigTrue`, `clearDefault(workspaceId)` (`@Modifying` — unsets `is_default` for every config in the workspace, called before flagging a new default), `deleteByWorkspaceId`.
 - `AiAgentInvocationLogRepository`: `findByConversationIdAndStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query).
 - `ConversationAiDraftRepository`: `findByConversationId`, `deleteByConversationId`.
+- A channel's own assignment is read directly off `ChannelAccount` via `ChannelAccountRepository.findAiAgentConfiguration(channelAccountId)`, not through `AiAgentConfigurationRepository`.
 
 ## AI Agent Frontend Components
 
 ### `AiAgentPanel`
 
-Settings panel under `#ai-agent` in `SettingsShell`.
+Settings panel under `#ai-agent` in `SettingsShell`. Manages a flat list of named, reusable AI agent configs for the workspace (`useAiAgentConfigurations`) — not scoped to any one channel; a channel's *assignment* to one of these configs is configured separately, in `ChannelsList`.
 
-Sections:
+A row of `AgentTab`s (one per config, showing a "Default" pill on the workspace's current default) sits above the form, plus a dashed "New agent" tab. Selecting a tab shows `ExistingAgentSection` for that config; selecting "New agent" (or having zero configs yet) shows `NewAgentSection`.
+
+- `NewAgentSection` renders `AiAgentForm` against a blank config (`blankConfiguration`) and calls `useCreateAiAgentConfiguration` on save.
+- `ExistingAgentSection` renders `AiAgentForm` against the selected config and calls `useUpdateAiAgentConfiguration`. Its `extraAction` slot holds "Set as default" (`useSetDefaultAiAgentConfiguration`, hidden once already default) and a "Delete" button with a `ConfirmModal` (`useDeleteAiAgentConfiguration`, hidden when it's the workspace's only config — `canDelete = configurations.length > 1`).
+
+Both sections render the shared `AiAgentForm`, whose sections are:
 
 - Enable toggle.
 - Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
+- LLM Provider: a `Select` among "Platform default" and the four `LlmProvider` values — which LLM this agent calls; the model per provider stays admin-controlled platform-wide, not chosen here.
 - Instructions textarea pre-filled with a skeleton template when empty.
 - Knowledge base: list of `{question, answer}` pairs.
 - Escalation keywords: tag-style list.
 - Workflow mappings: workflow dropdown + trigger description rows.
 - Data extraction: list of `{key, description}` extraction fields. Only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence — see `AgentWorkflowContext` and `ContactCustomFieldWriter`.
 
-Uses `useAiAgentConfig` and `useUpdateAiAgentConfig`. Follows the `GeneralPanel` save-button pattern.
+`AiAgentForm` takes `onSave`/`isSaving`/`extraAction` as props rather than owning a mutation itself, so the same form works for both creating a new config and updating an existing one. Follows the `GeneralPanel` save-button pattern (disabled until the form differs from the loaded config).
 
-We need it so workspace owners can configure the agent persona, routing, and escalation behavior.
+We need it so workspace owners can define multiple agent personas (e.g. a sales agent and a support agent), each with its own routing, escalation behavior, and LLM provider, then pick a default and assign specific channels to specific agents from `ChannelsList`.
 
 ### `AiDraftBanner`
 

@@ -6,14 +6,16 @@ import {
   messagingApi,
 } from "@/lib/messaging-api";
 
-export function useSaveWebhook(workspaceId: string) {
+export function useCreateWebhook(workspaceId: string) {
   const queryClient = useQueryClient();
 
   return useMutation<WebhookConfig, Error, SaveWebhookRequest>({
-    mutationFn: (request) => messagingApi.saveWebhook(workspaceId, request),
+    mutationFn: (request) => messagingApi.createWebhook(workspaceId, request),
 
-    onSuccess: (data) => {
-      queryClient.setQueryData(["workspace-webhook", workspaceId], data);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["webhooks", workspaceId],
+      });
     },
   });
 }
