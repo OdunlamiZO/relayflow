@@ -31,7 +31,7 @@ public class WorkspaceWebhook {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "workspace_id", nullable = false, unique = true, updatable = false)
+    @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
 
     @Column(name = "url", nullable = false, length = 2048)

@@ -10,7 +10,6 @@ import com.relayflow.api.agent.domain.WorkflowMapping;
 import com.relayflow.api.agent.llm.AgentLlmRequest;
 import com.relayflow.api.agent.llm.AgentLlmResponse;
 import com.relayflow.api.agent.llm.LlmClientFactory;
-import com.relayflow.api.agent.repository.AiAgentConfigurationRepository;
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.messaging.MessagingService;
@@ -49,7 +48,7 @@ public class AiAgentInvocationService {
 
     private static final String WORKFLOW_ACTION_PREFIX = "trigger_workflow:";
 
-    private final AiAgentConfigurationRepository configurationRepository;
+    private final AiAgentConfigurationService aiAgentConfigurationService;
 
     private final AiAgentInvocationLogRepository invocationLogRepository;
 
@@ -76,7 +75,7 @@ public class AiAgentInvocationService {
     private final ContactCustomFieldWriter contactCustomFieldWriter;
 
     public AiAgentInvocationService(
-            AiAgentConfigurationRepository configurationRepository,
+            AiAgentConfigurationService aiAgentConfigurationService,
             AiAgentInvocationLogRepository invocationLogRepository,
             ConversationAiDraftRepository draftRepository,
             WorkflowRunRepository workflowRunRepository,
@@ -89,7 +88,7 @@ public class AiAgentInvocationService {
             ApplicationEventPublisher eventPublisher,
             AiAgentInvocationSlotClaimer slotClaimer,
             ContactCustomFieldWriter contactCustomFieldWriter) {
-        this.configurationRepository = configurationRepository;
+        this.aiAgentConfigurationService = aiAgentConfigurationService;
         this.invocationLogRepository = invocationLogRepository;
         this.draftRepository = draftRepository;
         this.workflowRunRepository = workflowRunRepository;
@@ -116,9 +115,11 @@ public class AiAgentInvocationService {
         }
 
         UUID workspaceId = conversation.getWorkspace().getId();
+        UUID channelAccountId = conversation.getChannelAccount().getId();
 
         Optional<AiAgentConfiguration> agentConfigurationOptional =
-                configurationRepository.findByWorkspaceIdAndEnabledTrue(workspaceId);
+                aiAgentConfigurationService.resolveEnabledConfiguration(
+                        workspaceId, channelAccountId);
 
         if (agentConfigurationOptional.isEmpty()) {
             return;
@@ -216,7 +217,8 @@ public class AiAgentInvocationService {
 
         // Assemble context and call the LLM
         AgentLlmRequest request = contextAssembler.assemble(configuration, conversation);
-        AgentLlmResponse response = llmClientFactory.getActiveClient().complete(request);
+        AgentLlmResponse response =
+                llmClientFactory.getClient(configuration.getLlmProvider()).complete(request);
 
         invocationLog.setOutputSnapshot(
                 Map.of(

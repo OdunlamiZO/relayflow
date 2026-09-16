@@ -2,15 +2,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { messagingApi } from "@/lib/messaging-api";
 
-export function useDeleteWebhook(workspaceId: string, webhookId: string) {
+export function useSetDefaultAiAgentConfiguration(workspaceId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => messagingApi.deleteWebhook(workspaceId, webhookId),
+    mutationFn: (configurationId: string) =>
+      messagingApi.setDefaultAiAgentConfiguration(workspaceId, configurationId),
 
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ["webhooks", workspaceId],
+        queryKey: ["ai-agent-configurations", workspaceId],
       });
     },
   });

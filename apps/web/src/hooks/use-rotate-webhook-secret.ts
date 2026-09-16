@@ -5,8 +5,8 @@ import {
   messagingApi,
 } from "@/lib/messaging-api";
 
-export function useRotateWebhookSecret(workspaceId: string) {
+export function useRotateWebhookSecret(workspaceId: string, webhookId: string) {
   return useMutation<RotateWebhookSecretResponse, Error, void>({
-    mutationFn: () => messagingApi.rotateWebhookSecret(workspaceId),
+    mutationFn: () => messagingApi.rotateWebhookSecret(workspaceId, webhookId),
   });
 }

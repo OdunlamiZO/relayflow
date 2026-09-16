@@ -130,6 +130,23 @@ public class ChannelAccountService {
         return mapper.toDto(channelAccount);
     }
 
+    @Transactional
+    public void deleteChannelAccount(UUID id, UUID workspaceId) {
+        ChannelAccount channelAccount =
+                channelAccountRepository
+                        .findInWorkspace(id, workspaceId)
+                        .orElseThrow(
+                                () -> new ResourceNotFoundException("Channel account not found"));
+
+        channelAccountRepository.delete(channelAccount);
+
+        log.info(
+                "Channel account deleted: id={}, provider={}, workspace={}",
+                id,
+                channelAccount.getProvider(),
+                workspaceId);
+    }
+
     /** Looks up a channel account within a workspace, or throws if not found. */
     public ChannelAccount getChannelAccount(UUID channelAccountId, UUID workspaceId) {
         ChannelAccount channelAccount =

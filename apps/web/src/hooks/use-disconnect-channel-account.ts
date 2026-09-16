@@ -4,13 +4,13 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { errorMessage } from "@/lib/error-message";
 import { messagingApi } from "@/lib/messaging-api";
 
-export function useDeleteChannelAccount(workspaceId: string) {
+export function useDisconnectChannelAccount(workspaceId: string) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   return useMutation({
     mutationFn: (channelAccountId: string) =>
-      messagingApi.deleteChannelAccount(channelAccountId, workspaceId),
+      messagingApi.disconnectChannelAccount(channelAccountId, workspaceId),
     onError: (error) => {
       showToast({ kind: "error", message: errorMessage(error) });
     },
@@ -18,7 +18,7 @@ export function useDeleteChannelAccount(workspaceId: string) {
       void queryClient.invalidateQueries({
         queryKey: ["channel-accounts", workspaceId],
       });
-      showToast({ kind: "success", message: "Channel deleted." });
+      showToast({ kind: "success", message: "Channel disconnected." });
     },
   });
 }

@@ -35,7 +35,10 @@ public class ChannelAccountController {
     }
 
     @GetMapping("/channel-accounts")
-    List<ChannelAccountResponse> listChannelAccounts(@RequestParam @NotNull UUID workspaceId) {
+    List<ChannelAccountResponse> listChannelAccounts(
+            @RequestParam @NotNull UUID workspaceId, Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return channelAccountService.listChannelAccounts(workspaceId);
     }
 
@@ -50,16 +53,28 @@ public class ChannelAccountController {
         return channelAccountService.createChannelAccount(request);
     }
 
-    @DeleteMapping("/channel-accounts/{id}")
+    @PostMapping("/channel-accounts/{id}/disconnect")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void disconnectChannelAccount(
             @PathVariable UUID id,
             @RequestParam @NotNull UUID workspaceId,
             Authentication authentication) {
         authorizationService.assertPermission(
-                workspaceId, authentication, WorkspacePermission.CHANNELS_DELETE);
+                workspaceId, authentication, WorkspacePermission.CHANNELS_WRITE);
 
         channelAccountService.disconnectChannelAccount(id, workspaceId);
+    }
+
+    @DeleteMapping("/channel-accounts/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteChannelAccount(
+            @PathVariable UUID id,
+            @RequestParam @NotNull UUID workspaceId,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.CHANNELS_DELETE);
+
+        channelAccountService.deleteChannelAccount(id, workspaceId);
     }
 
     @PostMapping("/channel-accounts/{id}/reconnect")

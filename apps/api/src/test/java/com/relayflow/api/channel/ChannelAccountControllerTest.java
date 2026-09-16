@@ -97,11 +97,39 @@ class ChannelAccountControllerTest {
         UUID channelId = UUID.randomUUID();
 
         mockMvc.perform(
-                        delete("/channel-accounts/{id}", channelId)
+                        post("/channel-accounts/{id}/disconnect", channelId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isNoContent());
 
         verify(channelAccountService).disconnectChannelAccount(channelId, workspaceId);
+    }
+
+    @Test
+    void deleteChannelAccount() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        UUID channelId = UUID.randomUUID();
+
+        mockMvc.perform(
+                        delete("/channel-accounts/{id}", channelId)
+                                .param("workspaceId", workspaceId.toString()))
+                .andExpect(status().isNoContent());
+
+        verify(channelAccountService).deleteChannelAccount(channelId, workspaceId);
+    }
+
+    @Test
+    void deleteChannelAccountReturns404WhenNotFound() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        UUID channelId = UUID.randomUUID();
+        doThrow(new ResourceNotFoundException("Channel account not found"))
+                .when(channelAccountService)
+                .deleteChannelAccount(channelId, workspaceId);
+
+        mockMvc.perform(
+                        delete("/channel-accounts/{id}", channelId)
+                                .param("workspaceId", workspaceId.toString()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Channel account not found"));
     }
 
     @Test
@@ -135,7 +163,7 @@ class ChannelAccountControllerTest {
                 .disconnectChannelAccount(channelId, workspaceId);
 
         mockMvc.perform(
-                        delete("/channel-accounts/{id}", channelId)
+                        post("/channel-accounts/{id}/disconnect", channelId)
                                 .param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Channel account not found"));
