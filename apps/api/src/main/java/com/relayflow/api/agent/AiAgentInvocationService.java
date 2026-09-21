@@ -220,6 +220,14 @@ public class AiAgentInvocationService {
         AgentLlmResponse response =
                 llmClientFactory.getClient(configuration.getLlmProvider()).complete(request);
 
+        if (response.failed()) {
+            String reason = "LLM call failed";
+            finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
+            broadcastEscalation(conversation, reason);
+
+            return;
+        }
+
         invocationLog.setOutputSnapshot(
                 Map.of(
                         "reply", response.reply(),

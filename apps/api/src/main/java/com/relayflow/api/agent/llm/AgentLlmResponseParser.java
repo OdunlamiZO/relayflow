@@ -51,16 +51,21 @@ final class AgentLlmResponseParser {
                     suggestedActions,
                     escalate,
                     needsClarification,
-                    extractedData);
+                    extractedData,
+                    false);
         } catch (Exception e) {
 
-            return empty();
+            return failure();
         }
     }
 
-    static AgentLlmResponse empty() {
+    /**
+     * Used when the LLM call itself errored (network, auth, HTTP status) or its body couldn't be
+     * parsed — never a substitute for a normal, legitimately-empty response.
+     */
+    static AgentLlmResponse failure() {
 
-        return new AgentLlmResponse("", null, List.of(), false, false, Map.of());
+        return new AgentLlmResponse("", null, List.of(), false, false, Map.of(), true);
     }
 
     private AgentLlmResponseParser() {}

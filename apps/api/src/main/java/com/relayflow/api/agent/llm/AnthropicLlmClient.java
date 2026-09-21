@@ -85,7 +85,7 @@ public class AnthropicLlmClient implements LlmClient {
         } catch (Exception e) {
             log.warn("Anthropic LLM call failed: {}", e.getMessage());
 
-            return AgentLlmResponseParser.empty();
+            return AgentLlmResponseParser.failure();
         }
     }
 }
