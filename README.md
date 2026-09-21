@@ -172,6 +172,13 @@ There is no self-service "change password" form — a password only ever changes
 - `GET    /workspaces/{workspaceId}/api-keys`
 - `POST   /workspaces/{workspaceId}/api-keys`
 - `DELETE /workspaces/{workspaceId}/api-keys/{keyId}`
+- `GET    /workspaces/{workspaceId}/secrets` — list a workspace's named secrets (names only, never values)
+- `POST   /workspaces/{workspaceId}/secrets` — create a secret
+- `PUT    /workspaces/{workspaceId}/secrets/{secretId}` — replace a secret's value; the old value can't be recovered
+- `DELETE /workspaces/{workspaceId}/secrets/{secretId}`
+
+All secret endpoints require `SECRETS_WRITE` permission or owner role. Reference a secret in a workflow's HTTP Request node (URL, headers, or body) as `{{secrets.NAME}}` — the decrypted value is resolved only at request time and never appears in the workflow definition, a run log, or an API response.
+
 - `GET    /workspaces/{workspaceId}/webhooks` — list every webhook configured for the workspace
 - `POST   /workspaces/{workspaceId}/webhooks` — create a new webhook
 - `PUT    /workspaces/{workspaceId}/webhooks/{webhookId}` — update a webhook's URL, enabled state, or subscribed event types
@@ -217,6 +224,7 @@ The `GET` path handles Meta webhook verification using the channel account's sto
 - `PUT    /workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — update a config; requires `AI_AGENT_WRITE`
 - `DELETE /workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — requires `AI_AGENT_WRITE`. Deleting the current default promotes another remaining config to default, if any exist.
 - `POST   /workspaces/{workspaceId}/ai-agent-configs/{configurationId}/set-default` — mark this config as the workspace's default; requires `AI_AGENT_WRITE`
+- `GET    /workspaces/{workspaceId}/ai-agent-configs/platform-llm-provider` — the platform's currently active LLM provider (not scoped to this workspace — see [LLM provider](#llm-provider) below)
 - `GET    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — which config a channel is assigned to (`configurationId: null` means it uses the workspace default)
 - `PUT    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — assign a config to a channel, or `null` to revert it to the workspace default; requires `AI_AGENT_WRITE`
 - `GET    /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — get active AI draft for a conversation
@@ -245,10 +253,11 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Per-channel-account identities — external identities are scoped to a channel account/bot so the same Telegram user can appear in separate connected bots without collision.
 - [x] Conversation workflow lock — active workflows own the conversation and agent replies return `409 Conflict` until the workflow finishes, fails, or closes the conversation.
 - [x] Conversation assignment — conversations can be assigned to (or unassigned from) a workspace member via a dropdown in the message thread.
-- [x] Workspace member permissions — owners manage members, transfer ownership, grant granular access for inbox, contacts (including contact field schema/values), workflows, channels, API keys, and webhooks, and generate a password reset link for a member.
+- [x] Workspace member permissions — owners manage members, transfer ownership, grant granular access for inbox, contacts (including contact field schema/values), workflows, channels, API keys, secrets, and webhooks, and generate a password reset link for a member.
 - [x] Workspace invites — owners create/revoke expiring email invites; authenticated users can preview and accept matching invites.
 - [x] API keys and public API — workspace API keys can list conversations/messages and send outbound agent messages through `/public/v1`.
 - [x] Workspace webhooks — a workspace can configure any number of signed webhooks, each with its own URL and event subscriptions. Events currently emitted: `contact.created` and `contact.updated`, with retry/backoff delivery. SSRF protection rejects webhook URLs that resolve to loopback, link-local, private, multicast, or wildcard addresses, both when saving the URL and at delivery time.
+- [x] Workspace secrets — named, encrypted credentials a workflow's HTTP Request node can reference (in the URL, headers, or body) as `{{secrets.NAME}}`, without the value ever appearing in the workflow definition, a run log, or an API response. Write-only: a secret's value is never returned after creation, and an unresolvable reference fails the step rather than sending a blank credential.
 
 ### Authentication
 - [x] Instance bootstrap — the first account on a fresh instance is a one-time `POST /auth/bootstrap` call (guarded by `userRepository.count() == 0`) that creates the first admin and their workspace with no email round-trip. Every subsequent account requires a valid workspace invite token (`POST /auth/signup` takes `inviteToken`); there is no open public signup.
@@ -257,7 +266,7 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Password reset — no self-service "change password" form; a single-use, 1-hour link (`PasswordResetToken`) is requested from the profile page or generated by a workspace owner for a member, then consumed at `/reset-password/{token}` to set a new password.
 - [x] TOTP two-factor authentication — setup QR code, enable/disable, and 2FA login challenge.
 - [x] Split user model — identities, preferences, and MFA methods live outside the core `users` table.
-- [x] Credential encryption — bot tokens, MFA secrets, and webhook secrets are encrypted at rest with AES-256-GCM (`RELAYFLOW_ENCRYPTION_KEY`, required at startup).
+- [x] Credential encryption — bot tokens, MFA secrets, webhook secrets, and workspace secrets are encrypted at rest with AES-256-GCM (`RELAYFLOW_ENCRYPTION_KEY`, required at startup).
 - [x] Session cookie hardening — configurable cookie name, `HttpOnly`, `Secure`, `SameSite`, and idle timeout (`SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_SAME_SITE`, `SESSION_TIMEOUT`); logout expires the cookie with matching attributes.
 - [x] Swagger UI / OpenAPI docs are disabled unconditionally, with no env var to re-enable them — self-hosted clients only need the public API, documented separately in `apps/marketing`.
 - [x] Rate limiting — Redis-backed, fixed-window, returns `429` with a `Retry-After` header. Covers auth endpoints (`/auth/login`, `/login/2fa`, `/reset-password/{token}`, `/signup`, keyed by client IP), the public API (`/public/v1/**`, keyed by API key), and inbound webhooks (Telegram, WhatsApp, keyed by client IP). Configurable via `RATE_LIMIT_ENABLED`, `RATE_LIMIT_LOGIN_LIMIT`/`RATE_LIMIT_LOGIN_WINDOW_SECONDS`, `RATE_LIMIT_SIGNUP_LIMIT`/`RATE_LIMIT_SIGNUP_WINDOW_SECONDS`, `RATE_LIMIT_PUBLIC_API_LIMIT`/`RATE_LIMIT_PUBLIC_API_WINDOW_SECONDS`, and `RATE_LIMIT_WEBHOOK_LIMIT`/`RATE_LIMIT_WEBHOOK_WINDOW_SECONDS`.

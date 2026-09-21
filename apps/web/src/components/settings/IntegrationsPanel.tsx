@@ -10,25 +10,29 @@ import { useRevokeApiKey } from "@/hooks/use-revoke-api-key";
 import { type ApiKey, type CreateApiKeyResponse } from "@/lib/messaging-api";
 
 import { CreateApiKeyModal } from "./CreateApiKeyModal";
+import { SecretsPanel } from "./SecretsPanel";
 import { WebhookConfigPanel } from "./WebhookConfigPanel";
 
 type Props = {
   workspaceId: string;
   canManageApiKeys: boolean;
   canManageWebhook: boolean;
+  canManageSecrets: boolean;
 };
 
 export function IntegrationsPanel({
   workspaceId,
   canManageApiKeys,
   canManageWebhook,
+  canManageSecrets,
 }: Props) {
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 sm:px-8">
       <div className="mb-8">
         <h1 className="text-xl font-bold text-primary">Integrations</h1>
         <p className="mt-1.5 text-sm text-neutral-500">
-          Manage API keys for external access and configure webhook delivery.
+          Manage API keys for external access, workflow secrets, and webhook
+          delivery.
         </p>
       </div>
 
@@ -38,7 +42,17 @@ export function IntegrationsPanel({
         </section>
       )}
 
-      {canManageApiKeys && canManageWebhook && (
+      {canManageApiKeys && canManageSecrets && (
+        <hr className="mb-10 border-neutral-200" />
+      )}
+
+      {canManageSecrets && (
+        <section className="mb-10">
+          <SecretsPanel workspaceId={workspaceId} />
+        </section>
+      )}
+
+      {(canManageApiKeys || canManageSecrets) && canManageWebhook && (
         <hr className="mb-10 border-neutral-200" />
       )}
 

@@ -49,6 +49,8 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WorkspaceAuthorizationService`](#workspaceauthorizationservice)
   - [`ApiKeyService`](#apikeyservice)
   - [`ApiKeyController`](#apikeycontroller)
+  - [`SecretService`](#secretservice)
+  - [`SecretController`](#secretcontroller)
   - [`WorkspaceInviteService`](#workspaceinviteservice)
   - [`WorkspaceInviteController`](#workspaceinvitecontroller)
 - [Workspace Domain Entities And Enums](#workspace-domain-entities-and-enums)
@@ -59,6 +61,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WorkspacePermission`](#workspacepermission)
   - [`WorkspaceInvite`](#workspaceinvite)
   - [`WorkspaceApiKey`](#workspaceapikey)
+  - [`WorkspaceSecret`](#workspacesecret)
   - [`ReservedContactField`](#reservedcontactfield)
 - [Workspace DTO Records](#workspace-dto-records)
 - [Workspace Repositories](#workspace-repositories)
@@ -210,6 +213,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`ChannelsList`](#channelslist)
   - [`MembersList`](#memberslist)
   - [`IntegrationsPanel`](#integrationspanel)
+  - [`SecretsPanel`](#secretspanel)
   - [`GeneralPanel`](#generalpanel)
   - [`CreateApiKeyModal`](#createapikeymodal)
   - [`WebhookConfigPanel`](#webhookconfigpanel)
@@ -708,6 +712,24 @@ Endpoints:
 
 We need it to let authorized workspace users manage public API credentials.
 
+### `SecretService`
+
+Creates, lists, updates, and deletes named workspace secrets — encrypted values (e.g. a third-party API key) a workflow's HTTP Request node can reference as `{{secrets.NAME}}` without the plaintext ever appearing in the workflow definition or a run log.
+
+Important behaviors:
+
+- `listSecrets`/the API response never include the value — only `id`, `name`, `createdAt`, `updatedAt`.
+- `resolveDecrypted(workspaceId, name)` is `public` (not package-private) only because its sole caller, `HttpRequestNodeExecutor`, is in a different package. Never expose it via a controller, and never write its result to a variable, a run snapshot, or a log line.
+- create/update reject a duplicate `(workspaceId, name)` with `409 CONFLICT`.
+
+We need it so a workflow can call an authenticated external API without the credential living in plaintext anywhere a workspace member (or a run log) could read it back.
+
+### `SecretController`
+
+REST controller at `/workspaces/{workspaceId}/secrets`. All endpoints, including the list read, require `SECRETS_WRITE` — same Integrations-tier gating as API keys and webhooks.
+
+Endpoints: `GET` (`listSecrets`), `POST` (`createSecret`), `PUT /{secretId}` (`updateSecret` — replaces the value; the old one is not recoverable), `DELETE /{secretId}`.
+
 ### `WorkspaceInviteService`
 
 Creates, lists, revokes, previews, and accepts workspace invites.
@@ -793,6 +815,7 @@ Values:
 - `AI_AGENT_WRITE`
 - `API_KEYS_WRITE`
 - `WEBHOOKS_WRITE`
+- `SECRETS_WRITE`
 
 We need it to delegate specific capabilities without making every teammate an owner.
 
@@ -831,6 +854,20 @@ Important fields:
 
 We need it to authenticate external systems while storing no plaintext API key.
 
+### `WorkspaceSecret`
+
+JPA entity for one named, encrypted secret a workspace's workflows can reference.
+
+Important fields:
+
+- `workspaceId`
+- `name`: referenced in a workflow as `{{secrets.NAME}}`.
+- `encryptedValue`: AES-256-GCM via `CredentialEncryptionService`. Never returned by the API.
+
+Unique on `(workspaceId, name)`.
+
+We need it to let a workflow's HTTP Request node use a real credential without the plaintext ever being stored, returned by the API, or logged.
+
 ### `ReservedContactField`
 
 Enum: `DISPLAY_NAME` (`"displayName"`), `FIRST_NAME` (`"firstName"`), `LAST_NAME` (`"lastName"`), `PHONE` (`"phone"`), `EMAIL` (`"email"`), `COUNTRY` (`"country"`). Contact fields RelayFlow already derives automatically — a workspace can't redefine any of these as a custom field. Lives in `workspace.domain` (validated against `Workspace.contactFieldDefinitions`), even though the resolver that uses it (`ReservedContactFieldResolver`) lives in `contact`.
@@ -848,6 +885,7 @@ We need it as the single source of truth for which keys are reserved, used by `R
 - `InviteMemberRequest`, `UpdateMemberRequest`, `WorkspaceMemberResponse`
 - `CreateInviteRequest`, `WorkspaceInviteResponse`, `InvitePreviewResponse`
 - `CreateApiKeyRequest`, `ApiKeyResponse`, `CreateApiKeyResponse`
+- `SaveSecretRequest` (create and update share this — `name`, `value`), `SecretResponse` (never includes the value)
 
 We need these records to keep frontend/backend data exchange explicit and stable.
 
@@ -857,6 +895,7 @@ We need these records to keep frontend/backend data exchange explicit and stable
 - `WorkspaceMemberRepository`
 - `WorkspaceInviteRepository`
 - `WorkspaceApiKeyRepository`
+- `WorkspaceSecretRepository`
 
 These are Spring Data persistence interfaces. Their custom query methods express workspace lookup, member permission lookup, invite lookup, API key lookup by hash, and cleanup deletes.
 
@@ -1617,6 +1656,8 @@ Important methods:
 - `interpolate`
 - `resolve`
 
+`{{secrets.NAME}}` is a reserved namespace `interpolate` deliberately passes through unresolved — it's the only placeholder kind not resolved here. Only `HttpRequestNodeExecutor` resolves it, in a second pass after `interpolate` runs, so a decrypted secret never enters the variable map or a persisted run snapshot.
+
 We need it so messages, URLs, headers, bodies, and condition values can use workflow variables.
 
 ### `GraphNode`
@@ -1722,6 +1763,8 @@ Important config fields:
 - `responseMappings`
 
 It routes to `success` on 2xx and `error` otherwise, storing `error.message` on failure.
+
+After the normal `context.interpolate(...)` pass, `url`, each header value, and `body` also go through a second `resolveSecrets` pass that resolves any `{{secrets.NAME}}` left untouched by `VariableInterpolator` — via `SecretService.resolveDecrypted`, fetched fresh per call, never cached or assigned to a variable. An unresolvable secret name throws `NodeExecutionException`, failing the step loudly rather than sending a request with a blank credential.
 
 We need it to integrate workflows with external APIs while giving users timeout and response mapping control.
 
@@ -2177,7 +2220,7 @@ Important constants:
 Important helpers:
 
 - `ChannelItem`: renders one channel, its provider-specific webhook URL with a `CopyButton` when active, and separate Disconnect/Delete actions, each with its own `ConfirmModal`. Disconnect (`useDisconnectChannelAccount`) is reversible via Reconnect; Delete (`useDeleteChannelAccount`) is permanent.
-- `AiAgentAssignmentRow`: a `Select` dropdown per channel to assign one of the workspace's named AI agent configs (`useAiAgentConfigurations`), or leave it unassigned ("Workspace Default (‹name›)") to always follow whichever config is currently flagged default. Reads/writes via `useChannelAiAgentAssignment`/`useSetChannelAiAgentAssignment`.
+- `AiAgentAssignmentRow`: a `Select` dropdown per channel listing every named AI agent config (`useAiAgentConfigurations`) by name — no separate generic "Workspace Default" pseudo-option. Whichever config is currently flagged default has `· Default` appended to its own label; selecting it sets the channel's assignment to `null` (dynamically follows whichever config is default, even if that changes later) rather than that config's literal ID, same pattern as the LLM Provider picker in `AiAgentPanel`. Reads/writes via `useChannelAiAgentAssignment`/`useSetChannelAiAgentAssignment`.
 - `ProviderButton`: selects Telegram or WhatsApp connection flow.
 
 We need it because channel setup should live in workspace settings rather than the inbox conversation list.
@@ -2201,9 +2244,21 @@ We need it so owners can control who can operate the workspace.
 
 ### `IntegrationsPanel`
 
-Settings panel that groups API keys and webhook configuration.
+Settings panel that groups API keys, workflow secrets, and webhook configuration — each its own subsection, gated independently by `canManageApiKeys`/`canManageSecrets`/`canManageWebhook`.
 
 We need it so external integration setup lives in one settings area.
+
+### `SecretsPanel`
+
+Settings subsection for a workspace's named secrets (`useSecrets`). List with a "New secret" create modal and, per row, Edit and Delete.
+
+Important behavior:
+
+- Create asks for both `name` (validated client-side against the same `[A-Za-z][A-Za-z0-9_]*` pattern the backend enforces) and `value`.
+- Edit (`EditSecretModal`) only ever asks for a new `value` — the name field isn't rendered at all in this mode (the modal title already names the secret being edited), and the value field is always blank; there is no way to view or prefill the current value, by design.
+- The list only ever shows `name` and timestamps — the value is never returned by the API to begin with.
+
+We need it so a workspace can manage the credentials its workflows call external APIs with, without ever exposing them again after creation.
 
 ### `GeneralPanel`
 
@@ -2289,6 +2344,7 @@ Important helpers:
 - `ConditionValueField`, `HeaderRow`: smaller controlled field components with their own refs.
 - `writableContactFieldOptions`: `SelectOption[]` combining `RESERVED_CONTACT_FIELD_KEYS` and the workspace's `contactFieldDefinitions` — the dropdown source for `SetContactFieldForm`'s field picker. `contactFieldVariables` (the `contact.data.<key>` entries offered by the `{{…}}` variable picker for *reading*) covers the same reserved-plus-workspace-defined set, so a field that's writable is also readable via the picker.
 - `extractionFieldVariables`: `agent.data.<key>` picker entries built from the workspace's default AI Agent config's `extractionFields` (`useAiAgentConfigurations().find(c => c.isDefault)`, not any config a channel is specifically assigned to), excluding any key that's also a reserved contact field or workspace `ContactFieldDefinition` — that data is already reachable via `contact.data.<key>`, so offering both would just be a confusing duplicate for the common case where every extraction field is a contact field (e.g. `firstName`, `phone`). An extraction field defined only on a non-default config doesn't appear here.
+- `secretVariables`/`httpRequestVariables`: `secrets.<name>` entries (`useSecrets`) are merged into `variables` only for the value passed to `HttpRequestForm` — every other node form still gets the plain `variables` array. `{{secrets.NAME}}` is only ever resolved by `HttpRequestNodeExecutor` on the backend, so offering it in another node's picker would silently go unresolved.
 
 Important constants:
 
@@ -2330,10 +2386,10 @@ Dropdown for inserting variables into text fields.
 
 Important values/components:
 
-- `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow"`.
+- `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow" | "secrets"`.
 - `BUILT_IN_VARIABLES`: `contact.id`, `contact.name`, `contact.username`, `contact.message` (group `"contact"`); `conversation.channel` (group `"conversation"`); `agent.reply`, `agent.confidence` (group `"ai"`). `conversation.id` and `workspace.id` are populated at runtime (`WorkflowEngineService`) but deliberately excluded from this list — internal IDs not meant for the common case. `contact.id` is included despite being an internal ID too, since it has a real, common use: referencing the contact by RelayFlow's own ID in an HTTP Request header/body to an external system.
-- `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, then From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs) — instead of one flat "Built-in" bucket.
-- `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter).
+- `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs), then Secrets — instead of one flat "Built-in" bucket.
+- `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter). The `allowFilters` prop turns off the `AA`/`aa`/`Aa` buttons for a section — used for Secrets, since a case transform on a credential value doesn't make sense.
 
 We need it so users can discover and insert valid `{{variable}}` placeholders without memorizing names, grouped so contact data, AI-agent data, and workflow-local variables aren't all mixed into one undifferentiated list.
 
@@ -2562,6 +2618,7 @@ We need them for real-time inbox state.
 - `useUpdateAiAgentConfiguration(workspaceId, configurationId)`: PUTs a config and updates the cache via `setQueryData` on success.
 - `useDeleteAiAgentConfiguration(workspaceId)`: deletes a config.
 - `useSetDefaultAiAgentConfiguration(workspaceId)`: flags a config as the workspace's default.
+- `usePlatformLlmProvider(workspaceId)`: fetches the platform-wide active LLM provider (`GET .../ai-agent-configs/platform-llm-provider`) — used to label the matching pill in the LLM Provider picker as "Platform default" rather than showing a separate pseudo-option for it.
 - `useConversationAiDraft(workspaceId, conversationId)`: fetches the active AI draft; `retry: false`; enabled only when both IDs are truthy.
 - `useSendAiDraft(workspaceId, conversationId)`: mutation function takes an optional `text` — POSTs to `/ai-draft/send` with `{ text }` when provided (sends a human-edited version of the draft), or no body otherwise (sends the draft's own `proposedReply`); invalidates draft, messages, and conversations on success.
 - `useDiscardAiDraft(workspaceId, conversationId)`: DELETEs the draft; invalidates the draft query.
@@ -2583,6 +2640,9 @@ We need them to keep workflow builder API access outside UI components.
 - `useApiKeys`: fetches workspace API keys.
 - `useCreateApiKey`: creates a key and exposes the one-time plaintext secret.
 - `useRevokeApiKey`: revokes a key.
+- `useSecrets`: fetches a workspace's named secrets — names and timestamps only, never values.
+- `useCreateSecret` / `useUpdateSecret`: create or replace one secret's value.
+- `useDeleteSecret`: deletes one secret.
 - `useWebhooks`: fetches every webhook configured for the workspace.
 - `useCreateWebhook` / `useUpdateWebhook`: create or update one webhook.
 - `useDeleteWebhook`: deletes one webhook.
@@ -2884,6 +2944,7 @@ REST controller at `/workspaces/{workspaceId}/ai-agent-configs`.
 
 - `GET`: any workspace member (`assertMember`) — lists every named config in the workspace.
 - `POST`: requires `AI_AGENT_WRITE` permission or owner role — creates a new config.
+- `GET /platform-llm-provider`: any workspace member — the platform-wide active `LlmProvider` (not scoped to this workspace; reads straight from `LlmPlatformConfigService`).
 
 ### `AiAgentConfigurationDetailController`
 
@@ -2933,7 +2994,7 @@ Flow:
 3. Close any prior `CLARIFYING` log for this conversation (frees the unique slot).
 4. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
 5. Re-check for an active `WorkflowRun` committed in the race window since step 4.
-6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call `llmClientFactory.getClient(configuration.getLlmProvider())` — the config's own provider if set, otherwise the platform's active provider (see [LLM Abstraction](#llm-abstraction)).
+6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call `llmClientFactory.getClient(configuration.getLlmProvider())` — the config's own provider if set, otherwise the platform's active provider (see [LLM Abstraction](#llm-abstraction)). If the call itself failed (`response.failed()` — network, auth, bad status, unparseable body), escalate immediately rather than falling through to drafting or sending; see `AgentLlmResponse`.
 7. `contactCustomFieldWriter.apply(...)` runs unconditionally right after the LLM responds, before any branching below — including the draft path.
 8. `mergeWithPendingDraft(conversation, response.extractedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
 9. `sanitizeSuggestedActions(response.suggestedActions(), configuration.getWorkflowMappings())` drops any `trigger_workflow:<id>` action whose `<id>` isn't in a configured `WorkflowMapping` — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging.
@@ -3015,7 +3076,9 @@ Record: `role` (`"user"` / `"assistant"`), `content`. Factory methods: `LlmMessa
 
 #### `AgentLlmResponse`
 
-Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`, `escalate`, `needsClarification`, `extractedData` (`Map<String, String>`, may be empty).
+Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`, `escalate`, `needsClarification`, `extractedData` (`Map<String, String>`, may be empty), `failed`.
+
+`failed` distinguishes an LLM call that actually errored (network, auth, a non-2xx status, an unparseable body — `AgentLlmResponseParser.failure()`) from a normal response the model happened to leave empty. `AiAgentInvocationService.runPipeline` checks it first, before anything else, and escalates rather than drafting or sending — otherwise a failed call's empty `reply` would flow straight through to `sendOutbound` under `AUTO_SEND`, silently sending a blank message to the customer.
 
 #### `LlmPrompts`
 
@@ -3080,7 +3143,7 @@ Both sections render the shared `AiAgentForm`, whose sections are:
 
 - Enable toggle.
 - Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
-- LLM Provider: a `Select` among "Platform default" and the four `LlmProvider` values — which LLM this agent calls; the model per provider stays admin-controlled platform-wide, not chosen here.
+- LLM Provider: a row of pill buttons, one per `LlmProvider` value — no separate "Platform default" pill. Whichever provider `usePlatformLlmProvider` reports as currently active gets a `· Platform default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (defer to the platform setting), clicking any other pill pins the agent to it explicitly. The model per provider stays admin-controlled platform-wide, not chosen here.
 - Instructions textarea pre-filled with a skeleton template when empty.
 - Knowledge base: list of `{question, answer}` pairs.
 - Escalation keywords: tag-style list.

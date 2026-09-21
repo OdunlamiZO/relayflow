@@ -22,6 +22,7 @@ const PERMISSION_LABEL: Record<WorkspacePermission, string> = {
   CHANNELS_DELETE: "Channels — disconnect channels",
   API_KEYS_WRITE: "Integrations — manage API keys",
   WEBHOOKS_WRITE: "Integrations — configure webhooks",
+  SECRETS_WRITE: "Integrations — manage workflow secrets",
   AI_AGENT_WRITE: "AI Agent — configure the AI agent",
 };
 
@@ -35,6 +36,7 @@ const PERMISSION_ICON: Record<WorkspacePermission, string> = {
   CHANNELS_DELETE: "hub",
   API_KEYS_WRITE: "api",
   WEBHOOKS_WRITE: "api",
+  SECRETS_WRITE: "lock",
   AI_AGENT_WRITE: "smart_toy",
 };
 

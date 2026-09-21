@@ -230,7 +230,8 @@ export type WorkspacePermission =
   | "CHANNELS_DELETE"
   | "AI_AGENT_WRITE"
   | "API_KEYS_WRITE"
-  | "WEBHOOKS_WRITE";
+  | "WEBHOOKS_WRITE"
+  | "SECRETS_WRITE";
 export type WorkspaceRole = "OWNER" | "MEMBER";
 export type InviteStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 
@@ -308,6 +309,19 @@ export type CreateApiKeyResponse = {
   expiresAt: string | null;
   /** Full plaintext key — shown once, never stored. */
   key: string;
+};
+
+export type Secret = {
+  id: string;
+  /** Referenced in workflows as {{secrets.NAME}}. */
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveSecretRequest = {
+  name: string;
+  value: string;
 };
 
 export type WebhookConfig = {
@@ -828,6 +842,39 @@ export class MessagingApiClient {
     );
   }
 
+  // ── Secrets ───────────────────────────────────────────────────────────────
+
+  listSecrets(workspaceId: string) {
+    return this.request<Secret[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets`
+    );
+  }
+
+  createSecret(workspaceId: string, request: SaveSecretRequest) {
+    return this.request<Secret>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateSecret(
+    workspaceId: string,
+    secretId: string,
+    request: SaveSecretRequest
+  ) {
+    return this.request<Secret>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets/${encodeURIComponent(secretId)}`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  deleteSecret(workspaceId: string, secretId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets/${encodeURIComponent(secretId)}`,
+      { method: "DELETE" }
+    );
+  }
+
   // ── Webhooks ──────────────────────────────────────────────────────────────
 
   listWebhooks(workspaceId: string) {
@@ -871,6 +918,12 @@ export class MessagingApiClient {
   listAiAgentConfigurations(workspaceId: string) {
     return this.request<AiAgentConfiguration[]>(
       `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs`
+    );
+  }
+
+  getPlatformLlmProvider(workspaceId: string) {
+    return this.request<{ provider: LlmProvider }>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/platform-llm-provider`
     );
   }
 

@@ -18,6 +18,10 @@ import java.util.regex.Pattern;
  * <p>A resolved value can be piped through one or more filters, e.g. {@code {{contact.name |
  * upper}}}, {@code {{contact.name | lower}}}, or {@code {{contact.name | title}}}. Unknown filters
  * are ignored.
+ *
+ * <p>{@code {{secrets.NAME}}} is a reserved namespace passed through unresolved — only {@code
+ * HttpRequestNodeExecutor} resolves it, in a separate pass, so a decrypted secret value never
+ * enters the variable map or a run snapshot.
  */
 public final class VariableInterpolator {
 
@@ -35,7 +39,17 @@ public final class VariableInterpolator {
 
         while (matcher.find()) {
             String[] parts = matcher.group(1).split("\\|");
-            Object value = resolve(parts[0].trim(), variables);
+            String path = parts[0].trim();
+
+            // secrets.* is resolved separately, after this pass, by HttpRequestNodeExecutor — left
+            // untouched here so a decrypted value never flows through the variable map or a run
+            // snapshot. Passed through unchanged rather than emptied like an unresolved variable.
+            if (path.startsWith("secrets.")) {
+                matcher.appendReplacement(result, Matcher.quoteReplacement(matcher.group(0)));
+                continue;
+            }
+
+            Object value = resolve(path, variables);
             String replacement = value != null ? value.toString() : "";
 
             for (int i = 1; i < parts.length; i++) {

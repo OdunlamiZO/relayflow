@@ -8,6 +8,7 @@ import { type Node, useReactFlow } from "@xyflow/react";
 import { Select } from "@/components/common/Select";
 import { type SelectOption } from "@/components/common/Select";
 import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
+import { useSecrets } from "@/hooks/use-secrets";
 import { useWorkspace } from "@/hooks/use-workspaces";
 import {
   RESERVED_CONTACT_FIELDS,
@@ -1424,6 +1425,19 @@ export function NodeConfigPanel({
     ...extractWorkflowVariables(nodes),
   ];
 
+  // secrets.NAME is only ever resolved by HttpRequestNodeExecutor on the backend — offered
+  // exclusively in that node's fields so a reference elsewhere doesn't silently go unresolved.
+  const { data: secrets = [] } = useSecrets(workspaceId);
+  const secretVariables: WorkflowVariable[] = secrets.map((secret) => ({
+    name: `secrets.${secret.name}`,
+    label: secret.name,
+    group: "secrets",
+  }));
+  const httpRequestVariables: WorkflowVariable[] = [
+    ...variables,
+    ...secretVariables,
+  ];
+
   function update(updates: Record<string, unknown>) {
     const next = { ...data, ...updates };
     setData(next);
@@ -1490,7 +1504,7 @@ export function NodeConfigPanel({
           <HttpRequestForm
             data={data}
             onChange={update}
-            variables={variables}
+            variables={httpRequestVariables}
           />
         )}
         {node.type === "setVariable" && (

@@ -9,6 +9,7 @@ import com.relayflow.api.workflow.engine.GraphNode;
 import com.relayflow.api.workflow.engine.NodeExecutionException;
 import com.relayflow.api.workflow.engine.NodeExecutionResult;
 import com.relayflow.api.workflow.engine.NodeExecutor;
+import com.relayflow.api.workspace.SecretService;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -17,6 +18,9 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -34,12 +38,18 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
 
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
+    private static final Pattern SECRET_PLACEHOLDER =
+            Pattern.compile("\\{\\{secrets\\.([A-Za-z0-9_]+)}}");
+
     private final ObjectMapper objectMapper;
 
     private final HttpClient httpClient;
 
-    public HttpRequestNodeExecutor(ObjectMapper objectMapper) {
+    private final SecretService secretService;
+
+    public HttpRequestNodeExecutor(ObjectMapper objectMapper, SecretService secretService) {
         this.objectMapper = objectMapper;
+        this.secretService = secretService;
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
@@ -71,7 +81,7 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
             throw new NodeExecutionException("HTTP Request node has no URL configured");
         }
 
-        String url = context.interpolate(rawUrl);
+        String url = resolveSecrets(context.interpolate(rawUrl), context.getWorkspaceId());
         Map<String, Object> output = new LinkedHashMap<>();
 
         try {
@@ -84,7 +94,8 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
             HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.noBody();
 
             if (rawBody != null && !rawBody.isBlank()) {
-                String interpolatedBody = context.interpolate(rawBody);
+                String interpolatedBody =
+                        resolveSecrets(context.interpolate(rawBody), context.getWorkspaceId());
                 bodyPublisher = HttpRequest.BodyPublishers.ofString(interpolatedBody);
                 requestBuilder.header("Content-Type", contentType);
             }
@@ -98,7 +109,11 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                     String value = (String) header.get("value");
 
                     if (key != null && !key.isBlank()) {
-                        requestBuilder.header(key, context.interpolate(value != null ? value : ""));
+                        String interpolatedValue =
+                                resolveSecrets(
+                                        context.interpolate(value != null ? value : ""),
+                                        context.getWorkspaceId());
+                        requestBuilder.header(key, interpolatedValue);
                     }
                 }
             }
@@ -162,6 +177,39 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
 
             return NodeExecutionResult.handle("error", output);
         }
+    }
+
+    /**
+     * Resolves {@code {{secrets.NAME}}} tokens left untouched by {@link
+     * com.relayflow.api.workflow.engine.VariableInterpolator}. Only this executor ever calls this —
+     * the decrypted value it returns must never be assigned to a workflow variable or added to
+     * {@code output}, since both end up in a persisted {@code WorkflowRunStep} snapshot.
+     *
+     * @throws NodeExecutionException if a referenced secret doesn't exist — fails the step loudly
+     *     rather than silently sending a request with a blank credential
+     */
+    private String resolveSecrets(String text, UUID workspaceId) {
+        if (text == null || text.isBlank() || !text.contains("{{secrets.")) {
+            return text;
+        }
+
+        Matcher matcher = SECRET_PLACEHOLDER.matcher(text);
+        StringBuilder result = new StringBuilder();
+
+        while (matcher.find()) {
+            String name = matcher.group(1);
+            String value =
+                    secretService
+                            .resolveDecrypted(workspaceId, name)
+                            .orElseThrow(
+                                    () -> new NodeExecutionException("Unknown secret: " + name));
+
+            matcher.appendReplacement(result, Matcher.quoteReplacement(value));
+        }
+
+        matcher.appendTail(result);
+
+        return result.toString();
     }
 
     /**

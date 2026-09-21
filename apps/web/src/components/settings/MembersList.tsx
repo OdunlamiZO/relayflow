@@ -74,6 +74,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     rows: [
       { key: "API_KEYS_WRITE", label: "Manage API keys" },
       { key: "WEBHOOKS_WRITE", label: "Configure webhooks" },
+      { key: "SECRETS_WRITE", label: "Manage workflow secrets" },
     ],
   },
   {
@@ -132,6 +133,7 @@ const ALL_PERMISSION_LABELS: Record<WorkspacePermission, string> = {
   CHANNELS_DELETE: "Disconnect channels",
   API_KEYS_WRITE: "Manage API keys",
   WEBHOOKS_WRITE: "Configure webhooks",
+  SECRETS_WRITE: "Manage workflow secrets",
   AI_AGENT_WRITE: "Configure AI agent",
 };
 
