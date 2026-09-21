@@ -45,7 +45,7 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
 
             if (responseBody == null) {
 
-                return AgentLlmResponseParser.empty();
+                return AgentLlmResponseParser.failure();
             }
 
             JsonNode root = objectMapper.readTree(responseBody);
@@ -56,7 +56,7 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
         } catch (Exception e) {
             log.error("LLM call failed for provider={}: {}", provider(), e.getMessage(), e);
 
-            return AgentLlmResponseParser.empty();
+            return AgentLlmResponseParser.failure();
         }
     }
 

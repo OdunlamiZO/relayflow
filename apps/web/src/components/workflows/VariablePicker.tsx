@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 export type WorkflowVariable = {
   name: string;
   label: string;
-  group: "contact" | "ai" | "conversation" | "workflow";
+  group: "contact" | "ai" | "conversation" | "workflow" | "secrets";
 };
 
 /** Transforms supported by the `{{variable | filter}}` pipe syntax — mirrors VariableInterpolator on the backend. */
@@ -114,7 +114,11 @@ export function VariablePicker({ variables, onSelect }: Props) {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
 
-  const sections: { title: string; items: WorkflowVariable[] }[] = [
+  const sections: {
+    title: string;
+    items: WorkflowVariable[];
+    allowFilters?: boolean;
+  }[] = [
     { title: "Contact", items: variables.filter((v) => v.group === "contact") },
     { title: "AI agent", items: variables.filter((v) => v.group === "ai") },
     {
@@ -124,6 +128,11 @@ export function VariablePicker({ variables, onSelect }: Props) {
     {
       title: "From workflow",
       items: variables.filter((v) => v.group === "workflow"),
+    },
+    {
+      title: "Secrets",
+      items: variables.filter((v) => v.group === "secrets"),
+      allowFilters: false,
     },
   ].filter((section) => section.items.length > 0);
 
@@ -152,6 +161,7 @@ export function VariablePicker({ variables, onSelect }: Props) {
               title={section.title}
               items={section.items}
               bordered={i > 0}
+              allowFilters={section.allowFilters ?? true}
               onSelect={(name) => {
                 onSelect(name);
                 setOpen(false);
@@ -168,11 +178,13 @@ function VariableGroup({
   title,
   items,
   bordered = false,
+  allowFilters = true,
   onSelect,
 }: {
   title: string;
   items: WorkflowVariable[];
   bordered?: boolean;
+  allowFilters?: boolean;
   onSelect: (name: string) => void;
 }) {
   return (
@@ -208,34 +220,42 @@ function VariableGroup({
             )}
           </button>
 
-          <div className="flex flex-shrink-0 gap-0.5">
-            <button
-              type="button"
-              title="Insert as UPPERCASE"
-              onClick={() => onSelect(`${v.name} | ${VARIABLE_FILTERS.UPPER}`)}
-              className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
-            >
-              AA
-            </button>
+          {allowFilters && (
+            <div className="flex flex-shrink-0 gap-0.5">
+              <button
+                type="button"
+                title="Insert as UPPERCASE"
+                onClick={() =>
+                  onSelect(`${v.name} | ${VARIABLE_FILTERS.UPPER}`)
+                }
+                className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
+              >
+                AA
+              </button>
 
-            <button
-              type="button"
-              title="Insert as lowercase"
-              onClick={() => onSelect(`${v.name} | ${VARIABLE_FILTERS.LOWER}`)}
-              className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
-            >
-              aa
-            </button>
+              <button
+                type="button"
+                title="Insert as lowercase"
+                onClick={() =>
+                  onSelect(`${v.name} | ${VARIABLE_FILTERS.LOWER}`)
+                }
+                className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
+              >
+                aa
+              </button>
 
-            <button
-              type="button"
-              title="Insert as Title Case"
-              onClick={() => onSelect(`${v.name} | ${VARIABLE_FILTERS.TITLE}`)}
-              className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
-            >
-              Aa
-            </button>
-          </div>
+              <button
+                type="button"
+                title="Insert as Title Case"
+                onClick={() =>
+                  onSelect(`${v.name} | ${VARIABLE_FILTERS.TITLE}`)
+                }
+                className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
+              >
+                Aa
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </>

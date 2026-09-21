@@ -398,8 +398,8 @@ function AiAgentAssignmentRow({
     return null;
   }
 
-  const defaultName =
-    configurations.find((c) => c.isDefault)?.name || "AI Agent";
+  const defaultConfig = configurations.find((c) => c.isDefault);
+  const selectedValue = assignment?.configurationId ?? defaultConfig?.id ?? "";
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
@@ -407,14 +407,16 @@ function AiAgentAssignmentRow({
 
       <div className="w-48">
         <Select
-          value={assignment?.configurationId ?? ""}
-          onChange={(value) => setAssignment.mutate(value || null)}
-          options={[
-            { value: "", label: `Workspace Default (${defaultName})` },
-            ...configurations
-              .filter((c) => !c.isDefault)
-              .map((c) => ({ value: c.id, label: c.name || "AI Agent" })),
-          ]}
+          value={selectedValue}
+          onChange={(value) =>
+            setAssignment.mutate(value === defaultConfig?.id ? null : value)
+          }
+          options={configurations.map((c) => ({
+            value: c.id,
+            label: c.isDefault
+              ? `${c.name || "AI Agent"} · Default`
+              : c.name || "AI Agent",
+          }))}
         />
       </div>
     </div>

@@ -10,6 +10,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
 import { useCreateAiAgentConfiguration } from "@/hooks/use-create-ai-agent-configuration";
 import { useDeleteAiAgentConfiguration } from "@/hooks/use-delete-ai-agent-configuration";
+import { usePlatformLlmProvider } from "@/hooks/use-platform-llm-provider";
 import { useSetDefaultAiAgentConfiguration } from "@/hooks/use-set-default-ai-agent-configuration";
 import { useUpdateAiAgentConfiguration } from "@/hooks/use-update-ai-agent-configuration";
 import { useWorkflows } from "@/hooks/use-workflows";
@@ -24,8 +25,7 @@ import type {
   WorkflowMapping,
 } from "@/lib/messaging-api";
 
-const LLM_PROVIDER_OPTIONS: { value: "" | LlmProvider; label: string }[] = [
-  { value: "", label: "Platform default" },
+const LLM_PROVIDER_OPTIONS: { value: LlmProvider; label: string }[] = [
   { value: "ANTHROPIC", label: "Anthropic" },
   { value: "OPENAI", label: "OpenAI" },
   { value: "GROQ", label: "Groq" },
@@ -375,6 +375,7 @@ function AiAgentForm({
   extraAction,
 }: AiAgentFormProps) {
   const { data: workflows = [] } = useWorkflows(workspaceId);
+  const { data: platformDefaultProvider } = usePlatformLlmProvider(workspaceId);
   const { showToast } = useToast();
 
   const [form, setForm] = useState<FormState>(() =>
@@ -621,19 +622,23 @@ function AiAgentForm({
           LLM Provider
         </h2>
         <p className="mb-2.5 text-xs text-neutral-500">
-          Which LLM this agent uses — Platform default follows your global
-          setting, or pick one to override it just for this agent.
+          Which LLM this agent uses. The platform default is marked below — pick
+          it to follow your global setting, or pick another to override it just
+          for this agent.
         </p>
         <div className="flex flex-wrap gap-2">
           {LLM_PROVIDER_OPTIONS.map(({ value, label }) => {
-            const active = (llmProvider ?? "") === value;
+            const isPlatformDefault = value === platformDefaultProvider;
+            const active = isPlatformDefault
+              ? llmProvider === null || llmProvider === value
+              : llmProvider === value;
 
             return (
               <button
-                key={value || "default"}
+                key={value}
                 type="button"
                 onClick={() =>
-                  patch({ llmProvider: value ? (value as LlmProvider) : null })
+                  patch({ llmProvider: isPlatformDefault ? null : value })
                 }
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
@@ -642,6 +647,7 @@ function AiAgentForm({
                 }`}
               >
                 {label}
+                {isPlatformDefault && " · Platform default"}
               </button>
             );
           })}

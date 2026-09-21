@@ -41,7 +41,12 @@ export function SettingsShell({ workspaceId }: Props) {
     currentMember?.role === "OWNER" ||
     currentMember?.permissions.includes("WEBHOOKS_WRITE") === true;
 
-  const canSeeIntegrations = canManageApiKeys || canManageWebhook;
+  const canManageSecrets =
+    currentMember?.role === "OWNER" ||
+    currentMember?.permissions.includes("SECRETS_WRITE") === true;
+
+  const canSeeIntegrations =
+    canManageApiKeys || canManageWebhook || canManageSecrets;
 
   const isOwner = currentMember?.role === "OWNER";
 
@@ -213,6 +218,7 @@ export function SettingsShell({ workspaceId }: Props) {
                   workspaceId={workspaceId}
                   canManageApiKeys={canManageApiKeys}
                   canManageWebhook={canManageWebhook}
+                  canManageSecrets={canManageSecrets}
                 />
               </div>
             )}
