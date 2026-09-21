@@ -174,7 +174,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
             {conversation.escalatedAt && (
               <div
                 className="flex min-w-0 flex-shrink items-center gap-1.5 rounded-lg border border-red-border bg-red-bg px-3 py-2 text-xs font-medium text-red-text"
-                title={conversation.escalationReason ?? "Escalated"}
+                title={conversation.escalationReason ?? undefined}
               >
                 <span
                   className="material-symbols-rounded text-[14px] leading-none"
@@ -182,7 +182,11 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
                 >
                   error
                 </span>
-                <span className="truncate">Escalated</span>
+                <span className="truncate">
+                  {conversation.escalationReason
+                    ? `Escalated — ${conversation.escalationReason}`
+                    : "Escalated"}
+                </span>
               </div>
             )}
 

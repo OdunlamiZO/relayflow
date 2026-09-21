@@ -60,7 +60,10 @@ public enum WorkspacePermission {
     API_KEYS_WRITE,
 
     /** Configure webhooks and rotate secrets. */
-    WEBHOOKS_WRITE;
+    WEBHOOKS_WRITE,
+
+    /** Create, rotate, and delete workspace secrets used by workflows. */
+    SECRETS_WRITE;
 
     /**
      * Validates that all prerequisite permissions are present alongside their dependents.

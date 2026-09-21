@@ -24,6 +24,7 @@ class AgentLlmResponseParserTest {
         assertThat(response.extractedData())
                 .containsExactlyInAnyOrderEntriesOf(
                         Map.of("orderNumber", "12345", "urgency", "high"));
+        assertThat(response.failed()).isFalse();
     }
 
     @Test
@@ -69,11 +70,17 @@ class AgentLlmResponseParserTest {
     }
 
     @Test
-    void returnsAnEmptyResponseOnMalformedJson() {
+    void returnsAFailedResponseOnMalformedJson() {
         AgentLlmResponse response = AgentLlmResponseParser.parse(objectMapper, "not json");
 
         assertThat(response.reply()).isEmpty();
         assertThat(response.extractedData()).isEmpty();
         assertThat(response.suggestedActions()).isEmpty();
+        assertThat(response.failed()).isTrue();
+    }
+
+    @Test
+    void failureFactoryProducesAFailedResponse() {
+        assertThat(AgentLlmResponseParser.failure().failed()).isTrue();
     }
 }
