@@ -1,4 +1,4 @@
-_# RelayFlow
+# RelayFlow
 
 RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation. Telegram is the first adapter, WhatsApp Business Cloud API support has started, and Instagram is planned. The core model is channel-agnostic.
 
