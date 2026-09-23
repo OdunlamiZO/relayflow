@@ -76,14 +76,23 @@ export default function SelfHostingDocsPage() {
             RelayFlow
           </Link>
 
-          <Link
-            href="https://github.com/OdunlamiZO/relayflow"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
-          >
-            GitHub
-          </Link>
+          <div className="flex items-center gap-5">
+            <Link
+              href="/changelog"
+              className="text-sm font-semibold text-neutral-600 transition-colors hover:text-accent"
+            >
+              Changelog
+            </Link>
+
+            <Link
+              href="https://github.com/OdunlamiZO/relayflow"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
+            >
+              GitHub
+            </Link>
+          </div>
         </div>
       </header>
 
