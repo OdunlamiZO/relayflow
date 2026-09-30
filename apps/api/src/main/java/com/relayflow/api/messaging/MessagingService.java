@@ -243,6 +243,7 @@ public class MessagingService {
                 && conversation.getEscalatedAt() != null) {
             conversation.setEscalatedAt(null);
             conversation.setEscalationReason(null);
+            conversation.setEscalationType(null);
         }
 
         Message message = new Message();

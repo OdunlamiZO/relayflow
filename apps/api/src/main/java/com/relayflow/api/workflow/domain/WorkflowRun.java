@@ -29,7 +29,7 @@ import org.hibernate.type.SqlTypes;
 @Getter
 @Setter
 @Entity
-@Table(name = "workflow_run")
+@Table(name = "workflow_runs")
 public class WorkflowRun {
 
     @Id
@@ -68,6 +68,10 @@ public class WorkflowRun {
     /** When a WAITING run should be failed if no reply has arrived. Null when not waiting. */
     @Column(name = "expires_at")
     private Instant expiresAt;
+
+    /** Invalid replies at the current Ask Question node. */
+    @Column(name = "reply_attempts", nullable = false)
+    private int replyAttempts;
 
     /** Snapshot of the execution context variables saved when the run entered WAITING state. */
     @JdbcTypeCode(SqlTypes.JSON)

@@ -78,7 +78,7 @@ Per-channel-account Telegram bots are registered with a generated `secret_token`
 Configure this redirect URI in Google Cloud:
 
 ```text
-http://localhost:8080/login/oauth2/code/google
+http://localhost:3000/backend/login/oauth2/code/google
 ```
 
 Run the web app:
@@ -88,6 +88,8 @@ cd apps/web
 npm install
 npm run dev
 ```
+
+The browser only talks to the web app: requests to `/backend/*` are forwarded to the API at `RELAYFLOW_API_INTERNAL_URL` (default `http://localhost:8080`), so the session cookie belongs to the web app's domain.
 
 The first account created on a fresh instance goes through instance bootstrap (`/setup` in the web app), not the normal signup form — see [Authentication](#authentication) below.
 
@@ -179,6 +181,15 @@ There is no self-service "change password" form — a password only ever changes
 
 All secret endpoints require `SECRETS_WRITE` permission or owner role. Reference a secret in a workflow's HTTP Request node (URL, headers, or body) as `{{secrets.NAME}}` — the decrypted value is resolved only at request time and never appears in the workflow definition, a run log, or an API response.
 
+- `GET    /workspaces/{workspaceId}/hooks` — list the workspace's custom hooks
+- `GET    /workspaces/{workspaceId}/hooks/built-in` — list the built-in hooks (email, phone number, number, whole number, date, web address)
+- `POST   /workspaces/{workspaceId}/hooks` — create a custom hook; rejects an expression FEEL can't parse
+- `PUT    /workspaces/{workspaceId}/hooks/{hookId}` — update a custom hook; applies immediately to every workflow and AI agent using it
+- `DELETE /workspaces/{workspaceId}/hooks/{hookId}` — refused with 409 while a workflow or AI agent still uses the hook
+- `POST   /workspaces/{workspaceId}/hooks/test` — evaluate an unsaved expression against a sample value
+
+Listing hooks requires workspace membership; the other hook endpoints require `WORKFLOWS_WRITE` permission or owner role. Hooks are [FEEL](https://docs.camunda.io/docs/components/modeler/feel/what-is-feel/) expressions evaluated by Camunda's `feel-engine`, with Java calls from expressions disabled and a 2-second evaluation timeout. An open-ended Ask Question node can use one (`validationHook`) to validate and transform the contact's reply: a rejected reply is answered with the hook's error message and asked again, up to the node's attempt limit, after which the run follows the node's `invalid` branch.
+
 - `GET    /workspaces/{workspaceId}/webhooks` — list every webhook configured for the workspace
 - `POST   /workspaces/{workspaceId}/webhooks` — create a new webhook
 - `PUT    /workspaces/{workspaceId}/webhooks/{webhookId}` — update a webhook's URL, enabled state, or subscribed event types
@@ -257,6 +268,7 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Workspace invites — owners create/revoke expiring email invites; authenticated users can preview and accept matching invites.
 - [x] API keys and public API — workspace API keys can list conversations/messages and send outbound agent messages through `/public/v1`.
 - [x] Workspace webhooks — a workspace can configure any number of signed webhooks, each with its own URL and event subscriptions. Events currently emitted: `contact.created` and `contact.updated`, with retry/backoff delivery. SSRF protection rejects webhook URLs that resolve to loopback, link-local, private, multicast, or wildcard addresses, both when saving the URL and at delivery time.
+- [x] Hooks — FEEL expressions that validate and transform a contact's reply to an open-ended Ask Question node, or a value an AI agent extracts. Built-in hooks cover email, phone number, number, whole number, date, and web address; workspaces can write their own and test them against a sample reply before saving. Rejected replies are asked again up to a configurable number of attempts, then follow an `invalid` branch. A rejected extracted value is never stored; the agent rewrites its reply to ask the contact to correct it.
 - [x] Workspace secrets — named, encrypted credentials a workflow's HTTP Request node can reference (in the URL, headers, or body) as `{{secrets.NAME}}`, without the value ever appearing in the workflow definition, a run log, or an API response. Write-only: a secret's value is never returned after creation, and an unresolvable reference fails the step rather than sending a blank credential.
 
 ### Authentication
@@ -276,7 +288,7 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Contacts page with channel badges, contact detail panel, inbox deep link, delete confirmation, and merge modal.
 - [x] Settings UI for member permissions, invites, API keys, and webhook configuration.
 - [x] Channel settings can connect Telegram or WhatsApp and display provider-specific webhook URLs, each with a copy button. "Telegram"/"WhatsApp" brand colors are defined as `telegram`/`whatsapp` design tokens.
-- [x] Real-time updates via SSE — `message.created`, `conversation.updated`, `ai.draft.created`, and `ai.escalated` events pushed after commit (frontend currently only reacts to `message.created`, `ai.draft.created`, and `ai.escalated`).
+- [x] Real-time updates via SSE — `message.created`, `conversation.updated`, `ai.draft.created`, and `ai.escalated` events pushed after commit .
 - [x] Google login entry point and session status panel.
 - [x] `/setup` — first-run instance bootstrap flow (creates the first admin account + workspace on a fresh instance).
 - [x] Invite-gated signup — `/signup` requires a `token` query param, prefills and locks the invited email, and rejects with a clear message when no token is present.
@@ -315,7 +327,7 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Race-condition prevention — `AiAgentInvocationSlotClaimer` (`REQUIRES_NEW`) uses a unique partial index on active invocation logs to serialize concurrent invocations; symmetric guard in `WorkflowTriggerListener`.
 - [x] Session-scoped LLM history — `conversation.sessionStartedAt` is reset on reopen; `AiAgentContextAssembler` scopes message history to the current session to prevent past closed-conversation messages from polluting the context. The per-message contact context is wrapped in a `<context>...</context>` block, with an explicit instruction telling the LLM never to repeat it verbatim in a reply.
 - [x] AI draft inbox banner — `DRAFT_ONLY` ceiling or low-confidence replies create a draft; inbox shows **Send / Edit / Discard** for text replies (naming the actual workflow, e.g. "Run Loan Workflow") and **Run Workflow / Discard** for AI-suggested workflows. Editing a draft's wording before sending still records it as the AI's own message — it doesn't reassign the conversation to whoever clicked send or release the AI agent's hold on it, the way a normal human-composed reply would. SSE pushes `ai.draft.created` for instant updates.
-- [x] Escalation indicator — a keyword match or LLM-requested escalation stamps `Conversation.escalatedAt`/`escalationReason` and pushes `ai.escalated`; the inbox shows a red badge on the conversation row and header until a human agent sends the next reply, which clears it.
+- [x] Escalation indicator — a keyword match, LLM-requested escalation, failed LLM call, or pipeline error stamps `Conversation.escalatedAt`/`escalationReason`/`escalationType` and pushes `ai.escalated`; the inbox shows a red badge on the conversation row and header. A human agent's next reply clears any escalation; the temporary ones (failed LLM call, pipeline error) also clear on the AI agent's next successful LLM call.
 - [x] Invocation log retention — hourly cleanup, configurable via `AGENT_INVOCATION_LOG_RETENTION_DAYS` (default 90 days).
 
 ### Planned

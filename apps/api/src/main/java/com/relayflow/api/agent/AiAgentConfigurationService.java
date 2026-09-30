@@ -12,6 +12,7 @@ import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.channel.domain.ChannelAccount;
 import com.relayflow.api.channel.repository.ChannelAccountRepository;
 import com.relayflow.api.common.ResourceNotFoundException;
+import com.relayflow.api.hook.HookService;
 import com.relayflow.api.messaging.MessagingService;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.MessageDirection;
@@ -28,8 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class AiAgentConfigurationService {
@@ -50,6 +53,8 @@ public class AiAgentConfigurationService {
 
     private final MessagingService messagingService;
 
+    private final HookService hookService;
+
     public AiAgentConfigurationService(
             AiAgentConfigurationRepository configurationRepository,
             ConversationAiDraftRepository draftRepository,
@@ -58,7 +63,8 @@ public class AiAgentConfigurationService {
             ConversationRepository conversationRepository,
             WorkflowDefinitionRepository workflowDefinitionRepository,
             WorkflowEngineService workflowEngineService,
-            MessagingService messagingService) {
+            MessagingService messagingService,
+            HookService hookService) {
         this.configurationRepository = configurationRepository;
         this.draftRepository = draftRepository;
         this.workspaceRepository = workspaceRepository;
@@ -67,6 +73,7 @@ public class AiAgentConfigurationService {
         this.workflowDefinitionRepository = workflowDefinitionRepository;
         this.workflowEngineService = workflowEngineService;
         this.messagingService = messagingService;
+        this.hookService = hookService;
     }
 
     @Transactional(readOnly = true)
@@ -291,9 +298,35 @@ public class AiAgentConfigurationService {
         configuration.setKnowledgeBase(request.knowledgeBase());
         configuration.setEscalationKeywords(request.escalationKeywords());
         configuration.setWorkflowMappings(request.workflowMappings());
-        configuration.setExtractionFields(request.extractionFields());
+        configuration.setExtractionFields(
+                validatedExtractionFields(
+                        configuration.getWorkspace().getId(), request.extractionFields()));
 
         return configurationRepository.save(configuration);
+    }
+
+    private List<ExtractionField> validatedExtractionFields(
+            UUID workspaceId, List<ExtractionField> extractionFields) {
+        return extractionFields.stream()
+                .map(
+                        field -> {
+                            String hookKey = field.validationHook();
+
+                            if (hookKey == null || hookKey.isBlank()) {
+                                return new ExtractionField(field.key(), field.description());
+                            }
+
+                            if (!hookService.hookExists(workspaceId, hookKey)) {
+                                throw new ResponseStatusException(
+                                        HttpStatus.BAD_REQUEST,
+                                        "Extraction field '"
+                                                + field.key()
+                                                + "' uses a validation hook that no longer exists");
+                            }
+
+                            return field;
+                        })
+                .toList();
     }
 
     private AiAgentConfiguration getOrThrow(UUID workspaceId, UUID configurationId) {

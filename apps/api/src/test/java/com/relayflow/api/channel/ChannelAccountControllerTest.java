@@ -55,13 +55,17 @@ class ChannelAccountControllerTest {
                                         "My Bot",
                                         ChannelAccountStatus.ACTIVE,
                                         Map.of(),
+                                        "https://api.example.com/telegram/webhook/" + channelId,
                                         Instant.parse("2026-05-26T10:00:00Z"))));
 
         mockMvc.perform(get("/channel-accounts").param("workspaceId", workspaceId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(channelId.toString()))
                 .andExpect(jsonPath("$[0].name").value("My Bot"))
-                .andExpect(jsonPath("$[0].status").value("ACTIVE"));
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+                .andExpect(
+                        jsonPath("$[0].webhookUrl")
+                                .value("https://api.example.com/telegram/webhook/" + channelId));
     }
 
     @Test
@@ -80,6 +84,7 @@ class ChannelAccountControllerTest {
                                 "My Bot",
                                 ChannelAccountStatus.ACTIVE,
                                 Map.of(),
+                                "https://api.example.com/telegram/webhook/" + channelId,
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(
@@ -145,6 +150,7 @@ class ChannelAccountControllerTest {
                                 "My Bot",
                                 ChannelAccountStatus.ACTIVE,
                                 Map.of(),
+                                "https://api.example.com/telegram/webhook/" + channelId,
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(

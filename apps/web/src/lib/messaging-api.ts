@@ -1,3 +1,4 @@
+import { apiBaseUrl } from "@/lib/api-base-url";
 import {
   ApiError,
   type RequestOptions,
@@ -94,6 +95,7 @@ export type ChannelAccount = {
   name: string;
   status: ChannelAccountStatus;
   metadata: JsonObject;
+  webhookUrl: string | null;
   createdAt: string;
 };
 
@@ -324,6 +326,48 @@ export type SaveSecretRequest = {
   value: string;
 };
 
+export type HookOutcomeStatus = "ACCEPTED" | "REJECTED" | "ERROR";
+
+export type BuiltInHook = {
+  key: string;
+  name: string;
+  description: string;
+  expression: string;
+  errorMessage: string;
+};
+
+export type Hook = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  expression: string;
+  errorMessage: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveHookRequest = {
+  name: string;
+  description?: string | null;
+  expression: string;
+  errorMessage: string;
+};
+
+export type TestHookRequest = {
+  expression: string;
+  value: string;
+  variables?: Record<string, unknown>;
+};
+
+export type TestHookResponse = {
+  status: HookOutcomeStatus;
+  value: unknown;
+  errorMessage: string | null;
+  variables: Record<string, unknown>;
+  warnings: string[];
+};
+
 export type WebhookConfig = {
   id: string;
   workspaceId: string;
@@ -417,6 +461,7 @@ export type WorkflowMapping = {
 export type ExtractionField = {
   key: string;
   description: string;
+  validationHook?: string | null;
 };
 
 export type AiAgentConfiguration = {
@@ -475,13 +520,10 @@ export type PageResponse<T> = {
 
 export { ApiError };
 
-const defaultBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-
 export class MessagingApiClient {
   private readonly baseUrl: string;
 
-  constructor(baseUrl = defaultBaseUrl) {
+  constructor(baseUrl = apiBaseUrl()) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
@@ -872,6 +914,48 @@ export class MessagingApiClient {
     return this.request<void>(
       `/workspaces/${encodeURIComponent(workspaceId)}/secrets/${encodeURIComponent(secretId)}`,
       { method: "DELETE" }
+    );
+  }
+
+  // ── Hooks ────────────────────────────────────────────────────────
+
+  listBuiltInHooks(workspaceId: string) {
+    return this.request<BuiltInHook[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/built-in`
+    );
+  }
+
+  listHooks(workspaceId: string) {
+    return this.request<Hook[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks`
+    );
+  }
+
+  createHook(workspaceId: string, request: SaveHookRequest) {
+    return this.request<Hook>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateHook(workspaceId: string, hookId: string, request: SaveHookRequest) {
+    return this.request<Hook>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/${encodeURIComponent(hookId)}`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  deleteHook(workspaceId: string, hookId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/${encodeURIComponent(hookId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  testHook(workspaceId: string, request: TestHookRequest) {
+    return this.request<TestHookResponse>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/test`,
+      { method: "POST", body: request }
     );
   }
 

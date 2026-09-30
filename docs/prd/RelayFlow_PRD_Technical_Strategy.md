@@ -37,7 +37,7 @@ The target market is SMB and technical teams handling support, sales, and operat
 | Workflow builder | Implemented | React Flow canvas, node palette, config panel, save, publish/unpublish. |
 | Workflow run logs UI | Implemented | `/workflows/{id}/runs` lists run history with a step-by-step input/output breakdown. |
 | AI agent | Implemented | Per-workspace config, multi-provider LLM layer (Anthropic/OpenAI/Groq/Ollama), decision pipeline with draft-or-auto-send, escalation keywords, inbox draft banner. |
-| Conversation escalation | Implemented | A keyword match or LLM-requested escalation stamps the conversation and pushes an `ai.escalated` SSE event; the inbox shows a badge until a human agent's next reply clears it. |
+| Conversation escalation | Implemented | A keyword match, LLM-requested escalation, failed LLM call, or pipeline error stamps the conversation and pushes an `ai.escalated` SSE event; the inbox shows a badge until a human agent's next reply clears it. Failed-call and error escalations are temporary and also clear on the AI agent's next successful LLM call. |
 | Workspace authorization | Implemented | Membership model plus granular permission checks on mutating workspace-scoped endpoints. |
 | Webhook verification | Implemented | Telegram secret-token validation. WhatsApp Cloud API signature verification (beyond the verify-token handshake) remains planned. |
 | Manual migrations | Required | Flyway is disabled at runtime; migrations must be run manually. |
@@ -181,10 +181,10 @@ The current runtime uses a flat variable map with dot-notation names. Built-in v
 - `workspace_webhooks` and `workspace_webhook_events`: outbound webhook configuration and subscribed events (`contact.created`, `contact.updated`).
 - `channel_accounts`: provider connection records and encrypted credentials.
 - `contacts` and `external_identities`: channel-neutral customer identity model.
-- `conversations` and `messages`: inbox thread and timeline. Conversations additionally carry `escalated_at`/`escalation_reason`, set when the AI agent escalates and cleared on the next human reply.
+- `conversations` and `messages`: inbox thread and timeline. Conversations additionally carry `escalated_at`/`escalation_reason`/`escalation_type`, set when the AI agent escalates and cleared on the next human reply (temporary types also on the AI agent's next successful LLM call).
 - `workflow_definitions`: workflow name, enabled state, and draft graph JSON.
-- `workflow_run` and `workflow_run_step`: durable execution and observability records.
-- `ai_agent_configs`, `ai_agent_invocation_log`, and `conversation_ai_drafts`: per-workspace AI agent configuration, invocation history, and pending draft replies.
+- `workflow_runs` and `workflow_run_steps`: durable execution and observability records.
+- `ai_agent_configs`, `ai_agent_invocation_logs`, and `conversation_ai_drafts`: per-workspace AI agent configuration, invocation history, and pending draft replies.
 
 ## 11. Execution Requirements
 
