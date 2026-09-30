@@ -25,7 +25,7 @@ import org.hibernate.type.SqlTypes;
 @Getter
 @Setter
 @Entity
-@Table(name = "ai_agent_invocation_log")
+@Table(name = "ai_agent_invocation_logs")
 public class AiAgentInvocationLog {
 
     @Id

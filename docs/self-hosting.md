@@ -41,7 +41,7 @@ docker compose --profile prod up -d
 | `RELAYFLOW_ENCRYPTION_KEY` | Yes | No default — generate with `openssl rand -base64 32`. API refuses to start without it. |
 | `RELAYFLOW_WEB_DOMAIN` / `RELAYFLOW_API_DOMAIN` | Yes | Used by Caddy for automatic TLS |
 | `RELAYFLOW_WEB_BASE_URL` / `RELAYFLOW_API_BASE_URL` | Yes | Must match the domains above exactly — see [Troubleshooting](#troubleshooting) |
-| `GOOGLE_AUTH_ENABLED` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | Off by default |
+| `GOOGLE_AUTH_ENABLED` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | Off by default. In Google Cloud, add the redirect URI `<RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google` |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GROQ_API_KEY` | No | At least one needed for AI agent features |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | No | Works with any SMTP provider (Resend, SES, Mailgun, Postmark, Gmail, self-hosted, etc.). Blank host runs email in no-op/log mode |
 | Rate limiting, timeouts, retention vars | No | All have safe defaults — see `.env.example` |

@@ -1,3 +1,4 @@
+import { apiBaseUrl } from "@/lib/api-base-url";
 import {
   ApiError,
   type RequestOptions,
@@ -87,13 +88,10 @@ export type Login2FAPayload = {
   otp: string;
 };
 
-const defaultBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-
 export class AuthenticationApiClient {
   private readonly baseUrl: string;
 
-  constructor(baseUrl = defaultBaseUrl) {
+  constructor(baseUrl = apiBaseUrl()) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 

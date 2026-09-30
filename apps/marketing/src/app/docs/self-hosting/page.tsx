@@ -37,7 +37,8 @@ const ENV_VAR_ROWS: Array<{
   {
     name: "GOOGLE_AUTH_ENABLED / GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET",
     required: false,
-    notes: "Off by default",
+    notes:
+      "Off by default. In Google Cloud, add the redirect URI <RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google",
   },
   {
     name: "ANTHROPIC_API_KEY / OPENAI_API_KEY / GROQ_API_KEY",

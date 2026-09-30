@@ -30,4 +30,22 @@ class LlmPromptsTest {
         assertThat(instruction).contains("\"orderNumber\": The customer's order number");
         assertThat(instruction).contains("\"urgency\": How urgent the request is");
     }
+
+    @Test
+    void asksForTheRawValueOnlyForFieldsWithAValidationHook() {
+        List<ExtractionField> fields =
+                List.of(
+                        new ExtractionField("phone", "Phone number", "builtin:phone_number"),
+                        new ExtractionField("urgency", "How urgent the request is"));
+
+        String instruction = LlmPrompts.buildFormatInstruction(fields);
+
+        assertThat(instruction)
+                .contains(
+                        "\"phone\": Phone number (checked by the system — whenever the customer"
+                                + " answers this, extract exactly what they sent");
+        assertThat(instruction)
+                .contains("\"urgency\": How urgent the request is\n")
+                .doesNotContain("How urgent the request is (checked");
+    }
 }

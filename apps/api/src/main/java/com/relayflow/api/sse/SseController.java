@@ -3,7 +3,9 @@ package com.relayflow.api.sse;
 import com.relayflow.api.authentication.SecurityUtils;
 import com.relayflow.api.workspace.WorkspaceService;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,7 +42,8 @@ public class SseController {
     }
 
     @GetMapping(value = "/workspace/{workspaceId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@PathVariable UUID workspaceId, Authentication authentication) {
+    public ResponseEntity<SseEmitter> subscribe(
+            @PathVariable UUID workspaceId, Authentication authentication) {
         UUID userId = securityUtils.resolveUserId(authentication);
 
         boolean isMember =
@@ -51,6 +54,10 @@ public class SseController {
             throw new AccessDeniedException("Not a member of workspace " + workspaceId);
         }
 
-        return sseService.subscribe(workspaceId);
+        // Stops proxies in front of the API from compressing or buffering the stream.
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
+                .header("X-Accel-Buffering", "no")
+                .body(sseService.subscribe(workspaceId));
     }
 }

@@ -4,8 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+import { BROWSER_API_BASE_URL } from "@/lib/api-base-url";
 
 type MessageCreatedEvent = {
   workspaceId: string;
@@ -33,10 +32,20 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
       return;
     }
 
-    const url = `${API_BASE_URL}/sse/workspace/${workspaceId}`;
-    const es = new EventSource(url, { withCredentials: true });
+    const url = `${BROWSER_API_BASE_URL}/sse/workspace/${workspaceId}`;
+    const es = new EventSource(url);
 
     esRef.current = es;
+
+    // Catches up on anything sent while the stream was reconnecting.
+    es.onopen = () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["messages", workspaceId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["conversations", workspaceId],
+      });
+    };
 
     es.addEventListener("message.created", (event) => {
       try {
@@ -67,6 +76,12 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
     });
 
     es.addEventListener("ai.escalated", () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["conversations", workspaceId],
+      });
+    });
+
+    es.addEventListener("conversation.updated", () => {
       void queryClient.invalidateQueries({
         queryKey: ["conversations", workspaceId],
       });

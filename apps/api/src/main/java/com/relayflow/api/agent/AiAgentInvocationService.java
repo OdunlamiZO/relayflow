@@ -14,6 +14,8 @@ import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.messaging.MessagingService;
 import com.relayflow.api.messaging.domain.Conversation;
+import com.relayflow.api.messaging.domain.EscalationResolution;
+import com.relayflow.api.messaging.domain.EscalationType;
 import com.relayflow.api.messaging.domain.Message;
 import com.relayflow.api.messaging.domain.MessageDirection;
 import com.relayflow.api.messaging.domain.MessageSenderType;
@@ -74,6 +76,8 @@ public class AiAgentInvocationService {
 
     private final ContactCustomFieldWriter contactCustomFieldWriter;
 
+    private final ExtractedDataValidator extractedDataValidator;
+
     public AiAgentInvocationService(
             AiAgentConfigurationService aiAgentConfigurationService,
             AiAgentInvocationLogRepository invocationLogRepository,
@@ -87,7 +91,8 @@ public class AiAgentInvocationService {
             ConversationRepository conversationRepository,
             ApplicationEventPublisher eventPublisher,
             AiAgentInvocationSlotClaimer slotClaimer,
-            ContactCustomFieldWriter contactCustomFieldWriter) {
+            ContactCustomFieldWriter contactCustomFieldWriter,
+            ExtractedDataValidator extractedDataValidator) {
         this.aiAgentConfigurationService = aiAgentConfigurationService;
         this.invocationLogRepository = invocationLogRepository;
         this.draftRepository = draftRepository;
@@ -101,6 +106,7 @@ public class AiAgentInvocationService {
         this.eventPublisher = eventPublisher;
         this.slotClaimer = slotClaimer;
         this.contactCustomFieldWriter = contactCustomFieldWriter;
+        this.extractedDataValidator = extractedDataValidator;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -189,6 +195,7 @@ public class AiAgentInvocationService {
             invocationLog.setEscalationReason("Internal error: " + e.getMessage());
             invocationLog.setFinishedAt(Instant.now());
             invocationLogRepository.save(invocationLog);
+            broadcastEscalation(conversation, EscalationType.INTERNAL_ERROR, "Internal error");
         }
     }
 
@@ -209,7 +216,7 @@ public class AiAgentInvocationService {
             if (messageText.toLowerCase().contains(keyword.toLowerCase())) {
                 String reason = "Escalation keyword matched: \"" + keyword + "\"";
                 finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
-                broadcastEscalation(conversation, reason);
+                broadcastEscalation(conversation, EscalationType.KEYWORD_MATCHED, reason);
 
                 return;
             }
@@ -223,10 +230,14 @@ public class AiAgentInvocationService {
         if (response.failed()) {
             String reason = "LLM call failed";
             finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
-            broadcastEscalation(conversation, reason);
+            broadcastEscalation(conversation, EscalationType.LLM_FAILED, reason);
 
             return;
         }
+
+        ExtractionValidation validation =
+                extractedDataValidator.validate(
+                        workspaceId, response.extractedData(), configuration.getExtractionFields());
 
         invocationLog.setOutputSnapshot(
                 Map.of(
@@ -235,17 +246,29 @@ public class AiAgentInvocationService {
                         "escalate", response.escalate(),
                         "needsClarification", response.needsClarification(),
                         "suggestedActions", response.suggestedActions(),
-                        "extractedData", response.extractedData()));
+                        "extractedData", response.extractedData(),
+                        "rejectedExtractions",
+                                validation.rejections().stream()
+                                        .map(RejectedExtraction::toSnapshot)
+                                        .toList()));
 
         contactCustomFieldWriter.apply(
-                conversation, response.extractedData(), configuration.getExtractionFields());
+                conversation, validation.acceptedData(), configuration.getExtractionFields());
 
         Map<String, String> accumulatedExtractedData =
-                mergeWithPendingDraft(conversation, response.extractedData());
+                mergeWithPendingDraft(conversation, validation.acceptedData());
 
         List<String> suggestedActions =
                 sanitizeSuggestedActions(
                         response.suggestedActions(), configuration.getWorkflowMappings());
+
+        // A workflow shouldn't start while a value it may need is still being corrected.
+        if (validation.hasRejections()) {
+            suggestedActions =
+                    suggestedActions.stream()
+                            .filter(action -> !action.startsWith(WORKFLOW_ACTION_PREFIX))
+                            .toList();
+        }
 
         // Decision flow
         boolean draftOnly = configuration.getAutonomyCeiling() == AutonomyCeiling.DRAFT_ONLY;
@@ -253,9 +276,18 @@ public class AiAgentInvocationService {
         if (response.escalate()) {
             String reason = "LLM requested escalation";
             finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
-            broadcastEscalation(conversation, reason);
+            broadcastEscalation(conversation, EscalationType.AI_REQUESTED, reason);
 
             return;
+        }
+
+        resolveTemporaryEscalation(conversation);
+
+        if (validation.hasRejections()) {
+            response =
+                    withReply(
+                            response,
+                            correctionReply(configuration, request, response, validation));
         }
 
         Optional<String> workflowAction =
@@ -296,6 +328,41 @@ public class AiAgentInvocationService {
 
         sendOutbound(workspaceId, conversationId, response.reply());
         finalise(invocationLog, AiAgentInvocationStatus.SENT, null);
+    }
+
+    private String correctionReply(
+            AiAgentConfiguration configuration,
+            AgentLlmRequest request,
+            AgentLlmResponse response,
+            ExtractionValidation validation) {
+        // No extraction fields, so the rewrite can't bring a rejected value back.
+        AgentLlmRequest correctionRequest =
+                new AgentLlmRequest(
+                        request.systemPrompt() + validation.correctionInstruction(response.reply()),
+                        request.messages(),
+                        request.model(),
+                        List.of());
+        AgentLlmResponse correction =
+                llmClientFactory
+                        .getClient(configuration.getLlmProvider())
+                        .complete(correctionRequest);
+
+        if (correction.failed() || correction.reply().isBlank()) {
+            return validation.fallbackReply();
+        }
+
+        return correction.reply();
+    }
+
+    private AgentLlmResponse withReply(AgentLlmResponse response, String reply) {
+        return new AgentLlmResponse(
+                reply,
+                response.confidence(),
+                response.suggestedActions(),
+                response.escalate(),
+                response.needsClarification(),
+                response.extractedData(),
+                response.failed());
     }
 
     private Map<String, String> mergeWithPendingDraft(
@@ -421,9 +488,11 @@ public class AiAgentInvocationService {
                 .toList();
     }
 
-    private void broadcastEscalation(Conversation conversation, String reason) {
+    private void broadcastEscalation(
+            Conversation conversation, EscalationType escalationType, String reason) {
         conversation.setEscalatedAt(Instant.now());
         conversation.setEscalationReason(reason);
+        conversation.setEscalationType(escalationType);
         conversationRepository.save(conversation);
 
         eventPublisher.publishEvent(
@@ -435,6 +504,31 @@ public class AiAgentInvocationService {
                                 conversation.getId().toString(),
                                 "reason",
                                 reason)));
+    }
+
+    private void resolveTemporaryEscalation(Conversation conversation) {
+        EscalationType escalationType = conversation.getEscalationType();
+
+        if (conversation.getEscalatedAt() == null
+                || escalationType == null
+                || escalationType.getResolution() != EscalationResolution.AI_RECOVERY) {
+            return;
+        }
+
+        conversation.setEscalatedAt(null);
+        conversation.setEscalationReason(null);
+        conversation.setEscalationType(null);
+        conversationRepository.save(conversation);
+
+        UUID workspaceId = conversation.getWorkspace().getId();
+
+        eventPublisher.publishEvent(
+                new SseBroadcastEvent(
+                        workspaceId,
+                        SseEventType.CONVERSATION_UPDATED,
+                        Map.of(
+                                "workspaceId", workspaceId.toString(),
+                                "conversationId", conversation.getId().toString())));
     }
 
     private void broadcastDraftCreated(UUID workspaceId, UUID conversationId) {
