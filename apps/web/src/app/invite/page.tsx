@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { serverApiBaseUrl } from "@/lib/api-base-url";
 import { serverAuthenticationApi } from "@/lib/server-authentication";
 
 import { InviteAcceptCard } from "./InviteAcceptCard";
@@ -12,12 +13,9 @@ type Props = {
   searchParams: Promise<{ token?: string }>;
 };
 
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-
 async function fetchInvitePreview(token: string) {
   try {
-    const res = await fetch(`${apiBaseUrl}/invites/${token}`, {
+    const res = await fetch(`${serverApiBaseUrl()}/invites/${token}`, {
       cache: "no-store",
     });
 

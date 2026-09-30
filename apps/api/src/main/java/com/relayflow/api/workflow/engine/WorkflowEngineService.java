@@ -12,6 +12,7 @@ import com.relayflow.api.workflow.domain.WorkflowRun;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
 import com.relayflow.api.workflow.domain.WorkflowRunStep;
 import com.relayflow.api.workflow.domain.WorkflowRunStepStatus;
+import com.relayflow.api.workflow.engine.ReplyRouter.ReplyRouting;
 import com.relayflow.api.workflow.repository.WorkflowRunRepository;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -59,16 +60,24 @@ public class WorkflowEngineService {
 
     private final Map<NodeType, NodeExecutor> executors;
 
+    private final ReplyRouter replyRouter;
+
+    private final WorkflowMessageSender messageSender;
+
     public WorkflowEngineService(
             WorkflowRunRepository runRepository,
             ConversationRepository conversationRepository,
             ExternalIdentityRepository externalIdentityRepository,
             ApplicationEventPublisher eventPublisher,
-            List<NodeExecutor> executorList) {
+            List<NodeExecutor> executorList,
+            ReplyRouter replyRouter,
+            WorkflowMessageSender messageSender) {
         this.runRepository = runRepository;
         this.conversationRepository = conversationRepository;
         this.externalIdentityRepository = externalIdentityRepository;
         this.eventPublisher = eventPublisher;
+        this.replyRouter = replyRouter;
+        this.messageSender = messageSender;
         this.executors =
                 executorList.stream()
                         .collect(Collectors.toMap(NodeExecutor::nodeType, Function.identity()));
@@ -170,21 +179,47 @@ public class WorkflowEngineService {
                         run.getWorkspace().getId(),
                         snapshot);
 
-        // Apply the contact's reply to the context and determine the next handle
         String replyText = replyMessage.getText() != null ? replyMessage.getText() : "";
-        String nextHandle = applyReply(waitingNode, context, replyText);
-
-        // Clear waiting state and resume
-        run.setStatus(WorkflowRunStatus.RUNNING);
-        run.setWaitingAtNodeId(null);
-        run.setContextSnapshot(null);
-        run.setExpiresAt(null);
-
-        GraphNode nextNode = resolveNextNode(waitingNode, nextHandle, adjacency, nodeMap);
-
         UUID conversationId = run.getConversation().getId();
 
         try {
+            Instant replyStart = Instant.now();
+            ReplyRouting routing =
+                    replyRouter.route(waitingNode, context, replyText, run.getReplyAttempts());
+
+            if (!routing.output().isEmpty()) {
+                WorkflowRunStep step = newStep(waitingNode, run, context);
+                finishStep(
+                        step, WorkflowRunStepStatus.COMPLETED, routing.output(), replyStart, null);
+                run.getSteps().add(step);
+            }
+
+            if (routing.isRetry()) {
+                run.setReplyAttempts(run.getReplyAttempts() + 1);
+                messageSender.send(
+                        conversationId,
+                        run.getWorkspace().getId(),
+                        routing.retryMessage(),
+                        List.of());
+                runRepository.save(run);
+
+                log.info(
+                        "Reply rejected by validation hook, asking again: runId={}, attempt={}",
+                        runId,
+                        run.getReplyAttempts());
+
+                return;
+            }
+
+            // Clear waiting state and resume
+            run.setStatus(WorkflowRunStatus.RUNNING);
+            run.setWaitingAtNodeId(null);
+            run.setContextSnapshot(null);
+            run.setExpiresAt(null);
+            run.setReplyAttempts(0);
+
+            GraphNode nextNode = resolveReplyTarget(waitingNode, routing, adjacency, nodeMap);
+
             if (nextNode != null) {
                 walk(nextNode, nodeMap, adjacency, context, run);
             }
@@ -205,6 +240,9 @@ public class WorkflowEngineService {
             run.setStatus(WorkflowRunStatus.FAILED);
             run.setFinishedAt(Instant.now());
             run.setErrorMessage(e.getMessage());
+            run.setWaitingAtNodeId(null);
+            run.setContextSnapshot(null);
+            run.setExpiresAt(null);
             runRepository.save(run);
 
             setConversationLock(conversationId, false);
@@ -474,59 +512,43 @@ public class WorkflowEngineService {
 
     // ── reply handling ─────────────────────────────────────────────────────────
 
-    /**
-     * Applies the contact's reply to the execution context and returns the {@code nextHandle} to
-     * use for routing (or {@code null} for the default single-output edge in generic mode).
-     */
-    @SuppressWarnings("unchecked")
-    private String applyReply(GraphNode waitingNode, ExecutionContext context, String replyText) {
-        String responseType = (String) waitingNode.data().getOrDefault("responseType", "generic");
+    private GraphNode resolveReplyTarget(
+            GraphNode waitingNode,
+            ReplyRouting routing,
+            Map<String, List<GraphEdge>> adjacency,
+            Map<String, GraphNode> nodeMap) {
+        String nextHandle = routing.nextHandle();
 
-        if ("generic".equals(responseType)) {
-            String variableName = (String) waitingNode.data().get("responseVariable");
-
-            if (variableName != null && !variableName.isBlank()) {
-                context.setVariable(variableName.trim(), replyText);
-            }
-
-            return null; // single default edge
-
-        } else if ("defined".equals(responseType)) {
-            List<Map<String, Object>> options =
-                    (List<Map<String, Object>>)
-                            waitingNode.data().getOrDefault("options", List.of());
-            String responseVariable = (String) waitingNode.data().get("responseVariable");
-            String trimmedReply = replyText.trim();
-            String lowerReply = trimmedReply.toLowerCase();
-
-            // Try exact text match first, then positional number match (e.g. "1", "2").
-            for (int i = 0; i < options.size(); i++) {
-                Map<String, Object> option = options.get(i);
-                String text = (String) option.get("text");
-
-                boolean matchedByText = text != null && text.trim().equalsIgnoreCase(lowerReply);
-                boolean matchedByNumber = trimmedReply.equals(String.valueOf(i + 1));
-
-                if (matchedByText || matchedByNumber) {
-                    if (responseVariable != null && !responseVariable.isBlank()) {
-                        // Save the canonical option text (not the raw reply).
-                        context.setVariable(
-                                responseVariable.trim(), text != null ? text.trim() : trimmedReply);
-                    }
-
-                    return (String) option.get("id");
-                }
-            }
-
-            // No option matched — save the raw reply and follow the "Other" edge.
-            if (responseVariable != null && !responseVariable.isBlank()) {
-                context.setVariable(responseVariable.trim(), trimmedReply);
-            }
-
-            return "default";
+        if (ReplyRouter.INVALID_HANDLE.equals(nextHandle)) {
+            return findEdgeTarget(waitingNode, nextHandle, adjacency, nodeMap);
         }
 
-        return null;
+        if (ReplyRouter.VALID_HANDLE.equals(nextHandle)) {
+            GraphNode validTarget = findEdgeTarget(waitingNode, nextHandle, adjacency, nodeMap);
+
+            return validTarget != null
+                    ? validTarget
+                    : findEdgeTarget(waitingNode, null, adjacency, nodeMap);
+        }
+
+        return resolveNextNode(waitingNode, nextHandle, adjacency, nodeMap);
+    }
+
+    private GraphNode findEdgeTarget(
+            GraphNode node,
+            String handle,
+            Map<String, List<GraphEdge>> adjacency,
+            Map<String, GraphNode> nodeMap) {
+        return adjacency.getOrDefault(node.id(), List.of()).stream()
+                .filter(
+                        edge ->
+                                handle == null
+                                        ? edge.sourceHandle() == null
+                                                || edge.sourceHandle().isBlank()
+                                        : handle.equals(edge.sourceHandle()))
+                .findFirst()
+                .map(edge -> nodeMap.get(edge.target()))
+                .orElse(null);
     }
 
     // ── context initialisation ─────────────────────────────────────────────────

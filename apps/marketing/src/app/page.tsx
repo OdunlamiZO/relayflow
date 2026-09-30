@@ -104,10 +104,10 @@ export default function Home() {
 
           <div className="flex items-center gap-5">
             <Link
-              href="/docs/self-hosting"
+              href="/changelog"
               className="text-sm font-semibold text-neutral-600 transition-colors hover:text-accent"
             >
-              Docs
+              Changelog
             </Link>
 
             <Link

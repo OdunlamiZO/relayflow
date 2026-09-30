@@ -156,6 +156,8 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [Workflow Trigger Events](#workflow-trigger-events)
   - [`WorkflowTriggerListener`](#workflowtriggerlistener)
   - [`WorkflowResumeListener`](#workflowresumelistener)
+  - [`ReplyRouter`](#replyrouter)
+  - [`WorkflowMessageSender`](#workflowmessagesender)
 - [Workflow Node Executors](#workflow-node-executors)
   - [`TriggerNodeExecutor`](#triggernodeexecutor)
   - [`SendMessageNodeExecutor`](#sendmessagenodeexecutor)
@@ -166,6 +168,13 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WaitForReplyNodeExecutor`](#waitforreplynodeexecutor)
   - [`JumpToNodeExecutor`](#jumptonodeexecutor)
   - [`EndConversationNodeExecutor`](#endconversationnodeexecutor)
+- [Hooks](#hooks)
+  - [`FeelHookEvaluator`](#feelhookevaluator)
+  - [`HookFunctionProvider`](#hookfunctionprovider)
+  - [`BuiltInHook`](#builtinhook)
+  - [`HookService`](#hookservice)
+  - [`HookController`](#hookcontroller)
+  - [`Hook`](#hook)
 - [Workflow Repositories](#workflow-repositories)
 - [Frontend Route Components](#frontend-route-components)
   - [Root Layout Components](#root-layout-components)
@@ -214,6 +223,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`MembersList`](#memberslist)
   - [`IntegrationsPanel`](#integrationspanel)
   - [`SecretsPanel`](#secretspanel)
+  - [`HooksPanel`](#hookspanel)
   - [`GeneralPanel`](#generalpanel)
   - [`CreateApiKeyModal`](#createapikeymodal)
   - [`WebhookConfigPanel`](#webhookconfigpanel)
@@ -253,6 +263,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`server-authentication.ts`](#server-authenticationts)
   - [`error-message.ts`](#error-messagets)
   - [`proxy.ts`](#proxyts)
+  - [`api-base-url.ts`](#api-base-urlts)
 - [Frontend Tests](#frontend-tests)
   - [`page.test.tsx`](#pagetesttsx)
   - [`ConversationList.test.tsx`](#conversationlisttesttsx)
@@ -280,6 +291,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`AiAgentInvocationService`](#aiagentinvocationservice)
   - [`AiAgentTriggerListener`](#aiagenttriggerlistener)
   - [`AiAgentContextAssembler`](#aiagentcontextassembler)
+  - [`ExtractedDataValidator`](#extracteddatavalidator)
   - [`ContactCustomFieldWriter`](#contactcustomfieldwriter)
   - [`AgentWorkflowContext`](#agentworkflowcontext)
   - [`AiAgentInvocationCleanupScheduler`](#aiagentinvocationcleanupscheduler)
@@ -932,7 +944,7 @@ We need it because channel account provisioning has credential-encryption and we
 
 ### `ChannelAccountMapper`
 
-Maps the `ChannelAccount` JPA entity to `ChannelAccountResponse`.
+Maps the `ChannelAccount` JPA entity to `ChannelAccountResponse`, adding `webhookUrl` (`<relayflow.api.base-url>/telegram/webhook/<id>` or `/whatsapp/webhook/<id>`; `null` for providers without webhooks).
 
 We need it to isolate the API response shape from the persistence entity shape.
 
@@ -1098,7 +1110,7 @@ Important methods:
 
 - `createExternalIdentity`, `createConversation`
 - `listConversations`, `getConversation`, `updateConversationStatus`, `listMessages`
-- `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason` on that same first human (`MessageSenderType.AGENT`) outbound reply.
+- `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason`/`escalationType` on that same first human (`MessageSenderType.AGENT`) outbound reply.
 
 We need it because messaging has cross-entity rules that should not live in controllers or repositories.
 
@@ -1146,7 +1158,7 @@ Important fields:
 - `lockedByAiAgent`: true during an active AI agent invocation pipeline run.
 - `assigneeId`
 - `lastMessageAt`
-- `escalatedAt` / `escalationReason`: set by `AiAgentInvocationService.broadcastEscalation` when the AI agent escalates (keyword match or LLM-requested); cleared by `MessagingService.createMessage` on the next outbound message from a human agent (`MessageSenderType.AGENT`).
+- `escalatedAt` / `escalationReason` / `escalationType`: set by `AiAgentInvocationService.broadcastEscalation` when the AI agent escalates. `EscalationType` is `KEYWORD_MATCHED`, `AI_REQUESTED`, `LLM_FAILED` or `INTERNAL_ERROR`, and each declares an `EscalationResolution`: `HUMAN_REPLY` (only a human clears it) or `AI_RECOVERY` (temporary; `AiAgentInvocationService.resolveTemporaryEscalation` also clears it on the next successful LLM call and pushes `conversation.updated`). `MessagingService.createMessage` clears every type on the next outbound message from a human agent (`MessageSenderType.AGENT`).
 - `sessionStartedAt`: reset to `now()` whenever the conversation is reopened. Used by `AiAgentContextAssembler` to scope history to the current session only, preventing old closed-conversation messages from polluting the LLM context.
 
 We need it as the inbox unit users read, select, and reply to. `lockedByWorkflow` and `lockedByAiAgent` prevent agents from interrupting active automation; `escalatedAt` surfaces conversations that need a human without gating who can reply.
@@ -1312,7 +1324,7 @@ We need it so the outer payload shape (`{"contact": {...}}`) is a typed DTO like
 
 ### `SseController`
 
-Exposes `GET /sse/workspace/{workspaceId}` as a text/event-stream endpoint.
+Exposes `GET /sse/workspace/{workspaceId}` as a text/event-stream endpoint. Responds with `Cache-Control: no-cache, no-transform` and `X-Accel-Buffering: no` so the web app's `/backend` proxy doesn't gzip the stream and nginx doesn't buffer it — either would hold events back.
 
 We need it for real-time inbox updates without polling every second.
 
@@ -1326,6 +1338,8 @@ Important methods:
 - `broadcast`: sends payloads to all active emitters in a workspace.
 
 We need it so message and workspace changes can update open browser sessions immediately.
+
+- `sendHeartbeats`: every 15 seconds sends an SSE comment to every open stream, so proxies with idle timeouts (Next.js's rewrite proxy drops a proxied response after 30s of silence) don't close quiet connections.
 
 ### `SseBroadcastEvent`
 
@@ -1628,7 +1642,8 @@ Important methods:
 - `executeStep`: executes one node and records its step log.
 - `resolveNextNode`: chooses the next node based on source handles.
 - direct Jump To handling: skips normal edge resolution when a node result includes `jumpToNodeId`.
-- `applyReply`: maps a contact reply to a variable or branch.
+- `resolveReplyTarget`: after `ReplyRouter` decides on a reply, finds the node to continue at. A validated reply's `valid` handle falls back to the node's unlabelled edge; `invalid` has no fallback, so with nothing connected the run ends.
+- reply retries: when `ReplyRouter` returns a retry, `resumeWorkflow` sends the hook's error message via `WorkflowMessageSender`, increments `WorkflowRun.replyAttempts`, and leaves the run `WAITING` with its context untouched. `replyAttempts` resets to 0 whenever the run leaves the waiting node.
 - `buildContext`: seeds built-in variables from workspace, conversation, contact, and triggering message.
 - `newStep`, `finishStep`: create durable step logs.
 - `parseNodes`, `parseEdges`, `buildAdjacency`: convert graph JSON into runtime records.
@@ -1723,6 +1738,29 @@ Listens for `ConversationMessageReceivedEvent` and resumes `WAITING` workflow ru
 
 We need it to implement Ask Question / wait-for-reply behavior.
 
+### `ReplyRouter`
+
+Decides what a contact's reply to an Ask Question node does: which variables to set and which handle to follow, or that the question should be asked again.
+
+Important behavior:
+
+- defined mode: matches the reply against options by text (case-insensitive), then by position ("1", "2", …); saves the canonical option text; unmatched replies follow `default` ("Other").
+- generic mode, no `validationHook`: saves the raw reply into `responseVariable` and follows the unlabelled edge.
+- generic mode with `validationHook` (`builtin:<key>` or `custom:<id>`): runs the hook via `HookService.runHook`, passing `validationErrorMessage` as an optional override.
+  - accepted → saves the hook's (possibly transformed) value into `responseVariable`, sets any extra variables the hook returned, follows `valid`.
+  - rejected with attempts left (`maxAttempts`, default 3, clamped to 1–10) → returns a retry carrying the error message; nothing is saved.
+  - rejected on the last attempt → follows `invalid`.
+  - hook error (unknown hook, FEEL failure, timeout) → throws `NodeExecutionException`, failing the run.
+- returns an `output` map (reply, hook, outcome, value/attempt) that the engine records as a run step whenever a hook ran.
+
+We need it to route replies and validation retries for Ask Question nodes.
+
+### `WorkflowMessageSender`
+
+Persists a workflow-authored outbound message, broadcasts `message.created` over SSE, and publishes `OutboundMessageEvent` (with optional button options) for the channel adapter.
+
+Used by Send Message, Ask Question, and validation retries.
+
 ## Workflow Node Executors
 
 ### `TriggerNodeExecutor`
@@ -1733,7 +1771,7 @@ We need it because the trigger is part of the graph and must be recorded/travers
 
 ### `SendMessageNodeExecutor`
 
-Creates a workflow-authored outbound message, emits SSE, and publishes `OutboundMessageEvent`.
+Interpolates the node's message and sends it through `WorkflowMessageSender`.
 
 We need it to let workflows respond to contacts through the active channel.
 
@@ -1802,7 +1840,7 @@ Sends a question to the contact and returns a waiting result.
 
 Modes:
 
-- generic: save reply text into `responseVariable`.
+- generic: save reply text into `responseVariable` — or, with a `validationHook` set, validate it first and branch into `valid` / `invalid` (see `ReplyRouter`).
 - defined: route based on exact option match or option number, optionally saving the selected value into `responseVariable`, with default "Other" branch.
 
 It publishes option labels through `OutboundMessageEvent` so adapters can render Telegram reply keyboards or WhatsApp interactive buttons.
@@ -1831,11 +1869,72 @@ Optionally sends a closing message and marks the conversation closed.
 
 We need it for workflows that complete support flows or hand off after resolution.
 
+## Hooks
+
+Hooks (package `com.relayflow.api.hook`) are FEEL (DMN's Friendly Enough Expression Language) expressions run against a value. There are two hook points: an open-ended Ask Question reply (`validationHook` on the node) and a value an AI agent extracts (`validationHook` on an `ExtractionField`, run by `ExtractedDataValidator`). Built-in and user-defined hooks are evaluated identically, via Camunda's `feel-engine` (`org.camunda.feel:feel-engine`).
+
+### `FeelHookEvaluator`
+
+Evaluates a hook expression. The expression sees `value` (the input) and `variables` (the run's variables, nested by their dotted names — `contact.name` becomes `variables.contact.name`; a name clashing with an existing value is skipped).
+
+Result interpretation:
+
+- `true` → accept the value unchanged.
+- `false` / `null` → reject with the hook's error message.
+- a context with a `valid` entry → full control: `{valid: true, value: …, variables: {…}}` or `{valid: false, error: "…"}`. Each context entry can see the earlier ones, so `value` must come last or it shadows the input for the entries after it.
+- anything else → accept, storing the result in place of the original value. Results are converted to JSON-safe values (dates and durations become ISO strings; FEEL returns whole numbers as `Long` and decimals as `Double`).
+
+Safety:
+
+- FEEL external functions (Java method calls from an expression) are disabled.
+- FEEL has no recursion, but a large `for` range can still take a long time or a lot of memory. Each evaluation runs on a dedicated 4-thread pool (queue of 100) with a 2-second timeout. A timed-out evaluation can't be interrupted, so its thread stays busy until it finishes — the bounded pool only caps how many can pile up. Only members with `WORKFLOWS_WRITE` can author hooks.
+- `getSuppressedFailures()` (e.g. a misspelled function name that silently evaluated to `null`) are returned as `warnings` for the authoring UI.
+
+We need it so workspaces can validate and transform replies with their own rules without running arbitrary code on the server.
+
+### `HookFunctionProvider`
+
+Java-backed FEEL functions available to every hook, on top of FEEL's standard library:
+
+- `is email(text)`
+- `is url(text)` — http/https with a host.
+- `normalize phone number(text)` — strips spaces, dots, dashes, parentheses; `00` → `+`; `null` unless 7–15 digits remain.
+- `parse date(text)` — ISO dates and written-month formats (`23 September 2026`, `Sep 23, 2026`); numeric formats like `09/10/2026` are not accepted; impossible dates are `null`.
+
+A non-text argument yields `false` / `null`, so hooks built on these reject rather than fail.
+
+### `BuiltInHook`
+
+Enum of hooks every workspace has: `EMAIL`, `PHONE_NUMBER`, `NUMBER`, `WHOLE_NUMBER`, `DATE`, `URL`. Each is a plain FEEL expression plus a display name, description, and default error message; referenced as `builtin:<lowercase name>` (e.g. `builtin:phone_number`). The settings UI lets users copy one into a custom hook to adapt it.
+
+### `HookService`
+
+- `listBuiltInHooks`, `listHooks`.
+- `createHook` / `updateHook`: reject an expression FEEL can't parse (400) and a duplicate name (409).
+- `deleteHook`: refuses (409, naming them) while any of the workspace's workflow graphs or AI agents' extraction fields references `custom:<id>`.
+- `hookExists`: whether a `builtin:` / `custom:` key resolves in the workspace — used by `AiAgentConfigurationService` to reject an extraction field pointing at a missing hook.
+- `testHook`: evaluates an unsaved expression against a sample value — backs the editor's "Test" box.
+- `runHook`: resolves `builtin:` / `custom:` keys (custom hooks are workspace-scoped) and evaluates; an unknown key is an `ERROR` outcome.
+- `validateHookReferences`: called by `WorkflowService` when a workflow is enabled, alongside `WorkflowGraphValidator` — fails if an Ask Question node references a hook that doesn't exist.
+
+Editing a custom hook applies immediately to every workflow and AI agent using it.
+
+### `HookController`
+
+REST controller at `/workspaces/{workspaceId}/hooks`. Reads (`GET`, `GET /built-in`) need workspace membership; `POST`, `PUT /{hookId}`, `DELETE /{hookId}`, and `POST /test` need `WORKFLOWS_WRITE`.
+
+### `Hook`
+
+JPA entity (`hooks`, migration `V6__hooks_and_escalation_types.sql`) for a user-defined hook: `name` (unique per workspace), optional `description`, `expression`, `errorMessage`. `key()` returns the node reference, `custom:<id>`.
+
+DTOs: `SaveHookRequest`, `HookResponse`, `BuiltInHookResponse`, `TestHookRequest`, `TestHookResponse`. Outcome types: `HookOutcome`, `HookOutcomeStatus` (`ACCEPTED`, `REJECTED`, `ERROR`).
+
 ## Workflow Repositories
 
 - `WorkflowDefinitionRepository`
 - `WorkflowRunRepository`
 - `WorkflowRunStepRepository`
+- `HookRepository` — includes `findWorkflowNamesReferencing` and `findAiAgentNamesReferencing`, native queries over `workflow_definitions.draft_graph` and `ai_agent_configs.extraction_fields` used to block deleting a hook still in use.
 
 These persist workflow definitions and execution logs.
 
@@ -2210,7 +2309,7 @@ We need it to create a stable place for general, channel, member, invite, AI age
 
 ### `ChannelsList`
 
-Lists connected channel accounts and provides the connect/disconnect/delete/reconnect UI, plus each channel's AI agent assignment.
+Lists connected channel accounts and provides the connect/disconnect/delete/reconnect UI, plus each channel's AI agent assignment. Active channels show their `webhookUrl`, which the API builds from `RELAYFLOW_API_BASE_URL`.
 
 Important constants:
 
@@ -2259,6 +2358,16 @@ Important behavior:
 - The list only ever shows `name` and timestamps — the value is never returned by the API to begin with.
 
 We need it so a workspace can manage the credentials its workflows call external APIs with, without ever exposing them again after creation.
+
+### `HooksPanel`
+
+Settings section (`#hooks`, shown to owners and members with `WORKFLOWS_WRITE`) for hooks.
+
+Important behavior:
+
+- Custom hooks list with create, edit, and delete; a delete blocked because a workflow or AI agent still uses the hook shows the API's 409 message above the list.
+- Built-in hooks are read-only; each has a "Copy into a custom hook" action that opens the editor prefilled with its expression and error message.
+- The editor modal (`HookEditorModal`) takes a name, optional description, FEEL expression, and error message, and embeds `HookTester` — a sample-reply box that calls the test endpoint and shows accepted (with the stored value and extra variables), rejected (with the message the contact would see), or error, plus any FEEL warnings. Enter in the sample box runs the test instead of submitting the form.
 
 ### `GeneralPanel`
 
@@ -2344,6 +2453,7 @@ Important helpers:
 - `ConditionValueField`, `HeaderRow`: smaller controlled field components with their own refs.
 - `writableContactFieldOptions`: `SelectOption[]` combining `RESERVED_CONTACT_FIELD_KEYS` and the workspace's `contactFieldDefinitions` — the dropdown source for `SetContactFieldForm`'s field picker. `contactFieldVariables` (the `contact.data.<key>` entries offered by the `{{…}}` variable picker for *reading*) covers the same reserved-plus-workspace-defined set, so a field that's writable is also readable via the picker.
 - `extractionFieldVariables`: `agent.data.<key>` picker entries built from the workspace's default AI Agent config's `extractionFields` (`useAiAgentConfigurations().find(c => c.isDefault)`, not any config a channel is specifically assigned to), excluding any key that's also a reserved contact field or workspace `ContactFieldDefinition` — that data is already reachable via `contact.data.<key>`, so offering both would just be a confusing duplicate for the common case where every extraction field is a contact field (e.g. `firstName`, `phone`). An extraction field defined only on a non-default config doesn't appear here.
+- `ReplyValidationFields` (open-ended Ask Question only): picks a built-in or custom hook, an optional error-message override, and max attempts. Turning validation on moves the node's unlabelled outgoing edge to `valid`; turning it off moves `valid` back and drops any `invalid` edge.
 - `secretVariables`/`httpRequestVariables`: `secrets.<name>` entries (`useSecrets`) are merged into `variables` only for the value passed to `HttpRequestForm` — every other node form still gets the plain `variables` array. `{{secrets.NAME}}` is only ever resolved by `HttpRequestNodeExecutor` on the backend, so offering it in another node's picker would silently go unresolved.
 
 Important constants:
@@ -2489,7 +2599,7 @@ We need it to represent a workflow deliberately writing a contact field, distinc
 
 ### `WaitForReplyNode`
 
-Visual Ask Question node with dynamic source handles for defined options.
+Visual Ask Question node with dynamic source handles for defined options. In open-ended mode with a `validationHook`, the single output is replaced by `valid` / `invalid` handles (same layout as HTTP Request's success/error).
 
 Important types:
 
@@ -2601,7 +2711,7 @@ We need them for contact-management screens.
 - `useMessages`: infinite query for messages.
 - `useSendMessage`: creates outbound messages and invalidates conversation/message caches.
 - `useUpdateConversation`: changes conversation status.
-- `useWorkspaceEvents`: opens SSE and invalidates React Query caches on `message.created`, `ai.draft.created`, and `ai.escalated` events (the last just invalidates the conversation list so `ConversationItem`/`MessageThread` pick up `escalatedAt`). The backend also emits `conversation.updated` over the same stream, but nothing here listens for it yet.
+- `useWorkspaceEvents`: opens SSE, refreshes messages and conversations whenever the stream (re)connects so events missed during a reconnect aren't lost, and invalidates React Query caches on `message.created`, `ai.draft.created`, `ai.escalated` and `conversation.updated` events (the last two just invalidate the conversation list so `ConversationItem`/`MessageThread` pick up escalation, status and assignee changes).
 
 Important constants:
 
@@ -2647,6 +2757,10 @@ We need them to keep workflow builder API access outside UI components.
 - `useCreateWebhook` / `useUpdateWebhook`: create or update one webhook.
 - `useDeleteWebhook`: deletes one webhook.
 - `useRotateWebhookSecret`: rotates one webhook's signing secret and exposes the one-time plaintext value.
+- `useBuiltInHooks`: fetches the built-in hook catalogue (`staleTime: Infinity` — it only changes with a release).
+- `useHooks`: fetches the workspace's custom hooks.
+- `useCreateHook` / `useUpdateHook` / `useDeleteHook`: manage one custom hook.
+- `useTestHook`: evaluates an unsaved expression against a sample reply.
 
 We need them for API key and webhook settings without embedding fetch logic in components.
 
@@ -2707,7 +2821,7 @@ Important classes/constants/functions:
 
 - `ApiError`: typed fetch error with HTTP status and details.
 - `MessagingApiClient`: wraps all API calls.
-- `defaultBaseUrl`: API base URL.
+- `apiBaseUrl()` (from `api-base-url.ts`): the API base URL — `/backend` in the browser, `RELAYFLOW_API_INTERNAL_URL` (default `http://localhost:8080`) on the server.
 - `messagingApi`: shared client instance.
 - `readResponseBody`: parses error responses.
 - `errorMessage`: normalizes a backend error message.
@@ -2738,15 +2852,22 @@ We need it so mutation hooks can show clean toast messages.
 
 ### `proxy.ts`
 
-Next middleware for route-level cookie checks.
+Next middleware for the API proxy and route-level cookie checks.
 
 Important pieces:
 
+- `apiProxyTarget`: maps `/backend/<path>?<query>` to `<RELAYFLOW_API_INTERNAL_URL>/<path>?<query>`.
+- `proxy`: rewrites `/backend/*` requests to the API (read at runtime, so one built image works for any deployment), and redirects visitors without a session cookie away from protected pages.
 - `SESSION_COOKIE`
-- `proxy`
 - `config`
 
-We need it for fast redirect behavior before protected pages render, while still allowing server-side auth validation to handle stale cookies.
+We need it so the browser only ever talks to the web app's domain: the API's session cookie then belongs to that domain, which the server-rendered pages and the cookie check rely on, wherever the API is hosted. Webhooks still reach the API directly at `RELAYFLOW_API_BASE_URL`.
+
+### `api-base-url.ts`
+
+- `BROWSER_API_BASE_URL`: `/backend`, used for links and the SSE connection so server and browser render the same value.
+- `serverApiBaseUrl()`: `RELAYFLOW_API_INTERNAL_URL` (default `http://localhost:8080`), used by server-rendered pages.
+- `apiBaseUrl()`: picks between the two depending on where it runs; the default for the API clients.
 
 ## Frontend Tests
 
@@ -2884,13 +3005,13 @@ Important fields:
 - `knowledgeBase`: `List<KnowledgeEntry>` stored as JSONB — Q&A pairs injected into the system prompt
 - `escalationKeywords`: `List<String>` JSONB — deterministic pre-LLM keyword check
 - `workflowMappings`: `List<WorkflowMapping>` JSONB — maps workflow IDs to trigger descriptions shown to the LLM
-- `extractionFields`: `List<ExtractionField>` JSONB (key + description) — fields the LLM is prompted to pull from the conversation; only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence (see `AgentWorkflowContext` and `ContactCustomFieldWriter`)
+- `extractionFields`: `List<ExtractionField>` JSONB (key, description, optional `validationHook`) — fields the LLM is prompted to pull from the conversation; only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence (see `AgentWorkflowContext` and `ContactCustomFieldWriter`)
 
 We need it to let a workspace define multiple agent personas (e.g. a sales agent and a support agent) and assign each channel to the one it should use, without duplicating shared identity/routing fields onto the channel itself.
 
 ### `AiAgentInvocationLog`
 
-JPA entity mapped to `ai_agent_invocation_log`. One row per agent pipeline run.
+JPA entity mapped to `ai_agent_invocation_logs`. One row per agent pipeline run.
 
 Important fields:
 
@@ -2995,11 +3116,13 @@ Flow:
 4. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
 5. Re-check for an active `WorkflowRun` committed in the race window since step 4.
 6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call `llmClientFactory.getClient(configuration.getLlmProvider())` — the config's own provider if set, otherwise the platform's active provider (see [LLM Abstraction](#llm-abstraction)). If the call itself failed (`response.failed()` — network, auth, bad status, unparseable body), escalate immediately rather than falling through to drafting or sending; see `AgentLlmResponse`.
-7. `contactCustomFieldWriter.apply(...)` runs unconditionally right after the LLM responds, before any branching below — including the draft path.
-8. `mergeWithPendingDraft(conversation, response.extractedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
-9. `sanitizeSuggestedActions(response.suggestedActions(), configuration.getWorkflowMappings())` drops any `trigger_workflow:<id>` action whose `<id>` isn't in a configured `WorkflowMapping` — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging.
-10. Decision:
+7. `ExtractedDataValidator.validate(...)` runs each extracted value through its field's `validationHook`, if any. Only the accepted (and possibly rewritten) values go on; rejected ones are recorded in `outputSnapshot.rejectedExtractions`.
+8. `contactCustomFieldWriter.apply(...)` runs with the accepted values right after validation, before any branching below — including the draft path.
+9. `mergeWithPendingDraft(conversation, validation.acceptedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
+10. `sanitizeSuggestedActions(response.suggestedActions(), configuration.getWorkflowMappings())` drops any `trigger_workflow:<id>` action whose `<id>` isn't in a configured `WorkflowMapping` — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging. If any extracted value was rejected, `trigger_workflow:` actions are dropped too, so a workflow doesn't start while a value it may need is being corrected.
+11. Decision:
     - `escalate` → stamp `Conversation.escalatedAt`/`escalationReason`, broadcast `ai.escalated` SSE + ESCALATED (see `broadcastEscalation`; cleared later by `MessagingService.createMessage` on the next human reply).
+    - otherwise, if a value was rejected, `correctionReply()` makes a second LLM call — the original history, with `ExtractionValidation.correctionInstruction(draftReply)` appended to the system prompt (which value was rejected and why, the draft, and a rule to say what was wrong rather than re-ask) — with no extraction fields, so it can't bring a rejected value back. Its reply replaces the original for the branches below; if it fails or is blank, `ExtractionValidation.fallbackReply()` (the hooks' error messages) is used.
     - sanitized `trigger_workflow:` action present and autonomy ceiling is not `DRAFT_ONLY` → `triggerWorkflow()` — builds `AgentWorkflowContext` from `accumulatedExtractedData`, deletes the pending draft, calls `WorkflowEngineService.executeWorkflow()` + SENT.
     - `draftOnly` OR `confidence == "low"` OR `needsClarification` → `saveDraft()` updates the existing `ConversationAiDraft` in place (merging `accumulatedExtractedData` and the sanitized `suggestedActions`) instead of delete-and-recreate, so a workflow suggestion isn't lost across drafted turns + broadcast + DRAFTED (human approves via `POST /trigger-workflow/{workflowId}`).
     - else → send reply + SENT.
@@ -3026,6 +3149,19 @@ Important behavior:
 
 We need it to keep LLM prompt construction separate from the invocation pipeline, and to give the agent visibility into what it already knows about the contact so extraction feels like a conversation, not a form.
 
+### `ExtractedDataValidator`
+
+`@Service` in the `agent` package. `validate(workspaceId, extractedData, extractionFields)` runs each extracted value through its `ExtractionField.validationHook` via `HookService.runHook`, with no variables — a hook sees only that one value. Returns an `ExtractionValidation`: `acceptedData` and `rejections` (`RejectedExtraction`: key, value, contact-facing reason).
+
+- No hook, or a blank value → passed through unchanged.
+- `ACCEPTED` → the hook's result replaces the value (stringified).
+- `REJECTED` → a rejection with the hook's error message.
+- `ERROR` (unknown hook, timeout, evaluation failure) → logged and rejected with a generic "could you send it again" reason, so unchecked data is never stored.
+
+`AiAgentConfigurationService` refuses to save an extraction field whose hook doesn't exist (400); a blank hook is stored as none.
+
+We need it so the agent never stores or acts on an extracted value the workspace's own rules reject, and asks the contact to correct it instead.
+
 ### `ContactCustomFieldWriter`
 
 `@Service` in the `agent` package. `apply(conversation, extractedData, extractionFields)` persists LLM-extracted data onto the contact's `customFields`. Called unconditionally, immediately after every LLM response.
@@ -3038,7 +3174,7 @@ Important behavior:
 - Gap-filling only within what it does write: never overwrites an already-stored non-blank value.
 - Calls `ContactDisplayNameSync.apply(contact)` after a change, so writing `firstName`/`lastName` keeps `displayName` in sync.
 
-Called unconditionally from `AiAgentInvocationService.runPipeline` right after the LLM responds, before any decision branching.
+Called from `AiAgentInvocationService.runPipeline` with the values `ExtractedDataValidator` accepted, before any decision branching.
 
 We need it so AI-extracted data flows onto the contact record the moment the AI captures it — not gated behind a human approving a draft — without ever clobbering a value someone already explicitly set, and without polluting the contact with keys the workspace never asked the agent to extract.
 
@@ -3082,7 +3218,7 @@ Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`
 
 #### `LlmPrompts`
 
-Package-private class holding `buildFormatInstruction(extractionFields)`, appended by each LLM client to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description and two directives added after real extraction misses: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved.
+Package-private class holding `buildFormatInstruction(extractionFields)`, appended by each LLM client to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model extracts exactly what the customer sent, even if it looks invalid — the hook decides, not the model) and two directives added after real extraction misses: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved.
 
 #### `AnthropicLlmClient`
 
@@ -3090,7 +3226,7 @@ Implements `LlmClient` via the Anthropic Java SDK (`anthropic-java:0.8.2`). Buil
 
 #### `AbstractOpenAiCompatibleLlmClient`
 
-Package-private abstract base for `OpenAiLlmClient` and `OllamaLlmClient`. Implements the OpenAI-compatible chat completions contract: builds the JSON payload, POSTs to `/v1/chat/completions` via Spring `RestClient`, extracts `choices[0].message.content`, and parses it into `AgentLlmResponse`.
+Package-private abstract base for `OpenAiLlmClient`, `OllamaLlmClient`, and `GroqLlmClient`. Implements the OpenAI-compatible chat completions contract: builds the JSON payload, POSTs to `/v1/chat/completions` via Spring `RestClient`, extracts `choices[0].message.content`, and parses it into `AgentLlmResponse`.
 
 #### `OpenAiLlmClient`
 
@@ -3148,7 +3284,7 @@ Both sections render the shared `AiAgentForm`, whose sections are:
 - Knowledge base: list of `{question, answer}` pairs.
 - Escalation keywords: tag-style list.
 - Workflow mappings: workflow dropdown + trigger description rows.
-- Data extraction: list of `{key, description}` extraction fields. Only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence — see `AgentWorkflowContext` and `ContactCustomFieldWriter`.
+- Data extraction: list of `{key, description, validationHook}` extraction fields. Only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence — see `AgentWorkflowContext` and `ContactCustomFieldWriter`. Each field has a hook picker (built-in and custom hooks from `useBuiltInHooks` / `useHooks`, "Unavailable hook" if the saved one is gone), validated by `ExtractedDataValidator`.
 
 `AiAgentForm` takes `onSave`/`isSaving`/`extraAction` as props rather than owning a mutation itself, so the same form works for both creating a new config and updating an existing one. Follows the `GeneralPanel` save-button pattern (disabled until the form differs from the loaded config).
 

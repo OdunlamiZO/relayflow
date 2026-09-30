@@ -13,4 +13,5 @@ public record ChannelAccountResponse(
         String name,
         ChannelAccountStatus status,
         Map<String, Object> metadata,
+        String webhookUrl,
         Instant createdAt) {}

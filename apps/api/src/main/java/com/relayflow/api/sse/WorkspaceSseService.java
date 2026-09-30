@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -30,6 +31,8 @@ public class WorkspaceSseService {
 
     /** Emitter timeout — 5 minutes. The client must reconnect after this. */
     private static final long EMITTER_TIMEOUT_MS = 5 * 60 * 1_000L;
+
+    private static final long HEARTBEAT_INTERVAL_MS = 15 * 1_000L;
 
     private final Map<UUID, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
@@ -81,6 +84,16 @@ public class WorkspaceSseService {
      * Dead emitters encountered during the broadcast are pruned in-place.
      */
     void broadcast(UUID workspaceId, String eventName, Object data) {
+        send(workspaceId, SseEmitter.event().name(eventName).data(data));
+    }
+
+    /** Keeps idle streams from being closed by proxy timeouts, such as Next.js's 30s default. */
+    @Scheduled(fixedRate = HEARTBEAT_INTERVAL_MS)
+    void sendHeartbeats() {
+        emitters.keySet().forEach(workspaceId -> send(workspaceId, SseEmitter.event().comment("")));
+    }
+
+    private void send(UUID workspaceId, SseEmitter.SseEventBuilder event) {
         List<SseEmitter> list = emitters.get(workspaceId);
 
         if (list == null || list.isEmpty()) {
@@ -91,7 +104,7 @@ public class WorkspaceSseService {
 
         for (SseEmitter emitter : list) {
             try {
-                emitter.send(SseEmitter.event().name(eventName).data(data));
+                emitter.send(event);
             } catch (Exception e) {
                 dead.add(emitter);
             }

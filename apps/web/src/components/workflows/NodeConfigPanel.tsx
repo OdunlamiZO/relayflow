@@ -8,6 +8,8 @@ import { type Node, useReactFlow } from "@xyflow/react";
 import { Select } from "@/components/common/Select";
 import { type SelectOption } from "@/components/common/Select";
 import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
+import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
+import { useHooks } from "@/hooks/use-hooks";
 import { useSecrets } from "@/hooks/use-secrets";
 import { useWorkspace } from "@/hooks/use-workspaces";
 import {
@@ -1086,11 +1088,13 @@ const RESPONSE_TYPE_OPTIONS = [
 ];
 
 function WaitForReplyForm({
+  workspaceId,
   nodeId,
   data,
   onChange,
   variables,
 }: {
+  workspaceId: string;
   nodeId: string;
   data: Record<string, unknown>;
   onChange: (u: Record<string, unknown>) => void;
@@ -1177,15 +1181,24 @@ function WaitForReplyForm({
       </Field>
 
       {responseType === "generic" && (
-        <Field label="Save reply to variable">
-          <input
-            type="text"
-            value={(data.responseVariable as string) ?? ""}
-            onChange={(e) => onChange({ responseVariable: e.target.value })}
-            placeholder="e.g. customerReply"
-            className={inputCls}
+        <>
+          <Field label="Save reply to variable">
+            <input
+              type="text"
+              value={(data.responseVariable as string) ?? ""}
+              onChange={(e) => onChange({ responseVariable: e.target.value })}
+              placeholder="e.g. customerReply"
+              className={inputCls}
+            />
+          </Field>
+
+          <ReplyValidationFields
+            workspaceId={workspaceId}
+            nodeId={nodeId}
+            data={data}
+            onChange={onChange}
           />
-        </Field>
+        </>
       )}
 
       {responseType === "defined" && (
@@ -1280,6 +1293,154 @@ function WaitForReplyForm({
           days — up to {maxTimeoutMinutes} minutes left for this node.
         </p>
       </Field>
+    </>
+  );
+}
+
+const DEFAULT_MAX_ATTEMPTS = 3;
+
+const MAX_ATTEMPTS_LIMIT = 10;
+
+function ReplyValidationFields({
+  workspaceId,
+  nodeId,
+  data,
+  onChange,
+}: {
+  workspaceId: string;
+  nodeId: string;
+  data: Record<string, unknown>;
+  onChange: (u: Record<string, unknown>) => void;
+}) {
+  const { setEdges } = useReactFlow();
+  const { data: builtInHooks = [], isSuccess: builtInHooksLoaded } =
+    useBuiltInHooks(workspaceId);
+  const { data: customHooks = [], isSuccess: customHooksLoaded } =
+    useHooks(workspaceId);
+
+  const validationHook = (data.validationHook as string | undefined) ?? "";
+
+  const hookOptions: SelectOption[] = [
+    { value: "", label: "No validation" },
+    ...builtInHooks.map((hook) => ({ value: hook.key, label: hook.name })),
+    ...customHooks.map((hook) => ({
+      value: hook.key,
+      label: `${hook.name} (custom)`,
+    })),
+  ];
+
+  const selectedHook =
+    builtInHooks.find((hook) => hook.key === validationHook) ??
+    customHooks.find((hook) => hook.key === validationHook);
+
+  const isUnavailable =
+    validationHook !== "" &&
+    builtInHooksLoaded &&
+    customHooksLoaded &&
+    !selectedHook;
+
+  if (isUnavailable) {
+    hookOptions.push({ value: validationHook, label: "Unavailable hook" });
+  }
+
+  function selectHook(hookKey: string) {
+    const wasValidated = validationHook !== "";
+    const isValidated = hookKey !== "";
+
+    onChange({ validationHook: hookKey || undefined });
+
+    if (!wasValidated && isValidated) {
+      setEdges((edges) =>
+        edges.map((edge) =>
+          edge.source === nodeId && !edge.sourceHandle
+            ? { ...edge, sourceHandle: "valid" }
+            : edge
+        )
+      );
+    }
+
+    if (wasValidated && !isValidated) {
+      setEdges((edges) =>
+        edges
+          .filter(
+            (edge) =>
+              !(edge.source === nodeId && edge.sourceHandle === "invalid")
+          )
+          .map((edge) =>
+            edge.source === nodeId && edge.sourceHandle === "valid"
+              ? { ...edge, sourceHandle: null }
+              : edge
+          )
+      );
+    }
+  }
+
+  return (
+    <>
+      <Field label="Validate reply">
+        <Select
+          value={validationHook}
+          onChange={selectHook}
+          options={hookOptions}
+        />
+        <p className="mt-1 text-xs text-neutral-400">
+          {isUnavailable
+            ? "This hook no longer exists. Choose another one or turn validation off."
+            : selectedHook
+              ? selectedHook.description
+              : "Check the reply before saving it. Manage custom hooks in Settings → Hooks."}
+        </p>
+      </Field>
+
+      {validationHook !== "" && (
+        <>
+          <Field label="Error message">
+            <input
+              type="text"
+              value={(data.validationErrorMessage as string) ?? ""}
+              onChange={(e) =>
+                onChange({ validationErrorMessage: e.target.value })
+              }
+              placeholder={selectedHook?.errorMessage ?? "Please try again."}
+              maxLength={500}
+              className={inputCls}
+            />
+            <p className="mt-1 text-xs text-neutral-400">
+              Sent when the reply is rejected. Leave blank to use the
+              hook&apos;s own message.
+            </p>
+          </Field>
+
+          <Field label="Maximum attempts">
+            <input
+              type="number"
+              min={1}
+              max={MAX_ATTEMPTS_LIMIT}
+              value={(data.maxAttempts as number | undefined) ?? ""}
+              placeholder={String(DEFAULT_MAX_ATTEMPTS)}
+              onChange={(e) =>
+                onChange({
+                  maxAttempts: e.target.value
+                    ? Math.min(
+                        Math.max(Number(e.target.value), 1),
+                        MAX_ATTEMPTS_LIMIT
+                      )
+                    : undefined,
+                })
+              }
+              className={inputCls}
+            />
+            <p className="mt-1 text-xs text-neutral-400">
+              How many tries the contact gets to send a valid reply. Each
+              invalid reply gets the error message and the question waits for
+              another reply. If every try is invalid, the workflow continues
+              from the{" "}
+              <span className="font-medium text-neutral-500">Invalid</span>{" "}
+              output. If nothing is connected there, the workflow ends.
+            </p>
+          </Field>
+        </>
+      )}
     </>
   );
 }
@@ -1531,6 +1692,7 @@ export function NodeConfigPanel({
         )}
         {node.type === "waitForReply" && (
           <WaitForReplyForm
+            workspaceId={workspaceId}
             nodeId={node.id}
             data={data}
             onChange={update}

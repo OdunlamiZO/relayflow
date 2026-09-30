@@ -15,6 +15,9 @@ export type WaitForReplyNodeData = {
   options?: WaitForReplyOption[];
   /** Minutes to wait for a reply before failing the run. Defaults to 1440 (24 hours). */
   timeoutMinutes?: number;
+  validationHook?: string;
+  validationErrorMessage?: string;
+  maxAttempts?: number;
 };
 
 export const DEFAULT_TIMEOUT_MINUTES = 60 * 24;
@@ -41,6 +44,7 @@ export function WaitForReplyNode({
   isConnectable,
 }: NodeProps<WaitForReplyNodeType>) {
   const isGeneric = !data.responseType || data.responseType === "generic";
+  const isValidated = isGeneric && !!data.validationHook;
   const options = data.options ?? [];
 
   // For defined mode: N option handles + 1 "Other" default handle
@@ -101,15 +105,49 @@ export function WaitForReplyNode({
     </div>
   ) : undefined;
 
+  const validatedFooter = isValidated ? (
+    <div className="relative pb-5 pt-1">
+      <span
+        className="absolute -translate-x-1/2 text-[10px] text-green-text"
+        style={{ left: "25%", bottom: 8 }}
+      >
+        Valid
+      </span>
+      <span
+        className="absolute -translate-x-1/2 text-[10px] text-red-border"
+        style={{ left: "75%", bottom: 8 }}
+      >
+        Invalid
+      </span>
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="valid"
+        isConnectable={isConnectable}
+        style={{ left: "25%" }}
+        className="!border-2 !border-neutral-100 !bg-green-border"
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="invalid"
+        isConnectable={isConnectable}
+        style={{ left: "75%" }}
+        className="!border-2 !border-neutral-100 !bg-red-border"
+      />
+    </div>
+  ) : undefined;
+
   return (
     <WorkflowNode
       id={id}
       icon="mark_unread_chat_alt"
       label={data.label ?? "Ask Question"}
       headerColor="bg-blue-bg text-blue-text"
-      hasSource={isGeneric}
+      hasSource={isGeneric && !isValidated}
       isConnectable={isConnectable}
-      footer={definedFooter}
+      footer={definedFooter ?? validatedFooter}
       selected={selected}
     >
       <span className="line-clamp-2 text-neutral-400">
@@ -119,6 +157,7 @@ export function WaitForReplyNode({
       <p className="m-0 mt-1.5 text-[10px] text-neutral-400">
         Times out after{" "}
         {formatTimeout(data.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES)}
+        {isValidated && ` · validated, ${data.maxAttempts ?? 3} attempts`}
       </p>
 
       {!isGeneric && options.length > 0 && (

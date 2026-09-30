@@ -7,9 +7,7 @@ import { GoogleIcon } from "@/components/common/GoogleIcon";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { useLogin } from "@/hooks/use-login";
 import { useLogin2FA } from "@/hooks/use-login-2fa";
-
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+import { BROWSER_API_BASE_URL } from "@/lib/api-base-url";
 
 export default function LoginPage() {
   return (
@@ -163,7 +161,7 @@ function LoginPageContent() {
       </p>
 
       <a
-        href={`${apiBaseUrl}/oauth2/authorization/google`}
+        href={`${BROWSER_API_BASE_URL}/oauth2/authorization/google`}
         className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-200"
       >
         <GoogleIcon />

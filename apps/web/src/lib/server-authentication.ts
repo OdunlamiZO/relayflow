@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { serverApiBaseUrl } from "@/lib/api-base-url";
 import { ApiError, apiErrorMessage, readResponseBody } from "@/lib/api-client";
 
 // Server-only — do NOT import this from client components.
@@ -10,13 +11,10 @@ import { ApiError, apiErrorMessage, readResponseBody } from "@/lib/api-client";
 type AuthenticationStatus = { authenticated: boolean };
 type InstanceStatus = { bootstrapped: boolean };
 
-const defaultBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-
 export class ServerAuthenticationClient {
   private readonly baseUrl: string;
 
-  constructor(baseUrl = defaultBaseUrl) {
+  constructor(baseUrl = serverApiBaseUrl()) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 

@@ -25,7 +25,7 @@ import org.hibernate.type.SqlTypes;
 @Getter
 @Setter
 @Entity
-@Table(name = "workflow_run_step")
+@Table(name = "workflow_run_steps")
 public class WorkflowRunStep {
 
     @Id

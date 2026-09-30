@@ -2,6 +2,7 @@ package com.relayflow.api.workflow;
 
 import com.relayflow.api.common.ResourceNotFoundException;
 import com.relayflow.api.common.dto.PageResponse;
+import com.relayflow.api.hook.HookService;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
 import com.relayflow.api.workflow.domain.WorkflowRun;
 import com.relayflow.api.workflow.domain.WorkflowRunStep;
@@ -39,15 +40,19 @@ public class WorkflowService {
 
     private final WorkflowRunRepository workflowRunRepository;
 
+    private final HookService hookService;
+
     public WorkflowService(
             WorkflowDefinitionRepository workflowRepository,
             WorkspaceRepository workspaceRepository,
             WorkflowGraphValidator graphValidator,
-            WorkflowRunRepository workflowRunRepository) {
+            WorkflowRunRepository workflowRunRepository,
+            HookService hookService) {
         this.workflowRepository = workflowRepository;
         this.workspaceRepository = workspaceRepository;
         this.graphValidator = graphValidator;
         this.workflowRunRepository = workflowRunRepository;
+        this.hookService = hookService;
     }
 
     @Transactional(readOnly = true)
@@ -99,6 +104,7 @@ public class WorkflowService {
             Map<String, Object> graphToValidate =
                     workflow.getDraftGraph() != null ? workflow.getDraftGraph() : Map.of();
             graphValidator.validate(graphToValidate);
+            hookService.validateHookReferences(workspaceId, graphToValidate);
         }
 
         if (request.enabled() != null) {

@@ -8,8 +8,10 @@ import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
+import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
 import { useCreateAiAgentConfiguration } from "@/hooks/use-create-ai-agent-configuration";
 import { useDeleteAiAgentConfiguration } from "@/hooks/use-delete-ai-agent-configuration";
+import { useHooks } from "@/hooks/use-hooks";
 import { usePlatformLlmProvider } from "@/hooks/use-platform-llm-provider";
 import { useSetDefaultAiAgentConfiguration } from "@/hooks/use-set-default-ai-agent-configuration";
 import { useUpdateAiAgentConfiguration } from "@/hooks/use-update-ai-agent-configuration";
@@ -376,7 +378,20 @@ function AiAgentForm({
 }: AiAgentFormProps) {
   const { data: workflows = [] } = useWorkflows(workspaceId);
   const { data: platformDefaultProvider } = usePlatformLlmProvider(workspaceId);
+  const { data: builtInHooks = [], isSuccess: builtInHooksLoaded } =
+    useBuiltInHooks(workspaceId);
+  const { data: customHooks = [], isSuccess: customHooksLoaded } =
+    useHooks(workspaceId);
   const { showToast } = useToast();
+
+  const hookOptions = [
+    { value: "", label: "No validation" },
+    ...builtInHooks.map((hook) => ({ value: hook.key, label: hook.name })),
+    ...customHooks.map((hook) => ({
+      value: hook.key,
+      label: `${hook.name} (custom)`,
+    })),
+  ];
 
   const [form, setForm] = useState<FormState>(() =>
     formFromConfiguration(configuration)
@@ -521,6 +536,41 @@ function AiAgentForm({
         i === index ? { ...entry, [field]: value } : entry
       ),
     });
+  }
+
+  function hookOptionsFor(validationHook: string) {
+    const isUnavailable =
+      validationHook !== "" &&
+      builtInHooksLoaded &&
+      customHooksLoaded &&
+      !hookOptions.some((option) => option.value === validationHook);
+
+    return isUnavailable
+      ? [...hookOptions, { value: validationHook, label: "Unavailable hook" }]
+      : hookOptions;
+  }
+
+  function hookDescription(validationHook: string) {
+    if (validationHook === "") {
+      return "Check each extracted value before it's saved. Manage custom hooks in Settings → Hooks.";
+    }
+
+    const selectedHook =
+      builtInHooks.find((hook) => hook.key === validationHook) ??
+      customHooks.find((hook) => hook.key === validationHook);
+
+    if (selectedHook) {
+      return [
+        selectedHook.description,
+        "If a value is rejected, the agent asks the contact to correct it.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+
+    return builtInHooksLoaded && customHooksLoaded
+      ? "This hook no longer exists. Choose another one or turn validation off."
+      : "";
   }
 
   function removeExtractionField(index: number) {
@@ -931,8 +981,18 @@ function AiAgentForm({
                 onChange={(e) =>
                   updateExtractionField(i, "description", e.target.value)
                 }
-                className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+                className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
+              <Select
+                value={field.validationHook ?? ""}
+                onChange={(value) =>
+                  updateExtractionField(i, "validationHook", value)
+                }
+                options={hookOptionsFor(field.validationHook ?? "")}
+              />
+              <p className="mt-1 text-xs text-neutral-400">
+                {hookDescription(field.validationHook ?? "")}
+              </p>
             </div>
           ))}
         </div>

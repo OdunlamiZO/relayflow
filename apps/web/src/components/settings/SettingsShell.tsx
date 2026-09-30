@@ -9,6 +9,7 @@ import { useCurrentMember } from "@/hooks/use-current-member";
 import { AiAgentPanel } from "./AiAgentPanel";
 import { ChannelsList } from "./ChannelsList";
 import { GeneralPanel } from "./GeneralPanel";
+import { HooksPanel } from "./HooksPanel";
 import { IntegrationsPanel } from "./IntegrationsPanel";
 import { MembersList } from "./MembersList";
 
@@ -45,6 +46,10 @@ export function SettingsShell({ workspaceId }: Props) {
     currentMember?.role === "OWNER" ||
     currentMember?.permissions.includes("SECRETS_WRITE") === true;
 
+  const canManageHooks =
+    currentMember?.role === "OWNER" ||
+    currentMember?.permissions.includes("WORKFLOWS_WRITE") === true;
+
   const canSeeIntegrations =
     canManageApiKeys || canManageWebhook || canManageSecrets;
 
@@ -65,6 +70,9 @@ export function SettingsShell({ workspaceId }: Props) {
       : []),
     ...(canSeeIntegrations
       ? [{ href: "#integrations", icon: "api", label: "Integrations" }]
+      : []),
+    ...(canManageHooks
+      ? [{ href: "#hooks", icon: "rule", label: "Hooks" }]
       : []),
   ];
 
@@ -220,6 +228,12 @@ export function SettingsShell({ workspaceId }: Props) {
                   canManageWebhook={canManageWebhook}
                   canManageSecrets={canManageSecrets}
                 />
+              </div>
+            )}
+
+            {canManageHooks && (
+              <div id="hooks" className="border-t border-neutral-200">
+                <HooksPanel workspaceId={workspaceId} />
               </div>
             )}
           </main>

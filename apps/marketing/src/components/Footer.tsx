@@ -24,6 +24,13 @@ export function Footer() {
             </Link>
 
             <Link
+              href="/changelog"
+              className="text-xs font-semibold text-neutral-600 transition-colors hover:text-accent"
+            >
+              Changelog
+            </Link>
+
+            <Link
               href="https://github.com/OdunlamiZO/relayflow"
               target="_blank"
               rel="noopener noreferrer"

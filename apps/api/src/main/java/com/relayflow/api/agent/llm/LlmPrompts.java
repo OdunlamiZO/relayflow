@@ -30,6 +30,13 @@ final class LlmPrompts {
                             + " it isn't mentioned, don't guess:\n");
             for (ExtractionField field : extractionFields) {
                 sb.append("\n- \"").append(field.key()).append("\": ").append(field.description());
+
+                if (field.validationHook() != null && !field.validationHook().isBlank()) {
+                    sb.append(
+                            " (checked by the system — whenever the customer answers this, extract"
+                                    + " exactly what they sent, even if it looks wrong or"
+                                    + " incomplete)");
+                }
             }
             sb.append(
                     "\n\nBefore finalizing your reply, check the customer's latest message against"

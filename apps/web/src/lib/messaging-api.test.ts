@@ -63,6 +63,48 @@ describe("MessagingApiClient", () => {
     );
   });
 
+  it("posts a workflow hook test to the workspace-scoped endpoint", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "ACCEPTED",
+          value: "ada@example.com",
+          errorMessage: null,
+          variables: {},
+          warnings: [],
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        }
+      )
+    );
+
+    const client = new MessagingApiClient("http://localhost:8080");
+    const outcome = await client.testHook("workspace-1", {
+      expression: "lower case(value)",
+      value: "Ada@Example.com",
+    });
+
+    expect(outcome.status).toBe("ACCEPTED");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/workspaces/workspace-1/hooks/test",
+      {
+        body: JSON.stringify({
+          expression: "lower case(value)",
+          value: "Ada@Example.com",
+        }),
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }
+    );
+  });
+
   it("throws API errors with backend error details", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ message: "Conversation not found" }), {

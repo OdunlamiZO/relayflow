@@ -229,24 +229,10 @@ function ChannelItem({
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const apiBaseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-
   // Show the webhook URL so the workspace owner knows what to configure externally.
   // Telegram: relay reads automatically — show for reference.
   // WhatsApp: must be manually pasted into Meta Developer Console.
-  const webhookUrl = (() => {
-    if (channel.status === "ACTIVE") {
-      if (channel.provider === "TELEGRAM") {
-        return `${apiBaseUrl}/telegram/webhook/${channel.id}`;
-      }
-      if (channel.provider === "WHATSAPP") {
-        return `${apiBaseUrl}/whatsapp/webhook/${channel.id}`;
-      }
-    }
-
-    return null;
-  })();
+  const webhookUrl = channel.status === "ACTIVE" ? channel.webhookUrl : null;
 
   return (
     <>

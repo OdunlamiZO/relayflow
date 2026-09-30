@@ -37,7 +37,8 @@ const ENV_VAR_ROWS: Array<{
   {
     name: "GOOGLE_AUTH_ENABLED / GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET",
     required: false,
-    notes: "Off by default",
+    notes:
+      "Off by default. In Google Cloud, add the redirect URI <RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google",
   },
   {
     name: "ANTHROPIC_API_KEY / OPENAI_API_KEY / GROQ_API_KEY",
@@ -76,14 +77,23 @@ export default function SelfHostingDocsPage() {
             RelayFlow
           </Link>
 
-          <Link
-            href="https://github.com/OdunlamiZO/relayflow"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
-          >
-            GitHub
-          </Link>
+          <div className="flex items-center gap-5">
+            <Link
+              href="/changelog"
+              className="text-sm font-semibold text-neutral-600 transition-colors hover:text-accent"
+            >
+              Changelog
+            </Link>
+
+            <Link
+              href="https://github.com/OdunlamiZO/relayflow"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark"
+            >
+              GitHub
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -4,13 +4,11 @@ import { Suspense } from "react";
 
 import { Spinner } from "@/components/common/Spinner";
 import { WorkflowsShell } from "@/components/workflows/WorkflowsShell";
+import { serverApiBaseUrl } from "@/lib/api-base-url";
 
 export const metadata = {
   title: "Workflows — RelayFlow",
 };
-
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 type WorkspaceItem = { id: string; name: string };
 
@@ -22,7 +20,7 @@ async function fetchWorkspaces(): Promise<WorkspaceItem[]> {
     .join("; ");
 
   try {
-    const res = await fetch(`${apiBaseUrl}/workspaces`, {
+    const res = await fetch(`${serverApiBaseUrl()}/workspaces`, {
       headers: { Cookie: cookieHeader },
       cache: "no-store",
     });
