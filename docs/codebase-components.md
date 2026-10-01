@@ -56,6 +56,7 @@ It intentionally focuses on components that define behavior or shared contracts.
 - [Workspace Domain Entities And Enums](#workspace-domain-entities-and-enums)
   - [`Workspace`](#workspace)
   - [`ContactFieldDefinition`](#contactfielddefinition)
+  - [`ContactTagDefinition`](#contacttagdefinition)
   - [`WorkspaceMember`](#workspacemember)
   - [`WorkspaceRole`](#workspacerole)
   - [`WorkspacePermission`](#workspacepermission)
@@ -78,6 +79,7 @@ It intentionally focuses on components that define behavior or shared contracts.
 - [Contact Backend](#contact-backend)
   - [`ContactController`](#contactcontroller)
   - [`ContactService`](#contactservice)
+  - [`ContactTagService`](#contacttagservice)
   - [`ContactMapper`](#contactmapper)
   - [`ReservedContactFieldResolver`](#reservedcontactfieldresolver)
   - [`ContactDisplayNameSync`](#contactdisplaynamesync)
@@ -165,6 +167,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`HttpRequestNodeExecutor`](#httprequestnodeexecutor)
   - [`SetVariableNodeExecutor`](#setvariablenodeexecutor)
   - [`SetContactFieldNodeExecutor`](#setcontactfieldnodeexecutor)
+  - [`SetContactTagNodeExecutor`](#setcontacttagnodeexecutor)
   - [`WaitForReplyNodeExecutor`](#waitforreplynodeexecutor)
   - [`JumpToNodeExecutor`](#jumptonodeexecutor)
   - [`EndConversationNodeExecutor`](#endconversationnodeexecutor)
@@ -193,6 +196,8 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`EmptyState`](#emptystate)
   - [`ConfirmModal`](#confirmmodal)
   - [`IconButton`](#iconbutton)
+  - [`PopoverMenu`](#popovermenu)
+  - [`DesktopOnly`](#desktoponly)
   - [`GoogleIcon`](#googleicon)
   - [`CopyButton`](#copybutton)
   - [`Select`](#select)
@@ -214,6 +219,8 @@ It intentionally focuses on components that define behavior or shared contracts.
 - [Frontend Contacts Components](#frontend-contacts-components)
   - [`ContactsShell`](#contactsshell)
   - [`ContactDetailPanel`](#contactdetailpanel)
+  - [`ContactTagPill`](#contacttagpill)
+  - [`ContactTagEditor`](#contacttageditor)
   - [`MergeContactModal`](#mergecontactmodal)
 - [Frontend Profile Components](#frontend-profile-components)
   - [`ProfileShell`](#profileshell)
@@ -781,6 +788,7 @@ JPA entity for a company/team workspace.
 Important fields:
 
 - `name`
+- `contactTagDefinitions`: `List<ContactTagDefinition>` JSONB (migration `V8__contact_tags.sql`, which also adds `contacts.tags`) — the workspace's contact tags and the values each can take.
 - `contactFieldDefinitions`: `List<ContactFieldDefinition>` JSONB — the workspace's custom contact field schema. A key here can't collide with a `ReservedContactField` key (enforced in `WorkspaceService.updateContactFieldDefinitions`).
 
 We need it as the tenant boundary for conversations, channels, workflows, and members.
@@ -790,6 +798,14 @@ We need it as the tenant boundary for conversations, channels, workflows, and me
 `record ContactFieldDefinition(String key, String label, String description)` — one entry in `Workspace.contactFieldDefinitions`.
 
 We need it so operators can define custom fields the AI agent extracts and/or a workflow writes onto a contact, beyond the four reserved fields.
+
+### `ContactTagDefinition`
+
+`record ContactTagDefinition(String key, String label, List<String> values, Map<String, String> colors)` — one entry in `Workspace.contactTagDefinitions`. `values` is the fixed list a contact's tag can be set to; `colors` optionally maps a value to one of `ContactTagDefinition.COLORS` for display.
+
+`WorkspaceService.updateContactTagDefinitions` replaces the list (`PUT /workspaces/{id}/contact-tag-definitions`, `CONTACT_FIELDS_WRITE`). Every tag needs a unique key and at least one value, with no blanks or duplicates, and colours only for its own values and from the palette. Removing a value (or a whole tag) is refused (409) while any contact still has it, counted by `ContactRepository.countWithTag`.
+
+We need it so a workspace can label contacts with controlled values, such as a status, that integrations and workflows can rely on.
 
 ### `WorkspaceMember`
 
@@ -1010,6 +1026,12 @@ Important methods:
 
 We need it as the REST boundary for the contacts UI and channel adapters creating identities.
 
+### `ContactTagService`
+
+`applyTags(contact, changes)` sets each given tag to its value, or clears it when the value is blank or null. An undefined tag or a value outside its allowed list is a 400 `ResponseStatusException`. Saves and sends `contact.updated` only when the tags actually change. Used by the contact page (`PATCH /contacts/{id}/tags`), the public API (`PUT /public/v1/contacts/{id}/tags`), and `SetContactTagNodeExecutor`.
+
+We need it so every way of setting a tag enforces the same rules.
+
 ### `ContactService`
 
 Business service for contact and external identity persistence.
@@ -1019,6 +1041,7 @@ Important methods:
 - `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
 - `updateContactCustomFields`: replaces `Contact.customFields`, calls `ContactDisplayNameSync.apply(contact)` (so manually editing `firstName`/`lastName` keeps `displayName` in sync, the same as the AI extraction and workflow Set Contact Field paths), then returns `getContactDetail`.
 - `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
+- `updateContactTags`: applies tag changes via `ContactTagService` and returns the contact detail.
 - `createExternalIdentity`
 - `getContact`: looks up a contact within a workspace or throws `ResourceNotFoundException`. Called by `MessagingService` when creating a conversation.
 
@@ -1053,6 +1076,7 @@ JPA entity for a customer/contact inside a workspace.
 Important fields:
 
 - `displayName`
+- `tags`: `Map<String, String>` JSONB — the contact's tag values, one per tag key, always one of that tag's allowed values. Written only through `ContactTagService`.
 - `customFields`: `Map<String, String>` JSONB — explicitly-stored custom field values, keyed by a reserved key (see `ReservedContactField`) or a workspace-defined `ContactFieldDefinition` key. Written by manual edits, AI extraction (`ContactCustomFieldWriter`), or a workflow's Set Contact Field node. `ContactService.getContactDetail` merges this with `ReservedContactFieldResolver`'s auto-derived values for the API response — an explicitly-stored value always wins.
 
 We need it to group identities and conversations around the human customer.
@@ -1312,7 +1336,7 @@ We need it so persisted webhook subscriptions and dispatched payload names stay 
 
 ### `ContactSnapshotBuilder`
 
-Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by all three write paths above so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key.
+Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by all three write paths above so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key. Tags are nested under `tags`.
 
 We need it because the same payload had to be built from three different packages (`contact`, `agent`, `workflow.engine.executor`), all of which already depend on `com.relayflow.api.webhook` for `WebhookDispatchService`.
 
@@ -1342,6 +1366,7 @@ Important methods:
 We need it so message and workspace changes can update open browser sessions immediately.
 
 - `sendHeartbeats`: every 15 seconds sends an SSE comment to every open stream, so proxies with idle timeouts (Next.js's rewrite proxy drops a proxied response after 30s of silence) don't close quiet connections.
+- `subscribe`: opens a stream with a 5-minute lifetime. It first sends `retry: 1000` so the browser reconnects after 1 second, and on timeout it removes the stream and calls `complete()`, closing the connection so the browser reconnects straight away.
 
 ### `SseBroadcastEvent`
 
@@ -1526,6 +1551,7 @@ Important validation rules:
 - HTTP Request nodes have a non-blank URL.
 - Set Variable nodes have a non-blank variable name.
 - Set Contact Field nodes have a field selected.
+- Set Contact Tag nodes have a tag selected.
 - Condition nodes: every non-fallback branch has at least one condition row with both `variable` and `operator` set. The last branch is always the fallback and is exempt.
 
 We need it because draft graphs can be incomplete, but published workflows must be executable.
@@ -1637,7 +1663,7 @@ Core workflow runtime.
 
 Important methods:
 
-- `executeWorkflow`: starts a run from a trigger event.
+- `executeWorkflow`: starts a run from a trigger event. An unpublished (`enabled = false`) workflow never runs, whoever calls it.
 - `resumeWorkflow`: resumes a run paused by Ask Question.
 - `expireWaitingRun`: called by `WorkflowRunCleanupScheduler` for a `WAITING` run past its `expiresAt`. Records the Ask Question step as `FAILED` ("No reply within N minutes") and follows the node's `noReply` edge, or its `invalid` edge when it has a `validationHook`. The run then finishes `COMPLETED` as usual; with neither edge connected it is marked `FAILED`.
 - `setConversationLock`: marks a conversation as workflow-owned or releases it.
@@ -1837,6 +1863,12 @@ Important behavior:
 
 We need it as the third way (alongside manual edit and AI extraction) to set a contact field value, for channels or data sources the AI agent can't reach and auto-derivation doesn't cover.
 
+### `SetContactTagNodeExecutor`
+
+Sets a contact tag (`tagKey`) to `value` (interpolated), or clears it when the value is blank, through `ContactTagService`, so an undefined tag or disallowed value fails the step with the same message the API gives. Updates `contact.tags.<key>` for later steps.
+
+We need it so a workflow can record a status, such as `kyc_status = verified`, on the contact.
+
 ### `WaitForReplyNodeExecutor`
 
 Sends a question to the contact and returns a waiting result.
@@ -1992,7 +2024,7 @@ We need these to protect and bootstrap the inbox view.
 ### Workflow Pages
 
 - `workflows/(list)/page.tsx`: resolves workspace and renders `WorkflowsShell`.
-- `workflows/[id]/page.tsx`: renders `WorkflowEditor`.
+- `workflows/[id]/page.tsx`: renders `WorkflowEditor` inside `DesktopOnly`, so phones get a message and a link back to the workflow list.
 - workflow route `layout.tsx` files: page layout wrappers.
 - workflow `metadata`: route title/description.
 
@@ -2063,6 +2095,18 @@ We need it before operations like channel disconnect.
 Icon-only button (`icon`, `label`, `onClick`, optional `destructive` and `disabled`). Grey icon with no background; on hover it darkens, or turns red when `destructive`. `label` is both the tooltip and the accessible name.
 
 We need it so every edit, delete, and similar icon action looks and behaves the same.
+
+### `DesktopOnly`
+
+Wraps a screen that needs a computer. Below 768px wide (`matchMedia('(min-width: 768px)')`, Tailwind's `md`) it renders a message (`title`, `message`, optional `back` link) instead of its children, which aren't mounted. The server and first render assume a wide screen, so desktop never flashes the message. Used for the workflow editor and the AI Agent, Integrations, and Hooks settings sections.
+
+We need it so screens that aren't usable on a phone say so instead of rendering broken.
+
+### `PopoverMenu`
+
+Small dropdown menu: `trigger(toggle)` renders the button, `items` are `{ key, content, onSelect, selected? }`. Closes on selection, an outside click, or Escape; a selected item shows a check.
+
+We need it for compact pick-one menus, such as changing a contact's tag.
 
 ### `GoogleIcon`
 
@@ -2202,7 +2246,7 @@ Important values:
 
 - `STATUS_CHIP`: maps conversation state to chip styles.
 
-Shows an "Escalated" pill in the header (same slot as the "Workflow" lock pill) when `conversation.escalatedAt` is set, titled with `escalationReason`.
+Shows an "Escalated" pill in the header (same slot as the "Workflow" lock pill) when `conversation.escalatedAt` is set, titled with `escalationReason`. The contact's tags (`conversation.contactTags`) show as small `ContactTagPills` after the channel line, under the contact's name, wrapping below it when there isn't room. The thread reserves space for the mobile tab bar (`pb-14 md:pb-0`) so the composer stays above it.
 
 Important state:
 
@@ -2262,7 +2306,21 @@ Important helpers/constants:
 - Each connected-channel list item shows the specific `ChannelAccount`'s name (`useChannelAccounts`, matched via `identity.channelAccountId`) above the `@username`/`ID:` lines, alongside the provider badge — this is what actually differentiates two channel accounts of the same provider (e.g. two separate Telegram bots), which the provider badge alone can't.
 - `ContactCustomFieldsSection`: lists reserved fields (`RESERVED_CONTACT_FIELD_KEYS`) and the workspace's defined `contactFieldDefinitions` together as one field list. Always viewable; editable only when the current member has `CONTACT_FIELDS_WRITE` (or is owner) — a member without it sees the same rows read-only, with "Not set" for an empty value, rather than the section being hidden. Keyed by `contact.id` on the parent so switching contacts remounts fresh local edit state instead of needing a sync effect. Its Save button is right-aligned.
 
+`ContactTagEditor` sits in the identity block, under the contact's name and added date.
+
 We need it to show linked channel identities and jump to the contact's inbox conversations.
+
+### `ContactTagPill`
+
+`ContactTagPill` renders one tag value as a rounded pill tinted with its colour (`CONTACT_TAG_COLORS`: neutral, blue, green, yellow, orange, red, purple, teal), optionally prefixed with the tag label, in a `default` or `small` size, and as a button when given `onClick`. `tagColor(definition, value)` reads the value's colour from `ContactTagDefinition.colors`, defaulting to neutral. `ContactTagPills` lists a contact's set tags read-only (used in the inbox header); `CONTACT_TAG_SWATCH_CLASS` gives the solid swatch for each colour in settings.
+
+We need it so tags look the same everywhere they appear.
+
+### `ContactTagEditor`
+
+A contact's tags as pills. With `CONTACT_FIELDS_WRITE`, clicking a pill opens a `PopoverMenu` of that tag's values plus "Clear", and "Add tag" lists the values of tags the contact doesn't have; each choice saves immediately through `useUpdateContactTags`. Without it, the pills are read-only.
+
+We need it so tags can be changed in one click from the contact panel.
 
 ### `MergeContactModal`
 
@@ -2320,6 +2378,8 @@ We need it for WhatsApp channel setup in settings.
 Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, integration, and hooks sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
 
 Section visibility is permission-gated: `General` (workspace rename) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Members` is always shown.
+
+The AI Agent, Integrations, and Hooks sections are wrapped in `DesktopOnly`, so phones see a message there while the other sections stay usable.
 
 We need it to create a stable place for general, channel, member, invite, AI agent, API key, and webhook settings.
 
@@ -2391,6 +2451,7 @@ Settings home for basic workspace-level configuration.
 
 - Workspace rename: owner-only. Tracks a local `edited` override over the fetched workspace name so the input stays controlled while typing, and disables the save button until the trimmed value differs from the persisted name. Uses `useWorkspace` and `useUpdateWorkspace`.
 - Contact fields: defines the workspace's custom contact field schema (key/label/description). Visible to every member (read-only list, including the six reserved fields shown plainly alongside custom ones with no "Reserved" badge or callout — just what each field is, not how/whether it's auto-filled); the add/edit/remove form only renders for a member with `CONTACT_FIELDS_WRITE` or owner role. Blocks saving (and flags inline) if a key collides with a reserved key, via `isReservedContactFieldKey` — a case-insensitive check on both sides, since a reserved key like `displayName` isn't all-lowercase.
+- Contact tags (`ContactTagsSection`): each tag shows as a card (label, key, value pills). With `CONTACT_FIELDS_WRITE`, edit opens `ContactTagForm` in place of the card (key, comma-separated values, a colour per value from swatches) with its own Cancel/Save, one tag at a time; "Add tag" opens an empty form; delete asks in a `ConfirmModal` and saves immediately. Each save sends the full list, and drops colours for values no longer listed.
 
 We need it as the settings home for basic workspace-level configuration that doesn't belong under channels, members, or integrations.
 
@@ -3071,7 +3132,7 @@ Important methods:
 - `getDraft(workspaceId, conversationId)`: returns the active draft for a conversation.
 - `sendDraft(workspaceId, conversationId, editedReply)`: sends `editedReply` if non-blank, otherwise the draft's `proposedReply`, as an outbound `SYSTEM` message via `MessagingService`, then deletes the draft. Always `SYSTEM`, never `AGENT` — even a human-edited reply must not auto-assign the conversation to whoever clicked send or release the AI agent's lock on it (`MessagingService.createMessage`'s auto-assign/unlock logic only fires for `AGENT`-sent messages, so editing a draft's wording is fine-tuning the AI's output, not a human taking over).
 - `discardDraft(workspaceId, conversationId)`: deletes the draft without sending.
-- `triggerWorkflowFromDraft(workspaceId, conversationId, workflowId)`: validates that the draft's `suggestedActions` contains `trigger_workflow:<workflowId>`, deletes the draft, and calls `WorkflowEngineService.executeWorkflow()`. The draft's `proposedReply` is never sent as a message here — it's only carried forward as the `agent.reply` workflow variable, so a workflow's own `Send Message` node must reference `{{agent.reply}}` explicitly to reuse that text.
+- `triggerWorkflowFromDraft(workspaceId, conversationId, workflowId)`: validates that the draft's `suggestedActions` contains `trigger_workflow:<workflowId>` and that the workflow is published (409 otherwise), deletes the draft, and calls `WorkflowEngineService.executeWorkflow()`. The draft's `proposedReply` is never sent as a message here — it's only carried forward as the `agent.reply` workflow variable, so a workflow's own `Send Message` node must reference `{{agent.reply}}` explicitly to reuse that text.
 
 We need it to keep controller code thin.
 
@@ -3135,7 +3196,7 @@ Flow:
 7. `ExtractedDataValidator.validate(...)` runs each extracted value through its field's `validationHook`, if any. For each rejected value, `convertRejectedValues` asks the LLM once to convert it to the required format (`RejectedExtraction.conversionRequest()`: the field, the customer's answer, and the hook's rejection reason) and re-runs the hook; a converted value the hook accepts is used as if the customer had sent it. Only the accepted (and possibly rewritten) values go on; values still rejected are recorded in `outputSnapshot.rejectedExtractions`.
 8. `contactCustomFieldWriter.apply(...)` runs with the accepted values right after validation, before any branching below — including the draft path.
 9. `mergeWithPendingDraft(conversation, validation.acceptedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
-10. `sanitizeSuggestedActions(response.suggestedActions(), configuration.getWorkflowMappings())` drops any `trigger_workflow:<id>` action whose `<id>` isn't in a configured `WorkflowMapping` — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging. If any extracted value was rejected, `trigger_workflow:` actions are dropped too, so a workflow doesn't start while a value it may need is being corrected.
+10. `sanitizeSuggestedActions(...)` drops any `trigger_workflow:<id>` action whose `<id>` isn't a configured `WorkflowMapping` to a published workflow (`PublishedWorkflowMappings`) — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging. If any extracted value was rejected, `trigger_workflow:` actions are dropped too, so a workflow doesn't start while a value it may need is being corrected.
 11. Decision:
     - `escalate` → stamp `Conversation.escalatedAt`/`escalationReason`, broadcast `ai.escalated` SSE + ESCALATED (see `broadcastEscalation`; cleared later by `MessagingService.createMessage` on the next human reply).
     - otherwise, if a value was rejected, `correctionReply()` makes a second LLM call — the original history, with `ExtractionValidation.correctionInstruction(draftReply)` appended to the system prompt (which value was rejected and why, the draft, and a rule to say what was wrong rather than re-ask) — with no extraction fields, so it can't bring a rejected value back. Its reply replaces the original for the branches below; if it fails or is blank, `ExtractionValidation.fallbackReply()` (the hooks' error messages) is used.
@@ -3160,7 +3221,7 @@ Builds the `AgentLlmRequest` from config and conversation history.
 Important behavior:
 
 - Fetches the last 20 messages created at or after `conversation.sessionStartedAt` (newest-first), reverses to chronological order. This scopes history to the current session so prior closed-conversation messages never pollute the context.
-- Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from `workflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from `knowledgeBase`).
+- Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from the `workflowMappings` whose workflow is published, via `PublishedWorkflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from `knowledgeBase`).
 - Appends a `<context>Contact: name | Channel: PROVIDER</context>` block to the last inbound message only — an XML-style tag rather than a bare `[...]` bracket, so `LlmPrompts`'s format instruction can tell the model this is internal metadata it must never repeat verbatim in its reply. When `extractionFields` is configured, also appends `| Already known: key=value, ...` and `| Still missing: key, ...` inside the tag — the same effective-value precedence as `ContactService.getContactDetail` (explicitly-stored `Contact.customFields` over `ReservedContactFieldResolver`'s derived values), computed via an injected `ExternalIdentityRepository` and `ReservedContactFieldResolver`. Either segment is omitted if empty; with no extraction fields configured the block is just `<context>Contact: ... | Channel: ...</context>`. This steers the agent toward asking only for fields it doesn't already effectively know, instead of re-asking for information already on file.
 
 We need it to keep LLM prompt construction separate from the invocation pipeline, and to give the agent visibility into what it already knows about the contact so extraction feels like a conversation, not a form.

@@ -38,6 +38,57 @@ describe("MessagingApiClient", () => {
     });
   });
 
+  it("sends contact tag changes, with null clearing a tag", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+
+    const client = new MessagingApiClient("http://localhost:8080");
+
+    await client.updateContactTags("contact-1", "workspace-1", {
+      tags: { kyc_status: "verified", tier: null },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/contacts/contact-1/tags?workspaceId=workspace-1",
+      {
+        body: JSON.stringify({ tags: { kyc_status: "verified", tier: null } }),
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      }
+    );
+  });
+
+  it("saves contact tag definitions for a workspace", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+
+    const client = new MessagingApiClient("http://localhost:8080");
+    const contactTagDefinitions = [
+      {
+        key: "kyc_status",
+        label: "KYC status",
+        values: ["pending", "verified"],
+      },
+    ];
+
+    await client.updateContactTagDefinitions("workspace-1", {
+      contactTagDefinitions,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/workspaces/workspace-1/contact-tag-definitions",
+      {
+        body: JSON.stringify({ contactTagDefinitions }),
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      }
+    );
+  });
+
   it("builds message list requests with the workspace query parameter", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify([]), {

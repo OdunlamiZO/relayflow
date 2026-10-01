@@ -3,6 +3,7 @@ package com.relayflow.api.workflow.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -68,7 +69,9 @@ class WorkflowEngineServiceTest {
         run.setWaitingAtNodeId("question");
         run.setContextSnapshot(Map.of());
 
-        when(runRepository.findWithDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        lenient()
+                .when(runRepository.findWithDefinitionById(run.getId()))
+                .thenReturn(Optional.of(run));
     }
 
     private WorkflowEngineService service() {
@@ -150,5 +153,15 @@ class WorkflowEngineServiceTest {
         assertThat(questionStep().getStatus()).isEqualTo(WorkflowRunStepStatus.FAILED);
         assertThat(run.getStatus()).isEqualTo(WorkflowRunStatus.FAILED);
         assertThat(run.getErrorMessage()).isEqualTo("No reply within 15 minutes");
+    }
+
+    @Test
+    void unpublishedWorkflowDoesNotRun() {
+        WorkflowDefinition definition = new WorkflowDefinition();
+        definition.setEnabled(false);
+
+        service().executeWorkflow(definition, run.getConversation(), null, Map.of());
+
+        verify(runRepository, never()).save(any());
     }
 }

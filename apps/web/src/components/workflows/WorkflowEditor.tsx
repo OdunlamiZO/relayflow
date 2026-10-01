@@ -44,6 +44,7 @@ import {
   JumpToNode,
   SendMessageNode,
   SetContactFieldNode,
+  SetContactTagNode,
   SetVariableNode,
   TriggerNode,
   WaitForReplyNode,
@@ -62,6 +63,7 @@ const nodeTypes: Record<string, ComponentType<NodeProps>> = {
   httpRequest: HttpRequestNode as ComponentType<NodeProps>,
   setVariable: SetVariableNode as ComponentType<NodeProps>,
   setContactField: SetContactFieldNode as ComponentType<NodeProps>,
+  setContactTag: SetContactTagNode as ComponentType<NodeProps>,
   endConversation: EndConversationNode as ComponentType<NodeProps>,
   waitForReply: WaitForReplyNode as ComponentType<NodeProps>,
   jumpTo: JumpToNode as ComponentType<NodeProps>,
@@ -102,6 +104,12 @@ const palette = [
     type: "setContactField",
     label: "Set Contact Field",
     icon: "contact_page",
+    color: "bg-purple-bg text-purple-text border-purple-border",
+  },
+  {
+    type: "setContactTag",
+    label: "Set Contact Tag",
+    icon: "sell",
     color: "bg-purple-bg text-purple-text border-purple-border",
   },
   {

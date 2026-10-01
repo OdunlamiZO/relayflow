@@ -1,5 +1,6 @@
 package com.relayflow.api.sse;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,8 @@ public class WorkspaceSseService {
 
     private static final long HEARTBEAT_INTERVAL_MS = 15 * 1_000L;
 
+    private static final long RECONNECT_DELAY_MS = 1_000L;
+
     private final Map<UUID, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     /**
@@ -47,8 +50,18 @@ public class WorkspaceSseService {
 
         Runnable remove = () -> removeEmitter(workspaceId, emitter);
         emitter.onCompletion(remove);
-        emitter.onTimeout(remove);
+        emitter.onTimeout(
+                () -> {
+                    remove.run();
+                    emitter.complete();
+                });
         emitter.onError(ex -> remove.run());
+
+        try {
+            emitter.send(SseEmitter.event().reconnectTime(RECONNECT_DELAY_MS).comment(""));
+        } catch (IOException e) {
+            remove.run();
+        }
 
         log.debug("SSE client subscribed to workspace {}", workspaceId);
 

@@ -27,10 +27,17 @@ export const CHANGELOG_RELEASES: ChangelogRelease[] = [
     version: "1.0.6",
     date: "2026-10-01",
     changes: {
+      added: [
+        "Contact tags: define tags with a fixed list of values in settings, then set them on a contact's page, with the Set Contact Tag workflow node, or through the public API. Workflows can branch on them.",
+      ],
       changed: [
         "Messages sent through the public API don't reopen a closed conversation.",
+        "On phone-sized screens, workflow editing and the AI agent, integrations, and hooks settings aren't available; a message asks you to use a computer.",
       ],
       fixed: [
+        "AI agents could start a workflow that wasn't published.",
+        "Live inbox updates could stall for up to a minute every few minutes.",
+        "On phones, the inbox message box was hidden behind the bottom navigation.",
         "When a hook rejected a value an AI agent extracted, such as a number written in words, the agent asked the contact again instead of converting it to the required format first.",
       ],
     },

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { DesktopOnly } from "@/components/common/DesktopOnly";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
 import { useAuthentication } from "@/hooks/use-authentication";
 import { useCurrentMember } from "@/hooks/use-current-member";
@@ -183,24 +184,39 @@ export function SettingsShell({ workspaceId }: Props) {
 
             {canManageAiAgent && (
               <div id="ai-agent" className={sectionClass("#ai-agent")}>
-                <AiAgentPanel workspaceId={workspaceId} />
+                <DesktopOnly
+                  title="AI agent settings need a bigger screen"
+                  message="Open RelayFlow on a computer to set up AI agents."
+                >
+                  <AiAgentPanel workspaceId={workspaceId} />
+                </DesktopOnly>
               </div>
             )}
 
             {canSeeIntegrations && (
               <div id="integrations" className={sectionClass("#integrations")}>
-                <IntegrationsPanel
-                  workspaceId={workspaceId}
-                  canManageApiKeys={canManageApiKeys}
-                  canManageWebhook={canManageWebhook}
-                  canManageSecrets={canManageSecrets}
-                />
+                <DesktopOnly
+                  title="Integrations need a bigger screen"
+                  message="Open RelayFlow on a computer to manage API keys, webhooks, and secrets."
+                >
+                  <IntegrationsPanel
+                    workspaceId={workspaceId}
+                    canManageApiKeys={canManageApiKeys}
+                    canManageWebhook={canManageWebhook}
+                    canManageSecrets={canManageSecrets}
+                  />
+                </DesktopOnly>
               </div>
             )}
 
             {canManageHooks && (
               <div id="hooks" className={sectionClass("#hooks")}>
-                <HooksPanel workspaceId={workspaceId} />
+                <DesktopOnly
+                  title="Hooks need a bigger screen"
+                  message="Open RelayFlow on a computer to write and test hooks."
+                >
+                  <HooksPanel workspaceId={workspaceId} />
+                </DesktopOnly>
               </div>
             )}
           </main>

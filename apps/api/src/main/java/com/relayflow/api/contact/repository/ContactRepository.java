@@ -15,6 +15,16 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     @Query("select c from Contact c where c.workspace.id = :workspaceId order by c.createdAt desc")
     List<Contact> findByWorkspace(@Param("workspaceId") UUID workspaceId, Pageable pageable);
 
+    @Query(
+            value =
+                    "select count(*) from contacts where workspace_id = :workspaceId and deleted_at"
+                            + " is null and tags ->> :tagKey = :tagValue",
+            nativeQuery = true)
+    long countWithTag(
+            @Param("workspaceId") UUID workspaceId,
+            @Param("tagKey") String tagKey,
+            @Param("tagValue") String tagValue);
+
     @Modifying
     @Query("UPDATE Contact c SET c.deletedAt = :now WHERE c.workspace.id = :workspaceId")
     void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);

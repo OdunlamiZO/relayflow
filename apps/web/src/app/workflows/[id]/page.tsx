@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { DesktopOnly } from "@/components/common/DesktopOnly";
 import { Spinner } from "@/components/common/Spinner";
 import { WorkflowEditor } from "@/components/workflows/WorkflowEditor";
 
@@ -32,7 +33,16 @@ export default async function WorkflowEditorPage({
         </div>
       }
     >
-      <WorkflowEditor workflowId={id} workspaceId={workspaceId} />
+      <DesktopOnly
+        title="Workflow editing needs a bigger screen"
+        message="Open RelayFlow on a computer to edit this workflow."
+        back={{
+          href: `/workflows?workspaceId=${workspaceId}`,
+          label: "Back to workflows",
+        }}
+      >
+        <WorkflowEditor workflowId={id} workspaceId={workspaceId} />
+      </DesktopOnly>
     </Suspense>
   );
 }

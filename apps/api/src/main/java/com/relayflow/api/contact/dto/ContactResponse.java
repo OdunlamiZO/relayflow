@@ -10,5 +10,6 @@ public record ContactResponse(
         UUID workspaceId,
         String displayName,
         Map<String, String> customFields,
+        Map<String, String> tags,
         Instant createdAt,
         List<ExternalIdentityResponse> identities) {}

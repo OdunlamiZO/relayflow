@@ -17,6 +17,7 @@ public final class ContactSnapshotBuilder {
         contactData.put(
                 "displayName", contact.getDisplayName() != null ? contact.getDisplayName() : "");
         contactData.putAll(contact.getCustomFields());
+        contactData.put("tags", Map.copyOf(contact.getTags()));
 
         return new ContactSnapshot(contactData);
     }

@@ -53,6 +53,8 @@ public class ContactService {
 
     private final WebhookDispatchService webhookDispatchService;
 
+    private final ContactTagService contactTagService;
+
     public ContactService(
             ContactRepository contactRepository,
             ExternalIdentityRepository externalIdentityRepository,
@@ -61,7 +63,8 @@ public class ContactService {
             WorkspaceService workspaceService,
             ChannelAccountService channelAccountService,
             ReservedContactFieldResolver reservedContactFieldResolver,
-            WebhookDispatchService webhookDispatchService) {
+            WebhookDispatchService webhookDispatchService,
+            ContactTagService contactTagService) {
         this.contactRepository = contactRepository;
         this.externalIdentityRepository = externalIdentityRepository;
         this.conversationRepository = conversationRepository;
@@ -70,6 +73,7 @@ public class ContactService {
         this.channelAccountService = channelAccountService;
         this.reservedContactFieldResolver = reservedContactFieldResolver;
         this.webhookDispatchService = webhookDispatchService;
+        this.contactTagService = contactTagService;
     }
 
     @Transactional
@@ -82,13 +86,7 @@ public class ContactService {
 
         ContactResponse base = mapper.toDto(contactRepository.save(contact));
 
-        return new ContactResponse(
-                base.id(),
-                base.workspaceId(),
-                base.displayName(),
-                base.customFields(),
-                base.createdAt(),
-                List.of());
+        return withIdentities(base, List.of());
     }
 
     @Transactional(readOnly = true)
@@ -117,13 +115,7 @@ public class ContactService {
                                     List<ExternalIdentityResponse> ids =
                                             identitiesByContact.getOrDefault(c.getId(), List.of());
 
-                                    return new ContactResponse(
-                                            base.id(),
-                                            base.workspaceId(),
-                                            base.displayName(),
-                                            base.customFields(),
-                                            base.createdAt(),
-                                            ids);
+                                    return withIdentities(base, ids);
                                 })
                         .toList();
 
@@ -151,6 +143,7 @@ public class ContactService {
                 workspaceId,
                 contact.getDisplayName(),
                 customFields,
+                contact.getTags(),
                 contact.getCreatedAt(),
                 identities);
     }
@@ -167,6 +160,14 @@ public class ContactService {
                 workspaceId,
                 WebhookEventType.CONTACT_UPDATED,
                 ContactSnapshotBuilder.build(contact));
+
+        return getContactDetail(contactId, workspaceId);
+    }
+
+    @Transactional
+    public ContactDetailResponse updateContactTags(
+            UUID contactId, UUID workspaceId, Map<String, String> tags) {
+        contactTagService.applyTags(getContact(contactId, workspaceId), tags);
 
         return getContactDetail(contactId, workspaceId);
     }
@@ -262,13 +263,19 @@ public class ContactService {
                 identitiesByContact.getOrDefault(targetId, List.of());
         ContactResponse base = mapper.toDto(target);
 
+        return withIdentities(base, mergedIdentities);
+    }
+
+    private static ContactResponse withIdentities(
+            ContactResponse base, List<ExternalIdentityResponse> identities) {
         return new ContactResponse(
                 base.id(),
                 base.workspaceId(),
                 base.displayName(),
                 base.customFields(),
+                base.tags(),
                 base.createdAt(),
-                mergedIdentities);
+                identities);
     }
 
     /** Looks up a contact within a workspace, or throws if not found. Shared by other services. */

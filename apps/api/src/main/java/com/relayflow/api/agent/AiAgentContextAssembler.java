@@ -34,17 +34,24 @@ public class AiAgentContextAssembler {
 
     private final ReservedContactFieldResolver reservedContactFieldResolver;
 
+    private final PublishedWorkflowMappings publishedWorkflowMappings;
+
     public AiAgentContextAssembler(
             MessageRepository messageRepository,
             ExternalIdentityRepository externalIdentityRepository,
-            ReservedContactFieldResolver reservedContactFieldResolver) {
+            ReservedContactFieldResolver reservedContactFieldResolver,
+            PublishedWorkflowMappings publishedWorkflowMappings) {
         this.messageRepository = messageRepository;
         this.externalIdentityRepository = externalIdentityRepository;
         this.reservedContactFieldResolver = reservedContactFieldResolver;
+        this.publishedWorkflowMappings = publishedWorkflowMappings;
     }
 
     public AgentLlmRequest assemble(AiAgentConfiguration configuration, Conversation conversation) {
-        String systemPrompt = buildSystemPrompt(configuration);
+        List<WorkflowMapping> workflowMappings =
+                publishedWorkflowMappings.filter(
+                        conversation.getWorkspace().getId(), configuration.getWorkflowMappings());
+        String systemPrompt = buildSystemPrompt(configuration, workflowMappings);
         List<LlmMessage> messages = buildHistory(configuration, conversation);
 
         return new AgentLlmRequest(
@@ -53,14 +60,15 @@ public class AiAgentContextAssembler {
 
     // ── Private ───────────────────────────────────────────────────────────────
 
-    private String buildSystemPrompt(AiAgentConfiguration configuration) {
+    private String buildSystemPrompt(
+            AiAgentConfiguration configuration, List<WorkflowMapping> workflowMappings) {
         StringBuilder sb = new StringBuilder();
 
         if (configuration.getInstructions() != null && !configuration.getInstructions().isBlank()) {
             sb.append(configuration.getInstructions());
         }
 
-        if (!configuration.getWorkflowMappings().isEmpty()) {
+        if (!workflowMappings.isEmpty()) {
             sb.append("\n\n# WORKFLOW ROUTING\n");
             sb.append(
                     "The entries below are automated processes that take priority over your reply."
@@ -69,7 +77,7 @@ public class AiAgentContextAssembler {
                             + " trigger_workflow action to suggestedActions."
                             + " Never write a reply AND trigger a workflow at the same time."
                             + " If no entry matches, reply directly.\n");
-            for (WorkflowMapping mapping : configuration.getWorkflowMappings()) {
+            for (WorkflowMapping mapping : workflowMappings) {
                 sb.append("\n- trigger_workflow:")
                         .append(mapping.workflowId())
                         .append("  (")

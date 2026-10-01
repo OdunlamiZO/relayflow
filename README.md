@@ -138,6 +138,7 @@ There is no self-service "change password" form — a password only ever changes
 - `POST   /workspaces`
 - `PATCH  /workspaces/{workspaceId}`
 - `PUT    /workspaces/{workspaceId}/contact-field-definitions` — define the workspace's custom contact field schema; requires `CONTACT_FIELDS_WRITE` permission or owner role
+- `PUT    /workspaces/{workspaceId}/contact-tag-definitions` — define the workspace's contact tags and their allowed values; removing a value contacts still have returns `409`; requires `CONTACT_FIELDS_WRITE` permission or owner role
 - `GET    /workspaces/{workspaceId}/members`
 - `POST   /workspaces/{workspaceId}/members`
 - `PATCH  /workspaces/{workspaceId}/members/{memberId}`
@@ -158,6 +159,7 @@ There is no self-service "change password" form — a password only ever changes
 - `POST   /contacts`
 - `GET    /contacts/{id}?workspaceId={workspaceId}` — `customFields` merges explicitly-stored values with auto-derived reserved values (e.g. phone from a WhatsApp identity)
 - `PATCH  /contacts/{id}/custom-fields?workspaceId={workspaceId}` — requires `CONTACT_FIELDS_WRITE` permission or owner role
+- `PATCH  /contacts/{id}/tags?workspaceId={workspaceId}` — sets or clears contact tags; requires `CONTACT_FIELDS_WRITE` permission or owner role
 - `POST   /contacts/{id}/merge?workspaceId={workspaceId}`
 - `DELETE /contacts/{id}?workspaceId={workspaceId}`
 - `POST   /external-identities`
@@ -204,6 +206,7 @@ Public API requests authenticate with `X-Api-Key`:
 - `GET  /public/v1/conversations/{id}`
 - `GET  /public/v1/conversations/{id}/messages`
 - `POST /public/v1/conversations/{id}/messages` — sends an outbound message; a closed conversation stays closed
+- `PUT  /public/v1/contacts/{id}/tags` — sets contact tags, e.g. `{"kyc_status": "verified"}`; `null` clears a tag; an undefined tag or a value outside its allowed list returns `400`
 
 ### Workflows
 
@@ -261,6 +264,7 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Closed conversation reopening — when a contact messages a closed conversation it is set back to `OPEN` and workflow automation fires again.
 - [x] Contact management — paginated contacts list, detail panel, delete, and guarded contact merge that moves identities/conversations to the target contact.
 - [x] Contact custom fields — per-workspace field schema (key/label/description) plus six reserved fields (`displayName`, `firstName`, `lastName`, `phone`, `email`, `country`) that can't be redefined. Reserved values auto-derive from existing data (e.g. phone from a WhatsApp identity, first/last name from Telegram) when not explicitly set, editable manually, by the AI agent (gap-filling — never overwrites an already explicitly-stored value, but a reserved field the resolver could derive but hasn't yet stored is still written and fires `contact.updated`), or by a workflow's **Set Contact Field** node (always overwrites, like a manual edit). Writing `firstName`/`lastName` through either the AI agent or the Set Contact Field node keeps `displayName` in sync (`"firstName lastName"`), which matters for channels like WhatsApp where the display name otherwise stays stuck on the contact's own freeform profile name. Gated by the `CONTACT_FIELDS_WRITE` permission.
+- [x] Contact tags — per-workspace tags with a fixed list of allowed values, such as `kyc_status: pending | verified`, each value with an optional colour. Shown as coloured pills on the contact panel and the inbox conversation header. Set on the contact page, by the Set Contact Tag workflow node, or through the public API; readable in workflows as `contact.tags.<key>` and included in `contact.updated` webhooks.
 - [x] Per-channel-account identities — external identities are scoped to a channel account/bot so the same Telegram user can appear in separate connected bots without collision.
 - [x] Conversation workflow lock — active workflows own the conversation and agent replies return `409 Conflict` until the workflow finishes, fails, or closes the conversation.
 - [x] Conversation assignment — conversations can be assigned to (or unassigned from) a workspace member via a dropdown in the message thread.
@@ -312,9 +316,10 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 
 ### Workflow builder UI
 - [x] React Flow drag-and-drop canvas.
+- [x] On screens narrower than 768px, the workflow editor and the AI agent, integrations, and hooks settings show a message to use a computer instead.
 - [x] Per-node config panel with variable picker (`{{…}}` button) supporting both built-in and user-defined variables.
 - [x] Save draft and Publish / Unpublish toggle with validation error banner.
-- [x] Node palette: Trigger, Send Message, Condition, HTTP Request, Set Variable, Set Contact Field, Ask Question, Jump To, End Conversation.
+- [x] Node palette: Trigger, Send Message, Condition, HTTP Request, Set Variable, Set Contact Field, Set Contact Tag, Ask Question, Jump To, End Conversation.
 - [x] Run logs UI — `/workflows/{id}/runs` lists run history with status, error preview, and a step-by-step breakdown of input/output snapshots and durations.
 
 ### AI Agent

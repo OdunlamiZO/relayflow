@@ -6,12 +6,14 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
+import { ContactTagPills } from "@/components/contacts/ContactTagPill";
 import { useConversationAiDraft } from "@/hooks/use-conversation-ai-draft";
 import { useConversations } from "@/hooks/use-conversations";
 import { useMessages } from "@/hooks/use-messages";
 import { useUpdateConversation } from "@/hooks/use-update-conversation";
 import { useUpdateConversationAssignee } from "@/hooks/use-update-conversation-assignee";
 import { useWorkspaceMembers } from "@/hooks/use-workspace-members";
+import { useWorkspace } from "@/hooks/use-workspaces";
 
 import { AiDraftBanner } from "./AiDraftBanner";
 import { MessageBubble } from "./MessageBubble";
@@ -52,6 +54,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
   const prevScrollHeightRef = useRef<number>(0);
 
   const { data: conversationsData } = useConversations(workspaceId);
+  const workspace = useWorkspace(workspaceId);
   const { mutate: updateConversation, isPending: isUpdating } =
     useUpdateConversation(workspaceId);
   const { mutate: updateAssignee } = useUpdateConversationAssignee(workspaceId);
@@ -123,7 +126,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
     "bg-neutral-300 text-neutral-600";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden pb-14 md:pb-0">
       <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-neutral-300 bg-neutral-100 px-4 py-3 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-4">
         {/* Back button — mobile only, only when a handler is wired */}
         {onBack && (
@@ -156,11 +159,22 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
           <p className="m-0 truncate text-sm font-semibold text-primary">
             {conversation?.contactDisplayName ?? "Unknown contact"}
           </p>
-          <p className="m-0 truncate text-xs text-neutral-500">
-            {conversation
-              ? `${conversation.channelAccountName} · ${conversation.channelProvider}`
-              : conversationId}
-          </p>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="m-0 truncate text-xs text-neutral-500">
+              {conversation
+                ? `${conversation.channelAccountName} · ${conversation.channelProvider}`
+                : conversationId}
+            </p>
+            {conversation && (
+              <div className="min-w-0">
+                <ContactTagPills
+                  tags={conversation.contactTags}
+                  definitions={workspace?.contactTagDefinitions ?? []}
+                  size="small"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {conversation && (
@@ -259,7 +273,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-14 sm:px-6 md:pb-4"
+        className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6"
       >
         {/* Load-older spinner */}
         {isFetchingNextPage && (

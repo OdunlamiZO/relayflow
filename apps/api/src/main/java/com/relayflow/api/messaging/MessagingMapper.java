@@ -14,6 +14,7 @@ public interface MessagingMapper {
     @Mapping(source = "workspace.id", target = "workspaceId")
     @Mapping(source = "contact.id", target = "contactId")
     @Mapping(source = "contact.displayName", target = "contactDisplayName")
+    @Mapping(source = "contact.tags", target = "contactTags")
     @Mapping(source = "channelAccount.id", target = "channelAccountId")
     @Mapping(source = "channelAccount.provider", target = "channelProvider")
     @Mapping(source = "channelAccount.name", target = "channelAccountName")

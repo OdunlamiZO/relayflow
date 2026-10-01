@@ -137,6 +137,10 @@ public class WorkflowGraphValidator {
                         node, "fieldKey", "Set Contact Field node has no field selected");
             }
 
+            if (NodeType.SET_CONTACT_TAG.getValue().equals(type)) {
+                validateRequiredField(node, "tagKey", "Set Contact Tag node has no tag selected");
+            }
+
             if (NodeType.CONDITION.getValue().equals(type)) {
                 validateConditionRows(node);
             }

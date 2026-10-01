@@ -52,6 +52,7 @@ class WorkspaceControllerTest {
                                         workspaceId,
                                         "Acme",
                                         List.of(),
+                                        List.of(),
                                         Instant.parse("2026-05-26T10:00:00Z"))));
 
         mockMvc.perform(get("/workspaces"))
@@ -70,6 +71,7 @@ class WorkspaceControllerTest {
                         new WorkspaceResponse(
                                 workspaceId,
                                 "RelayFlow",
+                                List.of(),
                                 List.of(),
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
