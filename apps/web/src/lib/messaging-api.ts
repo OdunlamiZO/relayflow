@@ -27,6 +27,23 @@ export type ContactFieldDefinition = {
   description: string;
 };
 
+export type ContactTagColor =
+  | "neutral"
+  | "blue"
+  | "green"
+  | "yellow"
+  | "orange"
+  | "red"
+  | "purple"
+  | "teal";
+
+export type ContactTagDefinition = {
+  key: string;
+  label: string;
+  values: string[];
+  colors?: Record<string, ContactTagColor>;
+};
+
 /** Keys RelayFlow already derives automatically — can't be redefined as a custom field. */
 export const RESERVED_CONTACT_FIELD_KEYS = [
   "displayName",
@@ -85,6 +102,7 @@ export type Workspace = {
   id: string;
   name: string;
   contactFieldDefinitions: ContactFieldDefinition[];
+  contactTagDefinitions: ContactTagDefinition[];
   createdAt: string;
 };
 
@@ -104,6 +122,7 @@ export type Contact = {
   workspaceId: string;
   displayName: string | null;
   customFields: Record<string, string>;
+  tags: Record<string, string>;
   createdAt: string;
   identities: ExternalIdentity[];
 };
@@ -129,6 +148,7 @@ export type Conversation = {
   workspaceId: string;
   contactId: string;
   contactDisplayName: string | null;
+  contactTags: Record<string, string>;
   channelAccountId: string;
   channelProvider: ChannelProvider;
   channelAccountName: string;
@@ -168,6 +188,14 @@ export type UpdateContactFieldDefinitionsRequest = {
 
 export type UpdateContactCustomFieldsRequest = {
   customFields: Record<string, string>;
+};
+
+export type UpdateContactTagDefinitionsRequest = {
+  contactTagDefinitions: ContactTagDefinition[];
+};
+
+export type UpdateContactTagsRequest = {
+  tags: Record<string, string | null>;
 };
 
 export type CreateChannelAccountRequest = {
@@ -561,6 +589,19 @@ export class MessagingApiClient {
     );
   }
 
+  updateContactTagDefinitions(
+    workspaceId: string,
+    request: UpdateContactTagDefinitionsRequest
+  ) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/contact-tag-definitions`,
+      {
+        method: "PUT",
+        body: request,
+      }
+    );
+  }
+
   listChannelAccounts(workspaceId: string) {
     return this.request<ChannelAccount[]>(
       `/channel-accounts?workspaceId=${encodeURIComponent(workspaceId)}`
@@ -621,6 +662,20 @@ export class MessagingApiClient {
   ) {
     return this.request<ContactDetail>(
       `/contacts/${id}/custom-fields?workspaceId=${encodeURIComponent(workspaceId)}`,
+      {
+        method: "PATCH",
+        body: request,
+      }
+    );
+  }
+
+  updateContactTags(
+    id: string,
+    workspaceId: string,
+    request: UpdateContactTagsRequest
+  ) {
+    return this.request<ContactDetail>(
+      `/contacts/${id}/tags?workspaceId=${encodeURIComponent(workspaceId)}`,
       {
         method: "PATCH",
         body: request,

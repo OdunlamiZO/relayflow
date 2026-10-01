@@ -133,7 +133,8 @@ class AiAgentInvocationServiceTest {
                 eventPublisher,
                 slotClaimer,
                 contactCustomFieldWriter,
-                new ExtractedDataValidator(hookService));
+                new ExtractedDataValidator(hookService),
+                new PublishedWorkflowMappings(workflowDefinitionRepository));
     }
 
     private void stubLlmResponse(boolean failed) {

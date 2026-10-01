@@ -387,6 +387,12 @@ public class WorkflowEngineService {
             Conversation conversation,
             Message triggeringMessage,
             Map<String, String> additionalVariables) {
+        if (!definition.isEnabled()) {
+            log.info("Skipping unpublished workflow: workflow={}", definition.getId());
+
+            return;
+        }
+
         log.info(
                 "Starting workflow run: workflow={}, conversation={}",
                 definition.getId(),
@@ -668,6 +674,10 @@ public class WorkflowEngineService {
         for (Map.Entry<String, String> field :
                 conversation.getContact().getCustomFields().entrySet()) {
             vars.put("contact.data." + field.getKey(), field.getValue());
+        }
+
+        for (Map.Entry<String, String> tag : conversation.getContact().getTags().entrySet()) {
+            vars.put("contact.tags." + tag.getKey(), tag.getValue());
         }
 
         vars.putAll(additionalVariables);

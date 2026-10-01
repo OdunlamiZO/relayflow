@@ -3,6 +3,7 @@ package com.relayflow.api.messaging.dto;
 import com.relayflow.api.channel.domain.ChannelProvider;
 import com.relayflow.api.messaging.domain.ConversationStatus;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 public record ConversationResponse(
@@ -10,6 +11,7 @@ public record ConversationResponse(
         UUID workspaceId,
         UUID contactId,
         String contactDisplayName,
+        Map<String, String> contactTags,
         UUID channelAccountId,
         ChannelProvider channelProvider,
         String channelAccountName,

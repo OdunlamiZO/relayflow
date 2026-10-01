@@ -17,6 +17,7 @@ import com.relayflow.api.messaging.domain.Message;
 import com.relayflow.api.messaging.domain.MessageDirection;
 import com.relayflow.api.messaging.domain.MessageSenderType;
 import com.relayflow.api.messaging.repository.MessageRepository;
+import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import com.relayflow.api.workspace.domain.Workspace;
 import java.time.Instant;
 import java.util.List;
@@ -36,9 +37,14 @@ class AiAgentContextAssemblerTest {
 
     @Mock private ReservedContactFieldResolver reservedContactFieldResolver;
 
+    @Mock private WorkflowDefinitionRepository workflowDefinitionRepository;
+
     private AiAgentContextAssembler assembler() {
         return new AiAgentContextAssembler(
-                messageRepository, externalIdentityRepository, reservedContactFieldResolver);
+                messageRepository,
+                externalIdentityRepository,
+                reservedContactFieldResolver,
+                new PublishedWorkflowMappings(workflowDefinitionRepository));
     }
 
     private Conversation conversation() {

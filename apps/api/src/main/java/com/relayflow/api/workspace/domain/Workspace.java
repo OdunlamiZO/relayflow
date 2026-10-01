@@ -37,6 +37,10 @@ public class Workspace {
     @Column(name = "contact_field_definitions", nullable = false, columnDefinition = "jsonb")
     private List<ContactFieldDefinition> contactFieldDefinitions = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "contact_tag_definitions", nullable = false, columnDefinition = "jsonb")
+    private List<ContactTagDefinition> contactTagDefinitions = new ArrayList<>();
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

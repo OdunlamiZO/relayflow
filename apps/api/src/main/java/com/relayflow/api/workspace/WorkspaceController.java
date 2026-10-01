@@ -5,6 +5,7 @@ import com.relayflow.api.workspace.domain.WorkspacePermission;
 import com.relayflow.api.workspace.dto.CreateWorkspaceRequest;
 import com.relayflow.api.workspace.dto.InviteMemberRequest;
 import com.relayflow.api.workspace.dto.UpdateContactFieldDefinitionsRequest;
+import com.relayflow.api.workspace.dto.UpdateContactTagDefinitionsRequest;
 import com.relayflow.api.workspace.dto.UpdateMemberRequest;
 import com.relayflow.api.workspace.dto.UpdateWorkspaceRequest;
 import com.relayflow.api.workspace.dto.WorkspaceMemberResponse;
@@ -83,6 +84,18 @@ public class WorkspaceController {
 
         return workspaceService.updateContactFieldDefinitions(
                 workspaceId, request.contactFieldDefinitions());
+    }
+
+    @PutMapping("/workspaces/{workspaceId}/contact-tag-definitions")
+    WorkspaceResponse updateContactTagDefinitions(
+            @PathVariable UUID workspaceId,
+            @Valid @RequestBody UpdateContactTagDefinitionsRequest request,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.CONTACT_FIELDS_WRITE);
+
+        return workspaceService.updateContactTagDefinitions(
+                workspaceId, request.contactTagDefinitions());
     }
 
     // --- Workspace Members ---

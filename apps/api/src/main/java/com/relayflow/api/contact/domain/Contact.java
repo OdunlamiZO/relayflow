@@ -45,6 +45,10 @@ public class Contact {
     @Column(name = "custom_fields", nullable = false, columnDefinition = "jsonb")
     private Map<String, String> customFields = new LinkedHashMap<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "tags", nullable = false, columnDefinition = "jsonb")
+    private Map<String, String> tags = new LinkedHashMap<>();
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

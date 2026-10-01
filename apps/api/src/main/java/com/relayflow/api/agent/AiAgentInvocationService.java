@@ -86,6 +86,8 @@ public class AiAgentInvocationService {
 
     private final ExtractedDataValidator extractedDataValidator;
 
+    private final PublishedWorkflowMappings publishedWorkflowMappings;
+
     public AiAgentInvocationService(
             AiAgentConfigurationService aiAgentConfigurationService,
             AiAgentInvocationLogRepository invocationLogRepository,
@@ -100,7 +102,8 @@ public class AiAgentInvocationService {
             ApplicationEventPublisher eventPublisher,
             AiAgentInvocationSlotClaimer slotClaimer,
             ContactCustomFieldWriter contactCustomFieldWriter,
-            ExtractedDataValidator extractedDataValidator) {
+            ExtractedDataValidator extractedDataValidator,
+            PublishedWorkflowMappings publishedWorkflowMappings) {
         this.aiAgentConfigurationService = aiAgentConfigurationService;
         this.invocationLogRepository = invocationLogRepository;
         this.draftRepository = draftRepository;
@@ -115,6 +118,7 @@ public class AiAgentInvocationService {
         this.slotClaimer = slotClaimer;
         this.contactCustomFieldWriter = contactCustomFieldWriter;
         this.extractedDataValidator = extractedDataValidator;
+        this.publishedWorkflowMappings = publishedWorkflowMappings;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -274,7 +278,9 @@ public class AiAgentInvocationService {
 
         List<String> suggestedActions =
                 sanitizeSuggestedActions(
-                        response.suggestedActions(), configuration.getWorkflowMappings());
+                        response.suggestedActions(),
+                        publishedWorkflowMappings.filter(
+                                workspaceId, configuration.getWorkflowMappings()));
 
         // A workflow shouldn't start while a value it may need is still being corrected.
         if (validation.hasRejections()) {

@@ -43,7 +43,11 @@ class SseControllerTest {
                 .thenReturn(
                         List.of(
                                 new WorkspaceResponse(
-                                        WORKSPACE_ID, "Acme", List.of(), Instant.now())));
+                                        WORKSPACE_ID,
+                                        "Acme",
+                                        List.of(),
+                                        List.of(),
+                                        Instant.now())));
         SseEmitter emitter = new SseEmitter();
         when(sseService.subscribe(WORKSPACE_ID)).thenReturn(emitter);
 

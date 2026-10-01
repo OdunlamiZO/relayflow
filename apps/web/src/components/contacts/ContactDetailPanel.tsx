@@ -20,6 +20,8 @@ import {
   RESERVED_CONTACT_FIELD_KEYS,
 } from "@/lib/messaging-api";
 
+import { ContactTagEditor } from "./ContactTagEditor";
+
 // ── channel meta ──────────────────────────────────────────────────────────────
 
 const CHANNEL_META: Record<
@@ -157,6 +159,14 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
                 <p className="mt-0.5 text-xs text-neutral-500">
                   Added {formatDateFull(contact.createdAt)}
                 </p>
+
+                <div className="mt-2">
+                  <ContactTagEditor
+                    contactId={contact.id}
+                    workspaceId={workspaceId}
+                    tags={contact.tags}
+                  />
+                </div>
               </div>
             </div>
 

@@ -14,6 +14,7 @@ import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.messaging.repository.MessageRepository;
 import com.relayflow.api.workflow.repository.WorkflowDefinitionRepository;
 import com.relayflow.api.workspace.domain.ContactFieldDefinition;
+import com.relayflow.api.workspace.domain.ContactTagDefinition;
 import com.relayflow.api.workspace.domain.ReservedContactField;
 import com.relayflow.api.workspace.domain.Workspace;
 import com.relayflow.api.workspace.domain.WorkspaceMember;
@@ -26,6 +27,7 @@ import com.relayflow.api.workspace.repository.WorkspaceMemberRepository;
 import com.relayflow.api.workspace.repository.WorkspaceRepository;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -144,6 +146,76 @@ public class WorkspaceService {
 
         Workspace workspace = getWorkspace(workspaceId);
         workspace.setContactFieldDefinitions(contactFieldDefinitions);
+        workspaceRepository.save(workspace);
+
+        return mapper.toDto(workspace);
+    }
+
+    @Transactional
+    public WorkspaceResponse updateContactTagDefinitions(
+            UUID workspaceId, List<ContactTagDefinition> contactTagDefinitions) {
+        Set<String> keys = new HashSet<>();
+
+        for (ContactTagDefinition definition : contactTagDefinitions) {
+            if (definition.key() == null || definition.key().isBlank()) {
+                throw new IllegalArgumentException("Every contact tag needs a key.");
+            }
+
+            if (!keys.add(definition.key())) {
+                throw new IllegalArgumentException(
+                        "\"" + definition.key() + "\" is used by more than one contact tag.");
+            }
+
+            if (definition.values().isEmpty()
+                    || definition.values().stream().anyMatch(String::isBlank)
+                    || Set.copyOf(definition.values()).size() != definition.values().size()) {
+                throw new IllegalArgumentException(
+                        "\""
+                                + definition.key()
+                                + "\" needs at least one value, with no blanks or duplicates.");
+            }
+
+            for (Map.Entry<String, String> color : definition.colors().entrySet()) {
+                if (!definition.values().contains(color.getKey())
+                        || !ContactTagDefinition.COLORS.contains(color.getValue())) {
+                    throw new IllegalArgumentException(
+                            "\""
+                                    + definition.key()
+                                    + "\" has a colour for an unknown value or an unknown colour.");
+                }
+            }
+        }
+
+        Workspace workspace = getWorkspace(workspaceId);
+
+        for (ContactTagDefinition existing : workspace.getContactTagDefinitions()) {
+            List<String> keptValues =
+                    contactTagDefinitions.stream()
+                            .filter(definition -> definition.key().equals(existing.key()))
+                            .findFirst()
+                            .map(ContactTagDefinition::values)
+                            .orElse(List.of());
+
+            for (String value : existing.values()) {
+                long contacts =
+                        keptValues.contains(value)
+                                ? 0
+                                : contactRepository.countWithTag(
+                                        workspaceId, existing.key(), value);
+
+                if (contacts > 0) {
+                    throw new IllegalArgumentException(
+                            contacts
+                                    + " contact(s) have \""
+                                    + existing.key()
+                                    + "\" set to \""
+                                    + value
+                                    + "\". Change their tag before removing it.");
+                }
+            }
+        }
+
+        workspace.setContactTagDefinitions(contactTagDefinitions);
         workspaceRepository.save(workspace);
 
         return mapper.toDto(workspace);

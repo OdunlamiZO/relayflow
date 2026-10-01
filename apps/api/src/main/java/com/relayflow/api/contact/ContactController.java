@@ -8,6 +8,7 @@ import com.relayflow.api.contact.dto.CreateExternalIdentityRequest;
 import com.relayflow.api.contact.dto.ExternalIdentityResponse;
 import com.relayflow.api.contact.dto.MergeContactRequest;
 import com.relayflow.api.contact.dto.UpdateContactCustomFieldsRequest;
+import com.relayflow.api.contact.dto.UpdateContactTagsRequest;
 import com.relayflow.api.workspace.WorkspaceAuthorizationService;
 import com.relayflow.api.workspace.domain.WorkspacePermission;
 import jakarta.validation.Valid;
@@ -71,6 +72,18 @@ public class ContactController {
                 workspaceId, authentication, WorkspacePermission.CONTACT_FIELDS_WRITE);
 
         return contactService.updateContactCustomFields(id, workspaceId, request.customFields());
+    }
+
+    @PatchMapping("/contacts/{id}/tags")
+    ContactDetailResponse updateContactTags(
+            @PathVariable UUID id,
+            @RequestParam @NotNull UUID workspaceId,
+            @Valid @RequestBody UpdateContactTagsRequest request,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.CONTACT_FIELDS_WRITE);
+
+        return contactService.updateContactTags(id, workspaceId, request.tags());
     }
 
     @PostMapping("/contacts/{id}/merge")

@@ -2,6 +2,7 @@ package com.relayflow.api.publicapi;
 
 import com.relayflow.api.authentication.ApiKeyAuthentication;
 import com.relayflow.api.common.dto.PageResponse;
+import com.relayflow.api.contact.ContactService;
 import com.relayflow.api.messaging.MessagingService;
 import com.relayflow.api.messaging.domain.MessageSenderType;
 import com.relayflow.api.messaging.dto.ConversationResponse;
@@ -10,6 +11,7 @@ import com.relayflow.api.messaging.dto.MessageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -17,6 +19,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -31,8 +34,11 @@ public class PublicApiController {
 
     private final MessagingService messagingService;
 
-    public PublicApiController(MessagingService messagingService) {
+    private final ContactService contactService;
+
+    public PublicApiController(MessagingService messagingService, ContactService contactService) {
         this.messagingService = messagingService;
+        this.contactService = contactService;
     }
 
     // --- Conversations ---
@@ -95,6 +101,19 @@ public class PublicApiController {
         return messagingService.createMessage(
                 workspaceId, conversationId, createRequest, null, false);
     }
+
+    @PutMapping("/contacts/{contactId}/tags")
+    ContactTagsResponse updateContactTags(
+            @PathVariable UUID contactId,
+            @RequestBody Map<String, String> tags,
+            Authentication authentication) {
+        UUID workspaceId = resolveWorkspace(authentication);
+
+        return new ContactTagsResponse(
+                contactId, contactService.updateContactTags(contactId, workspaceId, tags).tags());
+    }
+
+    public record ContactTagsResponse(UUID contactId, Map<String, String> tags) {}
 
     /** Request body for the public send-message endpoint. */
     public record SendMessageRequest(@NotBlank String text) {}

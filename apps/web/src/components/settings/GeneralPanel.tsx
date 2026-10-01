@@ -18,6 +18,8 @@ import {
   isReservedContactFieldKey,
 } from "@/lib/messaging-api";
 
+import { ContactTagsSection } from "./ContactTagsSection";
+
 type Props = {
   workspaceId: string;
 };
@@ -278,6 +280,12 @@ export function GeneralPanel({ workspaceId }: Props) {
           </div>
         )}
       </section>
+
+      <ContactTagsSection
+        workspaceId={workspaceId}
+        savedDefinitions={workspace?.contactTagDefinitions ?? []}
+        canEdit={canEditContactFields}
+      />
     </div>
   );
 }

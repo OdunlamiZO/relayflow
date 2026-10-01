@@ -13,6 +13,7 @@ import { useHooks } from "@/hooks/use-hooks";
 import { useSecrets } from "@/hooks/use-secrets";
 import { useWorkspace } from "@/hooks/use-workspaces";
 import {
+  type ContactTagDefinition,
   RESERVED_CONTACT_FIELDS,
   RESERVED_CONTACT_FIELD_KEYS,
 } from "@/lib/messaging-api";
@@ -983,6 +984,53 @@ function SetVariableForm({
   );
 }
 
+function SetContactTagForm({
+  data,
+  onChange,
+  tagDefinitions,
+}: {
+  data: Record<string, unknown>;
+  onChange: (u: Record<string, unknown>) => void;
+  tagDefinitions: ContactTagDefinition[];
+}) {
+  const tagKey = (data.tagKey as string) ?? "";
+  const selectedTag = tagDefinitions.find((tag) => tag.key === tagKey);
+
+  return (
+    <>
+      <Field label="Contact tag">
+        <Select
+          value={tagKey}
+          onChange={(v) => onChange({ tagKey: v, value: "" })}
+          options={tagDefinitions.map((tag) => ({
+            value: tag.key,
+            label: tag.label || tag.key,
+          }))}
+          placeholder="Select a tag…"
+        />
+        {tagDefinitions.length === 0 && (
+          <p className="mt-1 text-xs text-neutral-400">
+            Define contact tags in Settings → General first.
+          </p>
+        )}
+      </Field>
+
+      {selectedTag && (
+        <Field label="Value">
+          <Select
+            value={(data.value as string) ?? ""}
+            onChange={(v) => onChange({ value: v })}
+            options={[
+              { value: "", label: "Clear tag" },
+              ...selectedTag.values.map((value) => ({ value, label: value })),
+            ]}
+          />
+        </Field>
+      )}
+    </>
+  );
+}
+
 function SetContactFieldForm({
   data,
   onChange,
@@ -1516,6 +1564,7 @@ const TYPE_LABEL: Record<string, string> = {
   httpRequest: "HTTP Request",
   setVariable: "Set Variable",
   setContactField: "Set Contact Field",
+  setContactTag: "Set Contact Tag",
   endConversation: "End Conversation",
   waitForReply: "Ask Question",
   jumpTo: "Jump To",
@@ -1567,6 +1616,11 @@ export function NodeConfigPanel({
     ...(workspace?.contactFieldDefinitions ?? []).map((field) => ({
       name: `contact.data.${field.key}`,
       label: field.label || field.key,
+      group: "contact" as const,
+    })),
+    ...(workspace?.contactTagDefinitions ?? []).map((tag) => ({
+      name: `contact.tags.${tag.key}`,
+      label: tag.label || tag.key,
       group: "contact" as const,
     })),
   ];
@@ -1684,6 +1738,13 @@ export function NodeConfigPanel({
             onChange={update}
             variables={variables}
             fieldOptions={writableContactFieldOptions}
+          />
+        )}
+        {node.type === "setContactTag" && (
+          <SetContactTagForm
+            data={data}
+            onChange={update}
+            tagDefinitions={workspace?.contactTagDefinitions ?? []}
           />
         )}
         {node.type === "endConversation" && (

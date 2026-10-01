@@ -236,6 +236,11 @@ public class AiAgentConfigurationService {
                         .findInWorkspace(workflowId, workspaceId)
                         .orElseThrow(() -> new ResourceNotFoundException("Workflow not found"));
 
+        if (!workflowDefinition.isEnabled()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "This workflow isn't published, so it can't be run.");
+        }
+
         List<ExtractionField> extractionFields =
                 extractionFieldsFor(workspaceId, conversation.getChannelAccount().getId());
 
