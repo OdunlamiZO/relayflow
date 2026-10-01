@@ -1,6 +1,7 @@
 name: Publish images
 
 # migrate publishes alongside api. All three images share one trigger, so they always stay in version lockstep.
+# Each architecture builds on its own native runner, then merge publishes them under one multi-arch tag.
 
 on:
   push:
@@ -18,13 +19,12 @@ permissions:
   packages: write
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    env:
-      IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  build:
+    runs-on: ${{ matrix.platform.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        include:
+        image:
           - name: api
             context: ./apps/api
             dockerfile: ./apps/api/Dockerfile
@@ -34,10 +34,62 @@ jobs:
           - name: web
             context: .
             dockerfile: ./apps/web/Dockerfile
+        platform:
+          - name: linux/amd64
+            arch: amd64
+            runner: ubuntu-latest
+          - name: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          platforms: ${{ matrix.platform.name }}
+          outputs: type=image,name=ghcr.io/odunlamizo/relayflow-${{ matrix.image.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+
+      - name: Save digest
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    strategy:
+      matrix:
+        image: [api, migrate, web]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
 
       - uses: docker/setup-buildx-action@v3
 
@@ -49,26 +101,14 @@ jobs:
 
       # Only a real tag push also updates :latest — a manual workflow_dispatch
       # re-run might be republishing an older version and shouldn't move it.
-      - name: Compute tags
-        id: tags
+      - name: Publish multi-arch tags
+        working-directory: /tmp/digests
+        env:
+          REPOSITORY: ghcr.io/odunlamizo/relayflow-${{ matrix.image }}
         run: |
-          TAGS="ghcr.io/odunlamizo/relayflow-${{ matrix.name }}:${{ env.IMAGE_TAG }}"
+          TAGS=(-t "$REPOSITORY:$IMAGE_TAG")
           if [ "${{ github.event_name }}" = "push" ]; then
-            TAGS="$TAGS
-          ghcr.io/odunlamizo/relayflow-${{ matrix.name }}:latest"
+            TAGS+=(-t "$REPOSITORY:latest")
           fi
-          {
-            echo "tags<<EOF"
-            echo "$TAGS"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          docker buildx imagetools create "${TAGS[@]}" \
+            $(printf "$REPOSITORY@sha256:%s " *)
