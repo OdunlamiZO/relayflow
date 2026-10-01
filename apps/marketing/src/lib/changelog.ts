@@ -27,11 +27,7 @@ export const CHANGELOG_RELEASES: ChangelogRelease[] = [
     version: "1.0.6",
     date: "2026-10-01",
     changes: {
-      added: [
-        "Workspace switcher in the top bar on every page. Switching keeps you in the same section, such as Contacts or a Settings page.",
-      ],
       changed: [
-        "The app uses a light grey background, so cards, borders, toggles, and hover states are clearly visible.",
         "Messages sent through the public API don't reopen a closed conversation.",
       ],
       fixed: [
@@ -48,7 +44,6 @@ export const CHANGELOG_RELEASES: ChangelogRelease[] = [
       ],
       changed: [
         'An unanswered Ask Question no longer fails the whole run. The step is marked failed and the run follows "No reply", or "Invalid" for a validated question.',
-        "Settings shows one section at a time. Use the sidebar to switch between them.",
       ],
     },
   },
@@ -75,9 +70,7 @@ export const CHANGELOG_RELEASES: ChangelogRelease[] = [
     date: "2026-09-21",
     changes: {
       added: [
-        "Workspace secrets. Reference them in HTTP Request nodes as {{secrets.NAME}}. Values are encrypted at rest and resolved only when the request is sent.",
-        "Secrets page in workspace settings.",
-        'AI agent settings now show which LLM provider is the platform default. Previously the option was labeled only "Platform default".',
+        "Workspace secrets, managed in workspace settings. Reference them in HTTP Request nodes as {{secrets.NAME}}. Values are encrypted at rest and resolved only when the request is sent.",
       ],
       fixed: [
         "AI agents sent an empty reply when the LLM request failed. The conversation is now escalated to a human instead.",
@@ -99,14 +92,9 @@ export const CHANGELOG_RELEASES: ChangelogRelease[] = [
     version: "1.0.1",
     date: "2026-09-12",
     changes: {
-      added: [
-        "Edit an AI draft before sending it.",
-        "AI draft suggestions show the name of the suggested workflow.",
-      ],
+      added: ["Edit an AI draft before sending it."],
       changed: [
         "AI agents now receive the contact's known and missing fields as context.",
-        "New webhook signing secrets are shown in a modal.",
-        "Redesigned workflow node settings panel and variable picker.",
       ],
       fixed: [
         "Contact display name not updating when first or last name was set by a workflow or AI agent.",
