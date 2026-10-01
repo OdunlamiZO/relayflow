@@ -252,8 +252,10 @@ public class WorkflowEngineService {
     }
 
     /**
-     * Fails a {@code WAITING} run that has exceeded its "Wait for Reply" timeout, releasing the
-     * conversation lock. Called by {@link com.relayflow.api.workflow.WorkflowRunCleanupScheduler}.
+     * Handles a {@code WAITING} run whose Ask Question timed out: the step is recorded as failed
+     * and the run follows the node's "No reply" edge, or its "invalid" edge when it has a
+     * validation hook. With neither connected, the run fails. Called by {@link
+     * com.relayflow.api.workflow.WorkflowRunCleanupScheduler}.
      */
     @Transactional
     public void expireWaitingRun(UUID runId) {
@@ -263,17 +265,96 @@ public class WorkflowEngineService {
             return;
         }
 
-        run.setStatus(WorkflowRunStatus.FAILED);
-        run.setFinishedAt(Instant.now());
-        run.setErrorMessage("Timed out waiting for a reply");
+        UUID conversationId = run.getConversation().getId();
+
+        List<GraphNode> nodes = parseNodes(run.getWorkflowDefinition().getDraftGraph());
+        List<GraphEdge> edges = parseEdges(run.getWorkflowDefinition().getDraftGraph());
+        Map<String, GraphNode> nodeMap =
+                nodes.stream().collect(Collectors.toMap(GraphNode::id, Function.identity()));
+        Map<String, List<GraphEdge>> adjacency = buildAdjacency(edges);
+
+        GraphNode waitingNode =
+                run.getWaitingAtNodeId() != null ? nodeMap.get(run.getWaitingAtNodeId()) : null;
+        String errorMessage = noReplyMessage(waitingNode);
+
+        Map<String, Object> snapshot =
+                run.getContextSnapshot() != null ? run.getContextSnapshot() : Map.of();
+        ExecutionContext context =
+                new ExecutionContext(
+                        run.getId(), conversationId, run.getWorkspace().getId(), snapshot);
+
         run.setWaitingAtNodeId(null);
         run.setContextSnapshot(null);
         run.setExpiresAt(null);
+        run.setReplyAttempts(0);
+
+        try {
+            GraphNode nextNode = null;
+
+            if (waitingNode != null) {
+                WorkflowRunStep step = newStep(waitingNode, run, context);
+                finishStep(
+                        step, WorkflowRunStepStatus.FAILED, Map.of(), Instant.now(), errorMessage);
+                run.getSteps().add(step);
+
+                nextNode =
+                        findEdgeTarget(
+                                waitingNode, ReplyRouter.NO_REPLY_HANDLE, adjacency, nodeMap);
+
+                if (nextNode == null
+                        && waitingNode.data().get("validationHook") instanceof String hookKey
+                        && !hookKey.isBlank()) {
+                    nextNode =
+                            findEdgeTarget(
+                                    waitingNode, ReplyRouter.INVALID_HANDLE, adjacency, nodeMap);
+                }
+            }
+
+            if (nextNode == null) {
+                failRun(run, errorMessage);
+            } else {
+                run.setStatus(WorkflowRunStatus.RUNNING);
+                walk(nextNode, nodeMap, adjacency, context, run);
+
+                if (run.getStatus() == WorkflowRunStatus.RUNNING) {
+                    run.setStatus(WorkflowRunStatus.COMPLETED);
+                    run.setFinishedAt(Instant.now());
+                    setConversationLock(conversationId, false);
+                }
+
+                runRepository.save(run);
+            }
+        } catch (Exception e) {
+            failRun(run, e.getMessage());
+
+            log.error(
+                    "Timed-out workflow run failed: runId={}, error={}", runId, e.getMessage(), e);
+
+            return;
+        }
+
+        log.info(
+                "Workflow run got no reply, {}: runId={}",
+                run.getStatus().toString().toLowerCase(),
+                runId);
+    }
+
+    private void failRun(WorkflowRun run, String errorMessage) {
+        run.setStatus(WorkflowRunStatus.FAILED);
+        run.setFinishedAt(Instant.now());
+        run.setErrorMessage(errorMessage);
         runRepository.save(run);
 
         setConversationLock(run.getConversation().getId(), false);
+    }
 
-        log.info("Workflow run timed out waiting for a reply: runId={}", runId);
+    private String noReplyMessage(GraphNode waitingNode) {
+        if (waitingNode != null
+                && waitingNode.data().get("timeoutMinutes") instanceof Number minutes) {
+            return "No reply within " + minutes.intValue() + " minutes";
+        }
+
+        return "No reply before the timeout";
     }
 
     /**
