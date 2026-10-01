@@ -1282,7 +1282,7 @@ We need them so invite/verification/reset delivery can be swapped or disabled wi
 
 ### `WorkspaceWebhook`
 
-JPA entity for one of a workspace's outbound webhooks, in `com.relayflow.api.webhook.domain`. A workspace can own any number of rows — `id` is its own primary key, `workspaceId` just scopes it (no longer a one-row-per-workspace unique constraint).
+JPA entity for one of a workspace's outbound webhooks, in `com.relayflow.api.webhook.domain`. A workspace can own any number of rows — `id` is its own primary key and `workspaceId` scopes it.
 
 Important fields:
 
@@ -1637,6 +1637,7 @@ Important methods:
 
 - `executeWorkflow`: starts a run from a trigger event.
 - `resumeWorkflow`: resumes a run paused by Ask Question.
+- `expireWaitingRun`: called by `WorkflowRunCleanupScheduler` for a `WAITING` run past its `expiresAt`. Records the Ask Question step as `FAILED` ("No reply within N minutes") and follows the node's `noReply` edge, or its `invalid` edge when it has a `validationHook`. The run then finishes `COMPLETED` as usual; with neither edge connected it is marked `FAILED`.
 - `setConversationLock`: marks a conversation as workflow-owned or releases it.
 - `walk`: traverses the graph.
 - `executeStep`: executes one node and records its step log.
@@ -1843,6 +1844,8 @@ Modes:
 - generic: save reply text into `responseVariable` — or, with a `validationHook` set, validate it first and branch into `valid` / `invalid` (see `ReplyRouter`).
 - defined: route based on exact option match or option number, optionally saving the selected value into `responseVariable`, with default "Other" branch.
 
+Every mode also has a `noReply` output, followed when the contact doesn't reply within `timeoutMinutes` (see `WorkflowEngineService.expireWaitingRun`).
+
 It publishes option labels through `OutboundMessageEvent` so adapters can render Telegram reply keyboards or WhatsApp interactive buttons.
 
 We need it for interactive customer automations.
@@ -1954,7 +1957,7 @@ We need these to make every page share providers, typography, and icon font setu
 
 ### Root Route
 
-- `page.tsx` (`Home`): the root route no longer renders a marketing landing page — that content now lives in the separate `apps/marketing` site (see [`apps/marketing`](#appsmarketing)). `Home` is a server component that checks `getInstanceStatus()` and `getServerAuthenticationStatus()` and redirects to `/setup` (instance not yet bootstrapped), `/login` (unauthenticated), or `/inbox` (authenticated).
+- `page.tsx` (`Home`): the root route renders no page of its own; the marketing site is the separate [`apps/marketing`](#appsmarketing) app. `Home` is a server component that checks `getInstanceStatus()` and `getServerAuthenticationStatus()` and redirects to `/setup` (instance not yet bootstrapped), `/login` (unauthenticated), or `/inbox` (authenticated).
 
 We need it as a pure traffic-router now that apps/web is a self-hosted-only app with no public marketing surface of its own.
 
@@ -2301,9 +2304,9 @@ We need it for WhatsApp channel setup in settings.
 
 ### `SettingsShell`
 
-Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, and integration sections, each rendered as an anchored section within a single scrollable pane. Active section highlighting is driven by an `IntersectionObserver` on the content pane.
+Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, integration, and hooks sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
 
-Section visibility is permission-gated: `General` (workspace rename) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE` or `WEBHOOKS_WRITE`; `Members` is always shown.
+Section visibility is permission-gated: `General` (workspace rename) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Members` is always shown.
 
 We need it to create a stable place for general, channel, member, invite, AI agent, API key, and webhook settings.
 
@@ -2599,7 +2602,7 @@ We need it to represent a workflow deliberately writing a contact field, distinc
 
 ### `WaitForReplyNode`
 
-Visual Ask Question node with dynamic source handles for defined options. In open-ended mode with a `validationHook`, the single output is replaced by `valid` / `invalid` handles (same layout as HTTP Request's success/error).
+Visual Ask Question node. Open-ended mode has a reply output (no handle id); with a `validationHook` it has `valid` / `invalid` instead; defined mode has one handle per option plus `default` ("Other"). Every mode also has a `noReply` handle, labelled "No reply", followed when the question times out.
 
 Important types:
 

@@ -1287,10 +1287,13 @@ function WaitForReplyForm({
           className={inputCls}
         />
         <p className="mt-1 text-xs text-neutral-400">
-          If the contact doesn&apos;t reply within this time, the run fails and
-          the conversation is released. The combined timeout across all
-          &quot;Wait for Reply&quot; nodes in this workflow can&apos;t exceed 7
-          days — up to {maxTimeoutMinutes} minutes left for this node.
+          If the contact doesn&apos;t reply within this time, the step fails and
+          the run follows the <strong>No reply</strong> output. If that
+          isn&apos;t connected, a validated question follows{" "}
+          <strong>Invalid</strong>; otherwise the run fails and the conversation
+          is released. The combined timeout across all &quot;Wait for
+          Reply&quot; nodes in this workflow can&apos;t exceed 7 days — up to{" "}
+          {maxTimeoutMinutes} minutes left for this node.
         </p>
       </Field>
     </>

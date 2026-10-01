@@ -76,42 +76,27 @@ export function SettingsShell({ workspaceId }: Props) {
       : []),
   ];
 
-  const [activeHref, setActiveHref] = useState<string>(
-    navItems[0]?.href ?? "#channels"
-  );
+  const [activeHref, setActiveHref] = useState<string | null>(null);
 
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const main = mainRef.current;
-    if (!main) return;
+    const syncWithHash = () => {
+      setActiveHref(window.location.hash || null);
+      mainRef.current?.scrollTo({ top: 0 });
+    };
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const topmost = entries
-          .filter((e) => e.isIntersecting)
-          .sort(
-            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
-          )[0];
+    syncWithHash();
+    window.addEventListener("hashchange", syncWithHash);
 
-        if (topmost) {
-          const href = `#${topmost.target.id}`;
-          setActiveHref(href);
-          history.replaceState(null, "", href);
-        }
-      },
-      { root: main, rootMargin: "0px 0px -60% 0px", threshold: 0 }
-    );
+    return () => window.removeEventListener("hashchange", syncWithHash);
+  }, []);
 
-    const ids = navItems.map((item) => item.href.slice(1));
-    ids.forEach((id) => {
-      const el = main.querySelector(`#${id}`);
-      if (el) observer.observe(el);
-    });
+  const currentHref =
+    navItems.find((item) => item.href === activeHref)?.href ??
+    navItems[0]?.href;
 
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navItems.map((i) => i.href).join(",")]);
+  const sectionClass = (href: string) => (href === currentHref ? "" : "hidden");
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -124,9 +109,8 @@ export function SettingsShell({ workspaceId }: Props) {
             <a
               key={item.href}
               href={item.href}
-              onClick={() => setActiveHref(item.href)}
               className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                item.href === activeHref
+                item.href === currentHref
                   ? "bg-neutral-200 text-neutral-900"
                   : "text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900"
               }`}
@@ -157,9 +141,8 @@ export function SettingsShell({ workspaceId }: Props) {
                   <li key={item.href}>
                     <a
                       href={item.href}
-                      onClick={() => setActiveHref(item.href)}
                       className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                        item.href === activeHref
+                        item.href === currentHref
                           ? "bg-neutral-200 text-neutral-900"
                           : "text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900"
                       }`}
@@ -178,36 +161,20 @@ export function SettingsShell({ workspaceId }: Props) {
             </nav>
           </aside>
 
-          {/* Content — sections scroll within this pane; anchor links jump to section ids */}
-          <main
-            ref={mainRef}
-            className="flex-1 scroll-smooth overflow-y-auto pb-14 md:pb-0"
-          >
+          <main ref={mainRef} className="flex-1 overflow-y-auto pb-14 md:pb-0">
             {canRenameWorkspace && (
-              <div id="general">
+              <div id="general" className={sectionClass("#general")}>
                 <GeneralPanel workspaceId={workspaceId} />
               </div>
             )}
 
             {canSeeChannels && (
-              <div
-                id="channels"
-                className={
-                  canRenameWorkspace ? "border-t border-neutral-200" : ""
-                }
-              >
+              <div id="channels" className={sectionClass("#channels")}>
                 <ChannelsList workspaceId={workspaceId} />
               </div>
             )}
 
-            <div
-              id="members"
-              className={
-                canSeeChannels || canRenameWorkspace
-                  ? "border-t border-neutral-200"
-                  : ""
-              }
-            >
+            <div id="members" className={sectionClass("#members")}>
               <MembersList
                 workspaceId={workspaceId}
                 currentUserId={user?.userId ?? undefined}
@@ -215,13 +182,13 @@ export function SettingsShell({ workspaceId }: Props) {
             </div>
 
             {canManageAiAgent && (
-              <div id="ai-agent" className="border-t border-neutral-200">
+              <div id="ai-agent" className={sectionClass("#ai-agent")}>
                 <AiAgentPanel workspaceId={workspaceId} />
               </div>
             )}
 
             {canSeeIntegrations && (
-              <div id="integrations" className="border-t border-neutral-200">
+              <div id="integrations" className={sectionClass("#integrations")}>
                 <IntegrationsPanel
                   workspaceId={workspaceId}
                   canManageApiKeys={canManageApiKeys}
@@ -232,7 +199,7 @@ export function SettingsShell({ workspaceId }: Props) {
             )}
 
             {canManageHooks && (
-              <div id="hooks" className="border-t border-neutral-200">
+              <div id="hooks" className={sectionClass("#hooks")}>
                 <HooksPanel workspaceId={workspaceId} />
               </div>
             )}

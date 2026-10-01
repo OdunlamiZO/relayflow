@@ -14,6 +14,8 @@ public class ReplyRouter {
 
     public static final String INVALID_HANDLE = "invalid";
 
+    public static final String NO_REPLY_HANDLE = "noReply";
+
     private static final int DEFAULT_MAX_ATTEMPTS = 3;
 
     private static final int MAX_ATTEMPTS_LIMIT = 10;

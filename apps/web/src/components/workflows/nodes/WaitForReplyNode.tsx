@@ -13,7 +13,7 @@ export type WaitForReplyNodeData = {
   responseType?: "generic" | "defined";
   responseVariable?: string;
   options?: WaitForReplyOption[];
-  /** Minutes to wait for a reply before failing the run. Defaults to 1440 (24 hours). */
+  /** Minutes to wait for a reply before following the "No reply" output. Defaults to 1440 (24 hours). */
   timeoutMinutes?: number;
   validationHook?: string;
   validationErrorMessage?: string;
@@ -47,8 +47,8 @@ export function WaitForReplyNode({
   const isValidated = isGeneric && !!data.validationHook;
   const options = data.options ?? [];
 
-  // For defined mode: N option handles + 1 "Other" default handle
-  const totalHandles = options.length + 1;
+  // For defined mode: N option handles + "Other" + "No reply"
+  const totalHandles = options.length + 2;
 
   const definedFooter = !isGeneric ? (
     <div className="relative pb-5 pt-1">
@@ -72,13 +72,15 @@ export function WaitForReplyNode({
       <span
         className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-neutral-400"
         style={{
-          left: `${(totalHandles / (totalHandles + 1)) * 100}%`,
+          left: `${((totalHandles - 1) / (totalHandles + 1)) * 100}%`,
           bottom: 8,
         }}
         title="No option matched"
       >
         Other
       </span>
+
+      <NoReplyLabel left={`${(totalHandles / (totalHandles + 1)) * 100}%`} />
 
       {/* Option handles — blue tint so they're distinct from the default */}
       {options.map((opt, i) => (
@@ -99,8 +101,13 @@ export function WaitForReplyNode({
         position={Position.Bottom}
         id="default"
         isConnectable={isConnectable}
-        style={{ left: `${(totalHandles / (totalHandles + 1)) * 100}%` }}
+        style={{ left: `${((totalHandles - 1) / (totalHandles + 1)) * 100}%` }}
         className="!border-2 !border-neutral-100 !bg-neutral-500"
+      />
+
+      <NoReplyHandle
+        left={`${(totalHandles / (totalHandles + 1)) * 100}%`}
+        isConnectable={isConnectable}
       />
     </div>
   ) : undefined;
@@ -109,23 +116,24 @@ export function WaitForReplyNode({
     <div className="relative pb-5 pt-1">
       <span
         className="absolute -translate-x-1/2 text-[10px] text-green-text"
-        style={{ left: "25%", bottom: 8 }}
+        style={{ left: "20%", bottom: 8 }}
       >
         Valid
       </span>
       <span
         className="absolute -translate-x-1/2 text-[10px] text-red-border"
-        style={{ left: "75%", bottom: 8 }}
+        style={{ left: "50%", bottom: 8 }}
       >
         Invalid
       </span>
+      <NoReplyLabel left="80%" />
 
       <Handle
         type="source"
         position={Position.Bottom}
         id="valid"
         isConnectable={isConnectable}
-        style={{ left: "25%" }}
+        style={{ left: "20%" }}
         className="!border-2 !border-neutral-100 !bg-green-border"
       />
       <Handle
@@ -133,11 +141,33 @@ export function WaitForReplyNode({
         position={Position.Bottom}
         id="invalid"
         isConnectable={isConnectable}
-        style={{ left: "75%" }}
+        style={{ left: "50%" }}
         className="!border-2 !border-neutral-100 !bg-red-border"
       />
+      <NoReplyHandle left="80%" isConnectable={isConnectable} />
     </div>
   ) : undefined;
+
+  const genericFooter = (
+    <div className="relative pb-5 pt-1">
+      <span
+        className="absolute -translate-x-1/2 text-[10px] text-neutral-500"
+        style={{ left: "33%", bottom: 8 }}
+      >
+        Reply
+      </span>
+      <NoReplyLabel left="67%" />
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        isConnectable={isConnectable}
+        style={{ left: "33%" }}
+        className="!border-2 !border-neutral-100 !bg-neutral-500"
+      />
+      <NoReplyHandle left="67%" isConnectable={isConnectable} />
+    </div>
+  );
 
   return (
     <WorkflowNode
@@ -145,9 +175,9 @@ export function WaitForReplyNode({
       icon="mark_unread_chat_alt"
       label={data.label ?? "Ask Question"}
       headerColor="bg-blue-bg text-blue-text"
-      hasSource={isGeneric && !isValidated}
+      hasSource={false}
       isConnectable={isConnectable}
-      footer={definedFooter ?? validatedFooter}
+      footer={definedFooter ?? validatedFooter ?? genericFooter}
       selected={selected}
     >
       <span className="line-clamp-2 text-neutral-400">
@@ -178,5 +208,36 @@ export function WaitForReplyNode({
         </ul>
       )}
     </WorkflowNode>
+  );
+}
+
+function NoReplyLabel({ left }: { left: string }) {
+  return (
+    <span
+      className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-yellow-text"
+      style={{ left, bottom: 8 }}
+      title="No reply before the timeout"
+    >
+      No reply
+    </span>
+  );
+}
+
+function NoReplyHandle({
+  left,
+  isConnectable,
+}: {
+  left: string;
+  isConnectable: boolean;
+}) {
+  return (
+    <Handle
+      type="source"
+      position={Position.Bottom}
+      id="noReply"
+      isConnectable={isConnectable}
+      style={{ left }}
+      className="!border-2 !border-neutral-100 !bg-yellow-border"
+    />
   );
 }

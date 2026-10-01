@@ -59,12 +59,9 @@ public class WorkflowRunCleanupScheduler {
         }
     }
 
-    /**
-     * Runs every minute, fails any "Wait for Reply" runs that have been WAITING past their
-     * configured timeout.
-     */
+    /** Runs every minute, handling Ask Question steps that got no reply before their timeout. */
     @Scheduled(fixedDelay = 60 * 1000)
-    public void failExpiredWaitingRuns() {
+    public void expireWaitingRuns() {
         List<UUID> expiredRunIds =
                 workflowRunRepository.findExpiredWaitingRunIds(
                         WorkflowRunStatus.WAITING, Instant.now());
@@ -75,7 +72,7 @@ public class WorkflowRunCleanupScheduler {
 
         if (!expiredRunIds.isEmpty()) {
             log.info(
-                    "Failed {} workflow run(s) that timed out waiting for a reply",
+                    "Handled {} workflow run(s) that got no reply before the timeout",
                     expiredRunIds.size());
         }
     }
