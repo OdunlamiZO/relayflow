@@ -192,6 +192,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`Spinner`](#spinner)
   - [`EmptyState`](#emptystate)
   - [`ConfirmModal`](#confirmmodal)
+  - [`IconButton`](#iconbutton)
   - [`GoogleIcon`](#googleicon)
   - [`CopyButton`](#copybutton)
   - [`Select`](#select)
@@ -2057,6 +2058,12 @@ Reusable confirmation dialog, including destructive action support and pending s
 
 We need it before operations like channel disconnect.
 
+### `IconButton`
+
+Icon-only button (`icon`, `label`, `onClick`, optional `destructive` and `disabled`). Grey icon with no background; on hover it darkens, or turns red when `destructive`. `label` is both the tooltip and the accessible name.
+
+We need it so every edit, delete, and similar icon action looks and behaves the same.
+
 ### `GoogleIcon`
 
 Small SVG Google brand icon component.
@@ -2113,7 +2120,7 @@ We need it so API errors appear consistently without adding a third-party toast 
 
 ### `WorkspaceNav`
 
-Icon sidebar linking to inbox, contacts, workflows, and settings for a workspace.
+Icon sidebar linking to inbox, contacts, workflows, and settings for a workspace. Links are built with `workspaceUrl`, shared with `WorkspaceSwitcher`.
 
 Important helper:
 
@@ -2977,7 +2984,7 @@ Defines RelayFlow design tokens and Tailwind extensions.
 
 Important parts:
 
-- CSS variable color palette.
+- CSS variable color palette. In the neutral scale, `neutral-100` is white for surfaces (cards, panels, inputs) and `neutral-200` is the light grey page background, also used for subtle borders and hover states.
 - dark/light variable blocks.
 - custom font families.
 - extra semantic colors such as teal and orange.

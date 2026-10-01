@@ -24,6 +24,22 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // date must be the day that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.0.6",
+    date: "2026-10-01",
+    changes: {
+      added: [
+        "Workspace switcher in the top bar on every page. Switching keeps you in the same section, such as Contacts or a Settings page.",
+      ],
+      changed: [
+        "The app uses a light grey background, so cards, borders, toggles, and hover states are clearly visible.",
+        "Messages sent through the public API don't reopen a closed conversation.",
+      ],
+      fixed: [
+        "When a hook rejected a value an AI agent extracted, such as a number written in words, the agent asked the contact again instead of converting it to the required format first.",
+      ],
+    },
+  },
+  {
     version: "1.0.5",
     date: "2026-10-01",
     changes: {
