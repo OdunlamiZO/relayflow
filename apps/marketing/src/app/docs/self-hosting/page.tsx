@@ -316,6 +316,27 @@ docker compose --profile prod up -d`}</code>
             Migrations are forward-only. There&apos;s no down-migration path, so
             plan upgrades accordingly.
           </p>
+
+          <h3 className="mb-0 mt-8 text-base font-semibold text-primary">
+            Upgrading from 1.0.3 or earlier
+          </h3>
+          <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-sm leading-6 text-neutral-600">
+            <li>
+              If Google login is enabled, add{" "}
+              <code>
+                &lt;RELAYFLOW_WEB_BASE_URL&gt;/backend/login/oauth2/code/google
+              </code>{" "}
+              to the client&apos;s authorized redirect URIs in Google Cloud
+              before upgrading. Until it&apos;s added, Google sign-in fails with{" "}
+              <code>redirect_uri_mismatch</code>.
+            </li>
+            <li>
+              If you run the web container outside the bundled{" "}
+              <code>docker-compose.yml</code>, set{" "}
+              <code>RELAYFLOW_API_INTERNAL_URL</code> on it to the address it
+              reaches the API at, such as <code>http://api:8080</code>.
+            </li>
+          </ul>
         </section>
 
         <section className="mt-12">
