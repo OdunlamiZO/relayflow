@@ -203,7 +203,7 @@ Public API requests authenticate with `X-Api-Key`:
 - `GET  /public/v1/conversations`
 - `GET  /public/v1/conversations/{id}`
 - `GET  /public/v1/conversations/{id}/messages`
-- `POST /public/v1/conversations/{id}/messages`
+- `POST /public/v1/conversations/{id}/messages` — sends an outbound message; a closed conversation stays closed
 
 ### Workflows
 

@@ -127,7 +127,7 @@ export function AuthenticationPanel() {
                 onClick={() => {
                   setIsOpen(false);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
               >
                 <span
                   className="material-symbols-rounded text-[18px]"
@@ -145,7 +145,7 @@ export function AuthenticationPanel() {
                   handleLogout();
                 }}
                 disabled={isLoggingOut}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-red-bg hover:text-red-text disabled:opacity-60"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:text-red-text disabled:opacity-60"
               >
                 <span
                   className="material-symbols-rounded text-[18px]"

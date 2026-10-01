@@ -8,8 +8,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.relayflow.api.hook.HookOutcome;
 import com.relayflow.api.hook.HookService;
+import com.relayflow.api.hook.domain.HookOutcome;
 import com.relayflow.api.workflow.engine.ReplyRouter.ReplyRouting;
 import java.util.HashMap;
 import java.util.List;

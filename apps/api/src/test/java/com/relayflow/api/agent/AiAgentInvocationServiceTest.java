@@ -22,8 +22,8 @@ import com.relayflow.api.agent.llm.LlmMessage;
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.channel.domain.ChannelAccount;
-import com.relayflow.api.hook.HookOutcome;
 import com.relayflow.api.hook.HookService;
+import com.relayflow.api.hook.domain.HookOutcome;
 import com.relayflow.api.messaging.MessagingService;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.EscalationType;
@@ -250,6 +250,7 @@ class AiAgentInvocationServiceTest {
         when(llmClient.complete(any()))
                 .thenReturn(
                         reply("Thanks! We open at 9am.", Map.of("email", "john@gmail"), false),
+                        reply("", Map.of(), false),
                         reply(
                                 "We open at 9am. Could you resend your full email?",
                                 Map.of(),
@@ -263,9 +264,9 @@ class AiAgentInvocationServiceTest {
         assertThat(savedDraft().getExtractedData()).doesNotContainKey("email");
 
         ArgumentCaptor<AgentLlmRequest> requests = ArgumentCaptor.forClass(AgentLlmRequest.class);
-        verify(llmClient, times(2)).complete(requests.capture());
+        verify(llmClient, times(3)).complete(requests.capture());
 
-        AgentLlmRequest correctionRequest = requests.getAllValues().get(1);
+        AgentLlmRequest correctionRequest = requests.getAllValues().get(2);
         assertThat(correctionRequest.systemPrompt())
                 .contains("# CORRECTION REQUIRED")
                 .contains("\"john@gmail\"")
@@ -280,10 +281,55 @@ class AiAgentInvocationServiceTest {
         when(llmClient.complete(any()))
                 .thenReturn(
                         reply("Thanks! We open at 9am.", Map.of("email", "john@gmail"), false),
+                        reply("", Map.of(), true),
                         reply("", Map.of(), true));
 
         service().invoke(conversation, triggeringMessage);
 
         assertThat(savedDraft().getProposedReply()).isEqualTo("That email looks incomplete.");
+    }
+
+    @Test
+    void rejectedValueThatConvertsCleanlyIsAcceptedWithoutAskingTheContact() {
+        configuration.setExtractionFields(
+                List.of(new ExtractionField("amount", "Contribution amount", "builtin:number")));
+        when(hookService.runHook(
+                        eq(conversation.getWorkspace().getId()),
+                        eq("builtin:number"),
+                        eq("fifty thousand naira"),
+                        anyMap(),
+                        isNull()))
+                .thenReturn(HookOutcome.rejected("Please reply with a number.", List.of()));
+        when(hookService.runHook(
+                        eq(conversation.getWorkspace().getId()),
+                        eq("builtin:number"),
+                        eq("50000"),
+                        anyMap(),
+                        isNull()))
+                .thenReturn(HookOutcome.accepted(50000L, Map.of(), List.of()));
+        when(contextAssembler.assemble(configuration, conversation))
+                .thenReturn(
+                        new AgentLlmRequest(
+                                "system",
+                                List.of(
+                                        LlmMessage.user(
+                                                "I want to contribute fifty thousand naira")),
+                                null,
+                                configuration.getExtractionFields()));
+        when(llmClientFactory.getClient(configuration.getLlmProvider())).thenReturn(llmClient);
+        when(llmClient.complete(any()))
+                .thenReturn(
+                        reply(
+                                "Great, let's get that started.",
+                                Map.of("amount", "fifty thousand naira"),
+                                false),
+                        reply("50000", Map.of(), false));
+
+        service().invoke(conversation, triggeringMessage);
+
+        verify(contactCustomFieldWriter)
+                .apply(eq(conversation), eq(Map.of("amount", "50000")), any());
+        assertThat(savedDraft().getProposedReply()).isEqualTo("Great, let's get that started.");
+        verify(llmClient, times(2)).complete(any());
     }
 }

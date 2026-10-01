@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { workspaceUrl } from "./WorkspaceSwitcher";
+
 type Props = {
   workspaceId: string;
 };
@@ -50,7 +52,7 @@ export function WorkspaceNav({ workspaceId }: Props) {
 
   const navItems: NavItemProps[] = [
     {
-      href: `/inbox?workspaceId=${workspaceId}`,
+      href: workspaceUrl("/inbox", workspaceId),
       icon: "inbox",
       label: "Inbox",
       active:
@@ -58,19 +60,19 @@ export function WorkspaceNav({ workspaceId }: Props) {
         !pathname.startsWith("/inbox/channels"),
     },
     {
-      href: `/contacts?workspaceId=${workspaceId}`,
+      href: workspaceUrl("/contacts", workspaceId),
       icon: "contacts",
       label: "Contacts",
       active: pathname.startsWith("/contacts"),
     },
     {
-      href: `/workflows?workspaceId=${workspaceId}`,
+      href: workspaceUrl("/workflows", workspaceId),
       icon: "account_tree",
       label: "Workflows",
       active: pathname.startsWith("/workflows"),
     },
     {
-      href: `/settings?workspaceId=${workspaceId}`,
+      href: workspaceUrl("/settings", workspaceId),
       icon: "settings",
       label: "Settings",
       active: pathname.startsWith("/settings"),

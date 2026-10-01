@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.relayflow.api.hook.domain.Hook;
+import com.relayflow.api.hook.domain.HookOutcome;
+import com.relayflow.api.hook.domain.HookOutcomeStatus;
 import com.relayflow.api.hook.dto.SaveHookRequest;
 import com.relayflow.api.hook.repository.HookRepository;
 import com.relayflow.api.workflow.WorkflowValidationException;

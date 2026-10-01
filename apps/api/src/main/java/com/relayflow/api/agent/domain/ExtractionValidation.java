@@ -1,4 +1,4 @@
-package com.relayflow.api.agent;
+package com.relayflow.api.agent.domain;
 
 import java.util.List;
 import java.util.Map;

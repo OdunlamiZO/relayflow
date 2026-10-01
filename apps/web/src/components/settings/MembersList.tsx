@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { IconButton } from "@/components/common/IconButton";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useCreateInvite } from "@/hooks/use-create-invite";
@@ -366,20 +367,13 @@ function InviteRow({
           </p>
         </div>
 
-        <button
-          type="button"
+        <IconButton
+          icon="close"
+          label="Revoke invite"
           onClick={() => setConfirmRevoke(true)}
           disabled={isRevoking}
-          className="flex-shrink-0 rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-bg hover:text-red-text disabled:opacity-40"
-          aria-label="Revoke invite"
-        >
-          <span
-            className="material-symbols-rounded text-[17px] leading-none"
-            aria-hidden="true"
-          >
-            close
-          </span>
-        </button>
+          destructive
+        />
       </li>
 
       {confirmRevoke && (
@@ -500,58 +494,34 @@ function MemberRow({
 
           {/* Edit permissions — viewer must be owner; displayed member must not be owner */}
           {viewerIsOwner && !isOwner && (
-            <button
-              type="button"
+            <IconButton
+              icon={expanded ? "expand_less" : "tune"}
+              label="Edit permissions"
               onClick={() => {
                 setPendingPerms(new Set(member.permissions));
                 setExpanded((v) => !v);
               }}
-              className="flex-shrink-0 rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-              aria-label="Edit permissions"
-            >
-              <span
-                className="material-symbols-rounded text-[18px] leading-none"
-                aria-hidden="true"
-              >
-                {expanded ? "expand_less" : "tune"}
-              </span>
-            </button>
+            />
           )}
 
           {/* Generate password reset link — viewer must be owner; displayed member must not be owner */}
           {viewerIsOwner && !isOwner && (
-            <button
-              type="button"
+            <IconButton
+              icon="password"
+              label="Send password reset link"
               onClick={() => generatePasswordReset(member.id)}
               disabled={isGeneratingReset}
-              className="flex-shrink-0 rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-50"
-              aria-label="Send password reset link"
-              title="Send password reset link"
-            >
-              <span
-                className="material-symbols-rounded text-[18px] leading-none"
-                aria-hidden="true"
-              >
-                password
-              </span>
-            </button>
+            />
           )}
 
           {/* Remove — viewer must be owner; cannot remove the last owner */}
           {viewerIsOwner && !isLastOwner && (
-            <button
-              type="button"
+            <IconButton
+              icon="person_remove"
+              label="Remove member"
               onClick={() => setConfirmRemove(true)}
-              className="flex-shrink-0 rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-bg hover:text-red-text"
-              aria-label="Remove member"
-            >
-              <span
-                className="material-symbols-rounded text-[18px] leading-none"
-                aria-hidden="true"
-              >
-                person_remove
-              </span>
-            </button>
+              destructive
+            />
           )}
         </div>
 

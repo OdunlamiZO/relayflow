@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { IconButton } from "@/components/common/IconButton";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAuthentication } from "@/hooks/use-authentication";
@@ -156,7 +157,7 @@ export function GeneralPanel({ workspaceId }: Props) {
           {RESERVED_CONTACT_FIELD_KEYS.map((key) => (
             <div
               key={key}
-              className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5"
+              className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-neutral-800">
@@ -181,19 +182,18 @@ export function GeneralPanel({ workspaceId }: Props) {
             return canEditContactFields ? (
               <div
                 key={i}
-                className="rounded-lg border border-neutral-200 bg-neutral-100 p-3"
+                className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-neutral-500">
+                  <span className="text-sm font-medium text-neutral-400">
                     Field {i + 1}
                   </span>
-                  <button
-                    type="button"
+                  <IconButton
+                    icon="delete"
+                    destructive
+                    label={`Remove field ${i + 1}`}
                     onClick={() => removeContactField(i)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
+                  />
                 </div>
                 <input
                   type="text"
@@ -233,7 +233,7 @@ export function GeneralPanel({ workspaceId }: Props) {
             ) : (
               <div
                 key={i}
-                className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5"
+                className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5"
               >
                 <span className="text-sm font-medium text-neutral-800">
                   {field.label || field.key}

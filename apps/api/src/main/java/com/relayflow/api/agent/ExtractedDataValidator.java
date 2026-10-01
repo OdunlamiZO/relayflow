@@ -1,8 +1,10 @@
 package com.relayflow.api.agent;
 
 import com.relayflow.api.agent.domain.ExtractionField;
-import com.relayflow.api.hook.HookOutcome;
+import com.relayflow.api.agent.domain.ExtractionValidation;
+import com.relayflow.api.agent.domain.RejectedExtraction;
 import com.relayflow.api.hook.HookService;
+import com.relayflow.api.hook.domain.HookOutcome;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

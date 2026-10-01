@@ -92,9 +92,8 @@ public class PublicApiController {
                         null,
                         null);
 
-        // Public API sends (including future AI-agent-driven sends) have no human workspace
-        // member to auto-assign the conversation to.
-        return messagingService.createMessage(workspaceId, conversationId, createRequest, null);
+        return messagingService.createMessage(
+                workspaceId, conversationId, createRequest, null, false);
     }
 
     /** Request body for the public send-message endpoint. */

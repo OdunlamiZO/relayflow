@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { IconButton } from "@/components/common/IconButton";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
@@ -145,12 +146,12 @@ export function HooksPanel({ workspaceId }: Props) {
                   <>
                     <IconButton
                       icon="edit"
-                      title="Edit hook"
+                      label="Edit hook"
                       onClick={() => setEditorTarget({ mode: "edit", hook })}
                     />
                     <IconButton
                       icon="delete"
-                      title="Delete hook"
+                      label="Delete hook"
                       destructive
                       onClick={() => {
                         setDeleteError(null);
@@ -188,7 +189,7 @@ export function HooksPanel({ workspaceId }: Props) {
               actions={
                 <IconButton
                   icon="content_copy"
-                  title="Copy into a custom hook"
+                  label="Copy into a custom hook"
                   onClick={() => copyBuiltIn(hook)}
                 />
               }
@@ -666,35 +667,5 @@ function HookRow({
         {actions}
       </div>
     </li>
-  );
-}
-
-function IconButton({
-  icon,
-  title,
-  destructive = false,
-  onClick,
-}: {
-  icon: string;
-  title: string;
-  destructive?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      className={`rounded-lg p-1.5 text-neutral-400 transition-colors ${
-        destructive
-          ? "hover:bg-red-bg hover:text-red-text"
-          : "hover:bg-neutral-200 hover:text-neutral-700"
-      }`}
-    >
-      <span className="material-symbols-rounded text-[18px] leading-none">
-        {icon}
-      </span>
-    </button>
   );
 }

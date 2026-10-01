@@ -208,6 +208,16 @@ public class MessagingService {
             UUID conversationId,
             CreateMessageRequest request,
             UUID senderUserId) {
+        return createMessage(workspaceId, conversationId, request, senderUserId, true);
+    }
+
+    @Transactional
+    public MessageResponse createMessage(
+            UUID workspaceId,
+            UUID conversationId,
+            CreateMessageRequest request,
+            UUID senderUserId,
+            boolean reopenIfClosed) {
         Conversation conversation = getConversationRecord(conversationId, workspaceId);
 
         // Workflow ownership check — only workflow executors may message while a workflow is
@@ -220,7 +230,7 @@ public class MessagingService {
 
         boolean reopened = false;
 
-        if (conversation.getStatus() == ConversationStatus.CLOSED) {
+        if (reopenIfClosed && conversation.getStatus() == ConversationStatus.CLOSED) {
             conversation.setStatus(ConversationStatus.OPEN);
             conversation.setAssigneeId(null);
             conversation.setSessionStartedAt(Instant.now());

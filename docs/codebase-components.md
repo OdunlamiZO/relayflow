@@ -200,6 +200,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`ToastProvider`](#toastprovider)
 - [Frontend Workspace Components](#frontend-workspace-components)
   - [`WorkspaceNav`](#workspacenav)
+  - [`AppHeader`](#appheader)
   - [`WorkspaceSwitcher`](#workspaceswitcher)
   - [`CreateWorkspaceForm`](#createworkspaceform)
 - [Frontend Inbox Components](#frontend-inbox-components)
@@ -1110,7 +1111,7 @@ Important methods:
 
 - `createExternalIdentity`, `createConversation`
 - `listConversations`, `getConversation`, `updateConversationStatus`, `listMessages`
-- `createMessage`: stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason`/`escalationType` on that same first human (`MessageSenderType.AGENT`) outbound reply.
+- `createMessage`: reopens a closed conversation unless called with `reopenIfClosed = false`, stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason`/`escalationType` on that same first human (`MessageSenderType.AGENT`) outbound reply.
 
 We need it because messaging has cross-entity rules that should not live in controllers or repositories.
 
@@ -1223,7 +1224,7 @@ Endpoints:
 - `listConversations`
 - `getConversation`
 - `listMessages`
-- `sendMessage`
+- `sendMessage`: calls `MessagingService.createMessage` with `reopenIfClosed = false`, so a closed conversation stays closed.
 
 We need it so third-party systems can inspect conversations and send outbound replies for a workspace.
 
@@ -1951,7 +1952,7 @@ We need them for builder state, runtime lookup, waiting-run resume, and future r
 - `metadata`: global title/description.
 - `viewport`: responsive viewport settings.
 - `inter`, `jetBrainsMono`: Next font variables.
-- `AuthenticationPanel` (`src/app/authentication-panel.tsx`): account-menu widget rendered in the header of every protected route layout (inbox, settings, contacts, workflows, profile). Shows a `Log in` / `Get started` link pair when signed out, or an avatar dropdown (profile link, sign out) when signed in. Guards against SSR/client hydration mismatch with a `useSyncExternalStore`-based `mounted` check rather than a `useState`+`useEffect` pattern.
+- `AuthenticationPanel` (`src/app/authentication-panel.tsx`): account-menu widget on the right of `AppHeader`, the top bar shared by every protected route layout (inbox, settings, contacts, workflows, profile). Shows a `Log in` / `Get started` link pair when signed out, or an avatar dropdown (profile link, sign out) when signed in. Guards against SSR/client hydration mismatch with a `useSyncExternalStore`-based `mounted` check rather than a `useState`+`useEffect` pattern.
 
 We need these to make every page share providers, typography, and icon font setup, and to give every protected route a consistent account-menu entry point.
 
@@ -2120,12 +2121,17 @@ Important helper:
 
 We need it as the persistent app navigation.
 
+### `AppHeader`
+
+Top bar shared by every protected route layout: the RelayFlow logo, then `HeaderWorkspaceSwitcher`, with `AuthenticationPanel` on the right. `HeaderWorkspaceSwitcher` reads `workspaceId` from the URL and renders `/ <WorkspaceSwitcher>`, or nothing on pages with no workspace (profile).
+
 ### `WorkspaceSwitcher`
 
-Dropdown for switching workspaces and creating a new workspace inline.
+Dropdown in `AppHeader` for switching workspaces and creating a new workspace inline. Switching keeps the current section via `workspaceUrl(pathname, workspaceId, hash)`: inbox, contacts, workflows, and settings (with its `#section`) stay put; a specific workflow goes to the workflow list; anything else goes to the inbox. A newly created workspace opens in its inbox.
 
 Important functions:
 
+- `workspaceUrl`
 - `close`
 - `selectWorkspace`
 - `handleCreate`
@@ -2157,7 +2163,7 @@ Important functions:
 - `selectConversation`
 - `handleBack`
 
-It combines `WorkspaceNav`, `WorkspaceSwitcher`, `ConversationList`, and `MessageThread`.
+It combines `WorkspaceNav`, `ConversationList`, and `MessageThread`.
 
 We need it to coordinate sidebar selection, mobile layout behavior, and real-time workspace events.
 
@@ -2894,7 +2900,7 @@ We need it to protect the empty/loading/populated conversation list behavior.
 
 ### `WorkspaceSwitcher.test.tsx`
 
-Tests workspace dropdown behavior.
+Tests workspace dropdown behavior and `workspaceUrl`'s section mapping.
 
 Important values/helpers:
 
@@ -3119,7 +3125,7 @@ Flow:
 4. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
 5. Re-check for an active `WorkflowRun` committed in the race window since step 4.
 6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call `llmClientFactory.getClient(configuration.getLlmProvider())` — the config's own provider if set, otherwise the platform's active provider (see [LLM Abstraction](#llm-abstraction)). If the call itself failed (`response.failed()` — network, auth, bad status, unparseable body), escalate immediately rather than falling through to drafting or sending; see `AgentLlmResponse`.
-7. `ExtractedDataValidator.validate(...)` runs each extracted value through its field's `validationHook`, if any. Only the accepted (and possibly rewritten) values go on; rejected ones are recorded in `outputSnapshot.rejectedExtractions`.
+7. `ExtractedDataValidator.validate(...)` runs each extracted value through its field's `validationHook`, if any. For each rejected value, `convertRejectedValues` asks the LLM once to convert it to the required format (`RejectedExtraction.conversionRequest()`: the field, the customer's answer, and the hook's rejection reason) and re-runs the hook; a converted value the hook accepts is used as if the customer had sent it. Only the accepted (and possibly rewritten) values go on; values still rejected are recorded in `outputSnapshot.rejectedExtractions`.
 8. `contactCustomFieldWriter.apply(...)` runs with the accepted values right after validation, before any branching below — including the draft path.
 9. `mergeWithPendingDraft(conversation, validation.acceptedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
 10. `sanitizeSuggestedActions(response.suggestedActions(), configuration.getWorkflowMappings())` drops any `trigger_workflow:<id>` action whose `<id>` isn't in a configured `WorkflowMapping` — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging. If any extracted value was rejected, `trigger_workflow:` actions are dropped too, so a workflow doesn't start while a value it may need is being corrected.
@@ -3221,7 +3227,7 @@ Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`
 
 #### `LlmPrompts`
 
-Package-private class holding `buildFormatInstruction(extractionFields)`, appended by each LLM client to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model extracts exactly what the customer sent, even if it looks invalid — the hook decides, not the model) and two directives added after real extraction misses: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved.
+Package-private class holding `buildFormatInstruction(extractionFields)`, appended by each LLM client to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model always includes the customer's answer — converted to the expected format when the meaning is clear, such as words to digits, otherwise exactly as sent — and the hook decides whether it's valid) and two directives: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved.
 
 #### `AnthropicLlmClient`
 

@@ -33,9 +33,10 @@ final class LlmPrompts {
 
                 if (field.validationHook() != null && !field.validationHook().isBlank()) {
                     sb.append(
-                            " (checked by the system — whenever the customer answers this, extract"
-                                    + " exactly what they sent, even if it looks wrong or"
-                                    + " incomplete)");
+                            " (checked by the system — whenever the customer answers this, always"
+                                    + " include it: convert it to the expected format when the"
+                                    + " meaning is clear, otherwise copy exactly what they sent,"
+                                    + " even if it looks wrong or incomplete)");
                 }
             }
             sb.append(
