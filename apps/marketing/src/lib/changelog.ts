@@ -46,7 +46,8 @@ export const CHANGELOG_RELEASES: ChangelogRelease[] = [
         "Each channel shows its webhook URL in settings.",
       ],
       changed: [
-        "The web app reaches the API through its own /backend path, so login works when the web app and API are on different domains. The Google redirect URI is now <web address>/backend/login/oauth2/code/google.",
+        "The web app reaches the API through its own /backend path, so login works when the web app and API are on different domains.",
+        "Breaking: the Google redirect URI is now <web address>/backend/login/oauth2/code/google. If Google login is enabled, add it in Google Cloud before upgrading, or Google sign-in fails with redirect_uri_mismatch. See Upgrades in the self-hosting docs.",
       ],
       fixed: [
         "An escalation caused by a failed LLM call or an internal error now clears once the AI agent responds successfully again.",

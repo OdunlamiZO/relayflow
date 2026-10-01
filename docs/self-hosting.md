@@ -85,6 +85,15 @@ Restore into a fresh instance with `psql -U relayflow relayflow < backup.sql`, o
 
 Migrations are forward-only — there are no down-migrations, so plan upgrades accordingly.
 
+### Upgrading from 1.0.3 or earlier
+
+- If Google login is enabled, add `<RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google` to
+  the client's authorized redirect URIs in Google Cloud before upgrading. Until it's added, Google
+  sign-in fails with `redirect_uri_mismatch`.
+- If you run the web container outside the bundled `docker-compose.yml`, set
+  `RELAYFLOW_API_INTERNAL_URL` on it to the address it reaches the API at, such as
+  `http://api:8080`.
+
 ## Using your own reverse proxy
 
 If you already run nginx, Traefik, or similar, skip the `caddy` service by naming the other
