@@ -1,6 +1,6 @@
 package com.relayflow.api.hook.dto;
 
-import com.relayflow.api.hook.HookOutcomeStatus;
+import com.relayflow.api.hook.domain.HookOutcomeStatus;
 import java.util.List;
 import java.util.Map;
 

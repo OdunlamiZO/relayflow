@@ -2,12 +2,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { WorkspaceSwitcher, workspaceUrl } from "./WorkspaceSwitcher";
 
 const mockPush = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
+  usePathname: vi.fn(() => "/inbox"),
 }));
 
 const mockCreateWorkspace = vi.fn();
@@ -137,5 +138,29 @@ describe("WorkspaceSwitcher", () => {
     await userEvent.keyboard("{Escape}");
 
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+});
+
+describe("workspaceUrl", () => {
+  it("keeps the current section", () => {
+    expect(workspaceUrl("/contacts", "ws-2")).toBe(
+      "/contacts?workspaceId=ws-2"
+    );
+  });
+
+  it("sends a specific workflow back to the workflow list", () => {
+    expect(workspaceUrl("/workflows/wf-1/runs", "ws-2")).toBe(
+      "/workflows?workspaceId=ws-2"
+    );
+  });
+
+  it("keeps the settings section", () => {
+    expect(workspaceUrl("/settings", "ws-2", "#hooks")).toBe(
+      "/settings?workspaceId=ws-2#hooks"
+    );
+  });
+
+  it("falls back to the inbox outside a workspace section", () => {
+    expect(workspaceUrl("/profile", "ws-2")).toBe("/inbox?workspaceId=ws-2");
   });
 });

@@ -14,7 +14,7 @@
   --color-accent-light: #5585ff;
   --color-accent-dark: #1a50e8;
   --color-neutral-100: #ffffff;
-  --color-neutral-200: #fcfcfc;
+  --color-neutral-200: #f3f4f6;
   --color-neutral-300: #e8eaed;
   --color-neutral-400: #c4c9d1;
   --color-neutral-500: #8a92a0;
@@ -152,7 +152,7 @@ html.dark {
 
 body {
   margin: 0;
-  background: var(--color-neutral-200, #fcfcfc);
+  background: var(--color-neutral-200, #f3f4f6);
   color: var(--color-neutral-800, #2c2c2c);
   font-family: var(--font-inter, Inter), ui-sans-serif, system-ui, sans-serif;
 }
@@ -162,23 +162,25 @@ a {
   text-decoration: none;
 }
 
-.material-symbols-rounded {
-  direction: ltr;
-  display: inline-block;
-  font-family: "Material Symbols Rounded", sans-serif;
-  font-feature-settings: "liga" 1;
-  font-size: 20px;
-  font-style: normal;
-  font-weight: normal;
-  font-variation-settings:
-    "FILL" 0,
-    "wght" 400,
-    "GRAD" 0,
-    "opsz" 24;
-  letter-spacing: normal;
-  line-height: 1;
-  text-rendering: optimizeLegibility;
-  text-transform: none;
-  white-space: nowrap;
-  word-wrap: normal;
+@layer base {
+  .material-symbols-rounded {
+    direction: ltr;
+    display: inline-block;
+    font-family: "Material Symbols Rounded", sans-serif;
+    font-feature-settings: "liga" 1;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: normal;
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 400,
+      "GRAD" 0,
+      "opsz" 24;
+    letter-spacing: normal;
+    line-height: 1;
+    text-rendering: optimizeLegibility;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+  }
 }

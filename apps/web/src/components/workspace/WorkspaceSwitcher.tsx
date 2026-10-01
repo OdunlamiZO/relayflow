@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { LoadingButton } from "@/components/common/LoadingButton";
@@ -11,11 +11,24 @@ type Props = {
   workspaceId: string;
 };
 
+const WORKSPACE_SECTIONS = ["inbox", "contacts", "workflows", "settings"];
+
+export function workspaceUrl(pathname: string, workspaceId: string, hash = "") {
+  const section = pathname.split("/")[1];
+
+  if (!WORKSPACE_SECTIONS.includes(section)) {
+    return `/inbox?workspaceId=${workspaceId}`;
+  }
+
+  return `/${section}?workspaceId=${workspaceId}${section === "settings" ? hash : ""}`;
+}
+
 export function WorkspaceSwitcher({ workspaceId }: Props) {
   const { data: workspaces = [] } = useWorkspaces();
   const { mutate: createWorkspace, isPending: isCreating } =
     useCreateWorkspace();
   const router = useRouter();
+  const pathname = usePathname();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -76,7 +89,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
     close();
 
     if (id !== workspaceId) {
-      router.push(`/inbox?workspaceId=${id}`);
+      router.push(workspaceUrl(pathname, id, window.location.hash));
     }
   }
 
@@ -98,10 +111,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="relative flex min-w-0 flex-1 items-center"
-    >
+    <div ref={containerRef} className="relative flex min-w-0 items-center">
       <button
         type="button"
         onClick={() => {
@@ -112,21 +122,21 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Switch workspace"
-        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-0.5 text-left transition-colors hover:bg-neutral-200"
+        className="group flex min-w-0 max-w-64 items-center gap-2 py-1 text-left"
       >
         <span
-          className="material-symbols-rounded shrink-0 text-[16px] text-secondary"
+          className="material-symbols-rounded shrink-0 text-[16px] leading-none text-neutral-400 transition-colors group-hover:text-neutral-700"
           aria-hidden="true"
         >
           workspaces
         </span>
 
-        <span className="flex-1 truncate text-sm font-semibold text-primary">
-          {current?.name ?? "Inbox"}
+        <span className="truncate text-sm font-medium text-neutral-700 transition-colors group-hover:text-neutral-900">
+          {current?.name ?? "Workspace"}
         </span>
 
         <span
-          className="material-symbols-rounded shrink-0 text-[14px] text-neutral-400"
+          className="material-symbols-rounded shrink-0 text-[16px] text-neutral-400 transition-colors group-hover:text-neutral-700"
           aria-hidden="true"
         >
           {isOpen ? "expand_less" : "expand_more"}
@@ -158,7 +168,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
                     setShowCreate(false);
                     setNewName("");
                   }}
-                  className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100"
+                  className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-200"
                 >
                   Cancel
                 </button>
@@ -184,10 +194,10 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
                         role="option"
                         aria-selected={w.id === workspaceId}
                         onClick={() => selectWorkspace(w.id)}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-100"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-200"
                       >
                         <span
-                          className="material-symbols-rounded shrink-0 text-[15px] text-secondary"
+                          className="material-symbols-rounded shrink-0 text-[15px] leading-none text-secondary"
                           aria-hidden="true"
                         >
                           workspaces
@@ -199,7 +209,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
 
                         {w.id === workspaceId && (
                           <span
-                            className="material-symbols-rounded shrink-0 text-[15px] text-secondary"
+                            className="material-symbols-rounded shrink-0 text-[15px] leading-none text-secondary"
                             aria-hidden="true"
                           >
                             check
@@ -221,10 +231,10 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
                 <button
                   type="button"
                   onClick={() => setShowCreate(true)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-100"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-200"
                 >
                   <span
-                    className="material-symbols-rounded shrink-0 text-[15px]"
+                    className="material-symbols-rounded shrink-0 text-[15px] leading-none"
                     aria-hidden="true"
                   >
                     add

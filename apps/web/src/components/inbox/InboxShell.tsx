@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { WorkspaceNav } from "@/components/workspace/WorkspaceNav";
-import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
 import { useWorkspaceEvents } from "@/hooks/use-workspace-events";
 
 import { ConversationList } from "./ConversationList";
@@ -55,10 +54,6 @@ export function InboxShell({ workspaceId }: Props) {
             conversationId ? "hidden md:flex" : "flex w-full"
           }`}
         >
-          <div className="border-b border-neutral-300 px-4 py-3">
-            <WorkspaceSwitcher workspaceId={workspaceId} />
-          </div>
-
           {/* Contact filter banner */}
           {contactId && (
             <div className="flex items-center justify-between border-b border-blue-border/20 bg-blue-bg px-3 py-2">

@@ -43,7 +43,8 @@ class LlmPromptsTest {
         assertThat(instruction)
                 .contains(
                         "\"phone\": Phone number (checked by the system — whenever the customer"
-                                + " answers this, extract exactly what they sent");
+                                + " answers this, always include it: convert it to the expected"
+                                + " format when the meaning is clear");
         assertThat(instruction)
                 .contains("\"urgency\": How urgent the request is\n")
                 .doesNotContain("How urgent the request is (checked");

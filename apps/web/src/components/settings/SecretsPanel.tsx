@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { IconButton } from "@/components/common/IconButton";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useCreateSecret } from "@/hooks/use-create-secret";
@@ -382,27 +383,14 @@ function SecretRow({
       </div>
 
       <div className="ml-3 flex flex-shrink-0 items-center gap-1">
-        <button
-          type="button"
-          onClick={onEdit}
-          title="Edit value"
-          className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
-        >
-          <span className="material-symbols-rounded text-[18px] leading-none">
-            edit
-          </span>
-        </button>
+        <IconButton icon="edit" label="Edit value" onClick={onEdit} />
 
-        <button
-          type="button"
+        <IconButton
+          icon="delete"
+          label="Delete secret"
           onClick={onDelete}
-          title="Delete secret"
-          className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-bg hover:text-red-text"
-        >
-          <span className="material-symbols-rounded text-[18px] leading-none">
-            delete
-          </span>
-        </button>
+          destructive
+        />
       </div>
     </li>
   );

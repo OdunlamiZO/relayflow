@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { IconButton } from "@/components/common/IconButton";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
@@ -759,19 +760,18 @@ function AiAgentForm({
           {knowledgeBase.map((entry, i) => (
             <div
               key={i}
-              className="rounded-lg border border-neutral-200 bg-neutral-100 p-3"
+              className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-500">
+                <span className="text-sm font-medium text-neutral-400">
                   Entry {i + 1}
                 </span>
-                <button
-                  type="button"
+                <IconButton
+                  icon="delete"
+                  destructive
+                  label={`Remove entry ${i + 1}`}
                   onClick={() => removeKnowledgeEntry(i)}
-                  className="text-xs text-red-500 hover:text-red-700"
-                >
-                  Remove
-                </button>
+                />
               </div>
               <input
                 type="text"
@@ -874,19 +874,18 @@ function AiAgentForm({
           {workflowMappings.map((mapping, i) => (
             <div
               key={i}
-              className="rounded-lg border border-neutral-200 bg-neutral-100 p-3"
+              className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-500">
+                <span className="text-sm font-medium text-neutral-400">
                   Mapping {i + 1}
                 </span>
-                <button
-                  type="button"
+                <IconButton
+                  icon="delete"
+                  destructive
+                  label={`Remove workflow trigger ${i + 1}`}
                   onClick={() => removeWorkflowMapping(i)}
-                  className="text-xs text-red-500 hover:text-red-700"
-                >
-                  Remove
-                </button>
+                />
               </div>
               <div className="mb-2">
                 <Select
@@ -951,19 +950,18 @@ function AiAgentForm({
           {extractionFields.map((field, i) => (
             <div
               key={i}
-              className="rounded-lg border border-neutral-200 bg-neutral-100 p-3"
+              className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-500">
+                <span className="text-sm font-medium text-neutral-400">
                   Field {i + 1}
                 </span>
-                <button
-                  type="button"
+                <IconButton
+                  icon="delete"
+                  destructive
+                  label={`Remove field ${i + 1}`}
                   onClick={() => removeExtractionField(i)}
-                  className="text-xs text-red-500 hover:text-red-700"
-                >
-                  Remove
-                </button>
+                />
               </div>
               <input
                 type="text"

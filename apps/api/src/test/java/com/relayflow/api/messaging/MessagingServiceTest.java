@@ -2,12 +2,14 @@ package com.relayflow.api.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.channel.ChannelAccountService;
 import com.relayflow.api.contact.ContactService;
 import com.relayflow.api.messaging.domain.Conversation;
+import com.relayflow.api.messaging.domain.ConversationStatus;
 import com.relayflow.api.messaging.domain.EscalationType;
 import com.relayflow.api.messaging.domain.Message;
 import com.relayflow.api.messaging.domain.MessageDirection;
@@ -22,6 +24,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -63,38 +66,76 @@ class MessagingServiceTest {
                 conversationAiDraftRepository);
     }
 
-    @ParameterizedTest
-    @EnumSource(EscalationType.class)
-    void humanReplyClearsEveryEscalationType(EscalationType escalationType) {
+    private Conversation storedConversation() {
         Workspace workspace = new Workspace();
         workspace.setId(UUID.randomUUID());
 
         Conversation conversation = new Conversation();
         conversation.setId(UUID.randomUUID());
         conversation.setWorkspace(workspace);
-        conversation.setEscalatedAt(Instant.now());
-        conversation.setEscalationReason("Earlier escalation");
-        conversation.setEscalationType(escalationType);
 
         when(conversationRepository.findInWorkspace(conversation.getId(), workspace.getId()))
                 .thenReturn(Optional.of(conversation));
         when(messageRepository.save(any(Message.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
+        return conversation;
+    }
+
+    private CreateMessageRequest agentMessage() {
+        return new CreateMessageRequest(
+                MessageDirection.OUTBOUND, MessageSenderType.AGENT, "On it", null, Map.of());
+    }
+
+    @ParameterizedTest
+    @EnumSource(EscalationType.class)
+    void humanReplyClearsEveryEscalationType(EscalationType escalationType) {
+        Conversation conversation = storedConversation();
+        conversation.setEscalatedAt(Instant.now());
+        conversation.setEscalationReason("Earlier escalation");
+        conversation.setEscalationType(escalationType);
+
         service()
                 .createMessage(
-                        workspace.getId(),
+                        conversation.getWorkspace().getId(),
                         conversation.getId(),
-                        new CreateMessageRequest(
-                                MessageDirection.OUTBOUND,
-                                MessageSenderType.AGENT,
-                                "On it",
-                                null,
-                                Map.of()),
+                        agentMessage(),
                         UUID.randomUUID());
 
         assertThat(conversation.getEscalatedAt()).isNull();
         assertThat(conversation.getEscalationReason()).isNull();
         assertThat(conversation.getEscalationType()).isNull();
+    }
+
+    @Test
+    void replyToAClosedConversationReopensIt() {
+        Conversation conversation = storedConversation();
+        conversation.setStatus(ConversationStatus.CLOSED);
+
+        service()
+                .createMessage(
+                        conversation.getWorkspace().getId(),
+                        conversation.getId(),
+                        agentMessage(),
+                        UUID.randomUUID());
+
+        assertThat(conversation.getStatus()).isEqualTo(ConversationStatus.OPEN);
+    }
+
+    @Test
+    void messageThatMustNotReopenLeavesAClosedConversationClosed() {
+        Conversation conversation = storedConversation();
+        conversation.setStatus(ConversationStatus.CLOSED);
+
+        service()
+                .createMessage(
+                        conversation.getWorkspace().getId(),
+                        conversation.getId(),
+                        agentMessage(),
+                        null,
+                        false);
+
+        assertThat(conversation.getStatus()).isEqualTo(ConversationStatus.CLOSED);
+        verify(messageRepository).save(any(Message.class));
     }
 }

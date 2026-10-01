@@ -1,7 +1,7 @@
 package com.relayflow.api.workflow.engine;
 
-import com.relayflow.api.hook.HookOutcome;
 import com.relayflow.api.hook.HookService;
+import com.relayflow.api.hook.domain.HookOutcome;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

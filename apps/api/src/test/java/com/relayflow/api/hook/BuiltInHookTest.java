@@ -2,6 +2,9 @@ package com.relayflow.api.hook;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.relayflow.api.hook.domain.BuiltInHook;
+import com.relayflow.api.hook.domain.HookOutcome;
+import com.relayflow.api.hook.domain.HookOutcomeStatus;
 import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;

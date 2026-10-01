@@ -6,10 +6,13 @@ import com.relayflow.api.agent.domain.AiAgentInvocationStatus;
 import com.relayflow.api.agent.domain.AutonomyCeiling;
 import com.relayflow.api.agent.domain.ConversationAiDraft;
 import com.relayflow.api.agent.domain.ExtractionField;
+import com.relayflow.api.agent.domain.ExtractionValidation;
+import com.relayflow.api.agent.domain.RejectedExtraction;
 import com.relayflow.api.agent.domain.WorkflowMapping;
 import com.relayflow.api.agent.llm.AgentLlmRequest;
 import com.relayflow.api.agent.llm.AgentLlmResponse;
 import com.relayflow.api.agent.llm.LlmClientFactory;
+import com.relayflow.api.agent.llm.LlmMessage;
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.messaging.MessagingService;
@@ -49,6 +52,11 @@ public class AiAgentInvocationService {
     private static final Logger log = LoggerFactory.getLogger(AiAgentInvocationService.class);
 
     private static final String WORKFLOW_ACTION_PREFIX = "trigger_workflow:";
+
+    private static final String CONVERSION_PROMPT =
+            "You convert a customer's answer into the format a field requires, as described by"
+                    + " the reason it was rejected. Put only the converted value in the reply, or"
+                    + " leave the reply empty if it can't be converted without guessing.";
 
     private final AiAgentConfigurationService aiAgentConfigurationService;
 
@@ -236,8 +244,14 @@ public class AiAgentInvocationService {
         }
 
         ExtractionValidation validation =
-                extractedDataValidator.validate(
-                        workspaceId, response.extractedData(), configuration.getExtractionFields());
+                convertRejectedValues(
+                        configuration,
+                        request,
+                        workspaceId,
+                        extractedDataValidator.validate(
+                                workspaceId,
+                                response.extractedData(),
+                                configuration.getExtractionFields()));
 
         invocationLog.setOutputSnapshot(
                 Map.of(
@@ -328,6 +342,49 @@ public class AiAgentInvocationService {
 
         sendOutbound(workspaceId, conversationId, response.reply());
         finalise(invocationLog, AiAgentInvocationStatus.SENT, null);
+    }
+
+    private ExtractionValidation convertRejectedValues(
+            AiAgentConfiguration configuration,
+            AgentLlmRequest request,
+            UUID workspaceId,
+            ExtractionValidation validation) {
+        Map<String, String> converted = new LinkedHashMap<>();
+
+        for (RejectedExtraction rejection : validation.rejections()) {
+            AgentLlmResponse conversion =
+                    llmClientFactory
+                            .getClient(configuration.getLlmProvider())
+                            .complete(
+                                    new AgentLlmRequest(
+                                            CONVERSION_PROMPT,
+                                            List.of(LlmMessage.user(rejection.conversionRequest())),
+                                            request.model(),
+                                            List.of()));
+            String value = conversion.reply().trim();
+
+            if (!conversion.failed() && !value.isEmpty() && !value.equals(rejection.value())) {
+                converted.put(rejection.key(), value);
+            }
+        }
+
+        if (converted.isEmpty()) {
+            return validation;
+        }
+
+        ExtractionValidation recheck =
+                extractedDataValidator.validate(
+                        workspaceId, converted, configuration.getExtractionFields());
+
+        Map<String, String> acceptedData = new LinkedHashMap<>(validation.acceptedData());
+        acceptedData.putAll(recheck.acceptedData());
+
+        List<RejectedExtraction> rejections =
+                validation.rejections().stream()
+                        .filter(rejection -> !recheck.acceptedData().containsKey(rejection.key()))
+                        .toList();
+
+        return new ExtractionValidation(acceptedData, rejections);
     }
 
     private String correctionReply(

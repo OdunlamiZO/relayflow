@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { IconButton } from "@/components/common/IconButton";
 import { Spinner } from "@/components/common/Spinner";
 import { useApiKeys } from "@/hooks/use-api-keys";
 import { useCreateApiKey } from "@/hooks/use-create-api-key";
@@ -222,7 +223,7 @@ function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
     apiKey.expiresAt !== null && new Date(apiKey.expiresAt) < new Date();
 
   return (
-    <li className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-100 px-4 py-3">
+    <li className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-100 px-4 py-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-primary">
@@ -272,16 +273,12 @@ function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
         </div>
       </div>
 
-      <button
-        type="button"
+      <IconButton
+        icon="delete"
+        label="Revoke key"
         onClick={onRevoke}
-        title="Revoke key"
-        className="ml-3 flex-shrink-0 rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-bg hover:text-red-text"
-      >
-        <span className="material-symbols-rounded text-[18px] leading-none">
-          delete
-        </span>
-      </button>
+        destructive
+      />
     </li>
   );
 }

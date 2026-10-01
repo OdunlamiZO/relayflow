@@ -1,4 +1,4 @@
-package com.relayflow.api.hook;
+package com.relayflow.api.hook.domain;
 
 import java.util.Arrays;
 import java.util.Locale;
