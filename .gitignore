@@ -72,3 +72,5 @@ apps/marketing/.env.*
 # Local runtime data
 postgres_data/
 redis_data/
+apps/web/next-env.d.ts
+apps/marketing/next-env.d.ts
