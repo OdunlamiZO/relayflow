@@ -24,6 +24,36 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // date must be the day that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.0.5",
+    date: "2026-10-01",
+    changes: {
+      added: [
+        'Ask Question nodes have a "No reply" output, followed when the contact doesn\'t reply before the timeout.',
+      ],
+      changed: [
+        'An unanswered Ask Question no longer fails the whole run. The step is marked failed and the run follows "No reply", or "Invalid" for a validated question.',
+        "Settings shows one section at a time. Use the sidebar to switch between them.",
+      ],
+    },
+  },
+  {
+    version: "1.0.4",
+    date: "2026-09-30",
+    changes: {
+      added: [
+        "Hooks: check and clean up a contact's reply to an open-ended Ask Question. Built-in hooks cover email, phone number, number, whole number, date, and web address, or write your own in FEEL.",
+        "AI agent extraction fields can use hooks. A rejected value isn't saved, and the agent asks the contact to correct it.",
+        "Each channel shows its webhook URL in settings.",
+      ],
+      changed: [
+        "The web app reaches the API through its own /backend path, so login works when the web app and API are on different domains. The Google redirect URI is now <web address>/backend/login/oauth2/code/google.",
+      ],
+      fixed: [
+        "An escalation caused by a failed LLM call or an internal error now clears once the AI agent responds successfully again.",
+      ],
+    },
+  },
+  {
     version: "1.0.3",
     date: "2026-09-21",
     changes: {
