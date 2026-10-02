@@ -6,4 +6,5 @@ public record TelegramMessage(
         @JsonProperty("message_id") Long messageId,
         @JsonProperty("from") TelegramUser from,
         @JsonProperty("chat") TelegramChat chat,
-        @JsonProperty("text") String text) {}
+        @JsonProperty("text") String text,
+        @JsonProperty("contact") TelegramContact contact) {}

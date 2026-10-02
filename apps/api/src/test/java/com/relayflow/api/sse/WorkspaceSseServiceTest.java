@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.relayflow.api.authentication.SecurityUtils;
 import com.relayflow.api.workspace.WorkspaceService;
+import com.relayflow.api.workspace.domain.ContactAccess;
 import com.relayflow.api.workspace.dto.WorkspaceResponse;
 import java.time.Instant;
 import java.util.List;
@@ -31,7 +32,13 @@ class WorkspaceSseServiceTest {
                 .thenReturn(
                         List.of(
                                 new WorkspaceResponse(
-                                        workspaceId, "Acme", List.of(), List.of(), Instant.now())));
+                                        workspaceId,
+                                        "Acme",
+                                        List.of(),
+                                        List.of(),
+                                        ContactAccess.ALL,
+                                        null,
+                                        Instant.now())));
 
         MockMvc mockMvc =
                 MockMvcBuilders.standaloneSetup(

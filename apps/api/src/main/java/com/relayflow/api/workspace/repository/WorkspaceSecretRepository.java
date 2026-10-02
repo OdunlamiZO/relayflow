@@ -17,5 +17,7 @@ public interface WorkspaceSecretRepository extends JpaRepository<WorkspaceSecret
     Optional<WorkspaceSecret> findInWorkspace(
             @Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
 
-    Optional<WorkspaceSecret> findByWorkspaceIdAndName(UUID workspaceId, String name);
+    @Query("select s from WorkspaceSecret s where s.workspaceId = :workspaceId and s.name = :name")
+    Optional<WorkspaceSecret> findByWorkspaceAndName(
+            @Param("workspaceId") UUID workspaceId, @Param("name") String name);
 }

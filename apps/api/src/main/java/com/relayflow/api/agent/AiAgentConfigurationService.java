@@ -78,7 +78,7 @@ public class AiAgentConfigurationService {
 
     @Transactional(readOnly = true)
     public List<AiAgentConfigurationResponse> listConfigurations(UUID workspaceId) {
-        return configurationRepository.findAllByWorkspaceId(workspaceId).stream()
+        return configurationRepository.findByWorkspace(workspaceId).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -92,7 +92,7 @@ public class AiAgentConfigurationService {
                         .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
 
         boolean isFirstConfiguration =
-                configurationRepository.findAllByWorkspaceId(workspaceId).isEmpty();
+                configurationRepository.findByWorkspace(workspaceId).isEmpty();
 
         AiAgentConfiguration configuration = new AiAgentConfiguration();
         configuration.setWorkspace(workspace);
@@ -117,7 +117,7 @@ public class AiAgentConfigurationService {
         configurationRepository.delete(configuration);
 
         if (wasDefault) {
-            configurationRepository.findAllByWorkspaceId(workspaceId).stream()
+            configurationRepository.findByWorkspace(workspaceId).stream()
                     .findFirst()
                     .ifPresent(
                             next -> {
@@ -166,7 +166,7 @@ public class AiAgentConfigurationService {
     @Transactional(readOnly = true)
     public ConversationAiDraftResponse getDraft(UUID workspaceId, UUID conversationId) {
         return draftRepository
-                .findByConversationId(conversationId)
+                .findByConversation(conversationId)
                 .filter(draft -> draft.getWorkspace().getId().equals(workspaceId))
                 .map(this::toDraftResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("AI draft not found"));
@@ -176,7 +176,7 @@ public class AiAgentConfigurationService {
     public MessageResponse sendDraft(UUID workspaceId, UUID conversationId, String editedReply) {
         ConversationAiDraft draft =
                 draftRepository
-                        .findByConversationId(conversationId)
+                        .findByConversation(conversationId)
                         .filter(d -> d.getWorkspace().getId().equals(workspaceId))
                         .orElseThrow(() -> new ResourceNotFoundException("AI draft not found"));
 
@@ -205,7 +205,7 @@ public class AiAgentConfigurationService {
     @Transactional
     public void discardDraft(UUID workspaceId, UUID conversationId) {
         draftRepository
-                .findByConversationId(conversationId)
+                .findByConversation(conversationId)
                 .filter(draft -> draft.getWorkspace().getId().equals(workspaceId))
                 .ifPresent(draftRepository::delete);
     }
@@ -214,7 +214,7 @@ public class AiAgentConfigurationService {
     public void triggerWorkflowFromDraft(UUID workspaceId, UUID conversationId, UUID workflowId) {
         ConversationAiDraft draft =
                 draftRepository
-                        .findByConversationId(conversationId)
+                        .findByConversation(conversationId)
                         .filter(d -> d.getWorkspace().getId().equals(workspaceId))
                         .orElseThrow(() -> new ResourceNotFoundException("AI draft not found"));
 
@@ -273,7 +273,7 @@ public class AiAgentConfigurationService {
         }
 
         return configurationRepository
-                .findByWorkspaceIdAndDefaultConfigTrue(workspaceId)
+                .findDefault(workspaceId)
                 .filter(AiAgentConfiguration::isEnabled);
     }
 
@@ -283,10 +283,7 @@ public class AiAgentConfigurationService {
         Optional<AiAgentConfiguration> assigned =
                 channelAccountRepository.findAiAgentConfiguration(channelAccountId);
 
-        return assigned.or(
-                        () ->
-                                configurationRepository.findByWorkspaceIdAndDefaultConfigTrue(
-                                        workspaceId))
+        return assigned.or(() -> configurationRepository.findDefault(workspaceId))
                 .map(AiAgentConfiguration::getExtractionFields)
                 .orElse(List.of());
     }
@@ -336,7 +333,7 @@ public class AiAgentConfigurationService {
 
     private AiAgentConfiguration getOrThrow(UUID workspaceId, UUID configurationId) {
         return configurationRepository
-                .findByIdAndWorkspaceId(configurationId, workspaceId)
+                .findInWorkspace(configurationId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("AI agent config not found"));
     }
 

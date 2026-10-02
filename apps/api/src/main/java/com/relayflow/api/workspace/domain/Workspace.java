@@ -2,6 +2,8 @@ package com.relayflow.api.workspace.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -40,6 +42,13 @@ public class Workspace {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "contact_tag_definitions", nullable = false, columnDefinition = "jsonb")
     private List<ContactTagDefinition> contactTagDefinitions = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "contact_access", nullable = false, length = 20)
+    private ContactAccess contactAccess = ContactAccess.ALL;
+
+    @Column(name = "phone_region", length = 2)
+    private String phoneRegion;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

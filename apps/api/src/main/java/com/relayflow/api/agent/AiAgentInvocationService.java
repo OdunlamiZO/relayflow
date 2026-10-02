@@ -147,7 +147,7 @@ public class AiAgentInvocationService {
 
         // Close any prior CLARIFYING turn so the unique constraint slot is freed before claiming
         invocationLogRepository
-                .findByConversationIdAndStatus(conversationId, AiAgentInvocationStatus.CLARIFYING)
+                .findForConversationWithStatus(conversationId, AiAgentInvocationStatus.CLARIFYING)
                 .ifPresent(
                         prior -> {
                             prior.setStatus(AiAgentInvocationStatus.SENT);
@@ -431,7 +431,7 @@ public class AiAgentInvocationService {
     private Map<String, String> mergeWithPendingDraft(
             Conversation conversation, Map<String, String> newData) {
         Optional<ConversationAiDraft> pending =
-                draftRepository.findByConversationId(conversation.getId());
+                draftRepository.findByConversation(conversation.getId());
 
         if (pending.isPresent()
                 && pending.get().getCreatedAt().isBefore(conversation.getSessionStartedAt())) {
@@ -505,9 +505,7 @@ public class AiAgentInvocationService {
                         accumulatedExtractedData,
                         extractionFields);
 
-        draftRepository
-                .findByConversationId(conversation.getId())
-                .ifPresent(draftRepository::delete);
+        draftRepository.findByConversation(conversation.getId()).ifPresent(draftRepository::delete);
 
         workflowEngineService.executeWorkflow(
                 workflowDefinitionOptional.get(), conversation, triggeringMessage, agentContext);
@@ -523,7 +521,7 @@ public class AiAgentInvocationService {
             AiAgentInvocationLog invocationLog) {
         ConversationAiDraft draft =
                 draftRepository
-                        .findByConversationId(conversation.getId())
+                        .findByConversation(conversation.getId())
                         .orElseGet(ConversationAiDraft::new);
 
         draft.setWorkspace(conversation.getWorkspace());

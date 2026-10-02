@@ -9,7 +9,12 @@
   "properties": {
     "event": {
       "type": "string",
-      "enum": ["contact.created", "contact.updated"]
+      "enum": [
+        "contact.created",
+        "contact.updated",
+        "contact.deleted",
+        "contact.merged"
+      ]
     },
     "timestamp": {
       "type": "string",
@@ -20,12 +25,33 @@
       "format": "uuid"
     },
     "data": {
-      "oneOf": [
-        { "$ref": "#/$defs/contactCreatedData" },
-        { "$ref": "#/$defs/contactUpdatedData" }
-      ]
+      "type": "object"
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "event": { "const": "contact.created" } } },
+      "then": {
+        "properties": { "data": { "$ref": "#/$defs/contactCreatedData" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event": { "enum": ["contact.updated", "contact.deleted"] }
+        }
+      },
+      "then": {
+        "properties": { "data": { "$ref": "#/$defs/contactSnapshotData" } }
+      }
+    },
+    {
+      "if": { "properties": { "event": { "const": "contact.merged" } } },
+      "then": {
+        "properties": { "data": { "$ref": "#/$defs/contactMergedData" } }
+      }
+    }
+  ],
   "$defs": {
     "contactCreatedData": {
       "type": "object",
@@ -69,27 +95,51 @@
         }
       }
     },
-    "contactUpdatedData": {
+    "contactSnapshotData": {
+      "description": "contact.updated: the contact after the change. contact.deleted: the contact just before deletion.",
       "type": "object",
       "additionalProperties": false,
       "required": ["contact"],
       "properties": {
+        "contact": { "$ref": "#/$defs/contactSnapshot" }
+      }
+    },
+    "contactMergedData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contact", "mergedContact"],
+      "properties": {
         "contact": {
+          "description": "The kept contact.",
+          "$ref": "#/$defs/contactSnapshot"
+        },
+        "mergedContact": {
+          "description": "The contact merged into it and deleted, as it was before the merge.",
+          "$ref": "#/$defs/contactSnapshot"
+        }
+      }
+    },
+    "contactSnapshot": {
+      "description": "Custom field values are flattened onto the object alongside id and displayName.",
+      "type": "object",
+      "required": ["id", "displayName", "tags"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "tags": {
           "type": "object",
-          "required": ["id", "displayName"],
-          "properties": {
-            "id": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "displayName": {
-              "type": "string"
-            }
-          },
           "additionalProperties": {
             "type": "string"
           }
         }
+      },
+      "additionalProperties": {
+        "type": "string"
       }
     }
   }

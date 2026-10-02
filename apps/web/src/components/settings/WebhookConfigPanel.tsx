@@ -18,6 +18,8 @@ import { WebhookSecretModal } from "./WebhookSecretModal";
 const ALL_EVENTS: { value: WebhookEventType; payloadName: string }[] = [
   { value: "CONTACT_CREATED", payloadName: "contact.created" },
   { value: "CONTACT_UPDATED", payloadName: "contact.updated" },
+  { value: "CONTACT_DELETED", payloadName: "contact.deleted" },
+  { value: "CONTACT_MERGED", payloadName: "contact.merged" },
 ];
 
 function webhookLabel(url: string): string {

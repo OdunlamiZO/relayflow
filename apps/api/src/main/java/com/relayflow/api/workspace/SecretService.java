@@ -107,7 +107,7 @@ public class SecretService {
     @Transactional(readOnly = true)
     public Optional<String> resolveDecrypted(UUID workspaceId, String name) {
         return secretRepository
-                .findByWorkspaceIdAndName(workspaceId, name)
+                .findByWorkspaceAndName(workspaceId, name)
                 .map(WorkspaceSecret::getEncryptedValue)
                 .map(encryptionService::decrypt);
     }

@@ -1,5 +1,6 @@
 package com.relayflow.api.workspace.dto;
 
+import com.relayflow.api.workspace.domain.ContactAccess;
 import com.relayflow.api.workspace.domain.ContactFieldDefinition;
 import com.relayflow.api.workspace.domain.ContactTagDefinition;
 import java.time.Instant;
@@ -11,4 +12,6 @@ public record WorkspaceResponse(
         String name,
         List<ContactFieldDefinition> contactFieldDefinitions,
         List<ContactTagDefinition> contactTagDefinitions,
+        ContactAccess contactAccess,
+        String phoneRegion,
         Instant createdAt) {}

@@ -103,6 +103,21 @@ export type Workspace = {
   name: string;
   contactFieldDefinitions: ContactFieldDefinition[];
   contactTagDefinitions: ContactTagDefinition[];
+  contactAccess: ContactAccess;
+  phoneRegion: string | null;
+  createdAt: string;
+};
+
+export type ContactAccess = "ALL" | "WHITELIST";
+
+export type UpdateContactAccessRequest = {
+  contactAccess: ContactAccess;
+  phoneRegion: string | null;
+};
+
+export type WhitelistedPhoneNumber = {
+  id: string;
+  phoneNumber: string;
   createdAt: string;
 };
 
@@ -313,7 +328,11 @@ export type InvitePreview = {
   accountExists: boolean;
 };
 
-export type WebhookEventType = "CONTACT_CREATED" | "CONTACT_UPDATED";
+export type WebhookEventType =
+  | "CONTACT_CREATED"
+  | "CONTACT_UPDATED"
+  | "CONTACT_DELETED"
+  | "CONTACT_MERGED";
 
 export type ApiKey = {
   id: string;
@@ -968,6 +987,38 @@ export class MessagingApiClient {
   deleteSecret(workspaceId: string, secretId: string) {
     return this.request<void>(
       `/workspaces/${encodeURIComponent(workspaceId)}/secrets/${encodeURIComponent(secretId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  // ── Contact access ────────────────────────────────────────────────────────
+
+  updateContactAccess(
+    workspaceId: string,
+    request: UpdateContactAccessRequest
+  ) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/contact-access`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  listWhitelist(workspaceId: string) {
+    return this.request<WhitelistedPhoneNumber[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/whitelist`
+    );
+  }
+
+  addToWhitelist(workspaceId: string, phoneNumbers: string[]) {
+    return this.request<WhitelistedPhoneNumber[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/whitelist`,
+      { method: "POST", body: { phoneNumbers } }
+    );
+  }
+
+  removeFromWhitelist(workspaceId: string, entryId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/whitelist/${encodeURIComponent(entryId)}`,
       { method: "DELETE" }
     );
   }

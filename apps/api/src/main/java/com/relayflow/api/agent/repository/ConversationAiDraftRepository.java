@@ -4,12 +4,20 @@ import com.relayflow.api.agent.domain.ConversationAiDraft;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ConversationAiDraftRepository extends JpaRepository<ConversationAiDraft, UUID> {
 
-    Optional<ConversationAiDraft> findByConversationId(UUID conversationId);
+    @Query("select d from ConversationAiDraft d where d.conversation.id = :conversationId")
+    Optional<ConversationAiDraft> findByConversation(@Param("conversationId") UUID conversationId);
 
-    void deleteByConversationId(UUID conversationId);
+    @Modifying
+    @Query("delete from ConversationAiDraft d where d.conversation.id = :conversationId")
+    void deleteByConversation(@Param("conversationId") UUID conversationId);
 
-    void deleteByWorkspaceId(UUID workspaceId);
+    @Modifying
+    @Query("delete from ConversationAiDraft d where d.workspace.id = :workspaceId")
+    void deleteByWorkspace(@Param("workspaceId") UUID workspaceId);
 }

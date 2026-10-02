@@ -25,6 +25,7 @@
         { "$ref": "#/$defs/httpRequestNode" },
         { "$ref": "#/$defs/setVariableNode" },
         { "$ref": "#/$defs/setContactFieldNode" },
+        { "$ref": "#/$defs/setContactTagNode" },
         { "$ref": "#/$defs/waitForReplyNode" },
         { "$ref": "#/$defs/jumpToNode" },
         { "$ref": "#/$defs/endConversationNode" }
@@ -44,6 +45,7 @@
             "httpRequest",
             "setVariable",
             "setContactField",
+            "setContactTag",
             "waitForReply",
             "jumpTo",
             "endConversation"
@@ -202,9 +204,35 @@
                 "label": { "type": "string" },
                 "fieldKey": {
                   "type": "string",
-                  "description": "A reserved key (displayName, phone, email, country) or one of the workspace's defined contact field keys."
+                  "description": "A reserved key (displayName, firstName, lastName, phone, email, country) or one of the workspace's defined contact field keys."
                 },
                 "value": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "setContactTagNode": {
+      "allOf": [
+        { "$ref": "#/$defs/baseNode" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "setContactTag" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "tagKey": {
+                  "type": "string",
+                  "description": "One of the workspace's contact tag keys."
+                },
+                "value": {
+                  "type": "string",
+                  "description": "One of the tag's allowed values, or blank to clear the tag. Supports {{variable}} interpolation."
+                }
               },
               "additionalProperties": true
             }
@@ -232,6 +260,28 @@
                 "options": {
                   "type": "array",
                   "items": { "$ref": "#/$defs/waitForReplyOption" }
+                },
+                "timeoutMinutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10080,
+                  "default": 1440,
+                  "description": "How long to wait before following the noReply edge."
+                },
+                "validationHook": {
+                  "type": "string",
+                  "description": "Generic replies only: key of a built-in or custom hook that checks the reply."
+                },
+                "validationErrorMessage": {
+                  "type": "string",
+                  "description": "Overrides the hook's error message sent when a reply is rejected."
+                },
+                "maxAttempts": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10,
+                  "default": 3,
+                  "description": "Rejected replies allowed before following the invalid edge."
                 }
               },
               "additionalProperties": true
@@ -297,7 +347,10 @@
         "id": { "type": "string", "minLength": 1 },
         "source": { "type": "string", "minLength": 1 },
         "target": { "type": "string", "minLength": 1 },
-        "sourceHandle": { "type": ["string", "null"] },
+        "sourceHandle": {
+          "type": ["string", "null"],
+          "description": "Output the edge leaves from: a condition branch id, success/error for HTTP Request, an option id or default for a defined Ask Question, valid/invalid for a hook-checked Ask Question, noReply for an Ask Question timeout, or null for a single-output node."
+        },
         "targetHandle": { "type": ["string", "null"] },
         "type": { "type": "string" },
         "selected": { "type": "boolean" }
