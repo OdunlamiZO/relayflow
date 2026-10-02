@@ -24,22 +24,39 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // date must be the day that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.0.6",
+    version: "1.0.8",
+    date: "2026-10-02",
+    changes: {
+      added: [
+        "Contact access: accept messages from everyone, or only from whitelisted phone numbers. Telegram users are asked to share their phone number first.",
+        "contact.deleted and contact.merged webhook events.",
+      ],
+    },
+  },
+  {
+    version: "1.0.7",
     date: "2026-10-01",
     changes: {
       added: [
-        "Contact access: accept messages from everyone, or only from whitelisted phone numbers, set in Settings. Telegram users are asked to share their phone number first.",
-        "contact.deleted and contact.merged webhook events.",
         "Contact tags: define tags with a fixed list of values in settings, then set them on a contact's page, with the Set Contact Tag workflow node, or through the public API. Workflows can branch on them.",
       ],
       changed: [
-        "Messages sent through the public API don't reopen a closed conversation.",
         "On phone-sized screens, workflow editing and the AI agent, integrations, and hooks settings aren't available; a message asks you to use a computer.",
       ],
       fixed: [
         "AI agents could start a workflow that wasn't published.",
         "Live inbox updates could stall for up to a minute every few minutes.",
-        "On phones, the inbox message box was hidden behind the bottom navigation.",
+      ],
+    },
+  },
+  {
+    version: "1.0.6",
+    date: "2026-10-01",
+    changes: {
+      changed: [
+        "Messages sent through the public API don't reopen a closed conversation.",
+      ],
+      fixed: [
         "When a hook rejected a value an AI agent extracted, such as a number written in words, the agent asked the contact again instead of converting it to the required format first.",
       ],
     },
