@@ -80,7 +80,7 @@ export function Select({
       {isOpen && (
         <ul
           role="listbox"
-          className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 py-1 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-100 py-1 shadow-lg"
         >
           {options.map((option) => (
             <li key={option.value}>

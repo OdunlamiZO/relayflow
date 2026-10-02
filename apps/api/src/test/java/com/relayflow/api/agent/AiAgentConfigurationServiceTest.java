@@ -103,7 +103,7 @@ class AiAgentConfigurationServiceTest {
         AiAgentConfiguration defaultConfig = configuration(true);
         when(channelAccountRepository.findAiAgentConfiguration(channelAccountId))
                 .thenReturn(Optional.empty());
-        when(configurationRepository.findByWorkspaceIdAndDefaultConfigTrue(workspaceId))
+        when(configurationRepository.findDefault(workspaceId))
                 .thenReturn(Optional.of(defaultConfig));
 
         Optional<AiAgentConfiguration> result =
@@ -115,7 +115,7 @@ class AiAgentConfigurationServiceTest {
     @Test
     void resolveEnabledConfigurationIsEmptyWhenUnassignedAndTheDefaultIsDisabled() {
         when(channelAccountRepository.findAiAgentConfiguration(any())).thenReturn(Optional.empty());
-        when(configurationRepository.findByWorkspaceIdAndDefaultConfigTrue(workspaceId))
+        when(configurationRepository.findDefault(workspaceId))
                 .thenReturn(Optional.of(configuration(false)));
 
         Optional<AiAgentConfiguration> result =
@@ -127,8 +127,7 @@ class AiAgentConfigurationServiceTest {
     @Test
     void resolveEnabledConfigurationIsEmptyWhenNeitherIsConfigured() {
         when(channelAccountRepository.findAiAgentConfiguration(any())).thenReturn(Optional.empty());
-        when(configurationRepository.findByWorkspaceIdAndDefaultConfigTrue(any()))
-                .thenReturn(Optional.empty());
+        when(configurationRepository.findDefault(any())).thenReturn(Optional.empty());
 
         assertThat(service().resolveEnabledConfiguration(workspaceId, channelAccountId)).isEmpty();
     }
@@ -141,7 +140,7 @@ class AiAgentConfigurationServiceTest {
         configuration.setWorkspace(workspace);
         UUID configurationId = UUID.randomUUID();
 
-        when(configurationRepository.findByIdAndWorkspaceId(configurationId, workspaceId))
+        when(configurationRepository.findInWorkspace(configurationId, workspaceId))
                 .thenReturn(Optional.of(configuration));
         when(hookService.hookExists(workspaceId, "hook:missing")).thenReturn(false);
 

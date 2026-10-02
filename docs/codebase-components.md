@@ -1032,13 +1032,27 @@ We need it as the REST boundary for the contacts UI and channel adapters creatin
 
 We need it so every way of setting a tag enforces the same rules.
 
+### `ContactAccessService`
+
+Decides who can message a workspace (`Workspace.contactAccess`: `ALL` or `WHITELIST`) and manages its whitelist (`whitelisted_phone_numbers`).
+
+- `isAllowed(workspace, phone)`: always true under `ALL`; under `WHITELIST`, true only if the number, normalized to E.164 with `Workspace.phoneRegion` as the default country, is whitelisted.
+- `addToWhitelist`: normalizes every number, rejects the batch (400) if any is invalid, and skips ones already listed.
+- `updateSettings`: sets the mode and default country, which must be a supported two-letter code.
+
+`ContactAccessController` exposes these to owners under `/workspaces/{id}/contact-access` and `/workspaces/{id}/whitelist`. `PhoneNumberNormalizer` does the E.164 conversion with libphonenumber; bare digits and a `00` prefix are read as international.
+
+We need it so a workspace can limit its channels to known people.
+
 ### `ContactService`
 
 Business service for contact and external identity persistence.
 
 Important methods:
 
-- `listContacts`, `createContact`, `getContactDetail`, `mergeContacts`, `deleteContact`
+- `listContacts`, `createContact`, `getContactDetail`
+- `deleteContact`: sends `contact.deleted`.
+- `mergeContacts`: moves the source's identities and conversations to the target, deletes the source, and sends `contact.merged`.
 - `updateContactCustomFields`: replaces `Contact.customFields`, calls `ContactDisplayNameSync.apply(contact)` (so manually editing `firstName`/`lastName` keeps `displayName` in sync, the same as the AI extraction and workflow Set Contact Field paths), then returns `getContactDetail`.
 - `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
 - `updateContactTags`: applies tag changes via `ContactTagService` and returns the contact detail.
@@ -1059,7 +1073,7 @@ We need it to isolate the API response shape from the persistence entity shape.
 
 Used by `ContactService.getContactDetail` to seed a contact's `customFields` response before the explicitly-stored values overwrite it (derived values only ever fill a gap, never override an explicit one), and by `AiAgentContextAssembler` to compute the "Already known"/"Still missing" contact footer. Not used by `ContactCustomFieldWriter` — that gap-fill check looks only at explicitly-stored `Contact.customFields`, so a reserved key the resolver could derive but that hasn't been explicitly stored yet is still written by the AI agent (recording that it was captured, and firing `contact.updated`).
 
-We need it so reserved fields are auto-filled wherever RelayFlow can already derive them, without hand-coding a Telegram-specific "share contact" flow or similar one-off hack for channels that don't expose the data.
+We need it so reserved fields are auto-filled wherever RelayFlow can already derive them.
 
 ### `ContactDisplayNameSync`
 
@@ -1093,6 +1107,7 @@ Important fields:
 - `externalConversationId`
 - `username`
 - `rawProfile`
+- `verifiedPhoneNumber`: E.164, set only when a Telegram user shares their number with the `request_contact` button. The whitelist check uses it, never the contact's `phone` field, which the AI agent, workflows, or a person can set.
 
 We need it to map channel-specific sender IDs back to RelayFlow contacts.
 
@@ -1278,7 +1293,7 @@ Important behavior:
 - signs payloads with `X-RelayFlow-Signature`.
 - posts JSON payloads to the configured URL.
 - retries failed deliveries with backoff.
-- currently supports `contact.created`.
+- supports `contact.created`, `contact.updated`, `contact.deleted`, and `contact.merged`.
 
 We need it to notify external systems when RelayFlow creates important records.
 
@@ -1331,20 +1346,28 @@ Values:
 
 - `CONTACT_CREATED` maps to payload event name `contact.created`.
 - `CONTACT_UPDATED` maps to payload event name `contact.updated` — dispatched from every contact-field write path: manual edit (`ContactService.updateContactCustomFields`), AI extraction (`ContactCustomFieldWriter`), and the workflow Set Contact Field node (`SetContactFieldNodeExecutor`).
+- `CONTACT_DELETED` maps to `contact.deleted` — dispatched by `ContactService.deleteContact` with a `ContactSnapshot` taken before the delete.
+- `CONTACT_MERGED` maps to `contact.merged` — dispatched by `ContactService.mergeContacts` with a `ContactMergedPayload`. A merge doesn't also send `contact.deleted` for the merged-away contact.
 
 We need it so persisted webhook subscriptions and dispatched payload names stay aligned.
 
 ### `ContactSnapshotBuilder`
 
-Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by all three write paths above so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key. Tags are nested under `tags`.
+Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by every contact webhook (the write paths above, deletion, and both sides of a merge) so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key. Tags are nested under `tags`.
 
 We need it because the same payload had to be built from three different packages (`contact`, `agent`, `workflow.engine.executor`), all of which already depend on `com.relayflow.api.webhook` for `WebhookDispatchService`.
 
 ### `ContactSnapshot`
 
-`record ContactSnapshot(Map<String, Object> contact)` in `com.relayflow.api.webhook.dto` — the `contact.updated` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
+`record ContactSnapshot(Map<String, Object> contact)` in `com.relayflow.api.webhook.dto` — the `contact.updated` and `contact.deleted` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
 
 We need it so the outer payload shape (`{"contact": {...}}`) is a typed DTO like the rest of `webhook.dto`, even though the inner contact map stays dynamic.
+
+### `ContactMergedPayload`
+
+`record ContactMergedPayload(Map<String, Object> contact, Map<String, Object> mergedContact)` — the `contact.merged` payload: the kept contact and the one merged into it and deleted, both in the `ContactSnapshotBuilder` shape.
+
+We need it so a consumer can tell a merge from a deletion and move the merged-away contact's data to the kept one.
 
 ## SSE Backend
 
@@ -1404,6 +1427,7 @@ Important methods:
 - `sendTelegramMessage`: calls Telegram Bot API with retry and attaches a one-time reply keyboard when button options are present.
 - `sendTelegramMessageQuietly`: best-effort bot replies for linking/error hints.
 - `createIdentity`, `createConversation`, `buildDisplayName`: helper methods for inbound normalization.
+- `admitThroughWhitelist`: in a whitelist-only workspace, asks an unknown sender to share their phone number (`request_contact` keyboard). A shared, whitelisted number is saved as the identity's `verifiedPhoneNumber` (creating the contact if needed) and copied to the contact's `phone` field; any other number is told it isn't registered and nothing is stored. Saved contacts are checked by `verifiedPhoneNumber`, so one without it is asked to share their number.
 - `buildRawProfile`: captures the inbound update's `firstName`/`lastName` (trimmed, omitted if blank) onto the `ExternalIdentity.rawProfile` map, so `ReservedContactFieldResolver` can derive them.
 
 We need it to keep Telegram-specific behavior out of the channel-agnostic messaging service.
@@ -1434,6 +1458,7 @@ Handles:
 - `TelegramMessage`
 - `TelegramUser`
 - `TelegramChat`
+- `TelegramContact`
 
 We need these records to deserialize Telegram's webhook JSON into typed Java data.
 
@@ -1458,7 +1483,7 @@ Important methods:
 
 - `verifyWebhook`: validates Meta verification mode/token and returns the challenge text.
 - `handleWebhook`: accepts inbound WhatsApp payloads.
-- `processInboundMessage`: normalizes supported text or interactive button-reply messages into contact, identity, conversation, and message records.
+- `processInboundMessage`: normalizes supported text or interactive button-reply messages into contact, identity, conversation, and message records. Drops the message first if `ContactAccessService.isAllowed` rejects the sender's number.
 - `onOutboundMessage`: listens for outbound messages and sends them through WhatsApp.
 - `sendWhatsAppMessage`: calls Meta Graph API with retry, sending 1-3 options as native interactive buttons and 4+ options as numbered plain text.
 - `resolveMessageText`: extracts text from inbound plain text and interactive button replies.
@@ -2122,7 +2147,7 @@ We need it for webhook URLs shown in `ChannelsList`.
 
 ### `Select`
 
-Reusable styled select control.
+Reusable styled select control. Long option lists scroll within a fixed height.
 
 Important type:
 
@@ -2377,7 +2402,7 @@ We need it for WhatsApp channel setup in settings.
 
 Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, integration, and hooks sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
 
-Section visibility is permission-gated: `General` (workspace rename) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Members` is always shown.
+Section visibility is permission-gated: `General` (workspace name, contact fields and tags, contact access) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Members` is always shown.
 
 The AI Agent, Integrations, and Hooks sections are wrapped in `DesktopOnly`, so phones see a message there while the other sections stay usable.
 
@@ -2452,6 +2477,7 @@ Settings home for basic workspace-level configuration.
 - Workspace rename: owner-only. Tracks a local `edited` override over the fetched workspace name so the input stays controlled while typing, and disables the save button until the trimmed value differs from the persisted name. Uses `useWorkspace` and `useUpdateWorkspace`.
 - Contact fields: defines the workspace's custom contact field schema (key/label/description). Visible to every member (read-only list, including the six reserved fields shown plainly alongside custom ones with no "Reserved" badge or callout — just what each field is, not how/whether it's auto-filled); the add/edit/remove form only renders for a member with `CONTACT_FIELDS_WRITE` or owner role. Blocks saving (and flags inline) if a key collides with a reserved key, via `isReservedContactFieldKey` — a case-insensitive check on both sides, since a reserved key like `displayName` isn't all-lowercase.
 - Contact tags (`ContactTagsSection`): each tag shows as a card (label, key, value pills). With `CONTACT_FIELDS_WRITE`, edit opens `ContactTagForm` in place of the card (key, comma-separated values, a colour per value from swatches) with its own Cancel/Save, one tag at a time; "Add tag" opens an empty form; delete asks in a `ConfirmModal` and saves immediately. Each save sends the full list, and drops colours for values no longer listed.
+- Contact access (`ContactAccessSection`, owner-only): a two-option toggle picks who can message and saves immediately; turning on the whitelist while it's empty asks for confirmation first. The whitelist only shows in whitelist mode: a single input adds one or more comma-separated numbers, a default-country `Select` (country names from `countryOptions` in `lib/countries.ts`, built with `Intl.DisplayNames`) saves on change, and the list removes a number after a `ConfirmModal`, with a search box once it passes 10 entries.
 
 We need it as the settings home for basic workspace-level configuration that doesn't belong under channels, members, or integrations.
 
@@ -2748,6 +2774,9 @@ We need them to keep profile/security mutations outside the profile component.
 - `useWorkspace`: selects one workspace from the cached list.
 - `useCreateWorkspace`: creates a workspace and invalidates workspace queries.
 - `useUpdateWorkspace`: renames a workspace and invalidates workspace queries.
+- `useUpdateContactAccess`: saves who can message and the default country, and invalidates workspace queries.
+- `useWhitelist`: fetches the workspace's whitelisted phone numbers.
+- `useAddToWhitelist` / `useRemoveFromWhitelist`: add numbers to or remove one from the whitelist.
 - `useCurrentMember`: fetches current workspace membership/permissions.
 - `useWorkspaceMembers`: fetches workspace members.
 - `useUpdateMember`: updates member role/permissions.
@@ -2990,7 +3019,7 @@ We need it to protect fetch URL construction and error handling.
 
 OpenAPI contract for backend REST endpoints.
 
-It documents health, instance bootstrap, auth, workspaces, members, invites, API keys, webhooks, public API, channels, contacts, external identities, conversations, messages, workflows, SSE, Telegram webhooks, and WhatsApp webhooks.
+It documents health, instance bootstrap, auth and password reset, profile, workspaces (contact fields, tags, contact access and whitelist), members, invites, API keys, webhooks, secrets, hooks, AI agents and drafts, public API, channels, contacts, external identities, conversations, messages, workflows and runs, SSE, Telegram webhooks, and WhatsApp webhooks.
 
 We need it as the external API source of truth and future client-generation input.
 
@@ -3026,6 +3055,8 @@ Important fields:
 Currently documented event data:
 
 - `contact.created`: includes contact and channel details.
+- `contact.updated`, `contact.deleted`: `{"contact": {...}}`, the contact's id, display name, custom fields, and tags.
+- `contact.merged`: `{"contact": {...}, "mergedContact": {...}}`.
 
 We need it so third-party webhook consumers have a stable payload contract.
 
@@ -3033,7 +3064,7 @@ We need it so third-party webhook consumers have a stable payload contract.
 
 JSON schema for persisted workflow graph JSON.
 
-It now matches the current React Flow-style graph: `nodes`, `edges`, node `type`, node `position`, and node `data`.
+It matches the React Flow-style graph: `nodes`, `edges`, node `type`, node `position`, and node `data`, with each node type's settings and the edge `sourceHandle` values the engine follows.
 
 We need it to document and eventually validate/import/export workflow definitions outside the UI.
 
@@ -3336,9 +3367,9 @@ Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getClient(
 
 ### AI Agent Repositories
 
-- `AiAgentConfigurationRepository`: `findAllByWorkspaceId`, `findByIdAndWorkspaceId`, `findByWorkspaceIdAndDefaultConfigTrue`, `clearDefault(workspaceId)` (`@Modifying` — unsets `is_default` for every config in the workspace, called before flagging a new default), `deleteByWorkspaceId`.
-- `AiAgentInvocationLogRepository`: `findByConversationIdAndStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query).
-- `ConversationAiDraftRepository`: `findByConversationId`, `deleteByConversationId`.
+- `AiAgentConfigurationRepository`: `findByWorkspace` (oldest first), `findInWorkspace`, `findDefault`, `clearDefault(workspaceId)` (`@Modifying` — unsets `is_default` for every config in the workspace, called before flagging a new default), `deleteByWorkspace`.
+- `AiAgentInvocationLogRepository`: `findForConversationWithStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query), `deleteByWorkspace`.
+- `ConversationAiDraftRepository`: `findByConversation`, `deleteByConversation`, `deleteByWorkspace`.
 - A channel's own assignment is read directly off `ChannelAccount` via `ChannelAccountRepository.findAiAgentConfiguration(channelAccountId)`, not through `AiAgentConfigurationRepository`.
 
 ## AI Agent Frontend Components

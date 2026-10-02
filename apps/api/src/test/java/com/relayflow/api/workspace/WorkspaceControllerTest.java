@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.authentication.SecurityUtils;
+import com.relayflow.api.workspace.domain.ContactAccess;
 import com.relayflow.api.workspace.dto.CreateWorkspaceRequest;
 import com.relayflow.api.workspace.dto.WorkspaceResponse;
 import java.time.Instant;
@@ -53,6 +54,8 @@ class WorkspaceControllerTest {
                                         "Acme",
                                         List.of(),
                                         List.of(),
+                                        ContactAccess.ALL,
+                                        null,
                                         Instant.parse("2026-05-26T10:00:00Z"))));
 
         mockMvc.perform(get("/workspaces"))
@@ -73,6 +76,8 @@ class WorkspaceControllerTest {
                                 "RelayFlow",
                                 List.of(),
                                 List.of(),
+                                ContactAccess.ALL,
+                                null,
                                 Instant.parse("2026-05-26T10:00:00Z")));
 
         mockMvc.perform(

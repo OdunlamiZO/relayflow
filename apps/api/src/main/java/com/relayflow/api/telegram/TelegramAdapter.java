@@ -7,6 +7,7 @@ import com.relayflow.api.channel.domain.ChannelAccountStatus;
 import com.relayflow.api.channel.domain.ChannelProvider;
 import com.relayflow.api.channel.repository.ChannelAccountRepository;
 import com.relayflow.api.common.ResourceNotFoundException;
+import com.relayflow.api.contact.ContactAccessService;
 import com.relayflow.api.contact.domain.Contact;
 import com.relayflow.api.contact.domain.ExternalIdentity;
 import com.relayflow.api.contact.repository.ContactRepository;
@@ -22,6 +23,7 @@ import com.relayflow.api.messaging.repository.MessageRepository;
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.sse.SseBroadcastEvent;
 import com.relayflow.api.sse.SseEventType;
+import com.relayflow.api.telegram.dto.TelegramContact;
 import com.relayflow.api.telegram.dto.TelegramMessage;
 import com.relayflow.api.telegram.dto.TelegramUser;
 import com.relayflow.api.telegram.dto.TelegramWebhookPayload;
@@ -29,6 +31,7 @@ import com.relayflow.api.webhook.WebhookDispatchService;
 import com.relayflow.api.webhook.domain.WebhookEventType;
 import com.relayflow.api.workflow.engine.ConversationMessageReceivedEvent;
 import com.relayflow.api.workflow.engine.ConversationOpenedEvent;
+import com.relayflow.api.workspace.domain.ReservedContactField;
 import com.relayflow.api.workspace.domain.Workspace;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -54,6 +57,25 @@ public class TelegramAdapter {
 
     private static final String SEND_MESSAGE_URL = "https://api.telegram.org/bot%s/sendMessage";
 
+    private static final String SHARE_PHONE_PROMPT_TEXT =
+            "To continue, please share your phone number using the button below.";
+
+    private static final String PHONE_VERIFIED_TEXT = "Thanks! You can send your message now.";
+
+    private static final String PHONE_NOT_REGISTERED_TEXT =
+            "Sorry, this phone number isn't registered with us.";
+
+    private static final Map<String, Object> SHARE_PHONE_KEYBOARD =
+            Map.of(
+                    "keyboard",
+                    List.of(List.of(Map.of("text", "Share phone number", "request_contact", true))),
+                    "one_time_keyboard",
+                    true,
+                    "resize_keyboard",
+                    true);
+
+    private static final Map<String, Object> REMOVE_KEYBOARD = Map.of("remove_keyboard", true);
+
     private final ChannelAccountRepository channelAccountRepository;
 
     private final ContactRepository contactRepository;
@@ -74,6 +96,8 @@ public class TelegramAdapter {
 
     private final WebhookDispatchService webhookDispatchService;
 
+    private final ContactAccessService contactAccessService;
+
     public TelegramAdapter(
             ChannelAccountRepository channelAccountRepository,
             ContactRepository contactRepository,
@@ -84,7 +108,8 @@ public class TelegramAdapter {
             CredentialEncryptionService credentialEncryptionService,
             ApplicationEventPublisher eventPublisher,
             ObjectMapper objectMapper,
-            WebhookDispatchService webhookDispatchService) {
+            WebhookDispatchService webhookDispatchService,
+            ContactAccessService contactAccessService) {
         this.channelAccountRepository = channelAccountRepository;
         this.contactRepository = contactRepository;
         this.externalIdentityRepository = externalIdentityRepository;
@@ -95,12 +120,14 @@ public class TelegramAdapter {
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
         this.webhookDispatchService = webhookDispatchService;
+        this.contactAccessService = contactAccessService;
     }
 
     @Transactional
     public void handleWebhook(
             UUID channelAccountId, String secretToken, TelegramWebhookPayload payload) {
-        if (payload.message() == null || payload.message().text() == null) {
+        if (payload.message() == null
+                || (payload.message().text() == null && payload.message().contact() == null)) {
             return;
         }
 
@@ -202,6 +229,15 @@ public class TelegramAdapter {
         Workspace workspace = channelAccount.getWorkspace();
         UUID workspaceId = workspace.getId();
 
+        if (contactAccessService.isRestricted(workspace)
+                && !admitThroughWhitelist(channelAccount, msg, externalUserId, chatId)) {
+            return;
+        }
+
+        if (msg.text() == null) {
+            return;
+        }
+
         ExternalIdentity identity =
                 externalIdentityRepository
                         .findForExternalUser(channelAccount.getId(), externalUserId)
@@ -297,6 +333,25 @@ public class TelegramAdapter {
      */
     private void sendTelegramMessage(
             String botToken, String chatId, String text, List<String> buttons) {
+        Map<String, Object> replyMarkup = null;
+
+        if (buttons != null && !buttons.isEmpty()) {
+            // Each button row contains a single button object so options stack vertically.
+            List<List<Map<String, String>>> keyboard =
+                    buttons.stream().map(label -> List.of(Map.of("text", label))).toList();
+
+            replyMarkup =
+                    Map.of(
+                            "keyboard", keyboard,
+                            "one_time_keyboard", true,
+                            "resize_keyboard", true);
+        }
+
+        sendTelegramMessage(botToken, chatId, text, replyMarkup);
+    }
+
+    private void sendTelegramMessage(
+            String botToken, String chatId, String text, Map<String, Object> replyMarkup) {
         if (chatId == null || chatId.isBlank()) {
             throw new TelegramSendException("No chat ID available for Telegram send", null);
         }
@@ -308,17 +363,8 @@ public class TelegramAdapter {
         body.put("text", text);
         body.put("parse_mode", "HTML");
 
-        if (buttons != null && !buttons.isEmpty()) {
-            // Each button row contains a single button object so options stack vertically.
-            List<List<Map<String, String>>> keyboard =
-                    buttons.stream().map(label -> List.of(Map.of("text", label))).toList();
-
-            body.put(
-                    "reply_markup",
-                    Map.of(
-                            "keyboard", keyboard,
-                            "one_time_keyboard", true,
-                            "resize_keyboard", true));
+        if (replyMarkup != null) {
+            body.put("reply_markup", replyMarkup);
         }
 
         Exception lastEx = null;
@@ -348,14 +394,74 @@ public class TelegramAdapter {
      * must not affect the caller's transaction or HTTP response.
      */
     private void sendTelegramMessageQuietly(String botToken, String chatId, String text) {
+        sendTelegramMessageQuietly(botToken, chatId, text, (Map<String, Object>) null);
+    }
+
+    private void sendTelegramMessageQuietly(
+            String botToken, String chatId, String text, Map<String, Object> replyMarkup) {
         try {
-            sendTelegramMessage(botToken, chatId, text, List.of());
+            sendTelegramMessage(botToken, chatId, text, replyMarkup);
         } catch (TelegramSendException e) {
             log.warn(
                     "Bot reply to chat {} could not be delivered (non-fatal): {}",
                     chatId,
                     e.getMessage());
         }
+    }
+
+    private boolean admitThroughWhitelist(
+            ChannelAccount channelAccount,
+            TelegramMessage msg,
+            String externalUserId,
+            String chatId) {
+        Workspace workspace = channelAccount.getWorkspace();
+        String botToken =
+                credentialEncryptionService.decrypt(channelAccount.getEncryptedCredentials());
+        Optional<ExternalIdentity> identity =
+                externalIdentityRepository.findForExternalUser(
+                        channelAccount.getId(), externalUserId);
+        TelegramContact sharedContact = msg.contact();
+
+        if (sharedContact != null
+                && externalUserId.equals(String.valueOf(sharedContact.userId()))) {
+            Optional<String> phone =
+                    contactAccessService.normalize(workspace, sharedContact.phoneNumber());
+
+            if (phone.isEmpty() || !contactAccessService.isAllowed(workspace, phone.get())) {
+                sendTelegramMessageQuietly(
+                        botToken, chatId, PHONE_NOT_REGISTERED_TEXT, REMOVE_KEYBOARD);
+
+                return false;
+            }
+
+            ExternalIdentity verifiedIdentity =
+                    identity.orElseGet(
+                            () ->
+                                    createIdentity(
+                                            channelAccount, msg.from(), externalUserId, chatId));
+            verifiedIdentity.setVerifiedPhoneNumber(phone.get());
+            externalIdentityRepository.save(verifiedIdentity);
+
+            Contact contact = verifiedIdentity.getContact();
+            Map<String, String> customFields = new LinkedHashMap<>(contact.getCustomFields());
+            customFields.put(ReservedContactField.PHONE.key(), phone.get());
+            contact.setCustomFields(customFields);
+            contactRepository.save(contact);
+            sendTelegramMessageQuietly(botToken, chatId, PHONE_VERIFIED_TEXT, REMOVE_KEYBOARD);
+
+            return false;
+        }
+
+        String verifiedPhone = identity.map(ExternalIdentity::getVerifiedPhoneNumber).orElse(null);
+
+        if (verifiedPhone == null) {
+            sendTelegramMessageQuietly(
+                    botToken, chatId, SHARE_PHONE_PROMPT_TEXT, SHARE_PHONE_KEYBOARD);
+
+            return false;
+        }
+
+        return contactAccessService.isAllowed(workspace, verifiedPhone);
     }
 
     private ExternalIdentity createIdentity(

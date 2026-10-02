@@ -192,6 +192,36 @@ paths:
         "204":
           description: Session invalidated
 
+  /auth/reset-password/{token}:
+    post:
+      operationId: resetPassword
+      summary: Set a new password with a single-use reset token
+      description: Tokens expire after one hour and can be used once.
+      tags: [Auth]
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "204":
+          description: Password changed
+        "400":
+          description: Token invalid, expired, or already used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── Profile ─────────────────────────────────────────────────────────────────
 
   /profile:
@@ -223,20 +253,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfileResponse"
-  /profile/change-password:
+  /profile/request-password-reset:
     post:
-      operationId: changePassword
-      summary: Change password for an email/password account
+      operationId: requestPasswordReset
+      summary: Email the current user a password reset link
+      description: There is no in-place password change; the link sets a new password.
       tags: [Profile]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ChangePasswordRequest"
       responses:
         "204":
-          description: Password changed
+          description: Reset link sent
 
   /profile/2fa/setup:
     post:
@@ -343,8 +368,7 @@ paths:
       summary: Define the workspace's custom contact field schema
       description: >-
         Requires the `CONTACT_FIELDS_WRITE` permission or owner role. A field's key can't collide
-        with a reserved key (`displayName`, `phone`, `email`, `country`) — RelayFlow already fills
-        those in automatically and they can't be redefined as a custom field.
+        with a reserved key (`displayName`, `firstName`, `lastName`, `phone`, `email`, `country`).
       tags: [Workspaces]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
@@ -367,6 +391,139 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/contact-tag-definitions:
+    put:
+      operationId: updateContactTagDefinitions
+      summary: Define the workspace's contact tags and their allowed values
+      description: >-
+        Replaces the full list. Requires the `CONTACT_FIELDS_WRITE` permission or owner role.
+        Removing a value (or a whole tag) that contacts still have returns `409`.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactTagDefinitionsRequest"
+      responses:
+        "200":
+          description: Workspace updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "400":
+          description: Invalid key, values, or colour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A removed value is still set on a contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/contact-access:
+    put:
+      operationId: updateContactAccess
+      summary: Set who can message the workspace and the default country for phone numbers
+      description: >-
+        Owner-only. In `WHITELIST` mode, messages from numbers not on the whitelist are ignored
+        and nothing is stored. `phoneRegion` is a two-letter country code used to read numbers
+        written without a country code.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactAccessRequest"
+      responses:
+        "200":
+          description: Workspace updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "400":
+          description: Unsupported country code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/whitelist:
+    get:
+      operationId: listWhitelist
+      summary: List whitelisted phone numbers, newest first
+      description: Owner-only.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Whitelisted phone numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WhitelistedPhoneNumberResponse"
+    post:
+      operationId: addToWhitelist
+      summary: Add phone numbers to the whitelist
+      description: >-
+        Owner-only. Numbers are stored in E.164 format. Numbers already on the list are skipped;
+        if any number is invalid, nothing is added.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddWhitelistedPhoneNumbersRequest"
+      responses:
+        "201":
+          description: The newly added numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WhitelistedPhoneNumberResponse"
+        "400":
+          description: One or more numbers are invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/whitelist/{entryId}:
+    delete:
+      operationId: removeFromWhitelist
+      summary: Remove a phone number from the whitelist
+      description: Owner-only.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Number removed
 
   /workspaces/{workspaceId}/members:
     get:
@@ -466,6 +623,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/members/{memberId}/reset-password:
+    post:
+      operationId: generateMemberPasswordReset
+      summary: Email a member a password reset link
+      description: Owner-only.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Reset link sent
 
   /workspaces/{workspaceId}/owner:
     put:
@@ -653,25 +828,30 @@ paths:
         "204":
           description: API key revoked
 
-  /workspaces/{workspaceId}/webhook:
+  /workspaces/{workspaceId}/webhooks:
     get:
-      operationId: getWorkspaceWebhook
-      summary: Get workspace webhook configuration
+      operationId: listWebhooks
+      summary: List the workspace's webhooks
+      description: Requires the `WEBHOOKS_WRITE` permission or owner role.
       tags: [Webhooks]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
       responses:
         "200":
-          description: Webhook configuration
+          description: Webhooks
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WebhookConfigResponse"
-        "404":
-          description: No webhook configured
-    put:
-      operationId: saveWorkspaceWebhook
-      summary: Create or update workspace webhook configuration
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookConfigResponse"
+    post:
+      operationId: createWebhook
+      summary: Create a webhook
+      description: >-
+        Requires the `WEBHOOKS_WRITE` permission or owner role. The signing secret is returned once
+        in `generatedSecret`. URLs that resolve to loopback, link-local, private, multicast, or
+        wildcard addresses are rejected.
       tags: [Webhooks]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
@@ -683,35 +863,186 @@ paths:
               $ref: "#/components/schemas/SaveWebhookRequest"
       responses:
         "200":
-          description: Webhook configuration saved
+          description: Webhook created
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/WebhookConfigResponse"
-    delete:
-      operationId: deleteWorkspaceWebhook
-      summary: Delete workspace webhook configuration
-      tags: [Webhooks]
-      parameters:
-        - $ref: "#/components/parameters/workspaceIdPath"
-      responses:
-        "204":
-          description: Webhook configuration deleted
+        "400":
+          description: Invalid or non-public URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  /workspaces/{workspaceId}/webhook/rotate-secret:
-    post:
-      operationId: rotateWorkspaceWebhookSecret
-      summary: Rotate workspace webhook signing secret
+  /workspaces/{workspaceId}/webhooks/{webhookId}:
+    put:
+      operationId: updateWebhook
+      summary: Update a webhook
+      description: Requires the `WEBHOOKS_WRITE` permission or owner role.
       tags: [Webhooks]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveWebhookRequest"
       responses:
         "200":
-          description: New plaintext secret returned once
+          description: Webhook updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookConfigResponse"
+        "400":
+          description: Invalid or non-public URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteWebhook
+      summary: Delete a webhook
+      description: Requires the `WEBHOOKS_WRITE` permission or owner role.
+      tags: [Webhooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Webhook deleted
+
+  /workspaces/{workspaceId}/webhooks/{webhookId}/rotate-secret:
+    post:
+      operationId: rotateWebhookSecret
+      summary: Rotate a webhook's signing secret
+      description: Requires the `WEBHOOKS_WRITE` permission or owner role.
+      tags: [Webhooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: New plaintext secret, returned once
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/RotateWebhookSecretResponse"
+
+  /workspaces/{workspaceId}/secrets:
+    get:
+      operationId: listSecrets
+      summary: List the workspace's secrets
+      description: >-
+        Requires the `SECRETS_WRITE` permission or owner role. Values are never returned.
+      tags: [Secrets]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Secrets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SecretResponse"
+    post:
+      operationId: createSecret
+      summary: Create a secret
+      description: >-
+        Requires the `SECRETS_WRITE` permission or owner role. Referenced in HTTP Request nodes as
+        `{{secrets.NAME}}`; the value is encrypted at rest.
+      tags: [Secrets]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveSecretRequest"
+      responses:
+        "201":
+          description: Secret created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecretResponse"
+        "409":
+          description: A secret with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/secrets/{secretId}:
+    put:
+      operationId: updateSecret
+      summary: Rename a secret and replace its value
+      description: Requires the `SECRETS_WRITE` permission or owner role. The old value can't be recovered.
+      tags: [Secrets]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: secretId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveSecretRequest"
+      responses:
+        "200":
+          description: Secret updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecretResponse"
+        "409":
+          description: A secret with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteSecret
+      summary: Delete a secret
+      description: Requires the `SECRETS_WRITE` permission or owner role.
+      tags: [Secrets]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: secretId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Secret deleted
 
   # ── Channel Accounts ──────────────────────────────────────────────────────────
 
@@ -757,8 +1088,9 @@ paths:
 
   /channel-accounts/{id}:
     delete:
-      operationId: disconnectChannelAccount
-      summary: Disconnect a channel account (sets status to DISABLED; data is preserved)
+      operationId: deleteChannelAccount
+      summary: Delete a channel account
+      description: Requires the `CHANNELS_DELETE` permission or owner role.
       tags: [ChannelAccounts]
       parameters:
         - name: id
@@ -777,6 +1109,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /channel-accounts/{id}/disconnect:
+    post:
+      operationId: disconnectChannelAccount
+      summary: Disconnect a channel account
+      description: >-
+        Sets the account to `DISABLED` without deleting it; reconnect re-enables it. Requires the
+        `CHANNELS_WRITE` permission or owner role.
+      tags: [ChannelAccounts]
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "204":
+          description: Channel account disconnected
 
   /channel-accounts/{id}/reconnect:
     post:
@@ -855,7 +1202,7 @@ paths:
       summary: Get a contact with linked channel identities
       description: >-
         The response's `customFields` merges explicitly-stored values with an auto-derived
-        value for any reserved key (displayName, phone, email, country) that hasn't been
+        value for any reserved key (displayName, firstName, lastName, phone, email, country) that hasn't been
         explicitly set — e.g. `phone` from a WhatsApp identity. An explicitly-stored value
         always wins over the derived one.
       tags: [Contacts]
@@ -935,6 +1282,38 @@ paths:
                 $ref: "#/components/schemas/ContactDetailResponse"
         "404":
           description: Contact not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /contacts/{id}/tags:
+    patch:
+      operationId: updateContactTags
+      summary: Set or clear contact tags
+      description: >-
+        Sets each given tag to its value; a blank or null value clears the tag. Tags not in the
+        body are left unchanged. Requires the `CONTACT_FIELDS_WRITE` permission or owner role.
+        Sends `contact.updated` when the tags change.
+      tags: [Contacts]
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactTagsRequest"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactDetailResponse"
+        "400":
+          description: Undefined tag, or a value outside its allowed list
           content:
             application/json:
               schema:
@@ -1087,6 +1466,29 @@ paths:
       responses:
         "200":
           description: Conversation updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationResponse"
+
+  /conversations/{conversationId}/assignee:
+    patch:
+      operationId: updateConversationAssignee
+      summary: Assign or unassign a conversation
+      description: Requires the `INBOX` permission. A null `assigneeId` unassigns.
+      tags: [Conversations]
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssigneeRequest"
+      responses:
+        "200":
+          description: Updated conversation
           content:
             application/json:
               schema:
@@ -1311,27 +1713,180 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkflowRunDetailResponse"
 
+  # ── Hooks ─────────────────────────────────────────────────────────────────────
+
+  /workspaces/{workspaceId}/hooks:
+    get:
+      operationId: listHooks
+      summary: List the workspace's custom hooks
+      tags: [Hooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Custom hooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HookResponse"
+    post:
+      operationId: createHook
+      summary: Create a custom hook
+      description: Requires the `WORKFLOWS_WRITE` permission or owner role.
+      tags: [Hooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveHookRequest"
+      responses:
+        "201":
+          description: Hook created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HookResponse"
+        "400":
+          description: Invalid FEEL expression
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A hook with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/hooks/built-in:
+    get:
+      operationId: listBuiltInHooks
+      summary: List the built-in hooks
+      tags: [Hooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Built-in hooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BuiltInHookResponse"
+
+  /workspaces/{workspaceId}/hooks/test:
+    post:
+      operationId: testHook
+      summary: Evaluate an unsaved hook expression against a sample value
+      description: Requires the `WORKFLOWS_WRITE` permission or owner role.
+      tags: [Hooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestHookRequest"
+      responses:
+        "200":
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestHookResponse"
+
+  /workspaces/{workspaceId}/hooks/{hookId}:
+    put:
+      operationId: updateHook
+      summary: Update a custom hook
+      description: Requires the `WORKFLOWS_WRITE` permission or owner role.
+      tags: [Hooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: hookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveHookRequest"
+      responses:
+        "200":
+          description: Hook updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HookResponse"
+        "400":
+          description: Invalid FEEL expression
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A hook with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteHook
+      summary: Delete a custom hook
+      description: Requires the `WORKFLOWS_WRITE` permission or owner role.
+      tags: [Hooks]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: hookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Hook deleted
+        "409":
+          description: A workflow or AI agent still uses the hook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── AI Agent ─────────────────────────────────────────────────────────────────
 
-  /workspaces/{workspaceId}/ai-agent-config:
+  /workspaces/{workspaceId}/ai-agent-configs:
     get:
-      operationId: getAiAgentConfig
-      summary: Get the AI agent configuration for a workspace
-      description: Returns the config, creating a default (disabled) one if none exists yet.
+      operationId: listAiAgentConfigurations
+      summary: List the workspace's AI agents
       tags: [AiAgent]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
       responses:
         "200":
-          description: AI agent configuration
+          description: AI agents
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AiAgentConfigResponse"
-    put:
-      operationId: updateAiAgentConfig
-      summary: Update the AI agent configuration for a workspace
-      description: Requires the `AI_AGENT_WRITE` permission.
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiAgentConfigurationResponse"
+    post:
+      operationId: createAiAgentConfiguration
+      summary: Create an AI agent
+      description: Requires the `AI_AGENT_WRITE` permission or owner role.
       tags: [AiAgent]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
@@ -1340,20 +1895,154 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateAiAgentConfigRequest"
+              $ref: "#/components/schemas/UpdateAiAgentConfigurationRequest"
       responses:
         "200":
-          description: Updated AI agent configuration
+          description: AI agent created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AiAgentConfigResponse"
-        "403":
-          description: Missing AI_AGENT_WRITE permission
+                $ref: "#/components/schemas/AiAgentConfigurationResponse"
+
+  /workspaces/{workspaceId}/ai-agent-configs/platform-llm-provider:
+    get:
+      operationId: getPlatformLlmProvider
+      summary: Get the instance's default LLM provider
+      description: Used when an AI agent doesn't set its own `llmProvider`.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Default LLM provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformLlmProviderResponse"
+
+  /workspaces/{workspaceId}/ai-agent-configs/{configurationId}:
+    put:
+      operationId: updateAiAgentConfiguration
+      summary: Update an AI agent
+      description: Requires the `AI_AGENT_WRITE` permission or owner role.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: configurationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAiAgentConfigurationRequest"
+      responses:
+        "200":
+          description: AI agent updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAgentConfigurationResponse"
+        "400":
+          description: An extraction field uses a hook that doesn't exist
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteAiAgentConfiguration
+      summary: Delete an AI agent
+      description: Requires the `AI_AGENT_WRITE` permission or owner role.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: configurationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: AI agent deleted
+
+  /workspaces/{workspaceId}/ai-agent-configs/{configurationId}/set-default:
+    post:
+      operationId: setDefaultAiAgentConfiguration
+      summary: Make an AI agent the workspace default
+      description: >-
+        The default agent handles channels without their own assignment. Requires the
+        `AI_AGENT_WRITE` permission or owner role.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: configurationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: New default AI agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAgentConfigurationResponse"
+
+  /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config:
+    get:
+      operationId: getChannelAiAgentAssignment
+      summary: Get the AI agent assigned to a channel
+      description: A null `configurationId` means the channel uses the workspace default.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: channelAccountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Channel assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAiAgentAssignmentResponse"
+    put:
+      operationId: setChannelAiAgentAssignment
+      summary: Assign an AI agent to a channel
+      description: >-
+        A null `configurationId` falls back to the workspace default. Requires the `AI_AGENT_WRITE`
+        permission or owner role.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: channelAccountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetChannelAiAgentConfigurationRequest"
+      responses:
+        "200":
+          description: Channel assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelAiAgentAssignmentResponse"
 
   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft:
     get:
@@ -1417,6 +2106,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The workflow isn't published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/send:
     post:
@@ -1424,11 +2119,17 @@ paths:
       summary: Send the active AI draft as an outbound message
       description: >
         Sends the draft reply to the contact, deletes the draft, and returns the created message.
-        Requires the `INBOX` permission.
+        An optional body sends edited text instead of the draft. Requires the `INBOX` permission.
       tags: [AiAgent]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
         - $ref: "#/components/parameters/conversationIdPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendAiDraftRequest"
       responses:
         "200":
           description: Draft sent and message created
@@ -1647,6 +2348,7 @@ paths:
     post:
       operationId: publicSendMessage
       summary: Send an outbound agent message via API key
+      description: Doesn't reopen a closed conversation.
       tags: [PublicAPI]
       security:
         - ApiKeyAuth: []
@@ -1667,6 +2369,46 @@ paths:
                 $ref: "#/components/schemas/MessageResponse"
         "409":
           description: Conversation is currently locked by an active workflow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /public/v1/contacts/{contactId}/tags:
+    put:
+      operationId: publicUpdateContactTags
+      summary: Set or clear contact tags via API key
+      description: >-
+        The body maps tag keys to values, e.g. `{"kyc_status": "verified"}`; `null` clears a tag.
+        Tags not in the body are left unchanged. Sends `contact.updated` when the tags change.
+      tags: [PublicAPI]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+                nullable: true
+      responses:
+        "200":
+          description: The contact's tags after the update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactTagsResponse"
+        "400":
+          description: Undefined tag, or a value outside its allowed list
           content:
             application/json:
               schema:
@@ -1753,6 +2495,7 @@ components:
         - API_KEYS_WRITE
         - WEBHOOKS_WRITE
         - AI_AGENT_WRITE
+        - SECRETS_WRITE
 
     InviteStatus:
       type: string
@@ -1760,7 +2503,22 @@ components:
 
     WebhookEventType:
       type: string
-      enum: [CONTACT_CREATED, CONTACT_UPDATED]
+      enum: [CONTACT_CREATED, CONTACT_UPDATED, CONTACT_DELETED, CONTACT_MERGED]
+      description: >-
+        Delivered as `contact.created`, `contact.updated`, `contact.deleted`, and `contact.merged`.
+        See `schemas/webhook-event.schema.json` for the payloads.
+
+    ContactAccess:
+      type: string
+      enum: [ALL, WHITELIST]
+
+    LlmProvider:
+      type: string
+      enum: [ANTHROPIC, OPENAI, GROQ, OLLAMA]
+
+    HookOutcomeStatus:
+      type: string
+      enum: [ACCEPTED, REJECTED, ERROR]
 
     # ── Requests ───────────────────────────────────────────────────────────────
 
@@ -1848,24 +2606,130 @@ components:
 
     UpdateProfileRequest:
       type: object
-      required: [displayName, receiveEmailUpdates]
+      required: [displayName]
       properties:
         displayName:
           type: string
           maxLength: 200
-        receiveEmailUpdates:
-          type: boolean
 
-    ChangePasswordRequest:
+    ResetPasswordRequest:
       type: object
-      required: [currentPassword, newPassword]
+      required: [newPassword]
       properties:
-        currentPassword:
-          type: string
         newPassword:
           type: string
           minLength: 8
-          maxLength: 72
+
+    UpdateContactTagDefinitionsRequest:
+      type: object
+      required: [contactTagDefinitions]
+      properties:
+        contactTagDefinitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactTagDefinition"
+
+    UpdateContactTagsRequest:
+      type: object
+      required: [tags]
+      properties:
+        tags:
+          type: object
+          description: Tag key to value; a blank or null value clears the tag.
+          additionalProperties:
+            type: string
+            nullable: true
+
+    UpdateContactAccessRequest:
+      type: object
+      required: [contactAccess]
+      properties:
+        contactAccess:
+          $ref: "#/components/schemas/ContactAccess"
+        phoneRegion:
+          type: string
+          nullable: true
+          description: Two-letter country code (e.g. US) for numbers without a country code.
+
+    AddWhitelistedPhoneNumbersRequest:
+      type: object
+      required: [phoneNumbers]
+      properties:
+        phoneNumbers:
+          type: array
+          minItems: 1
+          items:
+            type: string
+
+    UpdateAssigneeRequest:
+      type: object
+      properties:
+        assigneeId:
+          type: string
+          format: uuid
+          nullable: true
+
+    SaveSecretRequest:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          pattern: "^[A-Za-z][A-Za-z0-9_]*$"
+        value:
+          type: string
+
+    SaveHookRequest:
+      type: object
+      required: [name, expression, errorMessage]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        expression:
+          type: string
+          maxLength: 4000
+          description: FEEL expression evaluated against the value.
+        errorMessage:
+          type: string
+          maxLength: 500
+          description: Sent to the contact when the value is rejected.
+
+    TestHookRequest:
+      type: object
+      required: [expression, value]
+      properties:
+        expression:
+          type: string
+          maxLength: 4000
+        value:
+          type: string
+          maxLength: 4000
+        variables:
+          type: object
+          additionalProperties: true
+
+    SendAiDraftRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          nullable: true
+          description: Edited reply to send instead of the draft.
+
+    SetChannelAiAgentConfigurationRequest:
+      type: object
+      properties:
+        configurationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null uses the workspace default.
 
     OtpRequest:
       type: object
@@ -2025,7 +2889,7 @@ components:
           format: uuid
         status:
           $ref: "#/components/schemas/ConversationStatus"
-        assignedUserId:
+        assigneeId:
           type: string
           format: uuid
           nullable: true
@@ -2082,7 +2946,10 @@ components:
           type: boolean
         draftGraph:
           type: object
-          description: React Flow-style workflow graph. Supported node types include trigger, sendMessage, condition, httpRequest, setVariable, waitForReply, jumpTo, and endConversation.
+          description: >-
+            React Flow-style workflow graph; see `schemas/workflow-definition.schema.json`. Node types:
+            trigger, sendMessage, condition, httpRequest, setVariable, setContactField, setContactTag,
+            waitForReply, jumpTo, and endConversation. Only published (`enabled`) workflows run.
           additionalProperties: true
 
     # ── Responses ──────────────────────────────────────────────────────────────
@@ -2176,7 +3043,7 @@ components:
 
     ProfileResponse:
       type: object
-      required: [userId, email, receiveEmailUpdates, twoFactorEnabled, providers]
+      required: [userId, email, twoFactorEnabled, providers]
       properties:
         userId:
           type: string
@@ -2190,8 +3057,6 @@ components:
         avatarUrl:
           type: string
           nullable: true
-        receiveEmailUpdates:
-          type: boolean
         twoFactorEnabled:
           type: boolean
         providers:
@@ -2210,7 +3075,7 @@ components:
 
     WorkspaceResponse:
       type: object
-      required: [id, name, contactFieldDefinitions, createdAt]
+      required: [id, name, contactFieldDefinitions, contactTagDefinitions, contactAccess, createdAt]
       properties:
         id:
           type: string
@@ -2221,6 +3086,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ContactFieldDefinition"
+        contactTagDefinitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactTagDefinition"
+        contactAccess:
+          $ref: "#/components/schemas/ContactAccess"
+        phoneRegion:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -2232,12 +3106,135 @@ components:
         key:
           type: string
           description: >-
-            Must not collide with a reserved key (displayName, phone, email, country) —
-            RelayFlow already fills those in automatically.
+            Must not collide with a reserved key (displayName, firstName, lastName, phone, email,
+            country).
         label:
           type: string
         description:
           type: string
+
+    ContactTagDefinition:
+      type: object
+      required: [key, label, values]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        values:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          description: The only values a contact's tag can be set to.
+        colors:
+          type: object
+          description: Optional display colour per value.
+          additionalProperties:
+            type: string
+            enum: [neutral, blue, green, yellow, orange, red, purple, teal]
+
+    WhitelistedPhoneNumberResponse:
+      type: object
+      required: [id, phoneNumber, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        phoneNumber:
+          type: string
+          description: E.164, e.g. +14155550123.
+        createdAt:
+          type: string
+          format: date-time
+
+    SecretResponse:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    HookResponse:
+      type: object
+      required: [id, key, name, expression, errorMessage, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          description: Referenced by Ask Question nodes and AI agent extraction fields.
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        expression:
+          type: string
+        errorMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BuiltInHookResponse:
+      type: object
+      required: [key, name, description, expression, errorMessage]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        expression:
+          type: string
+        errorMessage:
+          type: string
+
+    TestHookResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/HookOutcomeStatus"
+        value:
+          description: The value that would be stored when accepted.
+        errorMessage:
+          type: string
+          nullable: true
+        variables:
+          type: object
+          additionalProperties: true
+        warnings:
+          type: array
+          items:
+            type: string
+
+    ContactTagsResponse:
+      type: object
+      required: [contactId, tags]
+      properties:
+        contactId:
+          type: string
+          format: uuid
+        tags:
+          type: object
+          additionalProperties:
+            type: string
 
     WorkspaceMemberResponse:
       type: object
@@ -2325,6 +3322,9 @@ components:
         expiresAt:
           type: string
           format: date-time
+        accountExists:
+          type: boolean
+          description: Whether the invited email already has an account.
 
     InviteAcceptedResponse:
       type: object
@@ -2536,13 +3536,17 @@ components:
         metadata:
           type: object
           additionalProperties: true
+        webhookUrl:
+          type: string
+          nullable: true
+          description: The URL the provider delivers this channel's messages to.
         createdAt:
           type: string
           format: date-time
 
     ContactResponse:
       type: object
-      required: [id, workspaceId, customFields, createdAt, identities]
+      required: [id, workspaceId, customFields, tags, createdAt, identities]
       properties:
         id:
           type: string
@@ -2562,6 +3566,11 @@ components:
             workspace-defined). GET /contacts/{id} additionally merges in an
             auto-derived value for a reserved key that hasn't been explicitly set —
             see that operation's description.
+        tags:
+          type: object
+          description: Tag key to value, limited to the workspace's tag definitions.
+          additionalProperties:
+            type: string
         createdAt:
           type: string
           format: date-time
@@ -2638,6 +3647,10 @@ components:
         contactDisplayName:
           type: string
           nullable: true
+        contactTags:
+          type: object
+          additionalProperties:
+            type: string
         channelAccountId:
           type: string
           format: uuid
@@ -2661,6 +3674,14 @@ components:
         lastMessageAt:
           type: string
           format: date-time
+          nullable: true
+        escalatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set while the AI agent has escalated the conversation to a human.
+        escalationReason:
+          type: string
           nullable: true
         createdAt:
           type: string
@@ -2758,18 +3779,37 @@ components:
           type: string
           description: Free-text description of when this workflow should be triggered (used in the agent system prompt).
 
-    UpdateAiAgentConfigRequest:
+    ExtractionField:
+      type: object
+      required: [key, description]
+      properties:
+        key:
+          type: string
+          description: Contact field key the extracted value is written to.
+        description:
+          type: string
+          description: What the LLM should extract.
+        validationHook:
+          type: string
+          nullable: true
+          description: Key of a built-in or custom hook that checks the value before it's saved.
+
+    UpdateAiAgentConfigurationRequest:
       type: object
       required: [enabled, autonomyCeiling]
       properties:
         name:
           type: string
           maxLength: 100
-          description: Display name for this agent configuration (shown in the AI Agent settings panel).
         enabled:
           type: boolean
         autonomyCeiling:
           $ref: "#/components/schemas/AutonomyCeiling"
+        llmProvider:
+          allOf:
+            - $ref: "#/components/schemas/LlmProvider"
+          nullable: true
+          description: Null uses the instance default.
         instructions:
           type: string
           nullable: true
@@ -2782,15 +3822,19 @@ components:
           type: array
           items:
             type: string
-          description: If any keyword matches the inbound message text the agent escalates immediately (Layer 1 fast-path).
+          description: If any keyword matches the inbound message text the agent escalates immediately.
         workflowMappings:
           type: array
           items:
             $ref: "#/components/schemas/WorkflowMapping"
+        extractionFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtractionField"
 
-    AiAgentConfigResponse:
+    AiAgentConfigurationResponse:
       type: object
-      required: [id, workspaceId, name, enabled, autonomyCeiling, knowledgeBase, escalationKeywords, workflowMappings, createdAt, updatedAt]
+      required: [id, workspaceId, name, isDefault, enabled, autonomyCeiling, knowledgeBase, escalationKeywords, workflowMappings, extractionFields, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -2800,11 +3844,17 @@ components:
           format: uuid
         name:
           type: string
-          description: Display name for this agent configuration.
+        isDefault:
+          type: boolean
+          description: The workspace default handles channels without their own assignment.
         enabled:
           type: boolean
         autonomyCeiling:
           $ref: "#/components/schemas/AutonomyCeiling"
+        llmProvider:
+          allOf:
+            - $ref: "#/components/schemas/LlmProvider"
+          nullable: true
         instructions:
           type: string
           nullable: true
@@ -2820,12 +3870,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkflowMapping"
+        extractionFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtractionField"
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
+
+    PlatformLlmProviderResponse:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          $ref: "#/components/schemas/LlmProvider"
+
+    ChannelAiAgentAssignmentResponse:
+      type: object
+      properties:
+        configurationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null means the channel uses the workspace default.
 
     ConversationAiDraftResponse:
       type: object
@@ -2853,6 +3923,11 @@ components:
           description: >
             Actions the agent suggested alongside the draft.
             Values: `mark_resolved`, `trigger_workflow:<workflowId>`.
+        extractedData:
+          type: object
+          description: Values the agent extracted this turn, keyed by extraction field.
+          additionalProperties:
+            type: string
         createdAt:
           type: string
           format: date-time
@@ -2873,7 +3948,10 @@ components:
           type: boolean
         draftGraph:
           type: object
-          description: React Flow-style workflow graph. Supported node types include trigger, sendMessage, condition, httpRequest, setVariable, waitForReply, jumpTo, and endConversation.
+          description: >-
+            React Flow-style workflow graph; see `schemas/workflow-definition.schema.json`. Node types:
+            trigger, sendMessage, condition, httpRequest, setVariable, setContactField, setContactTag,
+            waitForReply, jumpTo, and endConversation. Only published (`enabled`) workflows run.
           additionalProperties: true
         createdAt:
           type: string
@@ -2903,6 +3981,8 @@ components:
         - CONDITION
         - HTTP_REQUEST
         - SET_VARIABLE
+        - SET_CONTACT_FIELD
+        - SET_CONTACT_TAG
         - END_CONVERSATION
         - WAIT_FOR_REPLY
         - JUMP_TO

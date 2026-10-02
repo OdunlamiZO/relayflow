@@ -399,9 +399,9 @@ public class WorkspaceService {
         channelAccountRepository.softDeleteByWorkspace(workspaceId, now);
         workflowDefinitionRepository.softDeleteByWorkspace(workspaceId, now);
         workspaceMemberRepository.softDeleteByWorkspace(workspaceId, now);
-        conversationAiDraftRepository.deleteByWorkspaceId(workspaceId);
-        aiAgentInvocationLogRepository.deleteByWorkspaceId(workspaceId);
-        aiAgentConfigurationRepository.deleteByWorkspaceId(workspaceId);
+        conversationAiDraftRepository.deleteByWorkspace(workspaceId);
+        aiAgentInvocationLogRepository.deleteByWorkspace(workspaceId);
+        aiAgentConfigurationRepository.deleteByWorkspace(workspaceId);
         workspaceRepository.deleteById(workspaceId);
     }
 

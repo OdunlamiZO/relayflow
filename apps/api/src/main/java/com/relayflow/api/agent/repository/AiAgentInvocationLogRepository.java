@@ -12,8 +12,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface AiAgentInvocationLogRepository extends JpaRepository<AiAgentInvocationLog, UUID> {
 
-    Optional<AiAgentInvocationLog> findByConversationIdAndStatus(
-            UUID conversationId, AiAgentInvocationStatus status);
+    @Query(
+            "select l from AiAgentInvocationLog l where l.conversation.id = :conversationId"
+                    + " and l.status = :status")
+    Optional<AiAgentInvocationLog> findForConversationWithStatus(
+            @Param("conversationId") UUID conversationId,
+            @Param("status") AiAgentInvocationStatus status);
 
     @Query(
             """
@@ -29,5 +33,5 @@ public interface AiAgentInvocationLogRepository extends JpaRepository<AiAgentInv
 
     @Modifying
     @Query("delete from AiAgentInvocationLog l where l.workspace.id = :workspaceId")
-    void deleteByWorkspaceId(@Param("workspaceId") UUID workspaceId);
+    void deleteByWorkspace(@Param("workspaceId") UUID workspaceId);
 }

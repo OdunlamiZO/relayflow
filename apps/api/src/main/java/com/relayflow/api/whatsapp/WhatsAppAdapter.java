@@ -7,6 +7,7 @@ import com.relayflow.api.channel.domain.ChannelAccountStatus;
 import com.relayflow.api.channel.domain.ChannelProvider;
 import com.relayflow.api.channel.repository.ChannelAccountRepository;
 import com.relayflow.api.common.ResourceNotFoundException;
+import com.relayflow.api.contact.ContactAccessService;
 import com.relayflow.api.contact.domain.Contact;
 import com.relayflow.api.contact.domain.ExternalIdentity;
 import com.relayflow.api.contact.repository.ContactRepository;
@@ -82,6 +83,8 @@ public class WhatsAppAdapter {
 
     private final WebhookDispatchService webhookDispatchService;
 
+    private final ContactAccessService contactAccessService;
+
     public WhatsAppAdapter(
             ChannelAccountRepository channelAccountRepository,
             ContactRepository contactRepository,
@@ -92,7 +95,8 @@ public class WhatsAppAdapter {
             CredentialEncryptionService credentialEncryptionService,
             ApplicationEventPublisher eventPublisher,
             ObjectMapper objectMapper,
-            WebhookDispatchService webhookDispatchService) {
+            WebhookDispatchService webhookDispatchService,
+            ContactAccessService contactAccessService) {
         this.channelAccountRepository = channelAccountRepository;
         this.contactRepository = contactRepository;
         this.externalIdentityRepository = externalIdentityRepository;
@@ -103,6 +107,7 @@ public class WhatsAppAdapter {
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
         this.webhookDispatchService = webhookDispatchService;
+        this.contactAccessService = contactAccessService;
     }
 
     // ── Webhook verification ─────────────────────────────────────────────────
@@ -274,6 +279,10 @@ public class WhatsAppAdapter {
         String waId = msg.from();
         Workspace workspace = channelAccount.getWorkspace();
         UUID workspaceId = workspace.getId();
+
+        if (!contactAccessService.isAllowed(workspace, waId)) {
+            return;
+        }
 
         ExternalIdentity identity =
                 externalIdentityRepository

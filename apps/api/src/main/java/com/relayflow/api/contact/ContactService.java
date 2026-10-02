@@ -18,6 +18,8 @@ import com.relayflow.api.messaging.repository.ConversationRepository;
 import com.relayflow.api.webhook.ContactSnapshotBuilder;
 import com.relayflow.api.webhook.WebhookDispatchService;
 import com.relayflow.api.webhook.domain.WebhookEventType;
+import com.relayflow.api.webhook.dto.ContactMergedPayload;
+import com.relayflow.api.webhook.dto.ContactSnapshot;
 import com.relayflow.api.workspace.WorkspaceService;
 import com.relayflow.api.workspace.domain.Workspace;
 import java.util.LinkedHashMap;
@@ -180,7 +182,9 @@ public class ContactService {
                         .filter(c -> c.getWorkspace().getId().equals(workspaceId))
                         .orElseThrow(() -> new ResourceNotFoundException("Contact not found"));
 
+        ContactSnapshot snapshot = ContactSnapshotBuilder.build(contact);
         contactRepository.delete(contact);
+        webhookDispatchService.dispatch(workspaceId, WebhookEventType.CONTACT_DELETED, snapshot);
 
         log.info("Contact deleted: id={}, workspace={}", id, workspaceId);
     }
@@ -244,7 +248,13 @@ public class ContactService {
         externalIdentityRepository.reassignContact(target, sourceId);
         conversationRepository.reassignContact(target, sourceId);
 
+        Map<String, Object> mergedContact = ContactSnapshotBuilder.build(source).contact();
         contactRepository.delete(source);
+        webhookDispatchService.dispatch(
+                workspaceId,
+                WebhookEventType.CONTACT_MERGED,
+                new ContactMergedPayload(
+                        ContactSnapshotBuilder.build(target).contact(), mergedContact));
 
         log.info(
                 "Contacts merged — target={} source={} workspace={}",

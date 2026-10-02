@@ -59,7 +59,7 @@ class SecretServiceTest {
         secret.setName("API_KEY");
         secret.setEncryptedValue(encryptionService.encrypt("sk-super-secret"));
 
-        when(secretRepository.findByWorkspaceIdAndName(workspaceId, "API_KEY"))
+        when(secretRepository.findByWorkspaceAndName(workspaceId, "API_KEY"))
                 .thenReturn(Optional.of(secret));
 
         Optional<String> resolved = service().resolveDecrypted(workspaceId, "API_KEY");
@@ -70,7 +70,7 @@ class SecretServiceTest {
     @Test
     void resolveDecryptedIsEmptyForAnUnknownName() {
         UUID workspaceId = UUID.randomUUID();
-        when(secretRepository.findByWorkspaceIdAndName(workspaceId, "MISSING"))
+        when(secretRepository.findByWorkspaceAndName(workspaceId, "MISSING"))
                 .thenReturn(Optional.empty());
 
         assertThat(service().resolveDecrypted(workspaceId, "MISSING")).isEmpty();

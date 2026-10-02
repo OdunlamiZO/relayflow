@@ -298,7 +298,7 @@ public class MessagingService {
                     new OutboundMessageEvent(message, conversation.getChannelAccount()));
 
             if (message.getSenderType() == MessageSenderType.AGENT) {
-                conversationAiDraftRepository.deleteByConversationId(conversationId);
+                conversationAiDraftRepository.deleteByConversation(conversationId);
                 conversation.setLockedByAiAgent(false);
             }
         }

@@ -28,6 +28,8 @@ export const CHANGELOG_RELEASES: ChangelogRelease[] = [
     date: "2026-10-01",
     changes: {
       added: [
+        "Contact access: accept messages from everyone, or only from whitelisted phone numbers, set in Settings. Telegram users are asked to share their phone number first.",
+        "contact.deleted and contact.merged webhook events.",
         "Contact tags: define tags with a fixed list of values in settings, then set them on a contact's page, with the Set Contact Tag workflow node, or through the public API. Workflows can branch on them.",
       ],
       changed: [

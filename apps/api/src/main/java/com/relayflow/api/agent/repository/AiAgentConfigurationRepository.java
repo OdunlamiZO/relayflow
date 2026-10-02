@@ -11,11 +11,20 @@ import org.springframework.data.repository.query.Param;
 
 public interface AiAgentConfigurationRepository extends JpaRepository<AiAgentConfiguration, UUID> {
 
-    List<AiAgentConfiguration> findAllByWorkspaceId(UUID workspaceId);
+    @Query(
+            "select c from AiAgentConfiguration c where c.workspace.id = :workspaceId"
+                    + " order by c.createdAt asc")
+    List<AiAgentConfiguration> findByWorkspace(@Param("workspaceId") UUID workspaceId);
 
-    Optional<AiAgentConfiguration> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+    @Query(
+            "select c from AiAgentConfiguration c where c.id = :id and c.workspace.id = :workspaceId")
+    Optional<AiAgentConfiguration> findInWorkspace(
+            @Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
 
-    Optional<AiAgentConfiguration> findByWorkspaceIdAndDefaultConfigTrue(UUID workspaceId);
+    @Query(
+            "select c from AiAgentConfiguration c where c.workspace.id = :workspaceId"
+                    + " and c.defaultConfig = true")
+    Optional<AiAgentConfiguration> findDefault(@Param("workspaceId") UUID workspaceId);
 
     @Modifying
     @Query(
@@ -23,5 +32,7 @@ public interface AiAgentConfigurationRepository extends JpaRepository<AiAgentCon
                     + " WHERE c.workspace.id = :workspaceId AND c.defaultConfig = true")
     void clearDefault(@Param("workspaceId") UUID workspaceId);
 
-    void deleteByWorkspaceId(UUID workspaceId);
+    @Modifying
+    @Query("delete from AiAgentConfiguration c where c.workspace.id = :workspaceId")
+    void deleteByWorkspace(@Param("workspaceId") UUID workspaceId);
 }

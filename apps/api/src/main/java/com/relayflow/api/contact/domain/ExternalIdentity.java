@@ -63,6 +63,9 @@ public class ExternalIdentity {
     @Column(length = 200)
     private String username;
 
+    @Column(name = "verified_phone_number", length = 20)
+    private String verifiedPhoneNumber;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "raw_profile", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> rawProfile = new LinkedHashMap<>();
