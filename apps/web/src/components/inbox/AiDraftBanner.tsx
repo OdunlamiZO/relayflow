@@ -1,5 +1,6 @@
 "use client";
 
+import { FormattedText } from "@/components/common/FormattedText";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { useDiscardAiDraft } from "@/hooks/use-discard-ai-draft";
 import { useSendAiDraft } from "@/hooks/use-send-ai-draft";
@@ -66,7 +67,9 @@ export function AiDraftBanner({
       </div>
 
       {!isWorkflowDraft && (
-        <p className="mb-3 text-sm text-neutral-700">{draft.proposedReply}</p>
+        <p className="mb-3 whitespace-pre-wrap text-sm text-neutral-700">
+          <FormattedText text={draft.proposedReply} />
+        </p>
       )}
 
       {isWorkflowDraft && (

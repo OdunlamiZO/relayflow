@@ -1,6 +1,7 @@
 package com.relayflow.api.agent.repository;
 
 import com.relayflow.api.agent.domain.ConversationAiDraft;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,6 +17,10 @@ public interface ConversationAiDraftRepository extends JpaRepository<Conversatio
     @Modifying
     @Query("delete from ConversationAiDraft d where d.conversation.id = :conversationId")
     void deleteByConversation(@Param("conversationId") UUID conversationId);
+
+    @Modifying
+    @Query("delete from ConversationAiDraft d where d.conversation.id in :conversationIds")
+    void deleteByConversations(@Param("conversationIds") Collection<UUID> conversationIds);
 
     @Modifying
     @Query("delete from ConversationAiDraft d where d.workspace.id = :workspaceId")

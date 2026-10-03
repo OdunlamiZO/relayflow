@@ -360,7 +360,7 @@ public class TelegramAdapter {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("chat_id", chatId);
-        body.put("text", text);
+        body.put("text", TelegramFormatter.toHtml(text));
         body.put("parse_mode", "HTML");
 
         if (replyMarkup != null) {

@@ -51,6 +51,13 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     @Query("UPDATE Conversation c SET c.deletedAt = :now WHERE c.workspace.id = :workspaceId")
     void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
 
+    @Query("select c.id from Conversation c where c.contact.id = :contactId")
+    List<UUID> findIdsByContact(@Param("contactId") UUID contactId);
+
+    @Modifying
+    @Query("UPDATE Conversation c SET c.deletedAt = :now WHERE c.contact.id = :contactId")
+    void softDeleteByContact(@Param("contactId") UUID contactId, @Param("now") Instant now);
+
     @Modifying
     @Query("UPDATE Conversation c SET c.contact = :target WHERE c.contact.id = :sourceId")
     void reassignContact(@Param("target") Contact target, @Param("sourceId") UUID sourceId);

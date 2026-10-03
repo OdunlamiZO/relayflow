@@ -2,6 +2,7 @@ package com.relayflow.api.messaging.repository;
 
 import com.relayflow.api.messaging.domain.Message;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -67,4 +68,9 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     @Modifying
     @Query("UPDATE Message m SET m.deletedAt = :now WHERE m.workspace.id = :workspaceId")
     void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
+
+    @Modifying
+    @Query("UPDATE Message m SET m.deletedAt = :now WHERE m.conversation.id in :conversationIds")
+    void softDeleteByConversations(
+            @Param("conversationIds") Collection<UUID> conversationIds, @Param("now") Instant now);
 }

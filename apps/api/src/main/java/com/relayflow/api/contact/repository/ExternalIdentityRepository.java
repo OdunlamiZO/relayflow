@@ -19,6 +19,10 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
     @Query("UPDATE ExternalIdentity e SET e.deletedAt = :now WHERE e.workspace.id = :workspaceId")
     void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
 
+    @Modifying
+    @Query("UPDATE ExternalIdentity e SET e.deletedAt = :now WHERE e.contact.id = :contactId")
+    void softDeleteByContact(@Param("contactId") UUID contactId, @Param("now") Instant now);
+
     /**
      * Finds the identity for a given external user on a specific channel account (bot). Uniqueness
      * is enforced at the channel-account level, not just the provider level — the same Telegram

@@ -95,7 +95,10 @@
               "type": "object",
               "properties": {
                 "label": { "type": "string" },
-                "message": { "type": "string" }
+                "message": {
+                  "type": "string",
+                  "description": "Supports {{variable}} interpolation and WhatsApp-style formatting: *bold*, _italic_, ~strikethrough~, `code`, ```code block```, and lines starting with - or * as bullets."
+                }
               },
               "additionalProperties": true
             }
@@ -251,7 +254,10 @@
               "type": "object",
               "properties": {
                 "label": { "type": "string" },
-                "question": { "type": "string" },
+                "question": {
+                  "type": "string",
+                  "description": "Supports {{variable}} interpolation and WhatsApp-style formatting: *bold*, _italic_, ~strikethrough~, `code`, ```code block```, and lines starting with - or * as bullets."
+                },
                 "responseType": {
                   "type": "string",
                   "enum": ["generic", "defined"]
@@ -301,7 +307,10 @@
               "type": "object",
               "properties": {
                 "label": { "type": "string" },
-                "message": { "type": "string" }
+                "message": {
+                  "type": "string",
+                  "description": "Optional closing message. Supports {{variable}} interpolation and WhatsApp-style formatting: *bold*, _italic_, ~strikethrough~, `code`, ```code block```, and lines starting with - or * as bullets."
+                }
               },
               "additionalProperties": true
             }
@@ -375,6 +384,7 @@
         "variable": { "type": "string" },
         "operator": {
           "type": "string",
+          "default": "eq",
           "enum": [
             "eq",
             "neq",

@@ -1,5 +1,6 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 
+import { OutputLabel } from "./OutputLabel";
 import { WorkflowNode } from "./WorkflowNode";
 
 export type WaitForReplyOption = {
@@ -58,27 +59,24 @@ export function WaitForReplyNode({
         const pct = ((i + 1) / (totalHandles + 1)) * 100;
 
         return (
-          <span
+          <OutputLabel
             key={opt.id}
-            className="absolute -translate-x-1/2 text-[10px] font-semibold leading-none text-blue-text"
-            style={{ left: `${pct}%`, bottom: 8 }}
+            left={`${pct}%`}
+            className="font-semibold text-blue-text"
           >
             {i + 1}
-          </span>
+          </OutputLabel>
         );
       })}
 
       {/* "Other" label — fallback branch when no option matches the reply */}
-      <span
-        className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-neutral-400"
-        style={{
-          left: `${((totalHandles - 1) / (totalHandles + 1)) * 100}%`,
-          bottom: 8,
-        }}
+      <OutputLabel
+        left={`${((totalHandles - 1) / (totalHandles + 1)) * 100}%`}
+        className="text-neutral-400"
         title="No option matched"
       >
         Other
-      </span>
+      </OutputLabel>
 
       <NoReplyLabel left={`${(totalHandles / (totalHandles + 1)) * 100}%`} />
 
@@ -114,18 +112,12 @@ export function WaitForReplyNode({
 
   const validatedFooter = isValidated ? (
     <div className="relative pb-5 pt-1">
-      <span
-        className="absolute -translate-x-1/2 text-[10px] text-green-text"
-        style={{ left: "20%", bottom: 8 }}
-      >
+      <OutputLabel left="20%" className="text-green-text">
         Valid
-      </span>
-      <span
-        className="absolute -translate-x-1/2 text-[10px] text-red-border"
-        style={{ left: "50%", bottom: 8 }}
-      >
+      </OutputLabel>
+      <OutputLabel left="50%" className="text-red-border">
         Invalid
-      </span>
+      </OutputLabel>
       <NoReplyLabel left="80%" />
 
       <Handle
@@ -150,12 +142,9 @@ export function WaitForReplyNode({
 
   const genericFooter = (
     <div className="relative pb-5 pt-1">
-      <span
-        className="absolute -translate-x-1/2 text-[10px] text-neutral-500"
-        style={{ left: "33%", bottom: 8 }}
-      >
+      <OutputLabel left="33%" className="text-neutral-500">
         Reply
-      </span>
+      </OutputLabel>
       <NoReplyLabel left="67%" />
 
       <Handle
@@ -213,13 +202,13 @@ export function WaitForReplyNode({
 
 function NoReplyLabel({ left }: { left: string }) {
   return (
-    <span
-      className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-yellow-text"
-      style={{ left, bottom: 8 }}
+    <OutputLabel
+      left={left}
+      className="text-yellow-text"
       title="No reply before the timeout"
     >
       No reply
-    </span>
+    </OutputLabel>
   );
 }
 

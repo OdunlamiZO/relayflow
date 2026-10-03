@@ -1,6 +1,6 @@
 # RelayFlow
 
-Product Requirements and Technical Strategy | Updated October 2, 2026
+Product Requirements and Technical Strategy | Updated October 3, 2026
 
 ## 1. Product Summary
 
@@ -130,7 +130,7 @@ Prove that RelayFlow can normalize Telegram and WhatsApp conversations into a ch
 ### 7.1 Implemented Nodes
 
 - Trigger: starts from conversation_opened.
-- Send Message: sends an outbound workflow message through the channel adapter.
+- Send Message: sends an outbound workflow message through the channel adapter, with bold, italic, strikethrough, code, and bulleted-list formatting on both channels.
 - Condition: supports multiple branches and comparison operators.
 - HTTP Request: supports method, URL, headers, body, content type, timeout, success/error branches, status variable, and JSON response mappings.
 - Set Variable: creates or overwrites a variable.

@@ -5,6 +5,8 @@ import { useState } from "react";
 
 import { type Node, useReactFlow } from "@xyflow/react";
 
+import { FormattedText } from "@/components/common/FormattedText";
+import { IconButton } from "@/components/common/IconButton";
 import { Select } from "@/components/common/Select";
 import { type SelectOption } from "@/components/common/Select";
 import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
@@ -12,6 +14,11 @@ import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
 import { useHooks } from "@/hooks/use-hooks";
 import { useSecrets } from "@/hooks/use-secrets";
 import { useWorkspace } from "@/hooks/use-workspaces";
+import {
+  type FormattingMarker,
+  bulletLines,
+  wrapSelection,
+} from "@/lib/message-formatting";
 import {
   type ContactTagDefinition,
   RESERVED_CONTACT_FIELDS,
@@ -126,6 +133,77 @@ function insertAtCursor(
   }
 }
 
+const FORMATTING_ACTIONS: {
+  marker: FormattingMarker;
+  icon: string;
+  label: string;
+}[] = [
+  { marker: "*", icon: "format_bold", label: "Bold" },
+  { marker: "_", icon: "format_italic", label: "Italic" },
+  { marker: "~", icon: "strikethrough_s", label: "Strikethrough" },
+  { marker: "`", icon: "code", label: "Code" },
+  { marker: "```", icon: "data_object", label: "Code block" },
+];
+
+function FormattingToolbar({
+  textareaRef,
+  value,
+  onChange,
+}: {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  function applyMarker(marker: FormattingMarker) {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? value.length;
+    const end = textarea?.selectionEnd ?? value.length;
+    const wrapped = wrapSelection(value, start, end, marker);
+
+    onChange(wrapped.value);
+
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(wrapped.selectionStart, wrapped.selectionEnd);
+    });
+  }
+
+  function applyBullets() {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? value.length;
+    const end = textarea?.selectionEnd ?? value.length;
+    const bulleted = bulletLines(value, start, end);
+
+    onChange(bulleted.value);
+
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(
+        bulleted.selectionStart,
+        bulleted.selectionEnd
+      );
+    });
+  }
+
+  return (
+    <div className="mb-1 flex items-center gap-0.5">
+      {FORMATTING_ACTIONS.map((action) => (
+        <IconButton
+          key={action.marker}
+          icon={action.icon}
+          label={action.label}
+          onClick={() => applyMarker(action.marker)}
+        />
+      ))}
+      <IconButton
+        icon="format_list_bulleted"
+        label="Bulleted list"
+        onClick={applyBullets}
+      />
+    </div>
+  );
+}
+
 // ─── field helpers ────────────────────────────────────────────────────────────
 
 function Field({
@@ -186,33 +264,73 @@ function SendMessageForm({
   onChange: (u: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
+  return (
+    <FormattedMessageField
+      label="Message"
+      value={(data.message as string) ?? ""}
+      onChange={(message) => onChange({ message })}
+      variables={variables}
+      placeholder="Type your message… use {{variable}} to insert values"
+      rows={4}
+    />
+  );
+}
+
+function FormattedMessageField({
+  label,
+  value,
+  onChange,
+  variables,
+  placeholder,
+  rows,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  variables: WorkflowVariable[];
+  placeholder: string;
+  rows: number;
+}) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const message = (data.message as string) ?? "";
 
   return (
     <Field
-      label="Message"
+      label={label}
       action={
         <VariablePicker
           variables={variables}
           onSelect={(name) =>
-            insertAtCursor(textareaRef.current, message, `{{${name}}}`, (v) =>
-              onChange({ message: v })
-            )
+            insertAtCursor(textareaRef.current, value, `{{${name}}}`, onChange)
           }
         />
       }
     >
+      <FormattingToolbar
+        textareaRef={textareaRef}
+        value={value}
+        onChange={onChange}
+      />
       <textarea
         ref={textareaRef}
-        value={message}
-        onChange={(e) => onChange({ message: e.target.value })}
-        placeholder="Type your message… use {{variable}} to insert values"
-        rows={4}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
         className={`${inputCls} resize-none`}
       />
 
-      <FilterWarning text={message} />
+      <FilterWarning text={value} />
+
+      {value.trim() && (
+        <div className="mt-2 rounded-lg border border-neutral-300 bg-neutral-200 px-3 py-2">
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+            Preview
+          </p>
+          <p className="m-0 whitespace-pre-wrap break-words text-sm text-neutral-800">
+            <FormattedText text={value} />
+          </p>
+        </div>
+      )}
     </Field>
   );
 }
@@ -231,6 +349,8 @@ const CONDITION_OPERATORS: { value: ConditionOperator; label: string }[] = [
   { value: "is_set", label: "Is set" },
   { value: "is_not_set", label: "Is not set" },
 ];
+
+const DEFAULT_CONDITION_OPERATOR: ConditionOperator = "eq";
 
 /** Operators that compare against a value — the value field is hidden for the rest. */
 const NO_VALUE_OPERATORS = new Set<ConditionOperator>(["is_set", "is_not_set"]);
@@ -279,7 +399,7 @@ function ConditionForm({
   function getConditions(branch: ConditionBranch): ConditionRule[] {
     return branch.conditions && branch.conditions.length > 0
       ? branch.conditions
-      : [{ id: "cond-0" }];
+      : [{ id: "cond-0", operator: DEFAULT_CONDITION_OPERATOR }];
   }
 
   function updateCondition(
@@ -296,7 +416,10 @@ function ConditionForm({
 
   function addCondition(branch: ConditionBranch) {
     updateBranch(branch.id, {
-      conditions: [...getConditions(branch), { id: `cond-${Date.now()}` }],
+      conditions: [
+        ...getConditions(branch),
+        { id: `cond-${Date.now()}`, operator: DEFAULT_CONDITION_OPERATOR },
+      ],
     });
   }
 
@@ -453,7 +576,9 @@ function ConditionForm({
 
                       <Field label="Operator">
                         <Select
-                          value={condition.operator ?? "eq"}
+                          value={
+                            condition.operator ?? DEFAULT_CONDITION_OPERATOR
+                          }
                           onChange={(v) =>
                             updateCondition(branch, condition.id, {
                               operator: v as ConditionOperator,
@@ -1093,35 +1218,16 @@ function EndConversationForm({
   onChange: (u: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const message = (data.message as string) ?? "";
-
   return (
     <>
-      <Field
+      <FormattedMessageField
         label="Closing message (optional)"
-        action={
-          <VariablePicker
-            variables={variables}
-            onSelect={(name) =>
-              insertAtCursor(textareaRef.current, message, `{{${name}}}`, (v) =>
-                onChange({ message: v })
-              )
-            }
-          />
-        }
-      >
-        <textarea
-          ref={textareaRef}
-          value={message}
-          onChange={(e) => onChange({ message: e.target.value })}
-          placeholder="Type a closing message… or leave empty to close silently"
-          rows={4}
-          className={`${inputCls} resize-none`}
-        />
-
-        <FilterWarning text={message} />
-      </Field>
+        value={(data.message as string) ?? ""}
+        onChange={(message) => onChange({ message })}
+        variables={variables}
+        placeholder="Type a closing message… or leave empty to close silently"
+        rows={4}
+      />
 
       <p className="text-xs text-neutral-400">
         Closes the conversation. No further steps will run after this node.
@@ -1149,7 +1255,6 @@ function WaitForReplyForm({
   variables: WorkflowVariable[];
 }) {
   const { setEdges, getNodes } = useReactFlow();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const question = (data.question as string) ?? "";
   const responseType = (data.responseType as string) ?? "generic";
@@ -1192,33 +1297,14 @@ function WaitForReplyForm({
 
   return (
     <>
-      <Field
+      <FormattedMessageField
         label="Question"
-        action={
-          <VariablePicker
-            variables={variables}
-            onSelect={(name) =>
-              insertAtCursor(
-                textareaRef.current,
-                question,
-                `{{${name}}}`,
-                (v) => onChange({ question: v })
-              )
-            }
-          />
-        }
-      >
-        <textarea
-          ref={textareaRef}
-          value={question}
-          onChange={(e) => onChange({ question: e.target.value })}
-          placeholder="e.g. What can I help you with today?"
-          rows={3}
-          className={`${inputCls} resize-none`}
-        />
-
-        <FilterWarning text={question} />
-      </Field>
+        value={question}
+        onChange={(v) => onChange({ question: v })}
+        variables={variables}
+        placeholder="e.g. What can I help you with today?"
+        rows={3}
+      />
 
       <Field label="Expected response">
         <Select

@@ -76,10 +76,13 @@ public class ConditionNodeExecutor implements NodeExecutor {
 
     private boolean evaluateCondition(Map<String, Object> condition, ExecutionContext context) {
         String variable = (String) condition.get("variable");
-        String operator = (String) condition.get("operator");
+        String operator =
+                condition.get("operator") instanceof String configured && !configured.isBlank()
+                        ? configured
+                        : "eq";
         String value = (String) condition.get("value");
 
-        if (variable == null || variable.isBlank() || operator == null) {
+        if (variable == null || variable.isBlank()) {
             return false;
         }
 

@@ -274,7 +274,6 @@ public class WorkflowGraphValidator {
 
             for (Map<String, Object> condition : conditions) {
                 String variable = (String) condition.get("variable");
-                String operator = (String) condition.get("operator");
 
                 if (variable == null || variable.isBlank()) {
                     throw new WorkflowValidationException(
@@ -283,15 +282,6 @@ public class WorkflowGraphValidator {
                                     + "' on node "
                                     + labelOf(node)
                                     + " has no variable selected");
-                }
-
-                if (operator == null || operator.isBlank()) {
-                    throw new WorkflowValidationException(
-                            "A condition in branch '"
-                                    + branchLabel
-                                    + "' on node "
-                                    + labelOf(node)
-                                    + " has no operator selected");
                 }
             }
         }

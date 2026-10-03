@@ -1,5 +1,6 @@
 package com.relayflow.api.contact;
 
+import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.channel.ChannelAccountService;
 import com.relayflow.api.channel.domain.ChannelAccount;
 import com.relayflow.api.common.MapUtils;
@@ -15,13 +16,19 @@ import com.relayflow.api.contact.dto.ExternalIdentityResponse;
 import com.relayflow.api.contact.repository.ContactRepository;
 import com.relayflow.api.contact.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.repository.ConversationRepository;
+import com.relayflow.api.messaging.repository.MessageRepository;
+import com.relayflow.api.sse.SseBroadcastEvent;
+import com.relayflow.api.sse.SseEventType;
 import com.relayflow.api.webhook.ContactSnapshotBuilder;
 import com.relayflow.api.webhook.WebhookDispatchService;
 import com.relayflow.api.webhook.domain.WebhookEventType;
 import com.relayflow.api.webhook.dto.ContactMergedPayload;
 import com.relayflow.api.webhook.dto.ContactSnapshot;
+import com.relayflow.api.workflow.domain.WorkflowRunStatus;
+import com.relayflow.api.workflow.repository.WorkflowRunRepository;
 import com.relayflow.api.workspace.WorkspaceService;
 import com.relayflow.api.workspace.domain.Workspace;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +37,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +65,14 @@ public class ContactService {
 
     private final ContactTagService contactTagService;
 
+    private final MessageRepository messageRepository;
+
+    private final WorkflowRunRepository workflowRunRepository;
+
+    private final ConversationAiDraftRepository conversationAiDraftRepository;
+
+    private final ApplicationEventPublisher eventPublisher;
+
     public ContactService(
             ContactRepository contactRepository,
             ExternalIdentityRepository externalIdentityRepository,
@@ -66,7 +82,11 @@ public class ContactService {
             ChannelAccountService channelAccountService,
             ReservedContactFieldResolver reservedContactFieldResolver,
             WebhookDispatchService webhookDispatchService,
-            ContactTagService contactTagService) {
+            ContactTagService contactTagService,
+            MessageRepository messageRepository,
+            WorkflowRunRepository workflowRunRepository,
+            ConversationAiDraftRepository conversationAiDraftRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.contactRepository = contactRepository;
         this.externalIdentityRepository = externalIdentityRepository;
         this.conversationRepository = conversationRepository;
@@ -76,6 +96,10 @@ public class ContactService {
         this.reservedContactFieldResolver = reservedContactFieldResolver;
         this.webhookDispatchService = webhookDispatchService;
         this.contactTagService = contactTagService;
+        this.messageRepository = messageRepository;
+        this.workflowRunRepository = workflowRunRepository;
+        this.conversationAiDraftRepository = conversationAiDraftRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -176,17 +200,42 @@ public class ContactService {
 
     @Transactional
     public void deleteContact(UUID id, UUID workspaceId) {
-        Contact contact =
-                contactRepository
-                        .findById(id)
-                        .filter(c -> c.getWorkspace().getId().equals(workspaceId))
-                        .orElseThrow(() -> new ResourceNotFoundException("Contact not found"));
-
+        Contact contact = getContact(id, workspaceId);
         ContactSnapshot snapshot = ContactSnapshotBuilder.build(contact);
+        List<UUID> conversationIds = conversationRepository.findIdsByContact(id);
+        Instant now = Instant.now();
+
+        if (!conversationIds.isEmpty()) {
+            conversationAiDraftRepository.deleteByConversations(conversationIds);
+            workflowRunRepository.failActiveForConversations(
+                    conversationIds,
+                    List.of(WorkflowRunStatus.RUNNING, WorkflowRunStatus.WAITING),
+                    WorkflowRunStatus.FAILED,
+                    "Contact was deleted",
+                    now);
+            messageRepository.softDeleteByConversations(conversationIds, now);
+            conversationRepository.softDeleteByContact(id, now);
+        }
+
+        externalIdentityRepository.softDeleteByContact(id, now);
         contactRepository.delete(contact);
         webhookDispatchService.dispatch(workspaceId, WebhookEventType.CONTACT_DELETED, snapshot);
 
-        log.info("Contact deleted: id={}, workspace={}", id, workspaceId);
+        conversationIds.forEach(
+                conversationId ->
+                        eventPublisher.publishEvent(
+                                new SseBroadcastEvent(
+                                        workspaceId,
+                                        SseEventType.CONVERSATION_UPDATED,
+                                        Map.of(
+                                                "workspaceId", workspaceId.toString(),
+                                                "conversationId", conversationId.toString()))));
+
+        log.info(
+                "Contact deleted: id={}, workspace={}, conversations={}",
+                id,
+                workspaceId,
+                conversationIds.size());
     }
 
     @Transactional
