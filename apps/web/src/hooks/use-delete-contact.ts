@@ -12,6 +12,9 @@ export function useDeleteContact(workspaceId: string) {
       void queryClient.invalidateQueries({
         queryKey: ["contacts", workspaceId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["conversations", workspaceId],
+      });
     },
   });
 }

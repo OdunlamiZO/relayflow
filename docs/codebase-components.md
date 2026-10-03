@@ -1051,7 +1051,7 @@ Business service for contact and external identity persistence.
 Important methods:
 
 - `listContacts`, `createContact`, `getContactDetail`
-- `deleteContact`: sends `contact.deleted`.
+- `deleteContact`: in one transaction, discards the contact's AI drafts, fails their `RUNNING`/`WAITING` workflow runs ("Contact was deleted"), soft-deletes their messages, conversations, and external identities, then the contact; sends `contact.deleted` and a `conversation.updated` SSE event per removed conversation. With the identities gone, a returning sender becomes a new contact (V10 limits the identity unique index to non-deleted rows).
 - `mergeContacts`: moves the source's identities and conversations to the target, deletes the source, and sends `contact.merged`.
 - `updateContactCustomFields`: replaces `Contact.customFields`, calls `ContactDisplayNameSync.apply(contact)` (so manually editing `firstName`/`lastName` keeps `displayName` in sync, the same as the AI extraction and workflow Set Contact Field paths), then returns `getContactDetail`.
 - `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
@@ -1122,7 +1122,8 @@ We need these records to keep frontend/backend data exchange explicit and stable
 ## Contact Repositories
 
 - `ContactRepository`
-- `ExternalIdentityRepository`
+- `ExternalIdentityRepository` — includes `softDeleteByContact`, used when a contact is deleted.
+- `WhitelistedPhoneNumberRepository` — `findByWorkspace` (newest first), `findInWorkspace`, `findExisting` (which of a set of numbers are already listed), `existsByWorkspaceAndPhoneNumber`.
 
 These are Spring Data persistence interfaces. Their custom query methods express workspace scoping, pagination, contact merge reassignment, and cleanup deletes.
 
@@ -1246,8 +1247,8 @@ We need these records to keep frontend/backend data exchange explicit and stable
 
 ## Messaging Repositories
 
-- `ConversationRepository`
-- `MessageRepository`
+- `ConversationRepository` — includes `findIdsByContact` and `softDeleteByContact`, used when a contact is deleted.
+- `MessageRepository` — includes `softDeleteByConversations`, used when a contact is deleted.
 
 These are Spring Data persistence interfaces. Their custom query methods express workspace scoping, conversation lookup, message cursors, and cleanup deletes.
 
@@ -1338,6 +1339,8 @@ Important fields:
 
 We need it to persist webhook delivery settings and encrypted signing secrets.
 
+`WorkspaceWebhookRepository` (in `com.relayflow.api.webhook`) has `findByWorkspace` and `findInWorkspace`.
+
 ### `WebhookEventType`
 
 Enum of outbound webhook event types, in `com.relayflow.api.webhook.domain` alongside `WorkspaceWebhook`.
@@ -1424,7 +1427,7 @@ Important methods:
 - `handleWebhook`: accepts dedicated bot updates.
 - `processInboundMessage`: normalizes a Telegram message into contact, external identity, conversation, and message records.
 - `onOutboundMessage`: listens for outbound messages and sends them through Telegram.
-- `sendTelegramMessage`: calls Telegram Bot API with retry and attaches a one-time reply keyboard when button options are present.
+- `sendTelegramMessage`: converts the text with `TelegramFormatter` and calls Telegram Bot API (`parse_mode: HTML`) with retry, attaching a one-time reply keyboard when button options are present.
 - `sendTelegramMessageQuietly`: best-effort bot replies for linking/error hints.
 - `createIdentity`, `createConversation`, `buildDisplayName`: helper methods for inbound normalization.
 - `admitThroughWhitelist`: in a whitelist-only workspace, asks an unknown sender to share their phone number (`request_contact` keyboard). A shared, whitelisted number is saved as the identity's `verifiedPhoneNumber` (creating the contact if needed) and copied to the contact's `phone` field; any other number is told it isn't registered and nothing is stored. Saved contacts are checked by `verifiedPhoneNumber`, so one without it is asked to share their number.
@@ -1437,6 +1440,12 @@ We need it to keep Telegram-specific behavior out of the channel-agnostic messag
 Registers a Telegram webhook for a dedicated bot token.
 
 We need it so workspace-owned Telegram bots can receive inbound updates automatically.
+
+### `TelegramFormatter`
+
+`toHtml(text)` converts WhatsApp-style formatting to Telegram HTML: `*bold*` → `<b>`, `_italic_` → `<i>`, `~strike~` → `<s>`, `` `code` `` → `<code>`, ```` ```block``` ```` → `<pre>`, and a line starting with `- ` or `* ` → `• `. Everything else is HTML-escaped. A marker only counts at a word boundary with no space just inside it, styles don't span lines, nothing inside code is formatted, and the earliest outermost match wins so tags never overlap. The same rules are in the web app's `message-formatting.ts`.
+
+We need it so one message text formats the same on WhatsApp (which reads these markers natively) and Telegram, and so `<` or `&` in a message can't make Telegram reject it.
 
 ### `TelegramSendException`
 
@@ -1569,7 +1578,7 @@ Important validation rules:
 - every node is reachable from the trigger.
 - Jump To links count as reachability paths even though they are stored in node data rather than edges.
 - every condition branch has an edge.
-- every non-last condition branch has at least one condition configured, and every condition has an operator selected — the last branch is exempt from both (see `ConditionNodeExecutor` — it's the implicit fallback and its conditions are never evaluated).
+- every non-last condition branch has at least one condition configured, and every condition has a variable selected — the last branch is exempt from both. A condition without an operator means "is equal to", in the editor and the engine (see `ConditionNodeExecutor` — it's the implicit fallback and its conditions are never evaluated).
 - the required node content exists.
 - defined Ask Question options and "Other" branch are connected.
 - Jump To nodes have a configured target, cannot target themselves, and reference an existing node.
@@ -1825,7 +1834,7 @@ We need it because the trigger is part of the graph and must be recorded/travers
 
 ### `SendMessageNodeExecutor`
 
-Interpolates the node's message and sends it through `WorkflowMessageSender`.
+Interpolates the node's message and sends it through `WorkflowMessageSender`. The text may use WhatsApp-style formatting, which the Telegram adapter converts.
 
 We need it to let workflows respond to contacts through the active channel.
 
@@ -1994,13 +2003,13 @@ DTOs: `SaveHookRequest`, `HookResponse`, `BuiltInHookResponse`, `TestHookRequest
 ## Workflow Repositories
 
 - `WorkflowDefinitionRepository`
-- `WorkflowRunRepository`
+- `WorkflowRunRepository` — includes `failActiveForConversations`, which fails `RUNNING`/`WAITING` runs when their contact is deleted.
 - `WorkflowRunStepRepository`
 - `HookRepository` — includes `findWorkflowNamesReferencing` and `findAiAgentNamesReferencing`, native queries over `workflow_definitions.draft_graph` and `ai_agent_configs.extraction_fields` used to block deleting a hook still in use.
 
 These persist workflow definitions and execution logs.
 
-We need them for builder state, runtime lookup, waiting-run resume, and future run log UI.
+We need them for builder state, runtime lookup, waiting-run resume, and the run logs UI.
 
 ## Frontend Route Components
 
@@ -2064,7 +2073,7 @@ We need them for the workspace contact-management surface.
 
 ### Invite Pages
 
-- `invite/page.tsx`: reads `?token=` from the query string, loads the invite preview server-side, and renders `InviteAcceptCard`.
+- `invite/page.tsx`: reads `?token=` from the query string, loads the invite preview server-side, and renders `InviteAcceptCard`. An accepted, expired, or revoked invite shows `InviteStatusMessage` instead (also used by the signup page).
 
 We need it so invited users can inspect and accept workspace invitations.
 
@@ -2103,6 +2112,12 @@ Important values:
 
 We need it for consistent loading states.
 
+### `LoadingButton`
+
+A `<button>` that shows a spinner and disables itself while `isLoading`, passing every other button prop through. Used for save, submit, and confirm actions.
+
+We need it so pending actions look the same everywhere and can't be submitted twice.
+
 ### `EmptyState`
 
 Reusable empty-state component with icon, title, description, and optional action.
@@ -2120,6 +2135,10 @@ We need it before operations like channel disconnect.
 Icon-only button (`icon`, `label`, `onClick`, optional `destructive` and `disabled`). Grey icon with no background; on hover it darkens, or turns red when `destructive`. `label` is both the tooltip and the accessible name.
 
 We need it so every edit, delete, and similar icon action looks and behaves the same.
+
+### `FormattedText`
+
+Renders message text with WhatsApp-style formatting (bold, italic, strikethrough, code, code block) as React elements, using `parseFormattedText` from `lib/message-formatting.ts`. Used by `MessageBubble`, `AiDraftBanner`, and the Send Message node preview.
 
 ### `DesktopOnly`
 
@@ -2284,7 +2303,7 @@ We need it as the main reading/reply surface.
 
 ### `MessageBubble`
 
-Renders one message bubble.
+Renders one message bubble, with its text formatted by `FormattedText`.
 
 Important function:
 
@@ -2576,6 +2595,7 @@ Important constants:
 Important form parts:
 
 - `TriggerForm`
+- `FormattedMessageField`: a message box with a variable picker, a formatting toolbar (`FormattingToolbar`: bold, italic, strikethrough, code, code block, bulleted list), and a live preview. Used for Send Message's message, Ask Question's question, and End Conversation's closing message.
 - `SendMessageForm`
 - `ConditionForm`
 - `KeyValueEditor`
@@ -2605,6 +2625,20 @@ Important values/components:
 - `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter). The `allowFilters` prop turns off the `AA`/`aa`/`Aa` buttons for a section — used for Secrets, since a case transform on a credential value doesn't make sense.
 
 We need it so users can discover and insert valid `{{variable}}` placeholders without memorizing names, grouped so contact data, AI-agent data, and workflow-local variables aren't all mixed into one undifferentiated list.
+
+### `RunsShell`
+
+Run logs page for one workflow (`/workflows/{id}/runs`): a header linking back to the editor, `RunsList` on the left, and `RunDetail` for the selected run.
+
+### `RunsList`
+
+Paginated run history (`useWorkflowRuns`), newest first, with a status badge per run. Selecting a run shows it in `RunDetail`.
+
+### `RunDetail`
+
+One run's status, timing, and error, plus each step's input and output snapshots (`useWorkflowRun`). Each step's variables are shown as changes from the previous step.
+
+We need these so operators can see exactly what a workflow did and why.
 
 ### `WorkflowsShell`
 
@@ -2700,6 +2734,20 @@ Important type:
 
 We need it to represent a workflow deliberately writing a contact field, distinct from Set Variable (run-scoped, not persisted).
 
+### `SetContactTagNode`
+
+Visual node for setting or clearing a contact tag (`tagKey`, `value`; a blank value clears the tag).
+
+Important type:
+
+- `SetContactTagNodeData`
+
+We need it so workflows can label contacts with controlled values.
+
+### `OutputLabel`
+
+Label drawn under a node's output handle (`left` position, colour class, optional `title`). Every branching node (Condition, HTTP Request, Ask Question) uses it, so labels share one size, line height, and baseline.
+
 ### `WaitForReplyNode`
 
 Visual Ask Question node. Open-ended mode has a reply output (no handle id); with a `validationHook` it has `valid` / `invalid` instead; defined mode has one handle per option plus `default` ("Other"). Every mode also has a `noReply` handle, labelled "No reply", followed when the question times out.
@@ -2774,6 +2822,7 @@ We need them to keep profile/security mutations outside the profile component.
 - `useWorkspace`: selects one workspace from the cached list.
 - `useCreateWorkspace`: creates a workspace and invalidates workspace queries.
 - `useUpdateWorkspace`: renames a workspace and invalidates workspace queries.
+- `useUpdateContactFieldDefinitions` / `useUpdateContactTagDefinitions`: save the workspace's contact field and tag definitions.
 - `useUpdateContactAccess`: saves who can message and the default country, and invalidates workspace queries.
 - `useWhitelist`: fetches the workspace's whitelisted phone numbers.
 - `useAddToWhitelist` / `useRemoveFromWhitelist`: add numbers to or remove one from the whitelist.
@@ -2808,12 +2857,15 @@ We need them for settings/channel management.
 - `useContact`: fetches one contact detail.
 - `useDeleteContact`: deletes a contact and invalidates contact caches.
 - `useMergeContact`: merges contacts and invalidates affected caches.
+- `useUpdateContactCustomFields`: saves a contact's field values.
+- `useUpdateContactTags`: sets or clears a contact's tags.
 
 We need them for contact-management screens.
 
 ### Inbox Hooks
 
 - `useConversations`: infinite query for conversations.
+- `useUpdateConversationAssignee`: assigns or unassigns a conversation.
 - `useMessages`: infinite query for messages.
 - `useSendMessage`: creates outbound messages and invalidates conversation/message caches.
 - `useUpdateConversation`: changes conversation status.
@@ -2848,6 +2900,9 @@ We need them to keep AI agent API access outside UI components and consistent wi
 - `useWorkflow`: fetches one workflow.
 - `useCreateWorkflow`: creates a workflow and updates workflow caches.
 - `useSaveWorkflow`: patches workflow name, graph, and enabled state.
+- `useRenameWorkflow` / `useDeleteWorkflow`: rename or delete a workflow from the list.
+- `useWorkflowRuns`: paginated run history for a workflow.
+- `useWorkflowRun`: one run with its steps.
 
 We need them to keep workflow builder API access outside UI components.
 
@@ -2871,6 +2926,12 @@ We need them to keep workflow builder API access outside UI components.
 We need them for API key and webhook settings without embedding fetch logic in components.
 
 ## Frontend API Libraries
+
+### `message-formatting.ts`
+
+- `parseFormattedText(text)`: parses WhatsApp-style markers into a tree of text, bold, italic, strike, code, and code block nodes (with `- ` / `* ` line starts shown as `• `), with the same rules as the API's `TelegramFormatter`.
+- `bulletLines(value, start, end)`: adds `- ` to each selected line (or the current line) that isn't already a bullet.
+- `wrapSelection(value, start, end, marker)`: wraps the selected text in a marker (a code block goes on its own lines) and returns the new value and selection.
 
 ### `authentication-api.ts`
 
@@ -3369,7 +3430,7 @@ Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getClient(
 
 - `AiAgentConfigurationRepository`: `findByWorkspace` (oldest first), `findInWorkspace`, `findDefault`, `clearDefault(workspaceId)` (`@Modifying` — unsets `is_default` for every config in the workspace, called before flagging a new default), `deleteByWorkspace`.
 - `AiAgentInvocationLogRepository`: `findForConversationWithStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query), `deleteByWorkspace`.
-- `ConversationAiDraftRepository`: `findByConversation`, `deleteByConversation`, `deleteByWorkspace`.
+- `ConversationAiDraftRepository`: `findByConversation`, `deleteByConversation`, `deleteByConversations`, `deleteByWorkspace`.
 - A channel's own assignment is read directly off `ChannelAccount` via `ChannelAccountRepository.findAiAgentConfiguration(channelAccountId)`, not through `AiAgentConfigurationRepository`.
 
 ## AI Agent Frontend Components
@@ -3418,7 +3479,6 @@ It detects whether the draft carries a `trigger_workflow:<id>` entry in `suggest
 Button row uses `flex-wrap` for mobile responsiveness. All buttons disabled while any mutation is pending.
 
 We need it so agents can send AI replies, trigger AI-suggested workflows, or discard — all from the inbox without leaving the conversation.
-
 
 ## `apps/marketing`
 

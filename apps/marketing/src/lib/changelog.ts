@@ -25,11 +25,17 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
     version: "1.0.8",
-    date: "2026-10-02",
+    date: "2026-10-03",
     changes: {
       added: [
         "Contact access: accept messages from everyone, or only from whitelisted phone numbers. Telegram users are asked to share their phone number first.",
         "contact.deleted and contact.merged webhook events.",
+        "Message formatting: *bold*, _italic_, ~strikethrough~, `code`, code blocks, and - bullets work the same on WhatsApp and Telegram, in workflow messages and replies alike.",
+      ],
+      fixed: [
+        "Telegram rejected any message containing < or &, so it was never delivered.",
+        "A Condition rule left on the default \"Is equal to\" operator wasn't saved, so the workflow couldn't be published and the rule never matched.",
+        "Deleting a contact left their conversations in the inbox, and if they messaged again their messages went to the deleted contact. Deleting a contact now removes their conversations, and a returning sender starts as a new contact.",
       ],
     },
   },

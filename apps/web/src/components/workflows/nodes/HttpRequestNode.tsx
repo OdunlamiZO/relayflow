@@ -1,5 +1,6 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 
+import { OutputLabel } from "./OutputLabel";
 import { WorkflowNode } from "./WorkflowNode";
 
 export type HttpHeader = { id: string; key: string; value: string };
@@ -34,18 +35,12 @@ export function HttpRequestNode({
 }: NodeProps<HttpRequestNodeType>) {
   const footer = (
     <div className="relative pb-5 pt-1">
-      <span
-        className="absolute -translate-x-1/2 text-[10px] text-green-text"
-        style={{ left: "25%", bottom: 8 }}
-      >
+      <OutputLabel left="25%" className="text-green-text">
         Success
-      </span>
-      <span
-        className="absolute -translate-x-1/2 text-[10px] text-red-border"
-        style={{ left: "75%", bottom: 8 }}
-      >
+      </OutputLabel>
+      <OutputLabel left="75%" className="text-red-border">
         Error
-      </span>
+      </OutputLabel>
 
       <Handle
         type="source"

@@ -3,6 +3,7 @@ package com.relayflow.api.workflow.repository;
 import com.relayflow.api.workflow.domain.WorkflowRun;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,20 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
     List<WorkflowRun> findForConversationWithStatus(
             @Param("conversationId") UUID conversationId,
             @Param("status") WorkflowRunStatus status);
+
+    @Modifying
+    @Query(
+            """
+            update WorkflowRun r
+            set r.status = :failed, r.finishedAt = :now, r.errorMessage = :reason
+            where r.conversation.id in :conversationIds and r.status in :activeStatuses
+            """)
+    void failActiveForConversations(
+            @Param("conversationIds") Collection<UUID> conversationIds,
+            @Param("activeStatuses") Collection<WorkflowRunStatus> activeStatuses,
+            @Param("failed") WorkflowRunStatus failed,
+            @Param("reason") String reason,
+            @Param("now") Instant now);
 
     /**
      * Loads a single run with its workflow definition and conversation eagerly — used when resuming

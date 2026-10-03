@@ -1,5 +1,6 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 
+import { OutputLabel } from "./OutputLabel";
 import { WorkflowNode } from "./WorkflowNode";
 
 export type ConditionOperator =
@@ -61,13 +62,13 @@ export function ConditionNode({
         const pct = ((i + 1) / (branchCount + 1)) * 100;
 
         return (
-          <span
+          <OutputLabel
             key={branch.id}
-            className="absolute -translate-x-1/2 text-[10px] font-semibold leading-none text-yellow-text"
-            style={{ left: `${pct}%`, bottom: 8 }}
+            left={`${pct}%`}
+            className="font-semibold text-yellow-text"
           >
             {i + 1}
-          </span>
+          </OutputLabel>
         );
       })}
 

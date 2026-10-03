@@ -1,3 +1,4 @@
+import { FormattedText } from "@/components/common/FormattedText";
 import type { Message } from "@/lib/messaging-api";
 
 type Props = {
@@ -26,7 +27,7 @@ export function MessageBubble({ message }: Props) {
       >
         {message.text && (
           <p className="m-0 whitespace-pre-wrap text-sm leading-relaxed">
-            {message.text}
+            <FormattedText text={message.text} />
           </p>
         )}
 

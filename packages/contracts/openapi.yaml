@@ -1230,6 +1230,11 @@ paths:
     delete:
       operationId: deleteContact
       summary: Delete a contact
+      description: >-
+        Also deletes the contact's channel identities, conversations, and messages, discards
+        pending AI drafts, and fails running or waiting workflow runs in those conversations.
+        If the person messages again, they start as a new contact. Sends `contact.deleted`.
+        Requires the `CONTACTS_DELETE` permission or owner role.
       tags: [Contacts]
       parameters:
         - name: id

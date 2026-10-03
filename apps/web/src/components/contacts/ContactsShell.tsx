@@ -475,7 +475,7 @@ export function ContactsShell({ workspaceId }: Props) {
           title="Delete contact?"
           description={`This will permanently delete ${
             pendingDelete.displayName ?? "this contact"
-          } and cannot be undone.`}
+          } and their conversations, and cannot be undone. If they message again, they'll start as a new contact.`}
           confirmLabel="Delete"
           destructive
           isPending={isDeleting}
