@@ -33,7 +33,6 @@ class HookServiceTest {
 
     @Mock private HookRepository hookRepository;
 
-    // A real evaluator — these tests check the service runs the stored expression, not a stub.
     private final FeelHookEvaluator evaluator = new FeelHookEvaluator();
 
     @AfterEach

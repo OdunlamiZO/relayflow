@@ -12,8 +12,8 @@ export function CreateWorkspaceForm() {
 
   const [name, setName] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     createWorkspace(
       { name },
@@ -60,8 +60,8 @@ export function CreateWorkspaceForm() {
               required
               autoFocus
               value={name}
-              onChange={(e) => {
-                setName(e.target.value);
+              onChange={(event) => {
+                setName(event.target.value);
               }}
               placeholder="Acme Support"
               className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"

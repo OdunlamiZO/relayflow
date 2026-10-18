@@ -65,10 +65,6 @@ public class SecurityConfiguration {
         return new HttpSessionSecurityContextRepository();
     }
 
-    /**
-     * Stateless filter chain for the public API ({@code /public/v1/**}). Authenticated exclusively
-     * via the {@code X-Api-Key} header — no session, no CSRF.
-     */
     @Bean
     @Order(1)
     SecurityFilterChain publicApiFilterChain(
@@ -80,7 +76,7 @@ public class SecurityConfiguration {
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)
-                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated());
+                .authorizeHttpRequests(authorization -> authorization.anyRequest().authenticated());
 
         return http.build();
     }
@@ -89,14 +85,15 @@ public class SecurityConfiguration {
     @Order(2)
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            @Value("${relayflow.auth.google.enabled:false}") boolean googleAuthEnabled,
+            @Value("${relayflow.auth.google.enabled:false}") boolean googleAuthenticationEnabled,
             @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl)
             throws Exception {
         http.cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
-                        auth ->
-                                auth.dispatcherTypeMatchers(
+                        authorization ->
+                                authorization
+                                        .dispatcherTypeMatchers(
                                                 DispatcherType.ASYNC, DispatcherType.ERROR)
                                         .permitAll()
                                         .requestMatchers(
@@ -113,20 +110,18 @@ public class SecurityConfiguration {
                                                 "/oauth2/authorization/**",
                                                 "/login/oauth2/code/**")
                                         .permitAll()
-                                        // Invite preview is public — anyone with the link can see
-                                        // workspace name + inviter before deciding to sign up.
                                         .requestMatchers(HttpMethod.GET, "/invites/*")
                                         .permitAll()
                                         .anyRequest()
                                         .authenticated())
                 .httpBasic(AbstractHttpConfigurer::disable);
 
-        if (googleAuthEnabled) {
+        if (googleAuthenticationEnabled) {
             http.oauth2Login(
                     oauth2 ->
                             oauth2.userInfoEndpoint(
-                                            userInfo ->
-                                                    userInfo.userService(
+                                            userInformation ->
+                                                    userInformation.userService(
                                                             oauth2UserProvisioningService))
                                     .defaultSuccessUrl(webBaseUrl, true));
         }
@@ -134,11 +129,6 @@ public class SecurityConfiguration {
         return http.build();
     }
 
-    /**
-     * Registers {@link RateLimitFilter} ahead of the security filter chains so brute-force/spam
-     * requests to auth, public API, and webhook endpoints are rejected before authentication is
-     * attempted.
-     */
     @Bean
     FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(
             StringRedisTemplate redis,

@@ -59,7 +59,7 @@ public class ChannelAccount {
     @Column(name = "webhook_secret")
     private String webhookSecret;
 
-    /** Null means this channel uses the workspace's default AI agent config. */
+    /** Null means this channel uses the workspace's default AI agent configuration. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ai_agent_configuration_id")
     private AiAgentConfiguration aiAgentConfiguration;

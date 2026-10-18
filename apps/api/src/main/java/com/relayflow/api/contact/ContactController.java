@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContactController {
 
     private final ContactService contactService;
+
     private final WorkspaceAuthorizationService authorizationService;
 
     public ContactController(
@@ -39,8 +40,6 @@ public class ContactController {
         this.contactService = contactService;
         this.authorizationService = authorizationService;
     }
-
-    // --- Contacts ---
 
     @GetMapping("/contacts")
     PageResponse<ContactResponse> listContacts(
@@ -109,8 +108,6 @@ public class ContactController {
 
         contactService.deleteContact(id, workspaceId);
     }
-
-    // --- External Identities ---
 
     @PostMapping("/external-identities")
     @ResponseStatus(HttpStatus.CREATED)

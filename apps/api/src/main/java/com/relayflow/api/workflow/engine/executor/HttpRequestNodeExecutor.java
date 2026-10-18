@@ -25,12 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Executes an HTTP request and maps response fields into the execution context.
- *
- * <p>Follows the {@code success} handle on 2xx responses and the {@code error} handle on non-2xx,
- * timeout, or network failure. On error, {@code {{error.message}}} is set in the context.
- */
 @Component
 public class HttpRequestNodeExecutor implements NodeExecutor {
 
@@ -90,7 +84,6 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                             .uri(URI.create(url))
                             .timeout(Duration.ofSeconds(timeoutSeconds));
 
-            // Build body publisher
             HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.noBody();
 
             if (rawBody != null && !rawBody.isBlank()) {
@@ -102,7 +95,6 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
 
             requestBuilder.method(method, bodyPublisher);
 
-            // Add user-defined headers (interpolating values)
             if (rawHeaders != null) {
                 for (Map<String, Object> header : rawHeaders) {
                     String key = (String) header.get("key");
@@ -128,7 +120,6 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                 context.setVariable(responseStatusVariable, statusCode);
             }
 
-            // Map response body fields into context variables
             String responseBody = response.body();
 
             if (responseBody != null && !responseBody.isBlank() && responseMappings != null) {
@@ -148,14 +139,13 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                             }
                         }
                     }
-                } catch (Exception e) {
+                } catch (Exception exception) {
                     log.warn(
                             "Could not parse response body as JSON for mapping: {}",
-                            e.getMessage());
+                            exception.getMessage());
                 }
             }
 
-            // 2xx → success, anything else → error
             if (statusCode >= 200 && statusCode < 300) {
                 return NodeExecutionResult.handle("success", output);
             } else {
@@ -164,12 +154,13 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
 
                 return NodeExecutionResult.handle("error", output);
             }
-
-        } catch (NodeExecutionException e) {
-            throw e;
-        } catch (Exception e) {
+        } catch (NodeExecutionException exception) {
+            throw exception;
+        } catch (Exception exception) {
             String errorMessage =
-                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                    exception.getMessage() != null
+                            ? exception.getMessage()
+                            : exception.getClass().getSimpleName();
             log.warn("HTTP request failed for node {}: {}", node.id(), errorMessage);
 
             context.setVariable("error.message", errorMessage);
@@ -179,15 +170,7 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
         }
     }
 
-    /**
-     * Resolves {@code {{secrets.NAME}}} tokens left untouched by {@link
-     * com.relayflow.api.workflow.engine.VariableInterpolator}. Only this executor ever calls this —
-     * the decrypted value it returns must never be assigned to a workflow variable or added to
-     * {@code output}, since both end up in a persisted {@code WorkflowRunStep} snapshot.
-     *
-     * @throws NodeExecutionException if a referenced secret doesn't exist — fails the step loudly
-     *     rather than silently sending a request with a blank credential
-     */
+    /** Keep the result out of variables and output, which are persisted in run snapshots. */
     private String resolveSecrets(String text, UUID workspaceId) {
         if (text == null || text.isBlank() || !text.contains("{{secrets.")) {
             return text;
@@ -212,10 +195,6 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
         return result.toString();
     }
 
-    /**
-     * Resolves a dot-notation path against a Jackson {@link JsonNode}. Supports both {@code
-     * "user.email"} and {@code "items[0].name"} styles.
-     */
     private Object resolveJsonPath(JsonNode root, String path) {
         JsonNode current = root;
 
@@ -224,7 +203,6 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                 return null;
             }
 
-            // Handle array index: items[0]
             int bracketOpen = segment.indexOf('[');
 
             if (bracketOpen >= 0) {
@@ -249,7 +227,7 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
 
         try {
             return objectMapper.convertValue(current, new TypeReference<Map<String, Object>>() {});
-        } catch (Exception e) {
+        } catch (Exception exception) {
             return current.toString();
         }
     }

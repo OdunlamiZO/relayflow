@@ -107,7 +107,7 @@ public class MessagingService {
 
         int pageSize = Math.clamp(size, 1, 100);
 
-        // Fetch one extra to determine hasMore without a count query.
+        // Fetches one extra row to determine hasMore without a count query.
         List<Conversation> results;
 
         if (contactId != null && channelAccountId != null) {
@@ -144,8 +144,6 @@ public class MessagingService {
         Conversation conversation = getConversationRecord(conversationId, workspaceId);
         conversation.setStatus(status);
 
-        // A closed conversation no longer needs an owner — unassign it so it doesn't
-        // linger in someone's queue.
         if (status == ConversationStatus.CLOSED) {
             conversation.setAssigneeId(null);
         }
@@ -177,7 +175,6 @@ public class MessagingService {
 
         int pageSize = Math.clamp(limit, 1, 200);
 
-        // Fetch one extra to determine hasMore.
         List<Message> raw =
                 before == null
                         ? messageRepository.findRecentByConversation(
@@ -192,10 +189,9 @@ public class MessagingService {
         List<Message> page =
                 hasMore ? new ArrayList<>(raw.subList(0, pageSize)) : new ArrayList<>(raw);
 
-        // Results are newest-first from the DB; reverse to present oldest-first to clients.
+        // Results are newest-first from the database; reversed to oldest-first for clients.
         Collections.reverse(page);
 
-        // nextCursor = the oldest message's createdAt so the client can load messages before it.
         String nextCursor =
                 hasMore && !page.isEmpty() ? page.getFirst().getCreatedAt().toString() : null;
 
@@ -220,8 +216,6 @@ public class MessagingService {
             boolean reopenIfClosed) {
         Conversation conversation = getConversationRecord(conversationId, workspaceId);
 
-        // Workflow ownership check — only workflow executors may message while a workflow is
-        // active.
         if (conversation.isLockedByWorkflow()) {
             throw new ConversationLockedException(
                     "A workflow is currently handling this conversation. "
@@ -237,7 +231,6 @@ public class MessagingService {
             reopened = true;
         }
 
-        // Auto-assign an unassigned conversation to the agent who first replies to it.
         boolean autoAssigned = false;
 
         if (request.direction() == MessageDirection.OUTBOUND

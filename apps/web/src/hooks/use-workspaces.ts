@@ -14,5 +14,5 @@ export function useWorkspaces() {
 export function useWorkspace(id: string): Workspace | null {
   const { data } = useWorkspaces();
 
-  return data?.find((w) => w.id === id) ?? null;
+  return data?.find((workspace) => workspace.id === id) ?? null;
 }

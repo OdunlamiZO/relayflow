@@ -65,8 +65,6 @@ public class WorkspaceInviteService {
         this.inviteExpiryDays = inviteExpiryDays;
     }
 
-    // --- Create / resend ---
-
     @Transactional
     public WorkspaceInviteResponse createInvite(
             UUID workspaceId, UUID inviterId, CreateInviteRequest request) {
@@ -82,12 +80,11 @@ public class WorkspaceInviteService {
 
         WorkspacePermission.validateDependencies(request.permissions());
 
-        // Guard: target must not already be a member.
         userRepository
                 .findByEmail(request.email())
                 .flatMap(user -> memberRepository.findByWorkspaceAndUser(workspaceId, user.getId()))
                 .ifPresent(
-                        m -> {
+                        existingMember -> {
                             throw new IllegalArgumentException(
                                     "This person is already a member of the workspace");
                         });
@@ -95,8 +92,6 @@ public class WorkspaceInviteService {
         Instant now = Instant.now();
         Instant expiry = now.plus(inviteExpiryDays, ChronoUnit.DAYS);
 
-        // If a pending invite already exists for this email, refresh it instead of creating a
-        // duplicate.
         WorkspaceInvite invite =
                 inviteRepository
                         .findActivePendingByWorkspaceAndEmail(workspaceId, request.email())
@@ -110,14 +105,14 @@ public class WorkspaceInviteService {
                                 })
                         .orElseGet(
                                 () -> {
-                                    WorkspaceInvite i = new WorkspaceInvite();
-                                    i.setWorkspaceId(workspaceId);
-                                    i.setEmail(request.email().toLowerCase());
-                                    i.setInvitedBy(inviterId);
-                                    i.setPermissions(request.permissions());
-                                    i.setExpiresAt(expiry);
+                                    WorkspaceInvite newInvite = new WorkspaceInvite();
+                                    newInvite.setWorkspaceId(workspaceId);
+                                    newInvite.setEmail(request.email().toLowerCase());
+                                    newInvite.setInvitedBy(inviterId);
+                                    newInvite.setPermissions(request.permissions());
+                                    newInvite.setExpiresAt(expiry);
 
-                                    return inviteRepository.save(i);
+                                    return inviteRepository.save(newInvite);
                                 });
 
         String acceptUrl = webBaseUrl + "/invite?token=" + invite.getToken();
@@ -136,8 +131,6 @@ public class WorkspaceInviteService {
         return toResponse(invite, inviterName);
     }
 
-    // --- List pending ---
-
     @Transactional(readOnly = true)
     public List<WorkspaceInviteResponse> listPendingInvites(UUID workspaceId) {
         List<WorkspaceInvite> invites = inviteRepository.findPending(workspaceId);
@@ -145,15 +138,13 @@ public class WorkspaceInviteService {
         return invites.stream()
                 .filter(invite -> invite.status() == InviteStatus.PENDING)
                 .map(
-                        i -> {
-                            String inviterName = resolveDisplayName(i.getInvitedBy());
+                        pendingInvite -> {
+                            String inviterName = resolveDisplayName(pendingInvite.getInvitedBy());
 
-                            return toResponse(i, inviterName);
+                            return toResponse(pendingInvite, inviterName);
                         })
                 .toList();
     }
-
-    // --- Revoke ---
 
     @Transactional
     public void revokeInvite(UUID workspaceId, UUID inviteId) {
@@ -171,8 +162,6 @@ public class WorkspaceInviteService {
 
         log.info("Invite revoked: id={}, workspace={}", inviteId, workspaceId);
     }
-
-    // --- Preview (public) ---
 
     @Transactional(readOnly = true)
     public InvitePreviewResponse getPreview(UUID token) {
@@ -200,8 +189,6 @@ public class WorkspaceInviteService {
                 userRepository.findByEmail(invite.getEmail()).isPresent());
     }
 
-    // --- Accept ---
-
     @Transactional
     public UUID acceptInvite(UUID token, UUID userId) {
         WorkspaceInvite invite =
@@ -210,8 +197,6 @@ public class WorkspaceInviteService {
                         .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
         if (invite.status() == InviteStatus.ACCEPTED) {
-            // Idempotent: already accepted — just return the workspace so the user can be
-            // redirected.
             return invite.getWorkspaceId();
         }
 
@@ -223,7 +208,6 @@ public class WorkspaceInviteService {
             throw new ResponseStatusException(HttpStatus.GONE, "This invite has expired");
         }
 
-        // The logged-in user's email must match the invite email.
         User user =
                 userRepository
                         .findById(userId)
@@ -238,7 +222,6 @@ public class WorkspaceInviteService {
                             + " to accept.");
         }
 
-        // Guard: already a member (idempotent).
         if (memberRepository.findByWorkspaceAndUser(invite.getWorkspaceId(), userId).isEmpty()) {
             WorkspaceMember member = new WorkspaceMember();
             member.setWorkspaceId(invite.getWorkspaceId());
@@ -259,8 +242,6 @@ public class WorkspaceInviteService {
 
         return invite.getWorkspaceId();
     }
-
-    // --- Helpers ---
 
     private String resolveDisplayName(UUID userId) {
         return userRepository

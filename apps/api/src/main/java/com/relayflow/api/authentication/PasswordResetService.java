@@ -19,11 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Issues and consumes single-use password reset links. There is no self-service "change password"
- * form — a user (or, on their behalf, a workspace owner) requests a link, and setting a new
- * password only ever happens by following it.
- */
 @Service
 public class PasswordResetService {
 
@@ -56,10 +51,6 @@ public class PasswordResetService {
         this.webBaseUrl = webBaseUrl;
     }
 
-    /**
-     * Generates a reset token for the given user and emails it to their address — used both for a
-     * user requesting their own reset link and for a workspace owner generating one for a member.
-     */
     @Transactional
     public void issueForUser(UUID userId) {
         User user =

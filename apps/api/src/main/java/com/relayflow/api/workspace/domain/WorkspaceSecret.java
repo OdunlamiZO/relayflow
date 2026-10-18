@@ -13,11 +13,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * A named, encrypted secret value scoped to a workspace — e.g. a third-party API key a Send HTTP
- * Request node can reference without ever exposing the plaintext value in the workflow definition
- * or run logs.
- */
 @Getter
 @Setter
 @Entity
@@ -31,11 +26,10 @@ public class WorkspaceSecret {
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
 
-    /** Referenced in workflows as {@code {{secrets.NAME}}} — see VariableInterpolator. */
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    /** AES-256-GCM encrypted via {@code CredentialEncryptionService}. Never returned by the API. */
+    /** Encrypted; never returned by the API. */
     @Column(name = "encrypted_value", nullable = false, columnDefinition = "text")
     private String encryptedValue;
 

@@ -50,8 +50,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
     }
   }, [aiDraft]);
 
-  // Track the previous scrollHeight so we can restore position after prepending older messages.
-  const prevScrollHeightRef = useRef<number>(0);
+  const previousScrollHeightRef = useRef<number>(0);
 
   const { data: conversationsData } = useConversations(workspaceId);
   const workspace = useWorkspace(workspaceId);
@@ -68,7 +67,7 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
     isFetchingNextPage,
   } = useMessages(workspaceId, conversationId);
 
-  // Flatten pages: older pages (loaded later) come first — reverse page order, keep item order.
+  // Older pages load later, so page order is reversed while item order is kept.
   const messages =
     data?.pages
       .slice()
@@ -77,46 +76,44 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
 
   const conversations =
     conversationsData?.pages.flatMap((page) => page.items) ?? [];
-  const conversation = conversations.find((c) => c.id === conversationId);
+  const conversation = conversations.find(
+    (candidate) => candidate.id === conversationId
+  );
 
   const totalMessages = messages.length;
 
-  // On initial load and when new messages arrive at the bottom: scroll to bottom.
   useEffect(() => {
-    const el = scrollRef.current;
+    const element = scrollRef.current;
 
-    if (!el || isFetchingNextPage) {
+    if (!element || isFetchingNextPage) {
       return;
     }
 
-    el.scrollTop = el.scrollHeight;
+    element.scrollTop = element.scrollHeight;
   }, [totalMessages, conversationId, isFetchingNextPage]);
 
-  // After loading older messages (fetchNextPage), restore scroll so the user stays at the same
-  // visual position rather than jumping to the top.
   useEffect(() => {
     if (!isFetchingNextPage) {
-      const el = scrollRef.current;
+      const element = scrollRef.current;
 
-      if (!el) {
+      if (!element) {
         return;
       }
 
-      const newScrollHeight = el.scrollHeight;
-      el.scrollTop = newScrollHeight - prevScrollHeightRef.current;
+      const newScrollHeight = element.scrollHeight;
+      element.scrollTop = newScrollHeight - previousScrollHeightRef.current;
     }
   }, [isFetchingNextPage]);
 
   function handleScroll() {
-    const el = scrollRef.current;
+    const element = scrollRef.current;
 
-    if (!el || !hasNextPage || isFetchingNextPage) {
+    if (!element || !hasNextPage || isFetchingNextPage) {
       return;
     }
 
-    // When the user scrolls within 120 px of the top, load older messages.
-    if (el.scrollTop < 120) {
-      prevScrollHeightRef.current = el.scrollHeight;
+    if (element.scrollTop < 120) {
+      previousScrollHeightRef.current = element.scrollHeight;
       void fetchNextPage();
     }
   }
@@ -128,7 +125,6 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden pb-14 md:pb-0">
       <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-neutral-300 bg-neutral-100 px-4 py-3 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-4">
-        {/* Back button — mobile only, only when a handler is wired */}
         {onBack && (
           <button
             type="button"
@@ -275,7 +271,6 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
         onScroll={handleScroll}
         className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6"
       >
-        {/* Load-older spinner */}
         {isFetchingNextPage && (
           <div className="flex justify-center pb-2">
             <Spinner size="sm" />

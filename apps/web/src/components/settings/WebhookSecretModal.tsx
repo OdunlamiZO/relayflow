@@ -11,8 +11,8 @@ export function WebhookSecretModal({ secret, onClose }: Props) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
     }
 
     document.addEventListener("keydown", onKeyDown);
@@ -32,14 +32,12 @@ export function WebhookSecretModal({ secret, onClose }: Props) {
       aria-modal="true"
       role="dialog"
     >
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-neutral-900/40"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Dialog */}
       <div className="relative w-full max-w-md rounded-2xl bg-neutral-100 p-6 shadow-xl">
         <button
           type="button"

@@ -22,9 +22,7 @@ export function SettingsShell({ workspaceId }: Props) {
   const { user } = useAuthentication();
   const currentMember = useCurrentMember(workspaceId, user?.userId);
 
-  // Owners always see channels. Members need CHANNELS_WRITE or CHANNELS_DELETE.
-  // While currentMember is loading (undefined), default to showing channels so owners
-  // don't see a flash of missing content.
+  // Defaults to showing channels while currentMember loads so owners don't see them flash in.
   const canSeeChannels =
     !currentMember ||
     currentMember.role === "OWNER" ||
@@ -104,7 +102,6 @@ export function SettingsShell({ workspaceId }: Props) {
       <WorkspaceNav workspaceId={workspaceId} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile / tablet sub-nav — horizontal tab strip */}
         <nav className="flex flex-shrink-0 gap-1 overflow-x-auto border-b border-neutral-300 bg-neutral-100 p-2 lg:hidden">
           {navItems.map((item) => (
             <a
@@ -128,7 +125,6 @@ export function SettingsShell({ workspaceId }: Props) {
         </nav>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Desktop vertical sidebar */}
           <aside className="hidden w-52 flex-shrink-0 flex-col border-r border-neutral-300 bg-neutral-100 lg:flex">
             <div className="border-b border-neutral-300 px-4 py-3">
               <span className="text-sm font-semibold text-neutral-800">

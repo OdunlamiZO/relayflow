@@ -36,7 +36,6 @@ public class WebhookController {
         this.authorizationService = authorizationService;
     }
 
-    /** Lists every webhook configured for this workspace. */
     @GetMapping
     List<WebhookConfigResponse> listWebhooks(
             @PathVariable UUID workspaceId, Authentication authentication) {
@@ -46,7 +45,6 @@ public class WebhookController {
         return webhookService.listWebhooks(workspaceId);
     }
 
-    /** Creates a new webhook for this workspace. */
     @PostMapping
     WebhookConfigResponse createWebhook(
             @PathVariable UUID workspaceId,
@@ -58,7 +56,6 @@ public class WebhookController {
         return webhookService.createWebhook(workspaceId, request);
     }
 
-    /** Updates an existing webhook. */
     @PutMapping("/{webhookId}")
     WebhookConfigResponse updateWebhook(
             @PathVariable UUID workspaceId,
@@ -71,7 +68,6 @@ public class WebhookController {
         return webhookService.updateWebhook(workspaceId, webhookId, request);
     }
 
-    /** Deletes a webhook. */
     @DeleteMapping("/{webhookId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void deleteWebhook(
@@ -84,10 +80,6 @@ public class WebhookController {
         webhookService.deleteWebhook(workspaceId, webhookId);
     }
 
-    /**
-     * Generates a new HMAC secret for a webhook, stores it encrypted, and returns the plaintext
-     * value once. The caller must persist this value — it cannot be retrieved after this response.
-     */
     @PostMapping("/{webhookId}/rotate-secret")
     RotateWebhookSecretResponse rotateSecret(
             @PathVariable UUID workspaceId,

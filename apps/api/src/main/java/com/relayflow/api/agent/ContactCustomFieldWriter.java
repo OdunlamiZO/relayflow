@@ -19,14 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
-/**
- * Persists AI-extracted data onto a contact's custom fields — only a key that is both a configured
- * {@code extractionField} and a writable contact field ({@link ReservedContactField} or a
- * workspace-defined {@link ContactFieldDefinition}), and only when not already explicitly stored. A
- * reserved key that {@link com.relayflow.api.contact.ReservedContactFieldResolver} could derive but
- * hasn't yet been stored is still written — the point is to record that the AI captured it, and to
- * fire {@code contact.updated}.
- */
+/** Writes configured extraction fields that are writable and not already stored. */
 @Service
 public class ContactCustomFieldWriter {
 

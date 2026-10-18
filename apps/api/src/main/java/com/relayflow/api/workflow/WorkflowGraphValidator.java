@@ -14,12 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Validates a workflow {@code draftGraph} before it is enabled.
- *
- * <p>Validation is deliberately deferred to enable-time (not save-time) so that users can build and
- * save incomplete graphs incrementally without being blocked mid-edit.
- */
+/** Runs when a workflow is enabled so incomplete drafts can still be saved. */
 @Component
 public class WorkflowGraphValidator {
 
@@ -27,10 +22,6 @@ public class WorkflowGraphValidator {
 
     private static final Set<String> KNOWN_TRIGGER_EVENTS = Set.of("conversation_opened", "manual");
 
-    /**
-     * Validates the graph structure. Throws {@link WorkflowValidationException} with a descriptive
-     * message if any rule is violated.
-     */
     public void validate(Map<String, Object> graph) {
         if (graph == null || graph.isEmpty()) {
             throw new WorkflowValidationException("Workflow has no graph configured");
@@ -41,7 +32,6 @@ public class WorkflowGraphValidator {
 
         log.debug("Validating workflow graph: {} node(s), {} edge(s)", nodes.size(), edges.size());
 
-        // 1. Exactly one trigger node
         List<Map<String, Object>> triggerNodes =
                 nodes.stream()
                         .filter(node -> NodeType.TRIGGER.getValue().equals(node.get("type")))
@@ -57,7 +47,6 @@ public class WorkflowGraphValidator {
 
         Map<String, Object> triggerNode = triggerNodes.getFirst();
 
-        // 2. Trigger event must be a known value
         String event = (String) data(triggerNode).get("event");
 
         if (event == null || event.isBlank()) {
@@ -69,7 +58,6 @@ public class WorkflowGraphValidator {
                     "Unknown trigger event '" + event + "'. Known events: " + KNOWN_TRIGGER_EVENTS);
         }
 
-        // 3. The engine must recognize all node types
         for (Map<String, Object> node : nodes) {
             String type = (String) node.get("type");
 
@@ -78,8 +66,6 @@ public class WorkflowGraphValidator {
             }
         }
 
-        // 4. All nodes must be reachable from the trigger (no orphans).
-        //    Jump To links (stored in data, not as edges) count as reachable paths.
         String triggerId = (String) triggerNode.get("id");
         Set<String> reachable = bfsReachable(triggerId, nodes, edges);
 
@@ -95,14 +81,12 @@ public class WorkflowGraphValidator {
             }
         }
 
-        // 5. Every condition branch must have an outgoing edge
         for (Map<String, Object> node : nodes) {
             if (NodeType.CONDITION.getValue().equals(node.get("type"))) {
                 validateConditionBranches(node, edges);
             }
         }
 
-        // 6. Node-level content validation
         for (Map<String, Object> node : nodes) {
             String type = (String) node.get("type");
 
@@ -148,8 +132,6 @@ public class WorkflowGraphValidator {
 
         log.debug("Workflow graph validation passed: {} node(s)", nodes.size());
     }
-
-    // ── validation helpers ────────────────────────────────────────────────────
 
     private void validateConditionBranches(
             Map<String, Object> node, List<Map<String, Object>> edges) {
@@ -242,7 +224,8 @@ public class WorkflowGraphValidator {
                     "Jump To node " + labelOf(node) + " cannot jump to itself");
         }
 
-        boolean targetExists = nodes.stream().anyMatch(n -> targetId.equals(n.get("id")));
+        boolean targetExists =
+                nodes.stream().anyMatch(candidate -> targetId.equals(candidate.get("id")));
 
         if (!targetExists) {
             throw new WorkflowValidationException(
@@ -254,14 +237,14 @@ public class WorkflowGraphValidator {
     private void validateConditionRows(Map<String, Object> node) {
         List<Map<String, Object>> branches = branches(node);
 
-        for (int i = 0; i < branches.size() - 1; i++) {
-            Map<String, Object> branch = branches.get(i);
+        for (int index = 0; index < branches.size() - 1; index++) {
+            Map<String, Object> branch = branches.get(index);
             List<Map<String, Object>> conditions =
                     (List<Map<String, Object>>) branch.getOrDefault("conditions", List.of());
             String branchLabel =
                     branch.get("label") != null
                             ? (String) branch.get("label")
-                            : "branch " + (i + 1);
+                            : "branch " + (index + 1);
 
             if (conditions.isEmpty()) {
                 throw new WorkflowValidationException(
@@ -287,10 +270,6 @@ public class WorkflowGraphValidator {
         }
     }
 
-    /**
-     * BFS from {@code startId} following directed edges and {@code jumpTo} data links; returns all
-     * reachable node IDs.
-     */
     private Set<String> bfsReachable(
             String startId, List<Map<String, Object>> nodes, List<Map<String, Object>> edges) {
         Map<String, List<String>> adjacency = new HashMap<>();
@@ -300,18 +279,18 @@ public class WorkflowGraphValidator {
             String target = (String) edge.get("target");
 
             if (source != null && target != null) {
-                adjacency.computeIfAbsent(source, k -> new ArrayList<>()).add(target);
+                adjacency.computeIfAbsent(source, key -> new ArrayList<>()).add(target);
             }
         }
 
-        // jumpTo nodes route via data, not edges — treat them as directed links.
+        // jumpTo nodes route through their data, so their targets count as directed links.
         for (Map<String, Object> node : nodes) {
             if (NodeType.JUMP_TO.getValue().equals(node.get("type"))) {
                 String nodeId = (String) node.get("id");
                 String targetId = (String) data(node).get("targetNodeId");
 
                 if (targetId != null && !targetId.isBlank()) {
-                    adjacency.computeIfAbsent(nodeId, k -> new ArrayList<>()).add(targetId);
+                    adjacency.computeIfAbsent(nodeId, key -> new ArrayList<>()).add(targetId);
                 }
             }
         }
@@ -330,8 +309,6 @@ public class WorkflowGraphValidator {
 
         return visited;
     }
-
-    // ── graph parsing helpers ─────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> parseNodes(Map<String, Object> graph) {
@@ -353,7 +330,6 @@ public class WorkflowGraphValidator {
         return (List<Map<String, Object>>) data(node).getOrDefault("branches", List.of());
     }
 
-    /** Returns a human-readable node label for error messages. */
     private String labelOf(Map<String, Object> node) {
         Object label = data(node).get("label");
 

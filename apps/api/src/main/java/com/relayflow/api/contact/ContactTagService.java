@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Sets or clears a contact's tags; a blank value clears the tag. */
+/** A blank value clears the tag. */
 @Service
 public class ContactTagService {
 

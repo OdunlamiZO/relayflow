@@ -12,11 +12,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-/**
- * Recovers workflow runs that were left in {@code RUNNING} state by a previous server crash or
- * forced kill. Marks them {@code FAILED} and releases their conversation locks so contacts are not
- * permanently locked out of sending messages.
- */
 @Component
 public class WorkflowStartupRecovery {
 

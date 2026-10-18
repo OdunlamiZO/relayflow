@@ -12,23 +12,6 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/**
- * Sends a question to the contact and pauses the workflow run, waiting for their reply.
- *
- * <p>The engine marks the run as {@code WAITING} after this node executes. When the contact
- * replies, {@link com.relayflow.api.workflow.engine.WorkflowResumeListener} resumes the run.
- *
- * <p>Two response modes are supported:
- *
- * <ul>
- *   <li>{@code generic} — the reply text is stored in a named variable and execution continues on
- *       the single default outgoing edge. With a {@code validationHook}, it branches into {@code
- *       valid} / {@code invalid} instead.
- *   <li>{@code defined} — the reply is matched (case-insensitively) against a list of expected
- *       option texts; execution follows the matching option's edge, or the {@code "default"} edge
- *       for unrecognised replies.
- * </ul>
- */
 @Component
 public class WaitForReplyNodeExecutor implements NodeExecutor {
 
@@ -75,11 +58,6 @@ public class WaitForReplyNodeExecutor implements NodeExecutor {
                 timeoutMinutes * 60);
     }
 
-    /**
-     * Returns the list of option texts for a {@code defined} response node so channel adapters can
-     * render them as interactive buttons / keyboard shortcuts. Returns an empty list for {@code
-     * generic} nodes.
-     */
     @SuppressWarnings("unchecked")
     private List<String> extractButtonOptions(GraphNode node) {
         String responseType = (String) node.data().getOrDefault("responseType", "generic");

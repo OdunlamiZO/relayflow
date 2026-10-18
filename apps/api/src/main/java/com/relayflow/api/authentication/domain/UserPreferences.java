@@ -14,12 +14,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * Per-user preferences stored in a dedicated table rather than polluting {@link User}.
- *
- * <p>Uses a shared primary key ({@code user_id}) via {@link MapsId} so there is always exactly one
- * preferences row per user and lookups never need a separate FK index.
- */
 @Getter
 @Setter
 @Entity

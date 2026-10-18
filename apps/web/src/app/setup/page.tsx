@@ -15,8 +15,8 @@ export default function SetupPage() {
   const [password, setPassword] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     bootstrap(
       { name, email, password, workspaceName },
@@ -53,8 +53,8 @@ export default function SetupPage() {
             autoComplete="name"
             required
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
+            onChange={(event) => {
+              setName(event.target.value);
             }}
             placeholder="Jane Smith"
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -74,8 +74,8 @@ export default function SetupPage() {
             autoComplete="email"
             required
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
+            onChange={(event) => {
+              setEmail(event.target.value);
             }}
             placeholder="you@company.com"
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -96,8 +96,8 @@ export default function SetupPage() {
             required
             minLength={8}
             value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
+            onChange={(event) => {
+              setPassword(event.target.value);
             }}
             placeholder="At least 8 characters"
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -117,8 +117,8 @@ export default function SetupPage() {
             autoComplete="organization"
             required
             value={workspaceName}
-            onChange={(e) => {
-              setWorkspaceName(e.target.value);
+            onChange={(event) => {
+              setWorkspaceName(event.target.value);
             }}
             placeholder="Acme Inc."
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"

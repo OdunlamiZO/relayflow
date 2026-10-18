@@ -39,10 +39,6 @@ public class WorkflowRunCleanupScheduler {
         this.runRetentionDays = runRetentionDays;
     }
 
-    /**
-     * Runs every hour, removes workflow runs (and their steps) started more than {@code
-     * relayflow.workflow.run-retention-days} ago.
-     */
     @Scheduled(fixedDelay = 60 * 60 * 1000)
     @Transactional
     public void cleanupExpiredRuns() {
@@ -59,7 +55,6 @@ public class WorkflowRunCleanupScheduler {
         }
     }
 
-    /** Runs every minute, handling Ask Question steps that got no reply before their timeout. */
     @Scheduled(fixedDelay = 60 * 1000)
     public void expireWaitingRuns() {
         List<UUID> expiredRunIds =

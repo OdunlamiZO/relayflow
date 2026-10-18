@@ -229,8 +229,6 @@ export function HooksPanel({ workspaceId }: Props) {
   );
 }
 
-// ── Create / edit modals ────────────────────────────────────────────────────
-
 function CreateHookModal({
   workspaceId,
   initial,
@@ -299,8 +297,6 @@ function EditHookModal({
     />
   );
 }
-
-// ── Editor modal ────────────────────────────────────────────────────────────
 
 const INPUT_CLASS =
   "w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary";
@@ -637,8 +633,6 @@ function HookTester({
     </div>
   );
 }
-
-// ── Rows ────────────────────────────────────────────────────────────────────
 
 function HookRow({
   name,

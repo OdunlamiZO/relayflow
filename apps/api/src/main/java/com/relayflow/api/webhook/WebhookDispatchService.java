@@ -22,25 +22,25 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-/**
- * Delivers webhook events to workspace-configured endpoints.
- *
- * <p>Each delivery runs on the {@code webhookExecutor} thread pool so it never blocks the main
- * request thread. Failed deliveries are retried up to 3 times with exponential backoff (1 s → 5 s →
- * 30 s).
- */
 @Service
 public class WebhookDispatchService {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookDispatchService.class);
+
     private static final String SIGNATURE_HEADER = "X-RelayFlow-Signature";
+
     private static final int[] RETRY_DELAYS_SECONDS = {1, 5, 30};
 
     private final WorkspaceWebhookRepository webhookRepository;
+
     private final CredentialEncryptionService encryptionService;
+
     private final WebhookUrlValidator urlValidator;
+
     private final ObjectMapper objectMapper;
+
     private final HttpClient httpClient;
+
     private final Duration httpTimeout;
 
     public WebhookDispatchService(
@@ -86,8 +86,8 @@ public class WebhookDispatchService {
                                     "timestamp", Instant.now().toString(),
                                     "workspaceId", webhook.getWorkspaceId().toString(),
                                     "data", data));
-        } catch (Exception e) {
-            log.error("Failed to serialise webhook payload for event={}", eventType, e);
+        } catch (Exception exception) {
+            log.error("Failed to serialise webhook payload for event={}", eventType, exception);
 
             return;
         }
@@ -128,14 +128,14 @@ public class WebhookDispatchService {
                         response.statusCode(),
                         attempt + 1,
                         RETRY_DELAYS_SECONDS.length + 1);
-            } catch (Exception e) {
+            } catch (Exception exception) {
                 log.warn(
                         "Webhook delivery failed: event={}, workspace={}, attempt={}/{}: {}",
                         eventType,
                         webhook.getWorkspaceId(),
                         attempt + 1,
                         RETRY_DELAYS_SECONDS.length + 1,
-                        e.getMessage());
+                        exception.getMessage());
             }
 
             if (attempt < RETRY_DELAYS_SECONDS.length) {
@@ -162,8 +162,8 @@ public class WebhookDispatchService {
             byte[] hmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
 
             return HexFormat.of().formatHex(hmac);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to sign webhook payload", e);
+        } catch (Exception exception) {
+            throw new RuntimeException("Failed to sign webhook payload", exception);
         }
     }
 }

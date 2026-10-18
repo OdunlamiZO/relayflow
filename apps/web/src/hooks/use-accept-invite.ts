@@ -9,7 +9,6 @@ export function useAcceptInvite() {
     mutationFn: (token: string) => messagingApi.acceptInvite(token),
 
     onSuccess: () => {
-      // Refresh workspace list so the new workspace appears immediately.
       void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
   });

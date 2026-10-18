@@ -41,7 +41,6 @@ public class AiAgentConfiguration {
     @Column(nullable = false, length = 100)
     private String name = "AI Agent";
 
-    /** The config a channel account uses when it has no explicit assignment of its own. */
     @Column(name = "is_default", nullable = false)
     private boolean defaultConfig = false;
 

@@ -28,11 +28,10 @@ public class WorkspaceApiKey {
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    /** First 8 characters of the raw key — safe to display, not secret. */
     @Column(name = "key_prefix", nullable = false, length = 12, updatable = false)
     private String keyPrefix;
 
-    /** SHA-256 hex digest of the raw key. The raw key is never persisted. */
+    /** SHA-256 hex digest; the raw key is never persisted. */
     @Column(name = "key_hash", nullable = false, length = 64, unique = true, updatable = false)
     private String keyHash;
 
@@ -48,7 +47,6 @@ public class WorkspaceApiKey {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
-    /** Optional hard expiry. Null means no expiry. */
     @Column(name = "expires_at")
     private Instant expiresAt;
 

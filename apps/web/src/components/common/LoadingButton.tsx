@@ -5,10 +5,7 @@ type Props = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "disabled"> & {
   disabled?: boolean;
 };
 
-// A <button> whose label renders invisibly (rather than being omitted) while
-// loading, so the button keeps the width/height its label requires, with a
-// spinner overlaid on top instead. `disabled` is combined with `isLoading`,
-// so callers only need to pass whatever other condition should disable it.
+// The label stays rendered but invisible while loading so the button keeps its size.
 export function LoadingButton({
   isLoading,
   disabled = false,

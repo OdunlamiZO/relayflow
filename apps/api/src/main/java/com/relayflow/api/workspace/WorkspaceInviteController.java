@@ -37,7 +37,6 @@ public class WorkspaceInviteController {
         this.securityUtils = securityUtils;
     }
 
-    /** List pending invites — owner only. */
     @GetMapping("/workspaces/{workspaceId}/invites")
     List<WorkspaceInviteResponse> listInvites(
             @PathVariable UUID workspaceId, Authentication authentication) {
@@ -46,7 +45,6 @@ public class WorkspaceInviteController {
         return inviteService.listPendingInvites(workspaceId);
     }
 
-    /** Create (or refresh) an invite — owner only. */
     @PostMapping("/workspaces/{workspaceId}/invites")
     @ResponseStatus(HttpStatus.CREATED)
     WorkspaceInviteResponse createInvite(
@@ -60,7 +58,6 @@ public class WorkspaceInviteController {
         return inviteService.createInvite(workspaceId, inviterId, request);
     }
 
-    /** Revoke a pending invite — owner only. */
     @DeleteMapping("/workspaces/{workspaceId}/invites/{inviteId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void revokeInvite(
@@ -72,13 +69,11 @@ public class WorkspaceInviteController {
         inviteService.revokeInvite(workspaceId, inviteId);
     }
 
-    /** Public preview — no authentication required. */
     @GetMapping("/invites/{token}")
     InvitePreviewResponse previewInvite(@PathVariable UUID token) {
         return inviteService.getPreview(token);
     }
 
-    /** Accept an invite — requires authentication; email must match. */
     @PostMapping("/invites/{token}/accept")
     @ResponseStatus(HttpStatus.CREATED)
     InviteAcceptedResponse acceptInvite(@PathVariable UUID token, Authentication authentication) {

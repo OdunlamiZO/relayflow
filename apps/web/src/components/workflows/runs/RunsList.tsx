@@ -56,13 +56,13 @@ export function RunsList({
   const isEmpty = !isLoading && !isError && runs.length === 0;
 
   function handleScroll() {
-    const el = scrollRef.current;
+    const element = scrollRef.current;
 
-    if (!el || !hasNextPage || isFetchingNextPage) {
+    if (!element || !hasNextPage || isFetchingNextPage) {
       return;
     }
 
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
+    if (element.scrollHeight - element.scrollTop - element.clientHeight < 100) {
       void fetchNextPage();
     }
   }

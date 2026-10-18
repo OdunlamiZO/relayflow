@@ -23,11 +23,7 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
     @Query("UPDATE ExternalIdentity e SET e.deletedAt = :now WHERE e.contact.id = :contactId")
     void softDeleteByContact(@Param("contactId") UUID contactId, @Param("now") Instant now);
 
-    /**
-     * Finds the identity for a given external user on a specific channel account (bot). Uniqueness
-     * is enforced at the channel-account level, not just the provider level — the same Telegram
-     * user ID on two different bots yields two separate identities.
-     */
+    /** Unique per channel account, so one Telegram user on two bots has two identities. */
     @Query(
             """
             select e from ExternalIdentity e
@@ -38,7 +34,6 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
             @Param("channelAccountId") UUID channelAccountId,
             @Param("externalUserId") String externalUserId);
 
-    /** Finds the identity used for outbound relay on a specific channel account and contact. */
     @Query(
             """
             select e from ExternalIdentity e
@@ -48,11 +43,6 @@ public interface ExternalIdentityRepository extends JpaRepository<ExternalIdenti
     Optional<ExternalIdentity> findForContact(
             @Param("channelAccountId") UUID channelAccountId, @Param("contactId") UUID contactId);
 
-    /**
-     * Returns the identity for a contact on a given provider, regardless of workspace. Used by the
-     * workflow engine to resolve the contact's external user ID and username when building the
-     * execution context.
-     */
     @Query(
             """
             select e from ExternalIdentity e

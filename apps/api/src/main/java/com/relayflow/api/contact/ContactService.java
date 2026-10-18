@@ -136,10 +136,11 @@ public class ContactService {
         List<ContactResponse> responses =
                 items.stream()
                         .map(
-                                c -> {
-                                    ContactResponse base = mapper.toDto(c);
+                                contact -> {
+                                    ContactResponse base = mapper.toDto(contact);
                                     List<ExternalIdentityResponse> ids =
-                                            identitiesByContact.getOrDefault(c.getId(), List.of());
+                                            identitiesByContact.getOrDefault(
+                                                    contact.getId(), List.of());
 
                                     return withIdentities(base, ids);
                                 })
@@ -157,8 +158,6 @@ public class ContactService {
         List<ExternalIdentityResponse> identities =
                 externalIdentities.stream().map(mapper::toDto).toList();
 
-        // Derived values (e.g. WhatsApp phone) seed the map; explicitly stored values overwrite
-        // them.
         Map<String, String> customFields =
                 new LinkedHashMap<>(
                         reservedContactFieldResolver.resolve(contact, externalIdentities));
@@ -271,9 +270,7 @@ public class ContactService {
         Contact target = getContact(targetId, workspaceId);
         Contact source = getContact(sourceId, workspaceId);
 
-        // Guard: reject if both contacts have an identity on the same channel account —
-        // that would mean two different external users on the same bot are being claimed
-        // as the same person, which is never valid.
+        // Two identities on one channel account are different users and cannot be merged.
         List<ExternalIdentity> sourceIdentities =
                 externalIdentityRepository.findByContact(sourceId);
         List<ExternalIdentity> targetIdentities =
@@ -293,7 +290,6 @@ public class ContactService {
             }
         }
 
-        // Bulk-reassign identities and conversations to the target contact.
         externalIdentityRepository.reassignContact(target, sourceId);
         conversationRepository.reassignContact(target, sourceId);
 
@@ -311,7 +307,6 @@ public class ContactService {
                 sourceId,
                 workspaceId);
 
-        // Return the updated target with all newly merged identities.
         List<UUID> contactIds = List.of(targetId);
         Map<UUID, List<ExternalIdentityResponse>> identitiesByContact =
                 externalIdentityRepository.findByContacts(contactIds).stream()
@@ -337,7 +332,6 @@ public class ContactService {
                 identities);
     }
 
-    /** Looks up a contact within a workspace, or throws if not found. Shared by other services. */
     public Contact getContact(UUID contactId, UUID workspaceId) {
         Contact contact =
                 contactRepository

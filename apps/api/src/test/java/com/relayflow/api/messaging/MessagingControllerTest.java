@@ -47,8 +47,6 @@ class MessagingControllerTest {
 
     @MockBean private WorkspaceAuthorizationService authorizationService;
 
-    // ── Conversations ─────────────────────────────────────────────────────────
-
     @Test
     void listsConversationsForWorkspace() throws Exception {
         UUID workspaceId = UUID.randomUUID();
@@ -136,8 +134,6 @@ class MessagingControllerTest {
                 .andExpect(jsonPath("$.message").value("Conversation not found"));
     }
 
-    // ── Messages ──────────────────────────────────────────────────────────────
-
     @Test
     void listMessages() throws Exception {
         UUID workspaceId = UUID.randomUUID();
@@ -216,8 +212,6 @@ class MessagingControllerTest {
                         any(CreateMessageRequest.class),
                         any());
     }
-
-    // ── Validation ────────────────────────────────────────────────────────────
 
     @Test
     void rejectsInvalidConversationRequest() throws Exception {

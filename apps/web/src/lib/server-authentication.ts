@@ -4,9 +4,7 @@ import { redirect } from "next/navigation";
 import { serverApiBaseUrl } from "@/lib/api-base-url";
 import { ApiError, apiErrorMessage, readResponseBody } from "@/lib/api-client";
 
-// Server-only — do NOT import this from client components.
-// Forwards the session cookie to the backend so Server Components can
-// check auth status without an extra client round-trip.
+// Server-only; do not import from client components.
 
 type AuthenticationStatus = { authenticated: boolean };
 type InstanceStatus = { bootstrapped: boolean };
@@ -18,11 +16,7 @@ export class ServerAuthenticationClient {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
-  /**
-   * Checks whether the current request's session is authenticated. Fails safe on any error
-   * (network failure, non-2xx, malformed body) — treats the visitor as unauthenticated rather
-   * than surfacing the error to a Server Component.
-   */
+  /** Treats the visitor as unauthenticated on any error. */
   async getAuthenticationStatus(): Promise<AuthenticationStatus> {
     try {
       return await this.request<AuthenticationStatus>("/auth/me");
@@ -31,11 +25,7 @@ export class ServerAuthenticationClient {
     }
   }
 
-  /**
-   * Checks whether this self-hosted instance has completed initial setup. Fails safe on any
-   * error — treats the instance as already bootstrapped so a transient API outage never traps
-   * every visitor on `/setup`.
-   */
+  /** Treats the instance as bootstrapped on any error so an API outage never traps visitors on /setup. */
   async getInstanceStatus(): Promise<InstanceStatus> {
     try {
       return await this.request<InstanceStatus>("/auth/bootstrap-status");
@@ -48,7 +38,7 @@ export class ServerAuthenticationClient {
     const cookieStore = await cookies();
     const cookieHeader = cookieStore
       .getAll()
-      .map((c) => `${c.name}=${c.value}`)
+      .map((requestCookie) => `${requestCookie.name}=${requestCookie.value}`)
       .join("; ");
 
     const response = await fetch(`${this.baseUrl}${path}`, {
@@ -72,7 +62,6 @@ export class ServerAuthenticationClient {
 
 export const serverAuthenticationApi = new ServerAuthenticationClient();
 
-/** Redirects to /login if the user is not authenticated. */
 export async function requireAuthentication(): Promise<void> {
   const { authenticated } =
     await serverAuthenticationApi.getAuthenticationStatus();
@@ -82,10 +71,6 @@ export async function requireAuthentication(): Promise<void> {
   }
 }
 
-/**
- * Redirects to {@code destination} (default: /inbox) if the user is already authenticated.
- * Pass a validated returnUrl to preserve the post-login destination.
- */
 export async function redirectIfAuthenticated(
   destination = "/inbox"
 ): Promise<void> {
@@ -97,7 +82,6 @@ export async function redirectIfAuthenticated(
   }
 }
 
-/** Redirects to /setup if this instance hasn't completed initial setup yet. */
 export async function redirectIfNotBootstrapped(): Promise<void> {
   const { bootstrapped } = await serverAuthenticationApi.getInstanceStatus();
 
@@ -106,7 +90,6 @@ export async function redirectIfNotBootstrapped(): Promise<void> {
   }
 }
 
-/** Redirects to /login if this instance has already completed initial setup. */
 export async function redirectIfBootstrapped(): Promise<void> {
   const { bootstrapped } = await serverAuthenticationApi.getInstanceStatus();
 

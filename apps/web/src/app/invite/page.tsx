@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { serverApiBaseUrl } from "@/lib/api-base-url";
 import { serverAuthenticationApi } from "@/lib/server-authentication";
+import { serverMessagingApi } from "@/lib/server-messaging-api";
 
 import { InviteAcceptCard } from "./InviteAcceptCard";
 
@@ -12,22 +12,6 @@ export const metadata = {
 type Props = {
   searchParams: Promise<{ token?: string }>;
 };
-
-async function fetchInvitePreview(token: string) {
-  try {
-    const res = await fetch(`${serverApiBaseUrl()}/invites/${token}`, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      return null;
-    }
-
-    return res.json();
-  } catch {
-    return null;
-  }
-}
 
 export default async function InvitePage({ searchParams }: Props) {
   const { token } = await searchParams;
@@ -74,8 +58,8 @@ async function InviteContent({ token }: { token: string | undefined }) {
     );
   }
 
-  const [preview, authStatus] = await Promise.all([
-    fetchInvitePreview(token),
+  const [preview, authenticationStatus] = await Promise.all([
+    serverMessagingApi.getInvitePreview(token),
     serverAuthenticationApi.getAuthenticationStatus(),
   ]);
 
@@ -100,7 +84,7 @@ async function InviteContent({ token }: { token: string | undefined }) {
     <InviteAcceptCard
       token={token}
       preview={preview}
-      isAuthenticated={authStatus.authenticated}
+      isAuthenticated={authenticationStatus.authenticated}
     />
   );
 }

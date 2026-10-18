@@ -36,7 +36,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const current = workspaces.find((w) => w.id === workspaceId);
+  const current = workspaces.find((workspace) => workspace.id === workspaceId);
 
   function close() {
     setIsOpen(false);
@@ -44,12 +44,11 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
     setNewName("");
   }
 
-  // Close on outside click.
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(event: MouseEvent) {
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current.contains(event.target as Node)
       ) {
         close();
       }
@@ -60,12 +59,11 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ESC: collapse create form first, then close dropdown.
   useEffect(() => {
     if (!isOpen) return;
 
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
         if (showCreate) {
           setShowCreate(false);
           setNewName("");
@@ -80,7 +78,6 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, showCreate]);
 
-  // Focus the name input when the create form opens.
   useEffect(() => {
     if (showCreate) inputRef.current?.focus();
   }, [showCreate]);
@@ -93,8 +90,8 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
     }
   }
 
-  function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
+  function handleCreate(event: React.FormEvent) {
+    event.preventDefault();
     const name = newName.trim();
 
     if (!name) return;
@@ -115,7 +112,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
       <button
         type="button"
         onClick={() => {
-          setIsOpen((prev) => !prev);
+          setIsOpen((previous) => !previous);
           setShowCreate(false);
           setNewName("");
         }}
@@ -156,7 +153,7 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
                 type="text"
                 required
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={(event) => setNewName(event.target.value)}
                 placeholder="Workspace name"
                 className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
@@ -187,13 +184,13 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
             <>
               {workspaces.length > 0 && (
                 <ul role="listbox" aria-label="Workspaces" className="p-1.5">
-                  {workspaces.map((w) => (
-                    <li key={w.id}>
+                  {workspaces.map((workspace) => (
+                    <li key={workspace.id}>
                       <button
                         type="button"
                         role="option"
-                        aria-selected={w.id === workspaceId}
-                        onClick={() => selectWorkspace(w.id)}
+                        aria-selected={workspace.id === workspaceId}
+                        onClick={() => selectWorkspace(workspace.id)}
                         className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-200"
                       >
                         <span
@@ -204,10 +201,10 @@ export function WorkspaceSwitcher({ workspaceId }: Props) {
                         </span>
 
                         <span className="flex-1 truncate text-left">
-                          {w.name}
+                          {workspace.name}
                         </span>
 
-                        {w.id === workspaceId && (
+                        {workspace.id === workspaceId && (
                           <span
                             className="material-symbols-rounded shrink-0 text-[15px] leading-none text-secondary"
                             aria-hidden="true"

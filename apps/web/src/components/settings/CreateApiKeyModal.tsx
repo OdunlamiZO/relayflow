@@ -40,8 +40,8 @@ export function CreateApiKeyModal({
   }, []);
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
     }
 
     document.addEventListener("keydown", onKeyDown);
@@ -49,17 +49,17 @@ export function CreateApiKeyModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     if (!name.trim()) return;
 
     let expiresAt: string | null = null;
 
     if (expiryDays !== null) {
-      const d = new Date();
-      d.setDate(d.getDate() + expiryDays);
-      expiresAt = d.toISOString();
+      const date = new Date();
+      date.setDate(date.getDate() + expiryDays);
+      expiresAt = date.toISOString();
     }
 
     onSubmit(name.trim(), expiresAt);
@@ -79,14 +79,12 @@ export function CreateApiKeyModal({
       aria-modal="true"
       role="dialog"
     >
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-neutral-900/40"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Dialog */}
       <div className="relative w-full max-w-md rounded-2xl bg-neutral-100 p-6 shadow-xl">
         <button
           type="button"
@@ -100,7 +98,6 @@ export function CreateApiKeyModal({
         </button>
 
         {createdKey ? (
-          /* ── Step 2: Key reveal ── */
           <div>
             <div className="mb-1 flex items-center gap-2">
               <span className="material-symbols-rounded text-[22px] leading-none text-green-text">
@@ -155,7 +152,6 @@ export function CreateApiKeyModal({
             </div>
           </div>
         ) : (
-          /* ── Step 1: Creation form ── */
           <form onSubmit={handleSubmit}>
             <h2 className="mb-4 text-base font-semibold text-primary">
               Create API key
@@ -173,7 +169,7 @@ export function CreateApiKeyModal({
                 ref={nameRef}
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 placeholder="e.g. Production integration"
                 maxLength={100}
                 required
@@ -187,18 +183,18 @@ export function CreateApiKeyModal({
               </label>
 
               <div className="flex flex-wrap gap-2">
-                {EXPIRY_OPTIONS.map((opt) => (
+                {EXPIRY_OPTIONS.map((option) => (
                   <button
-                    key={opt.label}
+                    key={option.label}
                     type="button"
-                    onClick={() => setExpiryDays(opt.days)}
+                    onClick={() => setExpiryDays(option.days)}
                     className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
-                      expiryDays === opt.days
+                      expiryDays === option.days
                         ? "border-secondary bg-secondary text-neutral-100"
                         : "border-neutral-200 text-neutral-600 hover:border-secondary hover:text-secondary"
                     }`}
                   >
-                    {opt.label}
+                    {option.label}
                   </button>
                 ))}
               </div>

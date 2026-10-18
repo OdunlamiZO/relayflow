@@ -53,8 +53,12 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
                     root.path("choices").path(0).path("message").path("content").asText("");
 
             return AgentLlmResponseParser.parse(objectMapper, content);
-        } catch (Exception e) {
-            log.error("LLM call failed for provider={}: {}", provider(), e.getMessage(), e);
+        } catch (Exception exception) {
+            log.error(
+                    "LLM call failed for provider={}: {}",
+                    provider(),
+                    exception.getMessage(),
+                    exception);
 
             return AgentLlmResponseParser.failure();
         }
@@ -64,8 +68,8 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
         List<Map<String, String>> messages = new ArrayList<>(history.size() + 1);
         messages.add(Map.of("role", "system", "content", systemPrompt));
 
-        for (LlmMessage msg : history) {
-            messages.add(Map.of("role", msg.role(), "content", msg.content()));
+        for (LlmMessage message : history) {
+            messages.add(Map.of("role", message.role(), "content", message.content()));
         }
 
         return messages;

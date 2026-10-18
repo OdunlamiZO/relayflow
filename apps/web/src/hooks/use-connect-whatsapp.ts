@@ -21,7 +21,6 @@ export function useConnectWhatsApp(workspaceId: string) {
         workspaceId,
         provider: "WHATSAPP",
         name,
-        // Credentials are serialised to JSON and encrypted server-side.
         encryptedCredentials: JSON.stringify({
           accessToken,
           phoneNumberId,

@@ -30,7 +30,7 @@ class HttpRequestNodeExecutorTest {
 
     private HttpServer server;
 
-    private final AtomicReference<String> receivedAuthHeader = new AtomicReference<>();
+    private final AtomicReference<String> receivedAuthenticationHeader = new AtomicReference<>();
 
     private HttpRequestNodeExecutor executor() {
         return new HttpRequestNodeExecutor(new ObjectMapper(), secretService);
@@ -42,7 +42,8 @@ class HttpRequestNodeExecutorTest {
         server.createContext(
                 "/",
                 exchange -> {
-                    receivedAuthHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                    receivedAuthenticationHeader.set(
+                            exchange.getRequestHeaders().getFirst("Authorization"));
                     byte[] body = "{}".getBytes();
                     exchange.sendResponseHeaders(200, body.length);
                     exchange.getResponseBody().write(body);
@@ -86,7 +87,7 @@ class HttpRequestNodeExecutorTest {
                                                                 "Bearer {{secrets.API_KEY}}")))),
                                 context(workspaceId));
 
-        assertThat(receivedAuthHeader.get()).isEqualTo("Bearer sk-super-secret");
+        assertThat(receivedAuthenticationHeader.get()).isEqualTo("Bearer sk-super-secret");
         assertThat(result.output().toString()).doesNotContain("sk-super-secret");
     }
 

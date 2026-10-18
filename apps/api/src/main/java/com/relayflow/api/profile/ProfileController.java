@@ -47,8 +47,6 @@ public class ProfileController {
         profileService.requestPasswordReset(currentUserId(authentication));
     }
 
-    // ── 2FA ──────────────────────────────────────────────────────────────────
-
     @PostMapping("/2fa/setup")
     Setup2FAResponse setup2FA(Authentication authentication) {
         return profileService.setup2FA(currentUserId(authentication));
@@ -65,8 +63,6 @@ public class ProfileController {
     void disable2FA(@Valid @RequestBody OtpRequest request, Authentication authentication) {
         profileService.disable2FA(currentUserId(authentication), request);
     }
-
-    // ── helpers ───────────────────────────────────────────────────────────────
 
     private UUID currentUserId(Authentication authentication) {
         return securityUtils.resolveUserId(authentication);

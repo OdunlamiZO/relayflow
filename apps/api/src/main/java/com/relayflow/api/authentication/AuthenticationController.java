@@ -109,10 +109,7 @@ public class AuthenticationController {
 
         SecurityContextHolder.clearContext();
 
-        // Expire the session cookie so the browser removes it immediately.
-        // Without this the cookie survives in the browser and the Next.js
-        // middleware — which checks cookie presence — keeps redirecting the
-        // user back to /inbox after logout.
+        // The Next.js proxy checks cookie presence, so logout expires the session cookie.
         Cookie cookie = new Cookie(sessionCookieName, "");
         cookie.setMaxAge(0);
         cookie.setPath("/");

@@ -242,7 +242,7 @@ public class WorkspaceService {
                 userRepository
                         .findAllById(members.stream().map(WorkspaceMember::getUserId).toList())
                         .stream()
-                        .collect(Collectors.toMap(User::getId, u -> u));
+                        .collect(Collectors.toMap(User::getId, user -> user));
 
         return members.stream()
                 .map(member -> toMemberResponse(member, userMap.get(member.getUserId())))
@@ -291,13 +291,11 @@ public class WorkspaceService {
                         .findInWorkspace(workspaceId, memberId)
                         .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
 
-        // Guard: ownership can only be transferred, never set directly.
         if (role == WorkspaceRole.OWNER) {
             throw new IllegalArgumentException(
                     "Ownership can only be transferred via the transfer-ownership endpoint");
         }
 
-        // Guard: the owner cannot be demoted — workspaces have exactly one owner.
         if (member.getRole() == WorkspaceRole.OWNER && role != null) {
             throw new IllegalArgumentException("Cannot demote the owner of the workspace");
         }
@@ -323,7 +321,6 @@ public class WorkspaceService {
                         .findInWorkspace(workspaceId, memberId)
                         .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
 
-        // Guard: the owner cannot be removed — workspaces have exactly one owner.
         if (member.getRole() == WorkspaceRole.OWNER) {
             throw new IllegalArgumentException("Cannot remove the owner of the workspace");
         }
@@ -342,12 +339,6 @@ public class WorkspaceService {
         passwordResetService.issueForUser(member.getUserId());
     }
 
-    /**
-     * Transfers ownership of the workspace to another member. The current owner is demoted to
-     * {@link WorkspaceRole#MEMBER}; the target member becomes {@link WorkspaceRole#OWNER}.
-     *
-     * <p>Only the current owner can call this; {@code callerId} must be their user ID.
-     */
     @Transactional
     public void transferOwnership(UUID workspaceId, UUID newOwnerMemberId, UUID callerId) {
         WorkspaceMember currentOwner =
@@ -383,11 +374,6 @@ public class WorkspaceService {
                 newOwner.getId());
     }
 
-    /**
-     * Soft-deletes all data belonging to a workspace, then the workspace itself. No rows are
-     * permanently removed — every table's {@code deleted_at} is stamped with the same instant. FK
-     * order no longer matters for soft deletes, but preserved for clarity.
-     */
     @Transactional
     public void deleteWorkspace(UUID workspaceId) {
         log.info("Soft-deleting workspace and all associated data: {}", workspaceId);
@@ -405,9 +391,6 @@ public class WorkspaceService {
         workspaceRepository.deleteById(workspaceId);
     }
 
-    /**
-     * Looks up a workspace by ID, or throws if it doesn't exist. Shared by other domain services.
-     */
     public Workspace getWorkspace(UUID workspaceId) {
         return workspaceRepository
                 .findById(workspaceId)

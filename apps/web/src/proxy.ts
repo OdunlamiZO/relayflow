@@ -2,8 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { BROWSER_API_BASE_URL, serverApiBaseUrl } from "@/lib/api-base-url";
 
-// Spring Security's default session cookie name.
-// If you customise it via server.servlet.session.cookie.name, update this.
+// Spring Security's default session cookie name; update it if server.servlet.session.cookie.name changes.
 const SESSION_COOKIE = "JSESSIONID";
 
 export function apiProxyTarget(request: NextRequest): URL {
@@ -25,13 +24,7 @@ export function proxy(request: NextRequest) {
 
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
-  // Fast-path: no cookie at all → definitely not logged in, bounce to login.
-  // Do NOT redirect users WITH a cookie away from login/signup here — the cookie
-  // may be stale (e.g. after an API server restart) and that would create an
-  // infinite loop (inbox → 401 → login → cookie present → inbox → …).
-  // Redirecting away from auth pages for live sessions is handled server-side
-  // in the (auth) layout via redirectIfAuthenticated(), which actually validates
-  // the session against the API.
+  // Only bounces visitors without a cookie; redirectIfAuthenticated() validates a stale cookie server-side to avoid a redirect loop.
   if (
     !hasSession &&
     (pathname.startsWith("/inbox") ||

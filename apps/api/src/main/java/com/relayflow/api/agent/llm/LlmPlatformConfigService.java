@@ -25,8 +25,9 @@ public class LlmPlatformConfigService {
             if (value != null && !value.isBlank()) {
                 return value.strip();
             }
-        } catch (Exception e) {
-            log.warn("Failed to read Redis key={} — using default: {}", key, e.getMessage());
+        } catch (Exception exception) {
+            log.warn(
+                    "Failed to read Redis key={} — using default: {}", key, exception.getMessage());
         }
 
         return defaultValue;
@@ -39,16 +40,16 @@ public class LlmPlatformConfigService {
             if (value != null && !value.isBlank()) {
                 return LlmProvider.valueOf(value.strip().toUpperCase());
             }
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException exception) {
             log.warn(
                     "Unknown LLM provider value in Redis (key={}) — defaulting to ANTHROPIC: {}",
                     PROVIDER_KEY,
-                    e.getMessage());
-        } catch (Exception e) {
+                    exception.getMessage());
+        } catch (Exception exception) {
             log.warn(
                     "Failed to read LLM provider from Redis (key={}) — defaulting to ANTHROPIC: {}",
                     PROVIDER_KEY,
-                    e.getMessage());
+                    exception.getMessage());
         }
 
         return LlmProvider.ANTHROPIC;

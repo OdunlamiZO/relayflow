@@ -72,7 +72,7 @@ export const dockerComposeYml = extractCustomerProfile(
   readArtifact("docker-compose.yml", "docker-compose.yml")
 );
 
-export const envExample = readArtifact(".env.example", ".env.example");
+export const environmentExample = readArtifact(".env.example", ".env.example");
 
 export const caddyfile = readArtifact(
   "Caddyfile",

@@ -23,13 +23,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Closes the conversation that triggered the workflow and optionally sends a final message.
- *
- * <p>This node is terminal — it has no outgoing handle, so the workflow run ends here. The
- * conversation status is set to {@link ConversationStatus#CLOSED} and the inbox is notified via SSE
- * so the UI updates immediately.
- */
 @Component
 public class EndConversationNodeExecutor implements NodeExecutor {
 
@@ -67,7 +60,6 @@ public class EndConversationNodeExecutor implements NodeExecutor {
 
         Map<String, Object> output = new LinkedHashMap<>();
 
-        // Optional closing message — send it before closing the conversation.
         String rawMessage = (String) node.data().get("message");
 
         if (rawMessage != null && !rawMessage.isBlank()) {
@@ -100,7 +92,6 @@ public class EndConversationNodeExecutor implements NodeExecutor {
             output.put("text", text);
         }
 
-        // Close the conversation, release workflow ownership, and unassign it.
         conversation.setStatus(ConversationStatus.CLOSED);
         conversation.setLockedByWorkflow(false);
         conversation.setAssigneeId(null);

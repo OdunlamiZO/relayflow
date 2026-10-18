@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
-/** Public response for the invite preview page — no authentication required. */
 public record InvitePreviewResponse(
         UUID inviteId,
         UUID workspaceId,

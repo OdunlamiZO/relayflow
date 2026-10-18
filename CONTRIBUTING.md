@@ -25,8 +25,9 @@ implementation.
 These rules are enforced by formatters/linters where possible, and checked in review otherwise.
 
 - **No abbreviations** — spell out full words in every identifier (class names, variables,
-  methods, files, hooks): `configuration` not `config`, `message` not `msg`, `conversation` not
-  `conv`, `workspace` not `ws`.
+  methods, files, hooks): `message` not `msg`, `conversation` not `conv`, `workspace` not `ws`,
+  and no single-letter names. These common short forms are fine: `config`, `utils`, `init`,
+  `props`, `ref`, `dto`, `nav`, `cta`.
 - **Java**: a blank line before the first field in a class and between every field; a blank line
   before every `return` that isn't the sole statement in its block; blank lines separating
   distinct logical phases within a method body (fetch → build → persist).

@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MessagingController {
 
     private final MessagingService messagingService;
+
     private final WorkspaceAuthorizationService authorizationService;
 
     public MessagingController(
@@ -37,8 +38,6 @@ public class MessagingController {
         this.messagingService = messagingService;
         this.authorizationService = authorizationService;
     }
-
-    // --- Conversations ---
 
     @PostMapping("/conversations")
     @ResponseStatus(HttpStatus.CREATED)
@@ -86,8 +85,6 @@ public class MessagingController {
         return messagingService.updateConversationAssignee(
                 workspaceId, conversationId, request.assigneeId());
     }
-
-    // --- Messages ---
 
     @GetMapping("/conversations/{conversationId}/messages")
     PageResponse<MessageResponse> listMessages(

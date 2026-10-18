@@ -21,8 +21,8 @@ export default function SignupPage() {
 
 function SignupPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const searchParameters = useSearchParams();
+  const token = searchParameters.get("token");
 
   const { data: preview, isLoading } = useInvitePreview(token);
   const { mutate: signup, isPending, error } = useSignup();
@@ -30,8 +30,8 @@ function SignupPageContent() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     if (!token || !preview) return;
 
@@ -132,8 +132,8 @@ function SignupPageContent() {
             autoComplete="name"
             required
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
+            onChange={(event) => {
+              setName(event.target.value);
             }}
             placeholder="Jane Smith"
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -170,8 +170,8 @@ function SignupPageContent() {
             required
             minLength={8}
             value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
+            onChange={(event) => {
+              setPassword(event.target.value);
             }}
             placeholder="At least 8 characters"
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"

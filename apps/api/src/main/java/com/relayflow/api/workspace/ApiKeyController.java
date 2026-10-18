@@ -26,7 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class ApiKeyController {
 
     private final ApiKeyService apiKeyService;
+
     private final WorkspaceAuthorizationService authorizationService;
+
     private final SecurityUtils securityUtils;
 
     public ApiKeyController(

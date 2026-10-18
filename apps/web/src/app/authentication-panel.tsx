@@ -13,10 +13,6 @@ export function AuthenticationPanel() {
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const router = useRouter();
 
-  // useSyncExternalStore with different client/server snapshots is the React 18
-  // canonical replacement for the useState+useEffect mounted guard. The server
-  // snapshot returns false, the client snapshot returns true, so the component
-  // renders the neutral skeleton during SSR without calling setState in an effect.
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -33,7 +29,6 @@ export function AuthenticationPanel() {
     });
   }
 
-  // Close dropdown on outside click.
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -51,10 +46,7 @@ export function AuthenticationPanel() {
     };
   }, []);
 
-  // Render the neutral skeleton until the component has mounted on the client.
-  // Without this guard the server always renders "loading" (fresh QueryClient)
-  // while a navigating client renders the real auth state immediately from cache,
-  // causing a React hydration attribute mismatch on the root element.
+  // Renders the skeleton until mounted, since the server has no cached authentication state and would mismatch on hydration.
   if (!mounted || isLoading) {
     return (
       <div className="h-10 w-10 animate-pulse rounded-full bg-neutral-300" />
@@ -71,7 +63,7 @@ export function AuthenticationPanel() {
       <div ref={containerRef} className="relative">
         <button
           type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={() => setIsOpen((previous) => !previous)}
           aria-label="Account menu"
           aria-expanded={isOpen}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-neutral-100 transition-colors hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
@@ -90,7 +82,6 @@ export function AuthenticationPanel() {
 
         {isOpen && (
           <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100 shadow-xl">
-            {/* User card */}
             <div className="flex items-center gap-3 px-4 py-3.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-neutral-100">
                 {user.avatarUrl ? (
@@ -120,7 +111,6 @@ export function AuthenticationPanel() {
 
             <div className="border-t border-neutral-100" />
 
-            {/* Actions */}
             <div className="p-1.5">
               <Link
                 href="/profile"

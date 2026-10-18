@@ -16,7 +16,6 @@ type Props = {
   workspaceId: string;
   selectedConversationId: string | undefined;
   onSelect: (conversationId: string) => void;
-  /** When set, only conversations for this contact are shown. */
   contactId?: string;
 };
 
@@ -45,28 +44,26 @@ export function ConversationList({
 
   const { data: channelAccounts } = useChannelAccounts(workspaceId);
   const hasActiveChannel =
-    channelAccounts?.some((c) => c.status === "ACTIVE") ?? false;
+    channelAccounts?.some(
+      (channelAccount) => channelAccount.status === "ACTIVE"
+    ) ?? false;
 
-  // Same permission check as SettingsShell's Channels tab — no point linking
-  // there if the user can't see or use it once they arrive.
   const canConnectChannel =
     currentMember?.role === "OWNER" ||
     currentMember?.permissions.includes("CHANNELS_WRITE") === true;
 
   function handleScroll() {
-    const el = scrollRef.current;
+    const element = scrollRef.current;
 
-    if (!el || !hasNextPage || isFetchingNextPage) {
+    if (!element || !hasNextPage || isFetchingNextPage) {
       return;
     }
 
-    // When the user scrolls within 100 px of the bottom, load more conversations.
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
+    if (element.scrollHeight - element.scrollTop - element.clientHeight < 100) {
       void fetchNextPage();
     }
   }
 
-  // Reset scroll to top when workspace changes.
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
@@ -156,7 +153,6 @@ export function ConversationList({
           />
         ))}
 
-        {/* Load-more spinner at the bottom of the list */}
         {isFetchingNextPage && (
           <div className="flex justify-center py-4">
             <Spinner size="sm" />

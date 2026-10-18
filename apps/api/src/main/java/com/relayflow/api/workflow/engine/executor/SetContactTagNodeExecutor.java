@@ -55,8 +55,8 @@ public class SetContactTagNodeExecutor implements NodeExecutor {
 
         try {
             contactTagService.applyTags(conversation.getContact(), Map.of(tagKey, value));
-        } catch (ResponseStatusException e) {
-            throw new NodeExecutionException(e.getReason());
+        } catch (ResponseStatusException exception) {
+            throw new NodeExecutionException(exception.getReason());
         }
 
         context.setVariable("contact.tags." + tagKey, value);

@@ -4,11 +4,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Converts WhatsApp-style formatting ({@code *bold*}, {@code _italic_}, {@code ~strike~}, {@code
- * `code`}, {@code ```block```}, and {@code - } or {@code * } bullets) to Telegram HTML, escaping
- * everything else. Mirrors {@code message-formatting.ts} in the web app.
- */
+/** Mirrors message-formatting.ts in the web app. */
 public final class TelegramFormatter {
 
     private static final Pattern CODE_BLOCK = Pattern.compile("```([\\s\\S]+?)```");

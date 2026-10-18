@@ -34,7 +34,6 @@ function formatTimestamp(isoString: string | null): string {
   });
 }
 
-/** Returns the entries of `current` that are new or changed compared to `previous`. */
 function diffVariables(
   previous: JsonObject | null,
   current: JsonObject

@@ -4,11 +4,8 @@ import { WorkflowNode } from "./WorkflowNode";
 
 export type JumpToNodeData = {
   label?: string;
-  /** Id of the node execution should jump to. */
   targetNodeId?: string;
-  /** Denormalised label kept for display so the node card stays readable without traversing the graph. */
   targetNodeLabel?: string;
-  /** How many times this jump is allowed before the walk terminates. Defaults to 1. */
   maxJumps?: number;
 };
 

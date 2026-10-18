@@ -14,8 +14,7 @@ export function useLogin() {
       showToast({ kind: "error", message: errorMessage(error) });
     },
     onSuccess: (data) => {
-      // If 2FA is required the server hasn't established a session yet —
-      // don't invalidate the auth query until after the OTP step succeeds.
+      // With 2FA required there is no session yet, so the authentication query is invalidated after the OTP step.
       if (!data.twoFactorRequired) {
         void queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       }

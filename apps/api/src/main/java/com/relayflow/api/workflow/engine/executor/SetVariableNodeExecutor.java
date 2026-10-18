@@ -8,10 +8,6 @@ import com.relayflow.api.workflow.engine.NodeExecutor;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/**
- * Sets (or overwrites) a named variable in the execution context. Variables are always
- * reassignable.
- */
 @Component
 public class SetVariableNodeExecutor implements NodeExecutor {
 

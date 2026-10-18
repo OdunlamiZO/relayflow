@@ -22,7 +22,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
             """)
     List<Conversation> findByWorkspace(@Param("workspaceId") UUID workspaceId);
 
-    /** Offset-based paginated overload of {@link #findByWorkspace(UUID)}. */
     @Query(
             """
             select c from Conversation c
@@ -62,10 +61,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
     @Query("UPDATE Conversation c SET c.contact = :target WHERE c.contact.id = :sourceId")
     void reassignContact(@Param("target") Contact target, @Param("sourceId") UUID sourceId);
 
-    /**
-     * Returns the most recent conversation for a contact on a given channel, regardless of status.
-     * Used to reopen a closed conversation when the contact sends a new message.
-     */
     @Query(
             """
             select c from Conversation c

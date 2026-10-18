@@ -17,12 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * {@code @Order(LOWEST_PRECEDENCE)} — without it, Spring picks among tied-priority
- * {@code @RestControllerAdvice} beans in an unspecified order, and this class's catch-all {@code
- * Exception} handler can intercept an exception before a more specific advice bean (e.g. {@link
- * com.relayflow.api.workflow.WorkflowExceptionHandler}) ever gets a chance.
- */
+/** Lowest precedence so more specific advice beans handle their exceptions first. */
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class CommonExceptionHandler {
@@ -74,12 +69,6 @@ public class CommonExceptionHandler {
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
     }
 
-    /**
-     * Without this, {@link AccessDeniedException}s (e.g. {@code SseController}'s workspace
-     * membership check) fall through to {@link #unexpected} and surface as a generic 500 — and for
-     * SSE requests, the JSON body can't even be written since the client's {@code Accept:
-     * text/event-stream} header doesn't match it.
-     */
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ErrorResponse> accessDenied(AccessDeniedException exception) {
         log.warn("Request rejected: {}", exception.getMessage());
@@ -88,11 +77,6 @@ public class CommonExceptionHandler {
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
     }
 
-    /**
-     * Preserves the status and reason of {@link ResponseStatusException}s thrown by services (e.g.
-     * authentication failures) — without this, they would fall through to {@link #unexpected} and
-     * surface as a generic 500.
-     */
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<ErrorResponse> responseStatus(ResponseStatusException exception) {
         log.warn("Request rejected: {}", exception.getReason());
@@ -101,12 +85,7 @@ public class CommonExceptionHandler {
                 .body(new ErrorResponse(exception.getReason(), Instant.now()));
     }
 
-    /**
-     * SSE emitters time out after {@code WorkspaceSseService.EMITTER_TIMEOUT_MS} by design — the
-     * client reconnects automatically. Returning a bodiless response avoids {@code
-     * HttpMessageNotWritableException} from writing a JSON {@link ErrorResponse} onto a response
-     * already committed as {@code text/event-stream}.
-     */
+    /** SSE responses are committed as text/event-stream, so a timeout gets no body. */
     @ExceptionHandler(AsyncRequestTimeoutException.class)
     ResponseEntity<Void> asyncTimeout() {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();

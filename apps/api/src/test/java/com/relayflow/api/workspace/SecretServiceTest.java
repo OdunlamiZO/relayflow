@@ -27,8 +27,6 @@ class SecretServiceTest {
 
     @Mock private WorkspaceSecretRepository secretRepository;
 
-    // A real instance, not a mock — encrypt/decrypt round-tripping is exactly what this test
-    // verifies, so it must run for real rather than be stubbed.
     private final CredentialEncryptionService encryptionService =
             new CredentialEncryptionService(Base64.getEncoder().encodeToString(new byte[32]));
 

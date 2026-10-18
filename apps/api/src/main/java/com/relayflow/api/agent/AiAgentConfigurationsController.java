@@ -46,7 +46,6 @@ public class AiAgentConfigurationsController {
         return aiAgentConfigurationService.listConfigurations(workspaceId);
     }
 
-    /** The platform-wide active LLM provider (not scoped to this workspace). */
     @GetMapping("/platform-llm-provider")
     PlatformLlmProviderResponse getPlatformLlmProvider(
             @PathVariable UUID workspaceId, Authentication authentication) {

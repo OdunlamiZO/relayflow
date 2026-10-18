@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class RelayFlowApiApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(RelayFlowApiApplication.class, args);
+    public static void main(String[] arguments) {
+        SpringApplication.run(RelayFlowApiApplication.class, arguments);
     }
 }

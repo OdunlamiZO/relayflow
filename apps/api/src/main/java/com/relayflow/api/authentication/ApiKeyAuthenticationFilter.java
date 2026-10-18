@@ -14,16 +14,10 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Reads the {@code X-Api-Key} header, verifies the key against the DB, and sets an {@link
- * ApiKeyAuthentication} in the SecurityContext if valid.
- *
- * <p>{@code lastUsedAt} is updated at most once per hour per key to avoid a DB write on every
- * single request.
- */
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String HEADER = "X-Api-Key";
+
     private static final Duration LAST_USED_UPDATE_INTERVAL = Duration.ofHours(1);
 
     private final WorkspaceApiKeyRepository apiKeyRepository;

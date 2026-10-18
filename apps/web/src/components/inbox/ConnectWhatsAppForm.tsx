@@ -23,8 +23,8 @@ export function ConnectWhatsAppForm({
 
   const { mutate: connect, isPending } = useConnectWhatsApp(workspaceId);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     connect(
       {
@@ -54,7 +54,7 @@ export function ConnectWhatsAppForm({
           type="text"
           placeholder="e.g. Support WhatsApp"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(event) => setName(event.target.value)}
           className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
       </div>
@@ -72,7 +72,7 @@ export function ConnectWhatsAppForm({
           required
           placeholder="EAABsbCS..."
           value={accessToken}
-          onChange={(e) => setAccessToken(e.target.value)}
+          onChange={(event) => setAccessToken(event.target.value)}
           className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">
@@ -102,7 +102,7 @@ export function ConnectWhatsAppForm({
           required
           placeholder="106540352242922"
           value={phoneNumberId}
-          onChange={(e) => setPhoneNumberId(e.target.value)}
+          onChange={(event) => setPhoneNumberId(event.target.value)}
           className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">
@@ -123,7 +123,7 @@ export function ConnectWhatsAppForm({
           required
           placeholder="my-secret-token"
           value={verifyToken}
-          onChange={(e) => setVerifyToken(e.target.value)}
+          onChange={(event) => setVerifyToken(event.target.value)}
           className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">

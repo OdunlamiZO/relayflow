@@ -7,22 +7,6 @@ import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Resolves {@code {{variableName}}} placeholders in strings using an execution context variable
- * map.
- *
- * <p>Both flat keys ({@code {{myVar}}}) and dotted paths ({@code {{contact.name}}}) are supported.
- * The variable map stores keys in dot-notation form (e.g. {@code "contact.name"}), so dotted
- * references resolve directly as a flat lookup before falling back to nested-map traversal.
- *
- * <p>A resolved value can be piped through one or more filters, e.g. {@code {{contact.name |
- * upper}}}, {@code {{contact.name | lower}}}, or {@code {{contact.name | title}}}. Unknown filters
- * are ignored.
- *
- * <p>{@code {{secrets.NAME}}} is a reserved namespace passed through unresolved — only {@code
- * HttpRequestNodeExecutor} resolves it, in a separate pass, so a decrypted secret value never
- * enters the variable map or a run snapshot.
- */
 public final class VariableInterpolator {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^}]+)}}");
@@ -41,9 +25,7 @@ public final class VariableInterpolator {
             String[] parts = matcher.group(1).split("\\|");
             String path = parts[0].trim();
 
-            // secrets.* is resolved separately, after this pass, by HttpRequestNodeExecutor — left
-            // untouched here so a decrypted value never flows through the variable map or a run
-            // snapshot. Passed through unchanged rather than emptied like an unresolved variable.
+            // secrets.* stays untouched so a decrypted value never reaches variables or snapshots.
             if (path.startsWith("secrets.")) {
                 matcher.appendReplacement(result, Matcher.quoteReplacement(matcher.group(0)));
                 continue;
@@ -52,8 +34,8 @@ public final class VariableInterpolator {
             Object value = resolve(path, variables);
             String replacement = value != null ? value.toString() : "";
 
-            for (int i = 1; i < parts.length; i++) {
-                replacement = applyFilter(replacement, parts[i].trim());
+            for (int index = 1; index < parts.length; index++) {
+                replacement = applyFilter(replacement, parts[index].trim());
             }
 
             matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
@@ -64,20 +46,15 @@ public final class VariableInterpolator {
         return result.toString();
     }
 
-    /**
-     * Applies a named transform to an interpolated value. Unknown filters pass the value through
-     * unchanged.
-     */
     private static String applyFilter(String value, String filter) {
         return VariableFilter.fromToken(filter)
                 .map(variableFilter -> variableFilter.transform.apply(value))
                 .orElse(value);
     }
 
-    /** Transforms supported by the {@code {{variable | filter}}} pipe syntax. */
     private enum VariableFilter {
-        UPPER("upper", v -> v.toUpperCase(Locale.ROOT)),
-        LOWER("lower", v -> v.toLowerCase(Locale.ROOT)),
+        UPPER("upper", text -> text.toUpperCase(Locale.ROOT)),
+        LOWER("lower", text -> text.toLowerCase(Locale.ROOT)),
         TITLE("title", VariableFilter::toTitleCase);
 
         private final String token;
@@ -99,20 +76,19 @@ public final class VariableInterpolator {
             return Optional.empty();
         }
 
-        /** Capitalizes the first letter of each word and lowercases the rest. */
         private static String toTitleCase(String value) {
             StringBuilder result = new StringBuilder(value.length());
             boolean capitalizeNext = true;
 
-            for (char c : value.toCharArray()) {
-                if (Character.isWhitespace(c)) {
+            for (char character : value.toCharArray()) {
+                if (Character.isWhitespace(character)) {
                     capitalizeNext = true;
-                    result.append(c);
+                    result.append(character);
                 } else if (capitalizeNext) {
-                    result.append(Character.toUpperCase(c));
+                    result.append(Character.toUpperCase(character));
                     capitalizeNext = false;
                 } else {
-                    result.append(Character.toLowerCase(c));
+                    result.append(Character.toLowerCase(character));
                 }
             }
 
@@ -120,19 +96,12 @@ public final class VariableInterpolator {
         }
     }
 
-    /**
-     * Resolves a dotted path against the variable map.
-     *
-     * <p>First tries a direct flat lookup (e.g. {@code "contact.name"} as a single key), then walks
-     * the map hierarchy segment by segment.
-     */
     @SuppressWarnings("unchecked")
     static Object resolve(String path, Map<String, Object> variables) {
         if (variables.containsKey(path)) {
             return variables.get(path);
         }
 
-        // Walk hierarchy: contact.name → variables["contact"]["name"]
         String[] parts = path.split("\\.", 2);
 
         if (parts.length == 2) {

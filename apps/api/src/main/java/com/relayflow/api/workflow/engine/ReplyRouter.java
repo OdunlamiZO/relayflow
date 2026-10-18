@@ -109,7 +109,7 @@ public class ReplyRouter {
 
             if (matchedByText || matchedByNumber) {
                 if (responseVariable != null) {
-                    // Save the canonical option text (not the raw reply).
+                    // Saves the canonical option text, not the raw reply.
                     context.setVariable(
                             responseVariable, text != null ? text.trim() : trimmedReply);
                 }
@@ -118,7 +118,6 @@ public class ReplyRouter {
             }
         }
 
-        // No option matched — save the raw reply and follow the "Other" edge.
         if (responseVariable != null) {
             context.setVariable(responseVariable, trimmedReply);
         }

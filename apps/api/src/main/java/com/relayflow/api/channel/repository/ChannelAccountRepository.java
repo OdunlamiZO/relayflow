@@ -24,7 +24,7 @@ public interface ChannelAccountRepository extends JpaRepository<ChannelAccount, 
     Optional<ChannelAccount> findInWorkspace(
             @Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
 
-    /** The channel's own assigned config, resolved in one query — safe to call on a detached ID. */
+    /** Safe to call with a detached ID. */
     @Query("select ca.aiAgentConfiguration from ChannelAccount ca where ca.id = :channelAccountId")
     Optional<AiAgentConfiguration> findAiAgentConfiguration(
             @Param("channelAccountId") UUID channelAccountId);

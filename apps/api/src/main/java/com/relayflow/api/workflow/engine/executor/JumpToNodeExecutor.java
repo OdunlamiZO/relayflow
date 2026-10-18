@@ -11,13 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Executor for {@code jumpTo} nodes.
- *
- * <p>Redirects execution to a target node by id, bypassing normal edge traversal. A per-node jump
- * counter stored in the execution context enforces the configured {@code maxJumps} limit — once
- * reached the walk terminates rather than looping forever.
- */
 @Component
 public class JumpToNodeExecutor implements NodeExecutor {
 
@@ -44,7 +37,6 @@ public class JumpToNodeExecutor implements NodeExecutor {
         int jumpCount = rawCount instanceof Number n ? n.intValue() : 0;
 
         if (jumpCount >= maxJumps) {
-            // Limit reached — end this branch normally instead of looping.
             log.warn("Jump limit reached: nodeId={}, maxJumps={}", node.id(), maxJumps);
 
             return NodeExecutionResult.next(Map.of("jumpCount", jumpCount, "limitReached", true));

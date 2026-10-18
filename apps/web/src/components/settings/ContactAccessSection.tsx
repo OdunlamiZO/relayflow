@@ -178,8 +178,8 @@ function WhitelistSection({
     ? whitelist.filter((entry) => entry.phoneNumber.includes(searchDigits))
     : whitelist;
 
-  function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
+  function handleAdd(event: React.FormEvent) {
+    event.preventDefault();
 
     if (phoneNumbers.length === 0) return;
 
@@ -221,7 +221,7 @@ function WhitelistSection({
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(event) => setInput(event.target.value)}
           placeholder="+14155550123, +447700900123"
           aria-label="Phone numbers to whitelist"
           className="w-full flex-1 rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 outline-none placeholder:font-sans placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -253,7 +253,7 @@ function WhitelistSection({
           <input
             type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             placeholder="Search numbers"
             className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
           />

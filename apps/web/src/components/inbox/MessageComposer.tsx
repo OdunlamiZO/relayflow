@@ -48,10 +48,10 @@ export function MessageComposer({
   const isPending = isSendingMessage || isSendingDraft;
 
   function resize() {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    const element = textareaRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
   }
 
   function clear() {
@@ -72,6 +72,7 @@ export function MessageComposer({
           onDraftSent?.();
         },
       });
+
       return;
     }
 
@@ -81,20 +82,20 @@ export function MessageComposer({
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     submit();
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
       submit();
     }
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setText(e.target.value);
+  function handleChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    setText(event.target.value);
     resize();
   }
 

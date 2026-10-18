@@ -24,11 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Evaluates FEEL hook expressions. {@code true} accepts the value, {@code false}/{@code null}
- * rejects it, a context with a {@code valid} entry gives full control, and any other result
- * replaces the value.
- */
+/** true accepts, false or null rejects, a valid context decides, anything else replaces. */
 @Component
 public class FeelHookEvaluator {
 
@@ -71,20 +67,20 @@ public class FeelHookEvaluator {
 
             // FEEL can't be interrupted; a timed-out evaluation holds its thread until done.
             result = future.get(EVALUATION_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
+        } catch (TimeoutException exception) {
             log.warn("Hook evaluation timed out after {}ms", EVALUATION_TIMEOUT_MILLISECONDS);
 
             return HookOutcome.error(
                     "Hook took longer than " + EVALUATION_TIMEOUT_MILLISECONDS + "ms to evaluate",
                     List.of());
-        } catch (RejectedExecutionException e) {
+        } catch (RejectedExecutionException exception) {
             return HookOutcome.error("Too many hooks are being evaluated — try again", List.of());
-        } catch (ExecutionException e) {
-            log.warn("Hook evaluation threw an exception", e.getCause());
+        } catch (ExecutionException exception) {
+            log.warn("Hook evaluation threw an exception", exception.getCause());
 
             return HookOutcome.error(
-                    "Hook evaluation failed: " + e.getCause().getMessage(), List.of());
-        } catch (InterruptedException e) {
+                    "Hook evaluation failed: " + exception.getCause().getMessage(), List.of());
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
 
             return HookOutcome.error("Hook evaluation was interrupted", List.of());

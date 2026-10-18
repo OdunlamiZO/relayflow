@@ -20,10 +20,6 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Sets (or overwrites) a contact's custom field — a {@link ReservedContactField} or a field the
- * workspace has defined.
- */
 @Component
 public class SetContactFieldNodeExecutor implements NodeExecutor {
 

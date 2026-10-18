@@ -99,7 +99,6 @@ public class WorkflowService {
             workflow.setDraftGraph(new LinkedHashMap<>(request.draftGraph()));
         }
 
-        // Validate graph before enabling — saving an incomplete draft is always allowed.
         if (Boolean.TRUE.equals(request.enabled())) {
             Map<String, Object> graphToValidate =
                     workflow.getDraftGraph() != null ? workflow.getDraftGraph() : Map.of();

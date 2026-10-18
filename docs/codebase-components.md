@@ -270,6 +270,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`authentication-api.ts`](#authentication-apits)
   - [`messaging-api.ts`](#messaging-apits)
   - [`server-authentication.ts`](#server-authenticationts)
+  - [`server-messaging-api.ts`](#server-messaging-apits)
   - [`error-message.ts`](#error-messagets)
   - [`proxy.ts`](#proxyts)
   - [`api-base-url.ts`](#api-base-urlts)
@@ -2031,7 +2032,7 @@ We need it as a pure traffic-router now that apps/web is a self-hosted-only app 
 
 ### Auth Pages
 
-- `(auth)/layout.tsx`: auth page shell.
+- `(authentication)/layout.tsx`: auth page shell.
 - `login/page.tsx`: login form and Google login entry point.
 - `signup/page.tsx`: signup form; requires a `?token=` invite token in the URL. Loads the invite preview via `useInvitePreview`, pre-fills the invite's email (read-only), and shows an "You need an invite" state with a link back to `/login` when no token is present. There is no self-serve signup — see [`WorkspaceInviteService`](#workspaceinviteservice).
 - login/signup `metadata`: route-specific page metadata.
@@ -2049,9 +2050,8 @@ We need it so a freshly deployed self-hosted instance can create its first admin
 ### Inbox Pages
 
 - `inbox/layout.tsx`: inbox route shell.
-- `inbox/page.tsx`: server component that resolves workspace ID and renders `InboxShell`.
-- `WorkspaceItem`, `SearchParams`, `Props`: route helper types.
-- `apiBaseUrl`: server-side API base URL.
+- `inbox/page.tsx`: server component that resolves workspace ID and renders `InboxShell`. With no `workspaceId`, it redirects to the first workspace from `serverMessagingApi.listWorkspaces()`, or renders `CreateWorkspaceForm` when there are none.
+- `SearchParams`, `Props`: route helper types.
 
 We need these to protect and bootstrap the inbox view.
 
@@ -3010,6 +3010,15 @@ Important pieces:
 - `apiBaseUrl`
 
 We need it to protect server-rendered app routes, prevent logged-in users from staying on auth pages, and gate the one-time `/setup` route.
+
+### `server-messaging-api.ts`
+
+Server-only `ServerMessagingApiClient` for Server Components, exported as the `serverMessagingApi` singleton. Its private `request()` forwards the request's cookies, and non-2xx responses throw the shared `ApiError`.
+
+- `listWorkspaces()`: `GET /workspaces`; returns an empty list on any error. Used by the inbox, contacts, and workflows list pages to pick a default workspace.
+- `getInvitePreview(token)`: `GET /invites/{token}`; returns `null` on any error. Used by `invite/page.tsx`.
+
+We need it so server-rendered pages read workspace and invite data through one API client.
 
 ### `error-message.ts`
 

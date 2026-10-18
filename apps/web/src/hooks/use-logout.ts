@@ -14,12 +14,9 @@ export function useLogout() {
       showToast({ kind: "error", message: errorMessage(error) });
     },
     onSuccess: () => {
-      // Drop the guest recovery token so the login page doesn't silently
-      // re-establish the anonymous session and bounce the user back to /inbox.
+      // Drops the guest recovery token so the login page doesn't re-establish the anonymous session.
       localStorage.removeItem("guestRecoveryToken");
 
-      // Clear all cached queries so no stale authenticated data is shown
-      // during the navigation away from the inbox.
       queryClient.clear();
     },
   });

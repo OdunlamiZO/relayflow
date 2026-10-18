@@ -122,8 +122,8 @@ export function AiAgentPanel({ workspaceId }: Props) {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   const selected =
-    configurations.find((c) => c.id === selectedId) ??
-    configurations.find((c) => c.isDefault) ??
+    configurations.find((configuration) => configuration.id === selectedId) ??
+    configurations.find((configuration) => configuration.isDefault) ??
     configurations[0] ??
     null;
 
@@ -258,9 +258,9 @@ function NewAgentSection({
             options?.onSuccess?.(data);
             onCreated(data.id);
           },
-          onError: (err) => {
-            showToast({ kind: "error", message: errorMessage(err) });
-            options?.onError?.(err);
+          onError: (error) => {
+            showToast({ kind: "error", message: errorMessage(error) });
+            options?.onError?.(error);
           },
         })
       }
@@ -310,8 +310,11 @@ function ExistingAgentSection({
                         kind: "success",
                         message: `${configuration.name || "Agent"} is now the default`,
                       }),
-                    onError: (err) =>
-                      showToast({ kind: "error", message: errorMessage(err) }),
+                    onError: (error) =>
+                      showToast({
+                        kind: "error",
+                        message: errorMessage(error),
+                      }),
                   })
                 }
                 className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 transition-colors hover:border-secondary hover:bg-secondary/10 hover:text-secondary disabled:opacity-60"
@@ -363,7 +366,7 @@ type AiAgentFormProps = {
     request: UpdateAiAgentConfigurationRequest,
     options?: {
       onSuccess?: (data: AiAgentConfiguration) => void;
-      onError?: (err: unknown) => void;
+      onError?: (error: unknown) => void;
     }
   ) => void;
   isSaving: boolean;
@@ -427,11 +430,11 @@ function AiAgentForm({
       JSON.stringify(extractionFields);
 
   function patch(partial: Partial<FormState>) {
-    setForm((prev) => ({ ...prev, ...partial }));
+    setForm((previous) => ({ ...previous, ...partial }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     onSave(
       {
@@ -448,8 +451,8 @@ function AiAgentForm({
       {
         onSuccess: () =>
           showToast({ kind: "success", message: "AI agent saved" }),
-        onError: (err) =>
-          showToast({ kind: "error", message: errorMessage(err) }),
+        onError: (error) =>
+          showToast({ kind: "error", message: errorMessage(error) }),
       }
     );
   }
@@ -464,14 +467,18 @@ function AiAgentForm({
     value: string
   ) {
     patch({
-      knowledgeBase: knowledgeBase.map((entry, i) =>
-        i === index ? { ...entry, [field]: value } : entry
+      knowledgeBase: knowledgeBase.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [field]: value } : entry
       ),
     });
   }
 
   function removeKnowledgeEntry(index: number) {
-    patch({ knowledgeBase: knowledgeBase.filter((_, i) => i !== index) });
+    patch({
+      knowledgeBase: knowledgeBase.filter(
+        (_, entryIndex) => entryIndex !== index
+      ),
+    });
   }
 
   function addKeyword() {
@@ -483,7 +490,9 @@ function AiAgentForm({
 
   function removeKeyword(keyword: string) {
     patch({
-      escalationKeywords: escalationKeywords.filter((k) => k !== keyword),
+      escalationKeywords: escalationKeywords.filter(
+        (escalationKeyword) => escalationKeyword !== keyword
+      ),
     });
   }
 
@@ -502,23 +511,31 @@ function AiAgentForm({
     value: string
   ) {
     patch({
-      workflowMappings: workflowMappings.map((mapping, i) => {
-        if (i !== index) return mapping;
+      workflowMappings: workflowMappings.map((mapping, mappingIndex) => {
+        if (mappingIndex !== index) return mapping;
         if (field === "workflowId") {
-          const workflow = workflows.find((w) => w.id === value);
+          const workflow = workflows.find(
+            (candidate) => candidate.id === value
+          );
+
           return {
             ...mapping,
             workflowId: value,
             name: workflow?.name ?? mapping.name,
           };
         }
+
         return { ...mapping, [field]: value };
       }),
     });
   }
 
   function removeWorkflowMapping(index: number) {
-    patch({ workflowMappings: workflowMappings.filter((_, i) => i !== index) });
+    patch({
+      workflowMappings: workflowMappings.filter(
+        (_, mappingIndex) => mappingIndex !== index
+      ),
+    });
   }
 
   function addExtractionField() {
@@ -533,8 +550,8 @@ function AiAgentForm({
     value: string
   ) {
     patch({
-      extractionFields: extractionFields.map((entry, i) =>
-        i === index ? { ...entry, [field]: value } : entry
+      extractionFields: extractionFields.map((entry, fieldIndex) =>
+        fieldIndex === index ? { ...entry, [field]: value } : entry
       ),
     });
   }
@@ -575,12 +592,15 @@ function AiAgentForm({
   }
 
   function removeExtractionField(index: number) {
-    patch({ extractionFields: extractionFields.filter((_, i) => i !== index) });
+    patch({
+      extractionFields: extractionFields.filter(
+        (_, fieldIndex) => fieldIndex !== index
+      ),
+    });
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Name */}
       <section>
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Agent name
@@ -591,20 +611,19 @@ function AiAgentForm({
         <input
           type="text"
           value={agentName}
-          onChange={(e) => patch({ agentName: e.target.value })}
+          onChange={(event) => patch({ agentName: event.target.value })}
           maxLength={100}
           placeholder="AI Agent"
           className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
         />
       </section>
 
-      {/* Enable */}
       <section>
         <label className="flex cursor-pointer items-center gap-3">
           <input
             type="checkbox"
             checked={enabled}
-            onChange={(e) => patch({ enabled: e.target.checked })}
+            onChange={(event) => patch({ enabled: event.target.checked })}
             className="h-4 w-4 rounded border-neutral-300 accent-secondary"
           />
           <span className="text-sm font-medium text-neutral-800">
@@ -617,7 +636,6 @@ function AiAgentForm({
         </p>
       </section>
 
-      {/* Autonomy */}
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Autonomy
@@ -667,7 +685,6 @@ function AiAgentForm({
         </div>
       </section>
 
-      {/* LLM provider */}
       <section>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           LLM Provider
@@ -705,7 +722,6 @@ function AiAgentForm({
         </div>
       </section>
 
-      {/* Instructions */}
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
@@ -739,13 +755,12 @@ function AiAgentForm({
         </p>
         <textarea
           value={instructions || INSTRUCTIONS_TEMPLATE}
-          onChange={(e) => patch({ instructions: e.target.value })}
+          onChange={(event) => patch({ instructions: event.target.value })}
           rows={12}
           className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 font-mono text-xs text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
         />
       </section>
 
-      {/* Knowledge base */}
       <section>
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Knowledge base
@@ -757,36 +772,36 @@ function AiAgentForm({
         </p>
 
         <div className="space-y-3">
-          {knowledgeBase.map((entry, i) => (
+          {knowledgeBase.map((entry, index) => (
             <div
-              key={i}
+              key={index}
               className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-400">
-                  Entry {i + 1}
+                  Entry {index + 1}
                 </span>
                 <IconButton
                   icon="delete"
                   destructive
-                  label={`Remove entry ${i + 1}`}
-                  onClick={() => removeKnowledgeEntry(i)}
+                  label={`Remove entry ${index + 1}`}
+                  onClick={() => removeKnowledgeEntry(index)}
                 />
               </div>
               <input
                 type="text"
                 placeholder="Question"
                 value={entry.question}
-                onChange={(e) =>
-                  updateKnowledgeEntry(i, "question", e.target.value)
+                onChange={(event) =>
+                  updateKnowledgeEntry(index, "question", event.target.value)
                 }
                 className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
               <textarea
                 placeholder="Answer"
                 value={entry.answer}
-                onChange={(e) =>
-                  updateKnowledgeEntry(i, "answer", e.target.value)
+                onChange={(event) =>
+                  updateKnowledgeEntry(index, "answer", event.target.value)
                 }
                 rows={2}
                 className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -804,7 +819,6 @@ function AiAgentForm({
         </button>
       </section>
 
-      {/* Escalation keywords */}
       <section>
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Escalation keywords
@@ -815,16 +829,16 @@ function AiAgentForm({
         </p>
 
         <div className="mb-3 flex flex-wrap gap-2">
-          {escalationKeywords.map((kw) => (
+          {escalationKeywords.map((keyword) => (
             <span
-              key={kw}
+              key={keyword}
               className="flex items-center gap-1.5 rounded-full border border-neutral-300 bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-700"
             >
-              {kw}
+              {keyword}
               <button
                 type="button"
-                onClick={() => removeKeyword(kw)}
-                aria-label={`Remove ${kw}`}
+                onClick={() => removeKeyword(keyword)}
+                aria-label={`Remove ${keyword}`}
                 className="text-neutral-400 hover:text-neutral-700"
               >
                 ×
@@ -838,10 +852,10 @@ function AiAgentForm({
             type="text"
             placeholder="e.g. cancel, refund"
             value={newKeyword}
-            onChange={(e) => setNewKeyword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
+            onChange={(event) => setNewKeyword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
                 addKeyword();
               }
             }}
@@ -857,7 +871,6 @@ function AiAgentForm({
         </div>
       </section>
 
-      {/* Workflow mappings */}
       <section>
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Workflow triggers
@@ -871,54 +884,63 @@ function AiAgentForm({
         </p>
 
         <div className="space-y-3">
-          {workflowMappings.map((mapping, i) => (
+          {workflowMappings.map((mapping, index) => (
             <div
-              key={i}
+              key={index}
               className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-400">
-                  Mapping {i + 1}
+                  Mapping {index + 1}
                 </span>
                 <IconButton
                   icon="delete"
                   destructive
-                  label={`Remove workflow trigger ${i + 1}`}
-                  onClick={() => removeWorkflowMapping(i)}
+                  label={`Remove workflow trigger ${index + 1}`}
+                  onClick={() => removeWorkflowMapping(index)}
                 />
               </div>
               <div className="mb-2">
                 <Select
                   value={mapping.workflowId}
                   onChange={(value) =>
-                    updateWorkflowMapping(i, "workflowId", value)
+                    updateWorkflowMapping(index, "workflowId", value)
                   }
                   placeholder="Select a workflow…"
                   options={workflows
-                    .filter((wf) => {
+                    .filter((workflow) => {
                       const nodes =
                         (
-                          wf.draftGraph as {
+                          workflow.draftGraph as {
                             nodes?: {
                               type?: string;
                               data?: { event?: string };
                             }[];
                           }
                         )?.nodes ?? [];
+
                       return nodes.some(
-                        (n) =>
-                          n.type === "trigger" && n.data?.event === "manual"
+                        (node) =>
+                          node.type === "trigger" &&
+                          node.data?.event === "manual"
                       );
                     })
-                    .map((wf) => ({ value: wf.id, label: wf.name }))}
+                    .map((workflow) => ({
+                      value: workflow.id,
+                      label: workflow.name,
+                    }))}
                 />
               </div>
               <input
                 type="text"
                 placeholder="Trigger description (e.g. Customer wants to track their order)"
                 value={mapping.triggerDescription}
-                onChange={(e) =>
-                  updateWorkflowMapping(i, "triggerDescription", e.target.value)
+                onChange={(event) =>
+                  updateWorkflowMapping(
+                    index,
+                    "triggerDescription",
+                    event.target.value
+                  )
                 }
                 className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20"
               />
@@ -935,7 +957,6 @@ function AiAgentForm({
         </button>
       </section>
 
-      {/* Extraction fields */}
       <section>
         <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Data extraction
@@ -947,28 +968,28 @@ function AiAgentForm({
         </p>
 
         <div className="space-y-3">
-          {extractionFields.map((field, i) => (
+          {extractionFields.map((field, index) => (
             <div
-              key={i}
+              key={index}
               className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-400">
-                  Field {i + 1}
+                  Field {index + 1}
                 </span>
                 <IconButton
                   icon="delete"
                   destructive
-                  label={`Remove field ${i + 1}`}
-                  onClick={() => removeExtractionField(i)}
+                  label={`Remove field ${index + 1}`}
+                  onClick={() => removeExtractionField(index)}
                 />
               </div>
               <input
                 type="text"
                 placeholder="Key (e.g. orderNumber)"
                 value={field.key}
-                onChange={(e) =>
-                  updateExtractionField(i, "key", e.target.value)
+                onChange={(event) =>
+                  updateExtractionField(index, "key", event.target.value)
                 }
                 className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
@@ -976,15 +997,19 @@ function AiAgentForm({
                 type="text"
                 placeholder="Description (e.g. The customer's order number, if mentioned)"
                 value={field.description}
-                onChange={(e) =>
-                  updateExtractionField(i, "description", e.target.value)
+                onChange={(event) =>
+                  updateExtractionField(
+                    index,
+                    "description",
+                    event.target.value
+                  )
                 }
                 className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
               <Select
                 value={field.validationHook ?? ""}
                 onChange={(value) =>
-                  updateExtractionField(i, "validationHook", value)
+                  updateExtractionField(index, "validationHook", value)
                 }
                 options={hookOptionsFor(field.validationHook ?? "")}
               />
@@ -1004,7 +1029,6 @@ function AiAgentForm({
         </button>
       </section>
 
-      {/* Save */}
       <div className="flex items-center justify-end gap-2 border-t border-neutral-200 pt-6">
         {extraAction}
         <LoadingButton

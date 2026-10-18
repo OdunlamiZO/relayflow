@@ -41,14 +41,7 @@ public class PublicApiController {
         this.contactService = contactService;
     }
 
-    // --- Conversations ---
-
-    /**
-     * Lists conversations for the authenticated workspace.
-     *
-     * <p>Pass {@code contactId} to filter conversations to a single contact — this is the intended
-     * way to find a conversation after receiving a {@code contact.created} webhook.
-     */
+    /** Filter by contactId to find a conversation after a contact.created webhook. */
     @GetMapping("/conversations")
     PageResponse<ConversationResponse> listConversations(
             Authentication authentication,
@@ -69,8 +62,6 @@ public class PublicApiController {
 
         return messagingService.getConversation(workspaceId, conversationId);
     }
-
-    // --- Messages ---
 
     @GetMapping("/conversations/{conversationId}/messages")
     PageResponse<MessageResponse> listMessages(
@@ -115,12 +106,11 @@ public class PublicApiController {
 
     public record ContactTagsResponse(UUID contactId, Map<String, String> tags) {}
 
-    /** Request body for the public send-message endpoint. */
     public record SendMessageRequest(@NotBlank String text) {}
 
     private UUID resolveWorkspace(Authentication authentication) {
-        if (authentication instanceof ApiKeyAuthentication apiKeyAuth) {
-            return apiKeyAuth.getWorkspaceId();
+        if (authentication instanceof ApiKeyAuthentication apiKeyAuthentication) {
+            return apiKeyAuthentication.getWorkspaceId();
         }
 
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid API key");

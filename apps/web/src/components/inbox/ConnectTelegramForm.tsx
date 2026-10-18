@@ -20,8 +20,8 @@ export function ConnectTelegramForm({
   const [name, setName] = useState("");
   const { mutate: connect, isPending } = useConnectTelegram(workspaceId);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     connect(
       { name: name.trim() || "Telegram Bot", botToken: botToken.trim() },
@@ -43,7 +43,7 @@ export function ConnectTelegramForm({
           type="text"
           placeholder="e.g. Support Bot"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(event) => setName(event.target.value)}
           className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
       </div>
@@ -61,7 +61,7 @@ export function ConnectTelegramForm({
           required
           placeholder="1234567890:ABCdef..."
           value={botToken}
-          onChange={(e) => setBotToken(e.target.value)}
+          onChange={(event) => setBotToken(event.target.value)}
           className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 placeholder-neutral-400 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <p className="text-xs text-neutral-500">

@@ -145,7 +145,7 @@ public class AiAgentInvocationService {
 
         AiAgentConfiguration configuration = agentConfigurationOptional.get();
 
-        // Close any prior CLARIFYING turn so the unique constraint slot is freed before claiming
+        // Closes any prior CLARIFYING turn so the unique constraint slot is free before claiming.
         invocationLogRepository
                 .findForConversationWithStatus(conversationId, AiAgentInvocationStatus.CLARIFYING)
                 .ifPresent(
@@ -155,9 +155,6 @@ public class AiAgentInvocationService {
                             invocationLogRepository.saveAndFlush(prior);
                         });
 
-        // Claim via a nested REQUIRES_NEW transaction so a constraint violation on
-        // uq_ai_invocation_conversation_active only rolls back the inner transaction,
-        // leaving this one clean.
         Optional<AiAgentInvocationLog> claimed =
                 slotClaimer.tryClaim(conversation, triggeringMessage);
 
@@ -174,8 +171,7 @@ public class AiAgentInvocationService {
         conversation.setLockedByAiAgent(true);
         conversationRepository.save(conversation);
 
-        // Re-check for an active workflow run that may have been committed between our first check
-        // and the log INSERT
+        // A workflow run may have committed between the first check and the log insert.
         boolean workflowActive =
                 !workflowRunRepository
                                 .findForConversationWithStatus(
@@ -197,21 +193,19 @@ public class AiAgentInvocationService {
 
         try {
             runPipeline(configuration, conversation, triggeringMessage, invocationLog);
-        } catch (Exception e) {
+        } catch (Exception exception) {
             log.error(
                     "AI agent pipeline failed for conversation={}: {}",
                     conversationId,
-                    e.getMessage(),
-                    e);
+                    exception.getMessage(),
+                    exception);
             invocationLog.setStatus(AiAgentInvocationStatus.FAILED);
-            invocationLog.setEscalationReason("Internal error: " + e.getMessage());
+            invocationLog.setEscalationReason("Internal error: " + exception.getMessage());
             invocationLog.setFinishedAt(Instant.now());
             invocationLogRepository.save(invocationLog);
             broadcastEscalation(conversation, EscalationType.INTERNAL_ERROR, "Internal error");
         }
     }
-
-    // ── Private ───────────────────────────────────────────────────────────────
 
     private void runPipeline(
             AiAgentConfiguration configuration,
@@ -223,7 +217,6 @@ public class AiAgentInvocationService {
         UUID conversationId = conversation.getId();
         String messageText = triggeringMessage.getText() != null ? triggeringMessage.getText() : "";
 
-        // Deterministic escalation keyword check before any LLM call
         for (String keyword : configuration.getEscalationKeywords()) {
             if (messageText.toLowerCase().contains(keyword.toLowerCase())) {
                 String reason = "Escalation keyword matched: \"" + keyword + "\"";
@@ -234,7 +227,6 @@ public class AiAgentInvocationService {
             }
         }
 
-        // Assemble context and call the LLM
         AgentLlmRequest request = contextAssembler.assemble(configuration, conversation);
         AgentLlmResponse response =
                 llmClientFactory.getClient(configuration.getLlmProvider()).complete(request);
@@ -290,7 +282,6 @@ public class AiAgentInvocationService {
                             .toList();
         }
 
-        // Decision flow
         boolean draftOnly = configuration.getAutonomyCeiling() == AutonomyCeiling.DRAFT_ONLY;
 
         if (response.escalate()) {
@@ -469,7 +460,7 @@ public class AiAgentInvocationService {
 
         try {
             workflowId = UUID.fromString(rawWorkflowId);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException exception) {
             log.warn(
                     "AI agent returned invalid workflow ID '{}' for conversation={}",
                     rawWorkflowId,

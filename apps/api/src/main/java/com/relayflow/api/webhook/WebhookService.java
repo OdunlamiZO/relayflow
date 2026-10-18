@@ -40,11 +40,10 @@ public class WebhookService {
     @Transactional(readOnly = true)
     public List<WebhookConfigResponse> listWebhooks(UUID workspaceId) {
         return webhookRepository.findByWorkspace(workspaceId).stream()
-                .map(w -> toResponse(w, null))
+                .map(webhook -> toResponse(webhook, null))
                 .toList();
     }
 
-    /** Creates a new webhook for the workspace. The generated secret is returned once. */
     @Transactional
     public WebhookConfigResponse createWebhook(UUID workspaceId, SaveWebhookRequest request) {
         urlValidator.validate(request.url());
@@ -96,10 +95,6 @@ public class WebhookService {
         log.info("Webhook deleted: workspaceId={}, webhookId={}", workspaceId, webhookId);
     }
 
-    /**
-     * Generates a new 32-byte random HMAC secret, stores it encrypted, and returns the plaintext
-     * value once. The secret cannot be retrieved after this call — callers must persist it.
-     */
     @Transactional
     public RotateWebhookSecretResponse rotateSecret(UUID workspaceId, UUID webhookId) {
         WorkspaceWebhook webhook = getOrThrow(workspaceId, webhookId);
@@ -122,15 +117,15 @@ public class WebhookService {
                                         HttpStatus.NOT_FOUND, "Webhook not found"));
     }
 
-    private WebhookConfigResponse toResponse(WorkspaceWebhook w, String generatedSecret) {
+    private WebhookConfigResponse toResponse(WorkspaceWebhook webhook, String generatedSecret) {
         return new WebhookConfigResponse(
-                w.getId(),
-                w.getWorkspaceId(),
-                w.getUrl(),
-                w.isEnabled(),
-                w.getEvents(),
-                w.getCreatedAt(),
-                w.getUpdatedAt(),
+                webhook.getId(),
+                webhook.getWorkspaceId(),
+                webhook.getUrl(),
+                webhook.isEnabled(),
+                webhook.getEvents(),
+                webhook.getCreatedAt(),
+                webhook.getUpdatedAt(),
                 generatedSecret);
     }
 

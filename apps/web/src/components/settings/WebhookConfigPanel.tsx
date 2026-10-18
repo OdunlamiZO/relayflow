@@ -39,7 +39,7 @@ export function WebhookConfigPanel({ workspaceId }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // Not lifted into WebhookForm: forms remount on tab switch/create/delete, which would wipe this.
+  // Kept outside WebhookForm because forms remount on tab switch, create, and delete.
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
 
   const selected =
@@ -150,8 +150,6 @@ function WebhookTab({
   );
 }
 
-// ── One webhook's form — remounts on tab switch/create/delete, so state is always fresh ──
-
 type FormProps = {
   workspaceId: string;
   webhook: WebhookConfig | null;
@@ -190,18 +188,20 @@ function WebhookForm({
     (webhook?.enabled ?? false) === enabled &&
     JSON.stringify(webhook?.events ?? []) === JSON.stringify(events);
 
-  function toggleEvent(ev: WebhookEventType) {
-    setEvents((prev) =>
-      prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]
+  function toggleEvent(event: WebhookEventType) {
+    setEvents((previous) =>
+      previous.includes(event)
+        ? previous.filter((selectedEvent) => selectedEvent !== event)
+        : [...previous, event]
     );
   }
 
-  function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSave(event: React.FormEvent) {
+    event.preventDefault();
 
     const request = { url: url.trim(), enabled, events };
 
-    // Don't clear formError here — let it stay until the new outcome is known.
+    // formError stays until the new outcome is known.
     if (isNew) {
       createWebhook.mutate(request, {
         onSuccess: (data) => {
@@ -212,7 +212,7 @@ function WebhookForm({
             onSecretRevealed(data.generatedSecret);
           }
         },
-        onError: (err) => setFormError(errorMessage(err)),
+        onError: (error) => setFormError(errorMessage(error)),
       });
 
       return;
@@ -220,7 +220,7 @@ function WebhookForm({
 
     updateWebhook.mutate(request, {
       onSuccess: () => setFormError(null),
-      onError: (err) => setFormError(errorMessage(err)),
+      onError: (error) => setFormError(errorMessage(error)),
     });
   }
 
@@ -236,14 +236,13 @@ function WebhookForm({
         setFormError(null);
         onSecretRevealed(data.secret);
       },
-      onError: (err) => setFormError(errorMessage(err)),
+      onError: (error) => setFormError(errorMessage(error)),
     });
   }
 
   return (
     <>
       <form onSubmit={handleSave} className="space-y-5">
-        {/* Endpoint URL */}
         <div>
           <label
             htmlFor={`webhook-url-${webhook?.id ?? "new"}`}
@@ -255,38 +254,36 @@ function WebhookForm({
             id={`webhook-url-${webhook?.id ?? "new"}`}
             type="url"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(event) => setUrl(event.target.value)}
             placeholder="https://your-app.com/webhooks/relayflow"
             required
             className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-primary placeholder-neutral-400 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
           />
         </div>
 
-        {/* Events */}
         <div>
           <p className="mb-2 text-sm font-medium text-neutral-700">Events</p>
 
           <div className="flex flex-col gap-2">
-            {ALL_EVENTS.map((ev) => (
+            {ALL_EVENTS.map((event) => (
               <label
-                key={ev.value}
+                key={event.value}
                 className="flex cursor-pointer items-center gap-3"
               >
                 <input
                   type="checkbox"
-                  checked={events.includes(ev.value)}
-                  onChange={() => toggleEvent(ev.value)}
+                  checked={events.includes(event.value)}
+                  onChange={() => toggleEvent(event.value)}
                   className="h-4 w-4 rounded border-neutral-300 accent-secondary"
                 />
                 <span className="font-mono text-sm text-neutral-700">
-                  {ev.payloadName}
+                  {event.payloadName}
                 </span>
               </label>
             ))}
           </div>
         </div>
 
-        {/* Enabled toggle */}
         <div>
           <label className="flex cursor-pointer items-center justify-between">
             <span className="text-sm font-medium text-neutral-700">
@@ -297,7 +294,7 @@ function WebhookForm({
               type="button"
               role="switch"
               aria-checked={enabled}
-              onClick={() => setEnabled((v) => !v)}
+              onClick={() => setEnabled((previous) => !previous)}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                 enabled ? "bg-green-text" : "bg-neutral-300"
               }`}
@@ -313,7 +310,6 @@ function WebhookForm({
 
         {formError && <p className="text-sm text-red-text">{formError}</p>}
 
-        {/* Actions */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div className="flex flex-wrap gap-2">
             {isNew ? (

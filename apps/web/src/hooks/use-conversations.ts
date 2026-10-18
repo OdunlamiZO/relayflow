@@ -21,7 +21,7 @@ export function useConversations(
     getNextPageParam: (lastPage, allPages) =>
       lastPage.hasMore ? allPages.length : undefined,
     enabled: Boolean(workspaceId),
-    // SSE is the primary delivery mechanism; polling is the fallback for missed events.
+    // SSE delivers updates; polling covers missed events.
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
   });

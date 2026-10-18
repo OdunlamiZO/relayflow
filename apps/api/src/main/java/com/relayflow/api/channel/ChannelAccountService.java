@@ -60,7 +60,7 @@ public class ChannelAccountService {
     public ChannelAccountResponse createChannelAccount(CreateChannelAccountRequest request) {
         Workspace workspace = workspaceService.getWorkspace(request.workspaceId());
 
-        // Hold plaintext for webhook registration — encrypt before persisting.
+        // Keeps the plaintext token for webhook registration; it is encrypted before persisting.
         String plainTextCredential = request.encryptedCredentials();
 
         ChannelAccount channelAccount = new ChannelAccount();
@@ -147,7 +147,6 @@ public class ChannelAccountService {
                 workspaceId);
     }
 
-    /** Looks up a channel account within a workspace, or throws if not found. */
     public ChannelAccount getChannelAccount(UUID channelAccountId, UUID workspaceId) {
         ChannelAccount channelAccount =
                 channelAccountRepository

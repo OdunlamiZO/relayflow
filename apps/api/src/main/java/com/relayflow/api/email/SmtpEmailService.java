@@ -9,13 +9,6 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-/**
- * Sends emails over plain SMTP, compatible with any provider (Resend, SES, Mailgun, Postmark,
- * Gmail, a self-hosted mail server).
- *
- * <p>When {@code smtp.host} is blank the service falls back to a no-op: it logs the accept URL at
- * INFO level so developers can test the invite flow locally without a mail server.
- */
 @Service
 public class SmtpEmailService implements EmailService {
 
@@ -76,8 +69,8 @@ public class SmtpEmailService implements EmailService {
         try {
             send(to, subject, html);
             log.info("Invite email sent to {}", to);
-        } catch (Exception e) {
-            log.error("Failed to send invite email to {}: {}", to, e.getMessage());
+        } catch (Exception exception) {
+            log.error("Failed to send invite email to {}: {}", to, exception.getMessage());
         }
     }
 
@@ -95,8 +88,8 @@ public class SmtpEmailService implements EmailService {
         try {
             send(to, subject, html);
             log.info("Verification email sent to {}", to);
-        } catch (Exception e) {
-            log.error("Failed to send verification email to {}: {}", to, e.getMessage());
+        } catch (Exception exception) {
+            log.error("Failed to send verification email to {}: {}", to, exception.getMessage());
         }
     }
 
@@ -114,8 +107,8 @@ public class SmtpEmailService implements EmailService {
         try {
             send(to, subject, html);
             log.info("Password reset email sent to {}", to);
-        } catch (Exception e) {
-            log.error("Failed to send password reset email to {}: {}", to, e.getMessage());
+        } catch (Exception exception) {
+            log.error("Failed to send password reset email to {}: {}", to, exception.getMessage());
         }
     }
 
@@ -139,8 +132,8 @@ public class SmtpEmailService implements EmailService {
         try {
             send(to, subject, html);
             log.info("Downgrade notice sent to {}", to);
-        } catch (Exception e) {
-            log.error("Failed to send downgrade notice to {}: {}", to, e.getMessage());
+        } catch (Exception exception) {
+            log.error("Failed to send downgrade notice to {}: {}", to, exception.getMessage());
         }
     }
 

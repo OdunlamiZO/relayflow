@@ -10,8 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class HibernateJsonConfiguration {
 
-    // Hibernate's default mapper registers feel-engine's Scala module, which reads arrays as Scala
-    // lists.
+    // feel-engine's Scala module makes Hibernate's mapper read arrays as Scala lists.
     @Bean
     HibernatePropertiesCustomizer jsonFormatMapperCustomizer(ObjectMapper objectMapper) {
         return properties ->

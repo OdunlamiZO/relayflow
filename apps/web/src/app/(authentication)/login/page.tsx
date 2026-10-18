@@ -19,8 +19,8 @@ export default function LoginPage() {
 
 function LoginPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl");
+  const searchParameters = useSearchParams();
+  const returnUrl = searchParameters.get("returnUrl");
 
   const { mutate: login, isPending: isLoginPending } = useLogin();
   const { mutate: login2FA, isPending: is2FAPending } = useLogin2FA();
@@ -28,7 +28,6 @@ function LoginPageContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // 2FA challenge state — set once the server confirms 2FA is required.
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const otpInputRef = useRef<HTMLInputElement>(null);
@@ -36,8 +35,8 @@ function LoginPageContent() {
   const destination =
     returnUrl && returnUrl.startsWith("/") ? returnUrl : "/inbox";
 
-  function handleLoginSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleLoginSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     login(
       { email, password },
@@ -45,7 +44,6 @@ function LoginPageContent() {
         onSuccess: (data) => {
           if (data.twoFactorRequired && data.challengeToken) {
             setChallengeToken(data.challengeToken);
-            // Focus the OTP input on the next paint.
             setTimeout(() => {
               otpInputRef.current?.focus();
             }, 0);
@@ -59,8 +57,8 @@ function LoginPageContent() {
     );
   }
 
-  function handleOtpSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleOtpSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     if (!challengeToken) return;
 
@@ -73,8 +71,6 @@ function LoginPageContent() {
       }
     );
   }
-
-  // ── 2FA step ──────────────────────────────────────────────────────────────
 
   if (challengeToken) {
     return (
@@ -118,8 +114,8 @@ function LoginPageContent() {
               maxLength={6}
               required
               value={otp}
-              onChange={(e) => {
-                setOtp(e.target.value.replace(/\D/g, ""));
+              onChange={(event) => {
+                setOtp(event.target.value.replace(/\D/g, ""));
               }}
               placeholder="000000"
               className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-center text-lg font-mono tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -149,8 +145,6 @@ function LoginPageContent() {
       </>
     );
   }
-
-  // ── Login step ────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -189,8 +183,8 @@ function LoginPageContent() {
             autoComplete="email"
             required
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
+            onChange={(event) => {
+              setEmail(event.target.value);
             }}
             placeholder="you@company.com"
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -211,8 +205,8 @@ function LoginPageContent() {
             autoComplete="current-password"
             required
             value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
+            onChange={(event) => {
+              setPassword(event.target.value);
             }}
             placeholder="••••••••"
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"

@@ -12,19 +12,15 @@ export const metadata: Metadata = {
 
 type Props = {
   children: React.ReactNode;
-  // searchParams are not available in layouts in Next.js, so returnUrl
-  // handling is done inside page components. The layout only redirects
-  // to /inbox (the default) if no returnUrl is present.
+  // Layouts can't read searchParams, so returnUrl handling lives in the page components.
 };
 
-export default async function AuthLayout({ children }: Props) {
-  // A fresh instance has no accounts yet — send visitors to /setup instead
-  // of a login/signup form that can't do anything useful yet.
+export default async function AuthenticationLayout({ children }: Props) {
   await redirectIfNotBootstrapped();
 
-  // Validate the session against the API before redirecting — a stale cookie
-  // that no longer exists on the server must NOT be treated as authenticated.
+  // Validates the session against the API so a stale cookie isn't treated as authenticated.
   await redirectIfAuthenticated();
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-neutral-200 px-4 py-16">
       <Link

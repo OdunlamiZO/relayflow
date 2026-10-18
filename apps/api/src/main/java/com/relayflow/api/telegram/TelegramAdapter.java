@@ -216,25 +216,22 @@ public class TelegramAdapter {
                 event.buttonOptions());
     }
 
-    /**
-     * Core inbound-message processing. Runs within the caller's transaction — must not be called
-     * via {@code this} from a {@code @Transactional} method (would bypass the proxy). {@link
-     * #handleWebhook} is itself an entry point through the proxy, so the transaction is always
-     * active.
-     */
-    private void processInboundMessage(ChannelAccount channelAccount, TelegramMessage msg) {
-        TelegramUser from = msg.from();
+    /** Must not be called via this from a @Transactional method, which would bypass the proxy. */
+    private void processInboundMessage(
+            ChannelAccount channelAccount, TelegramMessage telegramMessage) {
+        TelegramUser from = telegramMessage.from();
         String externalUserId = String.valueOf(from.id());
-        String chatId = String.valueOf(msg.chat().id());
+        String chatId = String.valueOf(telegramMessage.chat().id());
         Workspace workspace = channelAccount.getWorkspace();
         UUID workspaceId = workspace.getId();
 
         if (contactAccessService.isRestricted(workspace)
-                && !admitThroughWhitelist(channelAccount, msg, externalUserId, chatId)) {
+                && !admitThroughWhitelist(
+                        channelAccount, telegramMessage, externalUserId, chatId)) {
             return;
         }
 
-        if (msg.text() == null) {
+        if (telegramMessage.text() == null) {
             return;
         }
 
@@ -256,11 +253,6 @@ public class TelegramAdapter {
                         .stream()
                         .findFirst();
 
-        // Three cases:
-        //   1. No prior conversation → create one (triggersWorkflow = true)
-        //   2. Existing OPEN conversation → use it as-is (triggersWorkflow = false)
-        //   3. Existing CLOSED conversation → reopen it (triggersWorkflow = true, triggers
-        // workflows)
         boolean triggersWorkflow;
         Conversation conversation;
 
@@ -283,11 +275,11 @@ public class TelegramAdapter {
         inboundMessage.setConversation(conversation);
         inboundMessage.setDirection(MessageDirection.INBOUND);
         inboundMessage.setSenderType(MessageSenderType.CONTACT);
-        inboundMessage.setText(msg.text());
-        inboundMessage.setProviderMessageId(String.valueOf(msg.messageId()));
+        inboundMessage.setText(telegramMessage.text());
+        inboundMessage.setProviderMessageId(String.valueOf(telegramMessage.messageId()));
         inboundMessage.setRawPayload(
                 objectMapper.convertValue(
-                        msg, new TypeReference<LinkedHashMap<String, Object>>() {}));
+                        telegramMessage, new TypeReference<LinkedHashMap<String, Object>>() {}));
         inboundMessage = messageRepository.save(inboundMessage);
 
         conversation.setLastMessageAt(
@@ -305,7 +297,6 @@ public class TelegramAdapter {
         if (triggersWorkflow) {
             eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, inboundMessage));
         } else {
-            // Existing open conversation — notify any waiting workflow runs to resume.
             eventPublisher.publishEvent(
                     new ConversationMessageReceivedEvent(conversation, inboundMessage));
         }
@@ -319,18 +310,6 @@ public class TelegramAdapter {
                                 "conversationId", conversation.getId().toString())));
     }
 
-    // ── Telegram Bot API ─────────────────────────────────────────────────────
-
-    /**
-     * Sends a message to the given Telegram chat. When {@code buttons} is non-empty, attaches a
-     * one-time reply keyboard so the user can tap an option instead of typing. Retries once on
-     * failure.
-     *
-     * <p>Throws {@link TelegramSendException} if all attempts fail so the caller's transaction can
-     * be rolled back and the HTTP client receives a proper error. Callers that want best-effort
-     * fire-and-forget behavior (bot greetings, error hints) should use {@link
-     * #sendTelegramMessageQuietly}.
-     */
     private void sendTelegramMessage(
             String botToken, String chatId, String text, List<String> buttons) {
         Map<String, Object> replyMarkup = null;
@@ -367,32 +346,28 @@ public class TelegramAdapter {
             body.put("reply_markup", replyMarkup);
         }
 
-        Exception lastEx = null;
+        Exception lastException = null;
 
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 restTemplate.postForObject(url, body, String.class);
 
                 return;
-            } catch (Exception e) {
-                lastEx = e;
+            } catch (Exception exception) {
+                lastException = exception;
                 log.warn(
                         "Telegram send attempt {}/2 to chat {} failed: {}",
                         attempt,
                         chatId,
-                        e.getMessage());
+                        exception.getMessage());
             }
         }
 
         throw new TelegramSendException(
-                "Message failed to send — could not reach Telegram after 2 attempts", lastEx);
+                "Message failed to send — could not reach Telegram after 2 attempts",
+                lastException);
     }
 
-    /**
-     * Best-effort send — swallows {@link TelegramSendException} and logs at WARN. Used for
-     * informational bot replies (connection confirmations, error hints) where a delivery failure
-     * must not affect the caller's transaction or HTTP response.
-     */
     private void sendTelegramMessageQuietly(String botToken, String chatId, String text) {
         sendTelegramMessageQuietly(botToken, chatId, text, (Map<String, Object>) null);
     }
@@ -401,17 +376,17 @@ public class TelegramAdapter {
             String botToken, String chatId, String text, Map<String, Object> replyMarkup) {
         try {
             sendTelegramMessage(botToken, chatId, text, replyMarkup);
-        } catch (TelegramSendException e) {
+        } catch (TelegramSendException exception) {
             log.warn(
                     "Bot reply to chat {} could not be delivered (non-fatal): {}",
                     chatId,
-                    e.getMessage());
+                    exception.getMessage());
         }
     }
 
     private boolean admitThroughWhitelist(
             ChannelAccount channelAccount,
-            TelegramMessage msg,
+            TelegramMessage telegramMessage,
             String externalUserId,
             String chatId) {
         Workspace workspace = channelAccount.getWorkspace();
@@ -420,7 +395,7 @@ public class TelegramAdapter {
         Optional<ExternalIdentity> identity =
                 externalIdentityRepository.findForExternalUser(
                         channelAccount.getId(), externalUserId);
-        TelegramContact sharedContact = msg.contact();
+        TelegramContact sharedContact = telegramMessage.contact();
 
         if (sharedContact != null
                 && externalUserId.equals(String.valueOf(sharedContact.userId()))) {
@@ -438,7 +413,10 @@ public class TelegramAdapter {
                     identity.orElseGet(
                             () ->
                                     createIdentity(
-                                            channelAccount, msg.from(), externalUserId, chatId));
+                                            channelAccount,
+                                            telegramMessage.from(),
+                                            externalUserId,
+                                            chatId));
             verifiedIdentity.setVerifiedPhoneNumber(phone.get());
             externalIdentityRepository.save(verifiedIdentity);
 

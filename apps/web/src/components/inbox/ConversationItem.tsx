@@ -12,8 +12,7 @@ const STATUS_DOT: Record<string, string> = {
   CLOSED: "bg-neutral-400",
 };
 
-// Use a fixed locale so the output is identical between the Node.js server
-// render and the client render, regardless of system/browser locale settings.
+// A fixed locale keeps server and client renders identical.
 const LOCALE = "en-US";
 
 function formatTimestamp(isoString: string | null): string {
@@ -86,9 +85,7 @@ export function ConversationItem({ conversation, isSelected, onClick }: Props) {
         </div>
 
         {timestamp && (
-          // suppressHydrationWarning: the timestamp is derived from `new Date()`
-          // (current time) so the server-render value and client-hydration value
-          // can legitimately differ by the round-trip latency.
+          // The timestamp is relative to now, so server and client renders can differ.
           <span
             suppressHydrationWarning
             className="flex-shrink-0 text-xs text-neutral-500"

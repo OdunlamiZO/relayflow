@@ -15,22 +15,11 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-/**
- * Manages SSE connections scoped to a workspace. Callers subscribe via {@link #subscribe(UUID)} and
- * the service delivers events to all active emitters for that workspace.
- *
- * <p>Events are delivered via {@link #onSseBroadcastEvent(SseBroadcastEvent)}, which is annotated
- * with {@code @TransactionalEventListener(phase = AFTER_COMMIT)}. This guarantees the SSE push only
- * fires after the originating transaction has committed, so clients never read stale data.
- *
- * <p>Completed / timed-out emitters are removed lazily on the next broadcast.
- */
 @Service
 public class WorkspaceSseService {
 
     private static final Logger log = LoggerFactory.getLogger(WorkspaceSseService.class);
 
-    /** Emitter timeout — 5 minutes. The client must reconnect after this. */
     private static final long EMITTER_TIMEOUT_MS = 5 * 60 * 1_000L;
 
     private static final long HEARTBEAT_INTERVAL_MS = 15 * 1_000L;
@@ -39,10 +28,6 @@ public class WorkspaceSseService {
 
     private final Map<UUID, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
-    /**
-     * Creates and registers an {@link SseEmitter} for {@code workspaceId}. The emitter is removed
-     * automatically on completion, timeout, or error.
-     */
     public SseEmitter subscribe(UUID workspaceId) {
         SseEmitter emitter = new SseEmitter(EMITTER_TIMEOUT_MS);
 
@@ -59,7 +44,7 @@ public class WorkspaceSseService {
 
         try {
             emitter.send(SseEmitter.event().reconnectTime(RECONNECT_DELAY_MS).comment(""));
-        } catch (IOException e) {
+        } catch (IOException exception) {
             remove.run();
         }
 
@@ -68,34 +53,18 @@ public class WorkspaceSseService {
         return emitter;
     }
 
-    /**
-     * Receives {@link SseBroadcastEvent} after the originating transaction commits and pushes the
-     * event to all active subscribers of the workspace.
-     *
-     * <p>{@code AFTER_COMMIT} ensures the new data is visible to the client's follow-up queries.
-     *
-     * <p>Any exception from the broadcast is caught here and not re-thrown. In Spring 6.1, {@code
-     * TransactionalApplicationListenerSynchronization.processEventWithCallbacks} re-throws every
-     * exception that escapes the listener, which would propagate through {@code
-     * AbstractPlatformTransactionManager.processCommit} and cause the servlet to return 500 —
-     * making Telegram (or any webhook caller) retry a request whose transaction already committed.
-     * A dead SSE socket must never affect the HTTP response to the webhook.
-     */
+    /** Swallows failures: Spring 6.1 re-throws listener errors through the webhook's commit. */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSseBroadcastEvent(SseBroadcastEvent event) {
         try {
             broadcast(event.workspaceId(), event.eventType().getEventName(), event.payload());
-        } catch (Exception e) {
+        } catch (Exception exception) {
             log.debug(
                     "SSE broadcast swallowed after commit (likely a closed socket): {}",
-                    e.getMessage());
+                    exception.getMessage());
         }
     }
 
-    /**
-     * Sends {@code eventName} with {@code data} to every active emitter for {@code workspaceId}.
-     * Dead emitters encountered during the broadcast are pruned in-place.
-     */
     void broadcast(UUID workspaceId, String eventName, Object data) {
         send(workspaceId, SseEmitter.event().name(eventName).data(data));
     }
@@ -118,7 +87,7 @@ public class WorkspaceSseService {
         for (SseEmitter emitter : list) {
             try {
                 emitter.send(event);
-            } catch (Exception e) {
+            } catch (Exception exception) {
                 dead.add(emitter);
             }
         }

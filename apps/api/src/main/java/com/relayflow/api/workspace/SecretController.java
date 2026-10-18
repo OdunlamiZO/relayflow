@@ -34,7 +34,6 @@ public class SecretController {
         this.authorizationService = authorizationService;
     }
 
-    /** Lists every secret's name — never its value. */
     @GetMapping
     List<SecretResponse> listSecrets(
             @PathVariable UUID workspaceId, Authentication authentication) {
@@ -56,7 +55,6 @@ public class SecretController {
         return secretService.createSecret(workspaceId, request);
     }
 
-    /** Rotates a secret's value (and optionally its name). The old value is not recoverable. */
     @PutMapping("/{secretId}")
     SecretResponse updateSecret(
             @PathVariable UUID workspaceId,

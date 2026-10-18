@@ -13,17 +13,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * Fires enabled workflows whenever a new conversation is opened by an inbound message.
- *
- * <p>Uses {@code AFTER_COMMIT} so the conversation and triggering message are fully persisted
- * before the workflow engine queries them, and {@code @Async} so workflow execution never blocks
- * the Telegram webhook thread.
- *
- * <p>Only workflows whose trigger node declares {@code event = "conversation_opened"} are executed.
- * Other trigger types (e.g. "message_received") will be handled by their own dedicated listeners as
- * they are added, each filtering by their own event value.
- */
 @Component
 public class WorkflowTriggerListener {
 
@@ -46,13 +35,6 @@ public class WorkflowTriggerListener {
         this.aiAgentInvocationLogRepository = aiAgentInvocationLogRepository;
     }
 
-    /**
-     * Handles a conversation-opened event by finding and executing all enabled workflows whose
-     * trigger node is configured for the {@code conversation_opened} event.
-     *
-     * <p>Each workflow is executed independently — a failure in one does not prevent the others
-     * from running.
-     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onConversationOpened(ConversationOpenedEvent event) {
@@ -89,23 +71,17 @@ public class WorkflowTriggerListener {
             try {
                 workflowEngineService.executeWorkflow(
                         workflow, conversation, event.triggeringMessage());
-            } catch (Exception e) {
+            } catch (Exception exception) {
                 log.error(
                         "Uncaught exception running workflow={} for conversation={}: {}",
                         workflow.getId(),
                         conversation.getId(),
-                        e.getMessage(),
-                        e);
+                        exception.getMessage(),
+                        exception);
             }
         }
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Returns {@code true} if the workflow's trigger node declares the given event value. Reads
-     * directly from {@code draftGraph} so no additional column is needed.
-     */
     @SuppressWarnings("unchecked")
     private boolean hasTriggerEvent(WorkflowDefinition definition, String event) {
         var graph = definition.getDraftGraph();

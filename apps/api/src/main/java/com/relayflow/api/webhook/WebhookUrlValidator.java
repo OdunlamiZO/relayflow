@@ -8,20 +8,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Guards against SSRF via workspace-configured webhook URLs by rejecting URLs that resolve to
- * loopback, link-local, site-local (private), multicast, or wildcard addresses.
- */
+/** Rejects URLs resolving to loopback, link-local, private, multicast, or wildcard addresses. */
 @Component
 public class WebhookUrlValidator {
 
-    /** Throws {@link ResponseStatusException} (400) if {@code url} is not a safe webhook target. */
     public void validate(String url) {
         URI uri;
 
         try {
             uri = URI.create(url);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook URL");
         }
 
@@ -46,14 +42,13 @@ public class WebhookUrlValidator {
         }
     }
 
-    /** Returns {@code true} if {@code url} still resolves to a public address. */
     public boolean isSafe(String url) {
         try {
             URI uri = URI.create(url);
             String host = uri.getHost();
 
             return host != null && isPublicHost(host);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException exception) {
             return false;
         }
     }
@@ -71,7 +66,7 @@ public class WebhookUrlValidator {
             }
 
             return true;
-        } catch (UnknownHostException e) {
+        } catch (UnknownHostException exception) {
             return false;
         }
     }

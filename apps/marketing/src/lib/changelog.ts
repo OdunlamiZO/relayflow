@@ -20,8 +20,7 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
   removed: "Removed",
 };
 
-// Newest release first. Each version must match a git tag (vX.Y.Z) and the
-// date must be the day that tag was cut.
+// Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
     version: "1.0.8",

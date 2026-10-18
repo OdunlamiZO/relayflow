@@ -10,13 +10,6 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/**
- * Evaluates the first branch whose condition passes and returns its handle ID.
- *
- * <p>Branches are evaluated in order. The last branch acts as the fallback (its condition, if any,
- * is ignored once all prior branches fail). If no branch matches and no fallback exists, the run
- * ends at this node.
- */
 @Component
 public class ConditionNodeExecutor implements NodeExecutor {
 
@@ -35,12 +28,12 @@ public class ConditionNodeExecutor implements NodeExecutor {
             return NodeExecutionResult.next(Map.of("result", "no branches configured"));
         }
 
-        for (int i = 0; i < branches.size(); i++) {
-            Map<String, Object> branch = branches.get(i);
+        for (int index = 0; index < branches.size(); index++) {
+            Map<String, Object> branch = branches.get(index);
             String branchId = (String) branch.get("id");
-            boolean isLastBranch = (i == branches.size() - 1);
+            boolean isLastBranch = (index == branches.size() - 1);
 
-            // Last branch is the fallback — always taken if nothing else matched.
+            // The last branch is the fallback and is taken when nothing else matched.
             if (isLastBranch) {
                 return NodeExecutionResult.handle(
                         branchId, Map.of("branch", branchId, "reason", "fallback"));
@@ -55,10 +48,6 @@ public class ConditionNodeExecutor implements NodeExecutor {
         return NodeExecutionResult.next(Map.of("result", "no branch matched"));
     }
 
-    /**
-     * Evaluates a branch's conditions, combined with its {@code combinator} ("and"/"or", default
-     * "and").
-     */
     @SuppressWarnings("unchecked")
     private boolean evaluate(Map<String, Object> branch, ExecutionContext context) {
         List<Map<String, Object>> conditions = (List<Map<String, Object>>) branch.get("conditions");
@@ -107,11 +96,11 @@ public class ConditionNodeExecutor implements NodeExecutor {
         };
     }
 
-    private int compareNumbers(String a, String b) {
+    private int compareNumbers(String left, String right) {
         try {
-            return Double.compare(Double.parseDouble(a), Double.parseDouble(b));
-        } catch (NumberFormatException e) {
-            return a.compareTo(b);
+            return Double.compare(Double.parseDouble(left), Double.parseDouble(right));
+        } catch (NumberFormatException exception) {
+            return left.compareTo(right);
         }
     }
 }

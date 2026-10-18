@@ -3,8 +3,6 @@ import Link from "next/link";
 import { CtaButton } from "@/components/CtaButton";
 import { Footer } from "@/components/Footer";
 
-// ── Data ───────────────────────────────────────────────────────────────────
-
 const FEATURES = [
   {
     icon: "inbox",
@@ -50,7 +48,7 @@ const FEATURES = [
   },
 ];
 
-const PREVIEW_CONVOS = [
+const PREVIEW_CONVERSATIONS = [
   {
     name: "Amara K.",
     channel: "Customer Support · TELEGRAM",
@@ -81,12 +79,9 @@ const PREVIEW_CONVOS = [
   },
 ];
 
-// ── Page ───────────────────────────────────────────────────────────────────
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-neutral-200 text-neutral-800">
-      {/* ── Nav ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-neutral-300 bg-neutral-100/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 sm:px-8">
           <Link
@@ -127,10 +122,8 @@ export default function Home() {
       </header>
 
       <main>
-        {/* ── Hero ────────────────────────────────────────────────────── */}
         <section className="border-b border-neutral-300 bg-neutral-100">
           <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 py-16 sm:px-8 sm:py-20 lg:grid-cols-2 lg:items-center lg:gap-16">
-            {/* Left — copy */}
             <div>
               <h1 className="mt-5 text-[1.9rem] font-bold leading-[1.15] tracking-tight text-primary sm:text-[2.5rem] lg:text-5xl">
                 All your customer conversations.{" "}
@@ -161,10 +154,8 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Right — inbox preview */}
             <div className="flex justify-center lg:justify-end">
               <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-neutral-300 bg-neutral-100 shadow-xl">
-                {/* Browser chrome — desktop only */}
                 <div className="hidden items-center gap-1.5 border-b border-neutral-300 bg-neutral-200 px-3.5 py-2.5 lg:flex">
                   <div className="h-2.5 w-2.5 rounded-full bg-red-border" />
                   <div className="h-2.5 w-2.5 rounded-full bg-yellow-border" />
@@ -174,7 +165,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Inbox header */}
                 <div className="flex items-center gap-2 border-b border-neutral-300 px-4 py-3">
                   <span
                     className="material-symbols-rounded text-[15px] text-secondary"
@@ -188,20 +178,18 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* Conversations subheader — matches ConversationList */}
                 <div className="flex items-center justify-between border-b border-neutral-300 px-4 py-3">
                   <h3 className="text-sm font-semibold text-primary">
                     Conversations
                   </h3>
                 </div>
 
-                {/* Conversation list — matches ConversationItem markup exactly */}
                 <div className="divide-y divide-neutral-300">
-                  {PREVIEW_CONVOS.map((conv) => (
+                  {PREVIEW_CONVERSATIONS.map((conversation) => (
                     <div
-                      key={conv.name}
+                      key={conversation.name}
                       className={`w-full px-4 py-3 transition-colors hover:bg-neutral-200 ${
-                        conv.active
+                        conversation.active
                           ? "border-r-2 border-r-secondary bg-blue-bg"
                           : ""
                       }`}
@@ -210,27 +198,26 @@ export default function Home() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`h-2 w-2 flex-shrink-0 rounded-full ${conv.dot}`}
+                              className={`h-2 w-2 flex-shrink-0 rounded-full ${conversation.dot}`}
                             />
                             <span className="truncate text-sm font-semibold text-neutral-800">
-                              {conv.name}
+                              {conversation.name}
                             </span>
                           </div>
 
                           <p className="mt-0.5 truncate text-xs text-neutral-500">
-                            {conv.channel}
+                            {conversation.channel}
                           </p>
                         </div>
 
                         <span className="flex-shrink-0 text-xs text-neutral-500">
-                          {conv.time}
+                          {conversation.time}
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Status bar */}
                 <div className="flex items-center gap-2 border-t border-neutral-300 bg-neutral-200 px-4 py-2">
                   <span
                     className="material-symbols-rounded text-[13px] text-purple-text"
@@ -248,7 +235,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── Features ────────────────────────────────────────────────── */}
         <section className="border-b border-neutral-300 bg-neutral-200">
           <div className="mx-auto max-w-6xl px-6 py-16 sm:px-8 sm:py-20">
             <div className="mb-12">
@@ -261,28 +247,28 @@ export default function Home() {
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map((f) => (
+              {FEATURES.map((feature) => (
                 <div
-                  key={f.title}
+                  key={feature.title}
                   className="flex flex-col gap-4 rounded-xl border border-neutral-300 bg-neutral-100 p-5 transition-all hover:border-neutral-400 hover:shadow-sm"
                 >
                   <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg border ${f.iconClass}`}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg border ${feature.iconClass}`}
                   >
                     <span
                       className="material-symbols-rounded text-[17px]"
                       aria-hidden="true"
                     >
-                      {f.icon}
+                      {feature.icon}
                     </span>
                   </div>
 
                   <div>
                     <h3 className="m-0 text-sm font-semibold text-primary">
-                      {f.title}
+                      {feature.title}
                     </h3>
                     <p className="mt-1.5 text-sm leading-6 text-neutral-600">
-                      {f.description}
+                      {feature.description}
                     </p>
                   </div>
                 </div>
@@ -291,10 +277,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── Workflow ─────────────────────────────────────────────────── */}
         <section className="border-b border-neutral-300 bg-neutral-100">
           <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-6 py-16 sm:px-8 sm:py-20 lg:grid-cols-2 lg:items-center lg:gap-16">
-            {/* Left — text */}
             <div>
               <h2 className="m-0 text-2xl font-bold tracking-tight text-primary sm:text-3xl">
                 Automate any conversation pattern
@@ -312,21 +296,13 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Right — sample workflow diagram */}
             <div className="flex justify-center lg:justify-end">
-              {/*
-               * SVG connectors use:
-               *   preserveAspectRatio="none"  — stretches to container width
-               *   vectorEffect="non-scaling-stroke" — keeps stroke 1.5 px regardless
-               * Coordinate space: viewBox "0 0 100 H" where 50 = centre,
-               * 25 = left-branch centre, 75 = right-branch centre.
-               */}
+              {/* Connector SVGs use viewBox 0 0 100 H, where 50 is the centre and 25 and 75 are the branch centres. */}
               <div
                 role="img"
                 aria-label="Sample support workflow: trigger, ask question, condition splits to HTTP Request or Send Message, both merge into End Conversation"
                 className="w-full max-w-xs"
               >
-                {/* ── Trigger ───────────────────────────────────────────── */}
                 <div className="flex items-center gap-2.5 rounded-lg border border-blue-border bg-blue-bg px-4 py-2.5">
                   <span
                     className="material-symbols-rounded flex-shrink-0 text-[15px] text-blue-text"
@@ -344,10 +320,8 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* straight connector */}
                 <div className="mx-auto h-4 w-px bg-neutral-300" />
 
-                {/* ── Ask Question ──────────────────────────────────────── */}
                 <div className="flex items-center gap-2.5 rounded-lg border border-blue-border bg-blue-bg px-4 py-2.5">
                   <span
                     className="material-symbols-rounded flex-shrink-0 text-[15px] text-blue-text"
@@ -365,10 +339,8 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* straight connector */}
                 <div className="mx-auto h-4 w-px bg-neutral-300" />
 
-                {/* ── Condition ─────────────────────────────────────────── */}
                 <div className="flex items-center gap-2.5 rounded-lg border border-yellow-border bg-yellow-bg px-4 py-2.5">
                   <span
                     className="material-symbols-rounded flex-shrink-0 text-[15px] text-yellow-text"
@@ -386,7 +358,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* split: centre → left-branch & right-branch */}
                 <svg
                   viewBox="0 0 100 28"
                   preserveAspectRatio="none"
@@ -409,7 +380,6 @@ export default function Home() {
                   />
                 </svg>
 
-                {/* Yes / No badge row */}
                 <div className="flex gap-4">
                   <div className="flex flex-1 justify-center">
                     <span className="rounded border border-green-border bg-green-bg px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-green-text">
@@ -423,7 +393,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* short connectors: badges → branch nodes */}
                 <div className="flex gap-4">
                   <div className="flex flex-1 justify-center py-1">
                     <div className="h-3 w-px bg-neutral-300" />
@@ -433,9 +402,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* ── Branch nodes ──────────────────────────────────────── */}
                 <div className="flex gap-4">
-                  {/* Yes → HTTP Request */}
                   <div className="flex flex-1 items-center gap-2 rounded-lg border border-teal-border bg-teal-bg px-3 py-2.5">
                     <span
                       className="material-symbols-rounded flex-shrink-0 text-[13px] text-teal-text"
@@ -453,7 +420,6 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* No → Send Message */}
                   <div className="flex flex-1 items-center gap-2 rounded-lg border border-green-border bg-green-bg px-3 py-2.5">
                     <span
                       className="material-symbols-rounded flex-shrink-0 text-[13px] text-green-text"
@@ -472,7 +438,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* merge: left-branch & right-branch → centre */}
                 <svg
                   viewBox="0 0 100 28"
                   preserveAspectRatio="none"
@@ -495,7 +460,6 @@ export default function Home() {
                   />
                 </svg>
 
-                {/* ── End Conversation ──────────────────────────────────── */}
                 <div className="flex items-center gap-2.5 rounded-lg border border-red-border bg-red-bg px-4 py-2.5">
                   <span
                     className="material-symbols-rounded flex-shrink-0 text-[15px] text-red-text"
@@ -517,7 +481,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── CTA ──────────────────────────────────────────────────────── */}
         <section
           className="border-b border-neutral-300"
           style={{ background: "var(--color-primary)" }}

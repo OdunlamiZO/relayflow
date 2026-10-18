@@ -17,12 +17,7 @@ public class SecurityUtils {
         this.userRepository = userRepository;
     }
 
-    /**
-     * Resolves the database user ID from the current authentication principal. Handles both
-     * email/password (UserDetails) and Google OAuth2 (OAuth2User) principals.
-     */
     public UUID resolveUserId(Authentication authentication) {
-
         return resolveEmail(authentication)
                 .flatMap(userRepository::findByEmail)
                 .map(user -> user.getId())
@@ -33,7 +28,6 @@ public class SecurityUtils {
     }
 
     private Optional<String> resolveEmail(Authentication authentication) {
-
         if (authentication == null) {
             return Optional.empty();
         }

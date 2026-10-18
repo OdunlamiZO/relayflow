@@ -15,10 +15,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> {
 
-    /**
-     * Returns all runs whose status matches {@code status} in the given conversation. The workflow
-     * definition is eagerly fetched so the engine can access the graph without an extra query.
-     */
     @Query(
             """
             select r from WorkflowRun r
@@ -46,10 +42,6 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
             @Param("reason") String reason,
             @Param("now") Instant now);
 
-    /**
-     * Loads a single run with its workflow definition and conversation eagerly — used when resuming
-     * a run inside a fresh transaction.
-     */
     @Query(
             """
             select r from WorkflowRun r
@@ -60,7 +52,6 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
             """)
     Optional<WorkflowRun> findWithDefinitionById(@Param("id") UUID id);
 
-    /** Returns runs for a workflow definition, newest first, for the run logs UI. */
     @Query(
             "select r from WorkflowRun r where r.workflowDefinition.id = :workflowId and r.workspace.id = :workspaceId order by r.startedAt desc")
     List<WorkflowRun> findByWorkflowAndWorkspace(
@@ -68,7 +59,6 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
             @Param("workspaceId") UUID workspaceId,
             Pageable pageable);
 
-    /** Loads a single run with its steps eagerly — used for the run detail view. */
     @Query(
             "select distinct r from WorkflowRun r join fetch r.steps where r.id = :id and r.workflowDefinition.id = :workflowId and r.workspace.id = :workspaceId")
     Optional<WorkflowRun> findRunWithSteps(
@@ -76,20 +66,14 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
             @Param("workflowId") UUID workflowId,
             @Param("workspaceId") UUID workspaceId);
 
-    /** Deletes runs started before {@code cutoff} — run log retention cleanup. */
     @Modifying
     @Query("delete from WorkflowRun r where r.startedAt < :cutoff")
     int deleteByStartedAtBefore(@Param("cutoff") Instant cutoff);
 
-    /** Returns the ids of WAITING runs whose "Wait for Reply" timeout has elapsed. */
     @Query("select r.id from WorkflowRun r where r.status = :status and r.expiresAt < :now")
     List<UUID> findExpiredWaitingRunIds(
             @Param("status") WorkflowRunStatus status, @Param("now") Instant now);
 
-    /**
-     * Returns all runs with a given status, with conversation and workspace eagerly fetched — used
-     * during startup recovery to release conversation locks left by a previous crash.
-     */
     @Query(
             """
             select r from WorkflowRun r

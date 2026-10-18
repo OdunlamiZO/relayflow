@@ -5,10 +5,10 @@ import { Footer } from "@/components/Footer";
 import {
   caddyfile,
   dockerComposeYml,
-  envExample,
+  environmentExample,
 } from "@/lib/deployment-artifacts";
 
-const ENV_VAR_ROWS: Array<{
+const ENVIRONMENT_VARIABLE_ROWS: Array<{
   name: string;
   required: boolean;
   notes: string;
@@ -140,7 +140,10 @@ export default function SelfHostingDocsPage() {
               filename="docker-compose.yml"
               content={dockerComposeYml}
             />
-            <CopyableCodeBlock filename=".env.example" content={envExample} />
+            <CopyableCodeBlock
+              filename=".env.example"
+              content={environmentExample}
+            />
             <CopyableCodeBlock
               filename="infra/docker/caddy/Caddyfile"
               content={caddyfile}
@@ -196,7 +199,7 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
                 </tr>
               </thead>
               <tbody>
-                {ENV_VAR_ROWS.map((row) => (
+                {ENVIRONMENT_VARIABLE_ROWS.map((row) => (
                   <tr
                     key={row.name}
                     className="border-b border-neutral-300 last:border-b-0"

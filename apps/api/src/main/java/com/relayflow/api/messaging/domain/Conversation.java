@@ -62,10 +62,7 @@ public class Conversation {
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
 
-    /**
-     * Set when the AI agent escalates; cleared when a human agent sends the next reply, or as
-     * {@link EscalationType#getResolution()} allows.
-     */
+    /** Cleared when a human agent replies, or as EscalationType#getResolution() allows. */
     @Column(name = "escalated_at")
     private Instant escalatedAt;
 

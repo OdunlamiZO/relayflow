@@ -12,8 +12,6 @@ type Props = {
 };
 
 export default async function SetupLayout({ children }: Props) {
-  // Once an instance has been set up, /setup has nothing left to do —
-  // send visitors to /login instead.
   await redirectIfBootstrapped();
 
   return (

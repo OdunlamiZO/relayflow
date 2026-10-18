@@ -15,32 +15,32 @@ type Props = {
 
 export function InboxShell({ workspaceId }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const conversationId = searchParams.get("conversationId") ?? undefined;
-  const contactId = searchParams.get("contactId") ?? undefined;
+  const searchParameters = useSearchParams();
+  const conversationId = searchParameters.get("conversationId") ?? undefined;
+  const contactId = searchParameters.get("contactId") ?? undefined;
 
   useWorkspaceEvents(workspaceId);
 
   function selectConversation(id: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("conversationId", id);
+    const queryParameters = new URLSearchParams(searchParameters.toString());
+    queryParameters.set("conversationId", id);
 
-    router.push(`?${params.toString()}`);
+    router.push(`?${queryParameters.toString()}`);
   }
 
   function handleBack() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("conversationId");
+    const queryParameters = new URLSearchParams(searchParameters.toString());
+    queryParameters.delete("conversationId");
 
-    router.push(`?${params.toString()}`);
+    router.push(`?${queryParameters.toString()}`);
   }
 
   function clearContactFilter() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("contactId");
-    params.delete("conversationId");
+    const queryParameters = new URLSearchParams(searchParameters.toString());
+    queryParameters.delete("contactId");
+    queryParameters.delete("conversationId");
 
-    router.push(`?${params.toString()}`);
+    router.push(`?${queryParameters.toString()}`);
   }
 
   return (
@@ -48,13 +48,11 @@ export function InboxShell({ workspaceId }: Props) {
       <div className="flex flex-1 overflow-hidden">
         <WorkspaceNav workspaceId={workspaceId} />
 
-        {/* Sidebar — full-width on mobile when no conversation is open */}
         <aside
           className={`flex-shrink-0 flex-col border-r border-neutral-300 bg-neutral-100 md:flex md:w-72 lg:w-80 ${
             conversationId ? "hidden md:flex" : "flex w-full"
           }`}
         >
-          {/* Contact filter banner */}
           {contactId && (
             <div className="flex items-center justify-between border-b border-blue-border/20 bg-blue-bg px-3 py-2">
               <div className="flex items-center gap-1.5 text-xs font-medium text-blue-text">
@@ -91,7 +89,6 @@ export function InboxShell({ workspaceId }: Props) {
           />
         </aside>
 
-        {/* Main thread — full-width on mobile when a conversation is open */}
         <main
           className={`flex-col overflow-hidden ${
             conversationId ? "flex flex-1" : "hidden md:flex md:flex-1"

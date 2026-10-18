@@ -32,7 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
+
     private final SecurityUtils securityUtils;
+
     private final WorkspaceAuthorizationService authorizationService;
 
     public WorkspaceController(
@@ -43,8 +45,6 @@ public class WorkspaceController {
         this.securityUtils = securityUtils;
         this.authorizationService = authorizationService;
     }
-
-    // --- Workspaces ---
 
     @GetMapping("/workspaces")
     List<WorkspaceResponse> listWorkspaces(Authentication authentication) {
@@ -97,8 +97,6 @@ public class WorkspaceController {
         return workspaceService.updateContactTagDefinitions(
                 workspaceId, request.contactTagDefinitions());
     }
-
-    // --- Workspace Members ---
 
     @GetMapping("/workspaces/{workspaceId}/members")
     List<WorkspaceMemberResponse> listMembers(

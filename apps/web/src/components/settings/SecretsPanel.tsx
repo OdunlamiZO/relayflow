@@ -33,7 +33,7 @@ export function SecretsPanel({ workspaceId }: Props) {
       { name, value },
       {
         onSuccess: () => setShowCreateModal(false),
-        onError: (err) => setFormError(errorMessage(err)),
+        onError: (error) => setFormError(errorMessage(error)),
       }
     );
   }
@@ -145,8 +145,6 @@ export function SecretsPanel({ workspaceId }: Props) {
   );
 }
 
-// ── Edit modal — owns its own mutation so it can carry its own error state ──
-
 function EditSecretModal({
   workspaceId,
   secret,
@@ -165,7 +163,7 @@ function EditSecretModal({
       { name, value },
       {
         onSuccess: onClose,
-        onError: (err) => setError(errorMessage(err)),
+        onError: (error) => setError(errorMessage(error)),
       }
     );
   }
@@ -181,8 +179,6 @@ function EditSecretModal({
     />
   );
 }
-
-// ── Create / rotate form modal ──────────────────────────────────────────────
 
 function SaveSecretModal({
   mode,
@@ -208,8 +204,8 @@ function SaveSecretModal({
   }, []);
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
     }
 
     document.addEventListener("keydown", onKeyDown);
@@ -217,8 +213,8 @@ function SaveSecretModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     if (!name.trim() || !value.trim()) return;
 
@@ -267,7 +263,7 @@ function SaveSecretModal({
                 ref={firstFieldRef}
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 placeholder="e.g. STRIPE_API_KEY"
                 pattern="[A-Za-z][A-Za-z0-9_]*"
                 maxLength={100}
@@ -299,7 +295,7 @@ function SaveSecretModal({
               ref={mode === "edit" ? firstFieldRef : undefined}
               type="password"
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(event) => setValue(event.target.value)}
               placeholder={
                 mode === "create"
                   ? "Paste the API key or token"
@@ -342,8 +338,6 @@ function SaveSecretModal({
     </div>
   );
 }
-
-// ── Individual secret row ───────────────────────────────────────────────────
 
 function SecretRow({
   secret,

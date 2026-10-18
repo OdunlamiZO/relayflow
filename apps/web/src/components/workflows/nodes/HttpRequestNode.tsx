@@ -7,9 +7,8 @@ export type HttpHeader = { id: string; key: string; value: string };
 
 export type ResponseMapping = {
   id: string;
-  /** Path into the response body, e.g. "id" or "user.email". Accessed as $resp.<path>. */
+  /** Path into the response body, such as id or user.email, read as $resp.<path>. */
   path: string;
-  /** Variable name to store the extracted value in. */
   variable: string;
 };
 

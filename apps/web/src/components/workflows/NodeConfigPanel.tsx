@@ -50,11 +50,9 @@ type Props = {
   onDirty: () => void;
 };
 
-// ─── variable extraction ──────────────────────────────────────────────────────
-
 function extractWorkflowVariables(nodes: Node[]): WorkflowVariable[] {
   const seen = new Set<string>();
-  const vars: WorkflowVariable[] = [];
+  const variables: WorkflowVariable[] = [];
 
   for (const node of nodes) {
     const data = node.data as Record<string, unknown>;
@@ -64,69 +62,77 @@ function extractWorkflowVariables(nodes: Node[]): WorkflowVariable[] {
 
       if (name && !seen.has(name)) {
         seen.add(name);
-        vars.push({ name, label: name, group: "workflow" });
+        variables.push({ name, label: name, group: "workflow" });
       }
     }
 
     if (node.type === "httpRequest") {
-      const statusVar = (
+      const statusVariable = (
         data.responseStatusVariable as string | undefined
       )?.trim();
 
-      if (statusVar && !seen.has(statusVar)) {
-        seen.add(statusVar);
-        vars.push({ name: statusVar, label: statusVar, group: "workflow" });
+      if (statusVariable && !seen.has(statusVariable)) {
+        seen.add(statusVariable);
+        variables.push({
+          name: statusVariable,
+          label: statusVariable,
+          group: "workflow",
+        });
       }
 
       const mappings =
         (data.responseMappings as Array<{ variable?: string }>) ?? [];
 
-      for (const m of mappings) {
-        const v = m.variable?.trim();
+      for (const mapping of mappings) {
+        const variableName = mapping.variable?.trim();
 
-        if (v && !seen.has(v)) {
-          seen.add(v);
-          vars.push({ name: v, label: v, group: "workflow" });
+        if (variableName && !seen.has(variableName)) {
+          seen.add(variableName);
+          variables.push({
+            name: variableName,
+            label: variableName,
+            group: "workflow",
+          });
         }
       }
     }
 
     if (node.type === "waitForReply") {
-      const responseVar = (data.responseVariable as string | undefined)?.trim();
+      const responseVariable = (
+        data.responseVariable as string | undefined
+      )?.trim();
 
-      if (responseVar && !seen.has(responseVar)) {
-        seen.add(responseVar);
-        vars.push({ name: responseVar, label: responseVar, group: "workflow" });
+      if (responseVariable && !seen.has(responseVariable)) {
+        seen.add(responseVariable);
+        variables.push({
+          name: responseVariable,
+          label: responseVariable,
+          group: "workflow",
+        });
       }
     }
   }
 
-  return vars;
+  return variables;
 }
 
-// ─── cursor insertion helper ──────────────────────────────────────────────────
-
-/**
- * Inserts {@code text} at the cursor position of a controlled input/textarea.
- * Falls back to appending if the element ref is unavailable.
- */
 function insertAtCursor(
-  el: HTMLInputElement | HTMLTextAreaElement | null,
+  element: HTMLInputElement | HTMLTextAreaElement | null,
   currentValue: string,
   text: string,
-  onChange: (v: string) => void
+  onChange: (value: string) => void
 ) {
-  if (el) {
-    const start = el.selectionStart ?? currentValue.length;
-    const end = el.selectionEnd ?? currentValue.length;
+  if (element) {
+    const start = element.selectionStart ?? currentValue.length;
+    const end = element.selectionEnd ?? currentValue.length;
     const newValue =
       currentValue.slice(0, start) + text + currentValue.slice(end);
 
     onChange(newValue);
 
     requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(start + text.length, start + text.length);
+      element.focus();
+      element.setSelectionRange(start + text.length, start + text.length);
     });
   } else {
     onChange(currentValue + text);
@@ -152,7 +158,7 @@ function FormattingToolbar({
 }: {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (nextValue: string) => void;
 }) {
   function applyMarker(marker: FormattingMarker) {
     const textarea = textareaRef.current;
@@ -204,8 +210,6 @@ function FormattingToolbar({
   );
 }
 
-// ─── field helpers ────────────────────────────────────────────────────────────
-
 function Field({
   label,
   action,
@@ -230,8 +234,6 @@ function Field({
 const inputCls =
   "w-full rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20";
 
-// ─── type-specific forms ──────────────────────────────────────────────────────
-
 const TRIGGER_EVENTS = [
   { value: "conversation_opened", label: "Conversation Opened" },
   { value: "manual", label: "Manual" },
@@ -242,13 +244,13 @@ function TriggerForm({
   onChange,
 }: {
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
 }) {
   return (
     <Field label="Trigger event">
       <Select
         value={(data.event as string) ?? "conversation_opened"}
-        onChange={(v) => onChange({ event: v })}
+        onChange={(value) => onChange({ event: value })}
         options={TRIGGER_EVENTS}
       />
     </Field>
@@ -261,7 +263,7 @@ function SendMessageForm({
   variables,
 }: {
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
   return (
@@ -313,7 +315,7 @@ function FormattedMessageField({
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         rows={rows}
         className={`${inputCls} resize-none`}
@@ -352,10 +354,9 @@ const CONDITION_OPERATORS: { value: ConditionOperator; label: string }[] = [
 
 const DEFAULT_CONDITION_OPERATOR: ConditionOperator = "eq";
 
-/** Operators that compare against a value — the value field is hidden for the rest. */
+/** Operators that compare against a value; the value field is hidden for the rest. */
 const NO_VALUE_OPERATORS = new Set<ConditionOperator>(["is_set", "is_not_set"]);
 
-/** Combined "Wait for Reply" timeout budget across an entire workflow. */
 const MAX_TOTAL_TIMEOUT_MINUTES = 7 * 24 * 60;
 
 /** WhatsApp truncates interactive button titles beyond this length. */
@@ -369,7 +370,7 @@ function ConditionForm({
 }: {
   nodeId: string;
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
   const { setEdges } = useReactFlow();
@@ -379,7 +380,9 @@ function ConditionForm({
 
   function updateBranch(id: string, patch: Partial<ConditionBranch>) {
     onChange({
-      branches: branches.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+      branches: branches.map((branch) =>
+        branch.id === id ? { ...branch, ...patch } : branch
+      ),
     });
   }
 
@@ -389,10 +392,12 @@ function ConditionForm({
   }
 
   function removeBranch(id: string) {
-    onChange({ branches: branches.filter((b) => b.id !== id) });
+    onChange({ branches: branches.filter((branch) => branch.id !== id) });
 
-    setEdges((eds) =>
-      eds.filter((e) => !(e.source === nodeId && e.sourceHandle === id))
+    setEdges((currentEdges) =>
+      currentEdges.filter(
+        (edge) => !(edge.source === nodeId && edge.sourceHandle === id)
+      )
     );
   }
 
@@ -407,8 +412,8 @@ function ConditionForm({
     conditionId: string,
     patch: Partial<ConditionRule>
   ) {
-    const conditions = getConditions(branch).map((c) =>
-      c.id === conditionId ? { ...c, ...patch } : c
+    const conditions = getConditions(branch).map((condition) =>
+      condition.id === conditionId ? { ...condition, ...patch } : condition
     );
 
     updateBranch(branch.id, { conditions });
@@ -425,26 +430,27 @@ function ConditionForm({
 
   function removeCondition(branch: ConditionBranch, conditionId: string) {
     updateBranch(branch.id, {
-      conditions: getConditions(branch).filter((c) => c.id !== conditionId),
+      conditions: getConditions(branch).filter(
+        (condition) => condition.id !== conditionId
+      ),
     });
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {branches.map((branch, idx) => {
+      {branches.map((branch, index) => {
         const conditions = getConditions(branch);
         const combinator = branch.combinator ?? "and";
-        const isLastBranch = idx === branches.length - 1;
+        const isLastBranch = index === branches.length - 1;
 
         return (
           <div
             key={branch.id}
             className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3"
           >
-            {/* Branch header */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-neutral-500">
-                Branch {idx + 1}
+                Branch {index + 1}
               </span>
 
               {branches.length > 1 && !isLastBranch && (
@@ -464,10 +470,10 @@ function ConditionForm({
               <input
                 type="text"
                 value={branch.label}
-                onChange={(e) =>
-                  updateBranch(branch.id, { label: e.target.value })
+                onChange={(event) =>
+                  updateBranch(branch.id, { label: event.target.value })
                 }
-                placeholder={`Branch ${idx + 1}`}
+                placeholder={`Branch ${index + 1}`}
                 className={inputCls}
               />
             </Field>
@@ -479,14 +485,14 @@ function ConditionForm({
             )}
 
             {!isLastBranch &&
-              conditions.map((condition, ci) => {
+              conditions.map((condition, conditionIndex) => {
                 const hideValue = condition.operator
                   ? NO_VALUE_OPERATORS.has(condition.operator)
                   : false;
 
                 return (
                   <div key={condition.id} className="flex flex-col gap-2">
-                    {ci > 0 && (
+                    {conditionIndex > 0 && (
                       <div className="flex items-center justify-center">
                         <div className="flex rounded-full border border-neutral-200 bg-white p-0.5 text-[10px] font-semibold">
                           <button
@@ -524,12 +530,12 @@ function ConditionForm({
                         <input
                           type="text"
                           value={condition.label ?? ""}
-                          onChange={(e) =>
+                          onChange={(event) =>
                             updateCondition(branch, condition.id, {
-                              label: e.target.value,
+                              label: event.target.value,
                             })
                           }
-                          placeholder={`Condition ${ci + 1}`}
+                          placeholder={`Condition ${conditionIndex + 1}`}
                           className="flex-1 border-none bg-transparent p-0 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 placeholder:text-neutral-400 focus:outline-none"
                         />
 
@@ -564,9 +570,9 @@ function ConditionForm({
                         <input
                           type="text"
                           value={condition.variable ?? ""}
-                          onChange={(e) =>
+                          onChange={(event) =>
                             updateCondition(branch, condition.id, {
-                              variable: e.target.value,
+                              variable: event.target.value,
                             })
                           }
                           placeholder="e.g. contact.name"
@@ -579,9 +585,9 @@ function ConditionForm({
                           value={
                             condition.operator ?? DEFAULT_CONDITION_OPERATOR
                           }
-                          onChange={(v) =>
+                          onChange={(value) =>
                             updateCondition(branch, condition.id, {
-                              operator: v as ConditionOperator,
+                              operator: value as ConditionOperator,
                             })
                           }
                           options={CONDITION_OPERATORS}
@@ -591,8 +597,10 @@ function ConditionForm({
                       {!hideValue && (
                         <ConditionValueField
                           value={condition.value ?? ""}
-                          onChange={(v) =>
-                            updateCondition(branch, condition.id, { value: v })
+                          onChange={(value) =>
+                            updateCondition(branch, condition.id, {
+                              value: value,
+                            })
                           }
                           variables={variables}
                         />
@@ -643,7 +651,7 @@ function ConditionValueField({
   variables,
 }: {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (nextValue: string) => void;
   variables: WorkflowVariable[];
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -664,7 +672,7 @@ function ConditionValueField({
         ref={inputRef}
         type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         placeholder="e.g. hello or {{variable}}"
         className={inputCls}
       />
@@ -674,10 +682,12 @@ function ConditionValueField({
   );
 }
 
-const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => ({
-  value: m,
-  label: m,
-}));
+const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"].map(
+  (method) => ({
+    value: method,
+    label: method,
+  })
+);
 
 const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
@@ -714,7 +724,7 @@ function KeyValueEditor({
   variables: WorkflowVariable[];
 }) {
   function updateRow(id: string, patch: Partial<HttpHeader>) {
-    onChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    onChange(rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
   function addRow() {
@@ -722,7 +732,7 @@ function KeyValueEditor({
   }
 
   function removeRow(id: string) {
-    onChange(rows.filter((r) => r.id !== id));
+    onChange(rows.filter((row) => row.id !== id));
   }
 
   return (
@@ -779,7 +789,7 @@ function HeaderRow({
         <input
           type="text"
           value={row.key}
-          onChange={(e) => onUpdate({ key: e.target.value })}
+          onChange={(event) => onUpdate({ key: event.target.value })}
           placeholder={keyPlaceholder}
           className={`${inputCls} min-w-0 flex-1`}
         />
@@ -789,7 +799,7 @@ function HeaderRow({
             ref={valueRef}
             type="text"
             value={row.value}
-            onChange={(e) => onUpdate({ value: e.target.value })}
+            onChange={(event) => onUpdate({ value: event.target.value })}
             placeholder={valuePlaceholder}
             className={`${inputCls} pr-8`}
           />
@@ -802,7 +812,7 @@ function HeaderRow({
                   valueRef.current,
                   row.value,
                   `{{${name}}}`,
-                  (v) => onUpdate({ value: v })
+                  (value) => onUpdate({ value: value })
                 )
               }
             />
@@ -835,7 +845,7 @@ function ResponseMappingEditor({
   onChange: (rows: ResponseMappingRow[]) => void;
 }) {
   function updateRow(id: string, patch: Partial<ResponseMappingRow>) {
-    onChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    onChange(rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
   function addRow() {
@@ -843,7 +853,7 @@ function ResponseMappingEditor({
   }
 
   function removeRow(id: string) {
-    onChange(rows.filter((r) => r.id !== id));
+    onChange(rows.filter((row) => row.id !== id));
   }
 
   return (
@@ -857,7 +867,9 @@ function ResponseMappingEditor({
           <input
             type="text"
             value={row.path}
-            onChange={(e) => updateRow(row.id, { path: e.target.value })}
+            onChange={(event) =>
+              updateRow(row.id, { path: event.target.value })
+            }
             placeholder="id"
             className={`${inputCls} min-w-0 flex-1`}
           />
@@ -867,7 +879,9 @@ function ResponseMappingEditor({
           <input
             type="text"
             value={row.variable}
-            onChange={(e) => updateRow(row.id, { variable: e.target.value })}
+            onChange={(event) =>
+              updateRow(row.id, { variable: event.target.value })
+            }
             placeholder="variable"
             className={`${inputCls} min-w-0 flex-1`}
           />
@@ -906,7 +920,7 @@ function HttpRequestForm({
   variables,
 }: {
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
   const urlRef = useRef<HTMLInputElement>(null);
@@ -923,7 +937,7 @@ function HttpRequestForm({
       <Field label="Method">
         <Select
           value={method}
-          onChange={(v) => onChange({ method: v })}
+          onChange={(value) => onChange({ method: value })}
           options={HTTP_METHODS}
         />
       </Field>
@@ -934,8 +948,8 @@ function HttpRequestForm({
           <VariablePicker
             variables={variables}
             onSelect={(name) =>
-              insertAtCursor(urlRef.current, url, `{{${name}}}`, (v) =>
-                onChange({ url: v })
+              insertAtCursor(urlRef.current, url, `{{${name}}}`, (value) =>
+                onChange({ url: value })
               )
             }
           />
@@ -945,7 +959,7 @@ function HttpRequestForm({
           ref={urlRef}
           type="text"
           value={url}
-          onChange={(e) => onChange({ url: e.target.value })}
+          onChange={(event) => onChange({ url: event.target.value })}
           placeholder="https://example.com/api"
           className={inputCls}
         />
@@ -968,7 +982,7 @@ function HttpRequestForm({
           <Field label="Content type">
             <Select
               value={(data.contentType as string) ?? "application/json"}
-              onChange={(v) => onChange({ contentType: v })}
+              onChange={(value) => onChange({ contentType: value })}
               options={CONTENT_TYPES}
             />
           </Field>
@@ -979,8 +993,11 @@ function HttpRequestForm({
               <VariablePicker
                 variables={variables}
                 onSelect={(name) =>
-                  insertAtCursor(bodyRef.current, body, `{{${name}}}`, (v) =>
-                    onChange({ body: v })
+                  insertAtCursor(
+                    bodyRef.current,
+                    body,
+                    `{{${name}}}`,
+                    (value) => onChange({ body: value })
                   )
                 }
               />
@@ -989,7 +1006,7 @@ function HttpRequestForm({
             <textarea
               ref={bodyRef}
               value={body}
-              onChange={(e) => onChange({ body: e.target.value })}
+              onChange={(event) => onChange({ body: event.target.value })}
               placeholder={
                 BODY_PLACEHOLDERS[
                   (data.contentType as string) ?? "application/json"
@@ -1010,10 +1027,10 @@ function HttpRequestForm({
           min={1}
           max={300}
           value={(data.timeoutSeconds as number) ?? 30}
-          onChange={(e) =>
+          onChange={(event) =>
             onChange({
-              timeoutSeconds: e.target.value
-                ? Number(e.target.value)
+              timeoutSeconds: event.target.value
+                ? Number(event.target.value)
                 : undefined,
             })
           }
@@ -1021,7 +1038,6 @@ function HttpRequestForm({
         />
       </Field>
 
-      {/* ── Response ─────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
         <div className="h-px flex-1 bg-neutral-200" />
         <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
@@ -1038,8 +1054,8 @@ function HttpRequestForm({
           <input
             type="text"
             value={(data.responseStatusVariable as string) ?? ""}
-            onChange={(e) =>
-              onChange({ responseStatusVariable: e.target.value })
+            onChange={(event) =>
+              onChange({ responseStatusVariable: event.target.value })
             }
             placeholder="e.g. statusCode"
             className={`${inputCls} flex-1`}
@@ -1063,7 +1079,7 @@ function SetVariableForm({
   variables,
 }: {
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
   const valueRef = useRef<HTMLInputElement>(null);
@@ -1075,7 +1091,7 @@ function SetVariableForm({
         <input
           type="text"
           value={(data.variableName as string) ?? ""}
-          onChange={(e) => onChange({ variableName: e.target.value })}
+          onChange={(event) => onChange({ variableName: event.target.value })}
           placeholder="e.g. userCity"
           className={inputCls}
         />
@@ -1087,8 +1103,11 @@ function SetVariableForm({
           <VariablePicker
             variables={variables}
             onSelect={(name) =>
-              insertAtCursor(valueRef.current, value, `{{${name}}}`, (v) =>
-                onChange({ value: v })
+              insertAtCursor(
+                valueRef.current,
+                value,
+                `{{${name}}}`,
+                (nextValue) => onChange({ value: nextValue })
               )
             }
           />
@@ -1098,7 +1117,7 @@ function SetVariableForm({
           ref={valueRef}
           type="text"
           value={value}
-          onChange={(e) => onChange({ value: e.target.value })}
+          onChange={(event) => onChange({ value: event.target.value })}
           placeholder="e.g. {{contact.name}} or a static value"
           className={inputCls}
         />
@@ -1115,7 +1134,7 @@ function SetContactTagForm({
   tagDefinitions,
 }: {
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   tagDefinitions: ContactTagDefinition[];
 }) {
   const tagKey = (data.tagKey as string) ?? "";
@@ -1126,7 +1145,7 @@ function SetContactTagForm({
       <Field label="Contact tag">
         <Select
           value={tagKey}
-          onChange={(v) => onChange({ tagKey: v, value: "" })}
+          onChange={(value) => onChange({ tagKey: value, value: "" })}
           options={tagDefinitions.map((tag) => ({
             value: tag.key,
             label: tag.label || tag.key,
@@ -1144,7 +1163,7 @@ function SetContactTagForm({
         <Field label="Value">
           <Select
             value={(data.value as string) ?? ""}
-            onChange={(v) => onChange({ value: v })}
+            onChange={(value) => onChange({ value: value })}
             options={[
               { value: "", label: "Clear tag" },
               ...selectedTag.values.map((value) => ({ value, label: value })),
@@ -1163,7 +1182,7 @@ function SetContactFieldForm({
   fieldOptions,
 }: {
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
   fieldOptions: SelectOption[];
 }) {
@@ -1175,7 +1194,7 @@ function SetContactFieldForm({
       <Field label="Contact field">
         <Select
           value={(data.fieldKey as string) ?? ""}
-          onChange={(v) => onChange({ fieldKey: v })}
+          onChange={(nextValue) => onChange({ fieldKey: nextValue })}
           options={fieldOptions}
           placeholder="Select a field…"
         />
@@ -1187,8 +1206,11 @@ function SetContactFieldForm({
           <VariablePicker
             variables={variables}
             onSelect={(name) =>
-              insertAtCursor(valueRef.current, value, `{{${name}}}`, (v) =>
-                onChange({ value: v })
+              insertAtCursor(
+                valueRef.current,
+                value,
+                `{{${name}}}`,
+                (nextValue) => onChange({ value: nextValue })
               )
             }
           />
@@ -1198,7 +1220,7 @@ function SetContactFieldForm({
           ref={valueRef}
           type="text"
           value={value}
-          onChange={(e) => onChange({ value: e.target.value })}
+          onChange={(event) => onChange({ value: event.target.value })}
           placeholder="e.g. {{agent.data.city}} or a static value"
           className={inputCls}
         />
@@ -1215,7 +1237,7 @@ function EndConversationForm({
   variables,
 }: {
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
   return (
@@ -1251,7 +1273,7 @@ function WaitForReplyForm({
   workspaceId: string;
   nodeId: string;
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   variables: WorkflowVariable[];
 }) {
   const { setEdges, getNodes } = useReactFlow();
@@ -1261,14 +1283,13 @@ function WaitForReplyForm({
   const options: WaitForReplyOption[] =
     (data.options as WaitForReplyOption[]) ?? [];
 
-  // The combined timeout of every "Wait for Reply" node in the workflow may not
-  // exceed MAX_TOTAL_TIMEOUT_MINUTES — this node's max is whatever's left over.
+  // Every Wait for Reply node shares MAX_TOTAL_TIMEOUT_MINUTES, so this node's max is what's left.
   const otherWaitTimeoutTotal = getNodes()
-    .filter((n) => n.type === "waitForReply" && n.id !== nodeId)
+    .filter((node) => node.type === "waitForReply" && node.id !== nodeId)
     .reduce(
-      (sum, n) =>
+      (sum, node) =>
         sum +
-        (((n.data as Record<string, unknown>).timeoutMinutes as number) ??
+        (((node.data as Record<string, unknown>).timeoutMinutes as number) ??
           DEFAULT_TIMEOUT_MINUTES),
       0
     );
@@ -1279,7 +1300,9 @@ function WaitForReplyForm({
 
   function updateOption(id: string, text: string) {
     onChange({
-      options: options.map((o) => (o.id === id ? { ...o, text } : o)),
+      options: options.map((option) =>
+        option.id === id ? { ...option, text } : option
+      ),
     });
   }
 
@@ -1289,9 +1312,12 @@ function WaitForReplyForm({
   }
 
   function removeOption(id: string) {
-    onChange({ options: options.filter((o) => o.id !== id) });
-    setEdges((eds) =>
-      eds.filter((e) => !(e.source === nodeId && e.sourceHandle === id))
+    onChange({ options: options.filter((option) => option.id !== id) });
+    setEdges((currentEdges) =>
+      currentEdges.filter(
+        (currentEdge) =>
+          !(currentEdge.source === nodeId && currentEdge.sourceHandle === id)
+      )
     );
   }
 
@@ -1300,7 +1326,7 @@ function WaitForReplyForm({
       <FormattedMessageField
         label="Question"
         value={question}
-        onChange={(v) => onChange({ question: v })}
+        onChange={(value) => onChange({ question: value })}
         variables={variables}
         placeholder="e.g. What can I help you with today?"
         rows={3}
@@ -1309,7 +1335,7 @@ function WaitForReplyForm({
       <Field label="Expected response">
         <Select
           value={responseType}
-          onChange={(v) => onChange({ responseType: v })}
+          onChange={(value) => onChange({ responseType: value })}
           options={RESPONSE_TYPE_OPTIONS}
         />
       </Field>
@@ -1320,7 +1346,9 @@ function WaitForReplyForm({
             <input
               type="text"
               value={(data.responseVariable as string) ?? ""}
-              onChange={(e) => onChange({ responseVariable: e.target.value })}
+              onChange={(event) =>
+                onChange({ responseVariable: event.target.value })
+              }
               placeholder="e.g. customerReply"
               className={inputCls}
             />
@@ -1337,23 +1365,25 @@ function WaitForReplyForm({
 
       {responseType === "defined" && (
         <>
-          {options.map((opt, i) => (
-            <div key={opt.id}>
+          {options.map((option, index) => (
+            <div key={option.id}>
               <div className="flex items-center gap-2">
                 <span className="flex-shrink-0 text-xs text-neutral-400">
-                  {i + 1}.
+                  {index + 1}.
                 </span>
 
                 <input
                   type="text"
-                  value={opt.text}
-                  onChange={(e) => updateOption(opt.id, e.target.value)}
-                  placeholder={`Option ${i + 1} text`}
+                  value={option.text}
+                  onChange={(event) =>
+                    updateOption(option.id, event.target.value)
+                  }
+                  placeholder={`Option ${index + 1} text`}
                   className={`${inputCls} flex-1`}
                 />
 
                 <button
-                  onClick={() => removeOption(opt.id)}
+                  onClick={() => removeOption(option.id)}
                   className="flex-shrink-0 text-neutral-300 transition-colors hover:text-red-border"
                   title="Remove option"
                 >
@@ -1364,7 +1394,7 @@ function WaitForReplyForm({
               </div>
 
               {options.length <= 3 &&
-                opt.text.length > WHATSAPP_BUTTON_TITLE_LIMIT && (
+                option.text.length > WHATSAPP_BUTTON_TITLE_LIMIT && (
                   <p className="ml-5 text-xs text-red-text">
                     WhatsApp buttons are limited to{" "}
                     {WHATSAPP_BUTTON_TITLE_LIMIT} characters — this will be
@@ -1391,7 +1421,9 @@ function WaitForReplyForm({
             <input
               type="text"
               value={(data.responseVariable as string) ?? ""}
-              onChange={(e) => onChange({ responseVariable: e.target.value })}
+              onChange={(event) =>
+                onChange({ responseVariable: event.target.value })
+              }
               placeholder="e.g. selectedOption"
               className={inputCls}
             />
@@ -1411,10 +1443,10 @@ function WaitForReplyForm({
           min={1}
           max={maxTimeoutMinutes}
           value={(data.timeoutMinutes as number | undefined) ?? ""}
-          onChange={(e) =>
+          onChange={(event) =>
             onChange({
-              timeoutMinutes: e.target.value
-                ? Math.min(Number(e.target.value), maxTimeoutMinutes)
+              timeoutMinutes: event.target.value
+                ? Math.min(Number(event.target.value), maxTimeoutMinutes)
                 : undefined,
             })
           }
@@ -1447,7 +1479,7 @@ function ReplyValidationFields({
   workspaceId: string;
   nodeId: string;
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
 }) {
   const { setEdges } = useReactFlow();
   const { data: builtInHooks = [], isSuccess: builtInHooksLoaded } =
@@ -1535,8 +1567,8 @@ function ReplyValidationFields({
             <input
               type="text"
               value={(data.validationErrorMessage as string) ?? ""}
-              onChange={(e) =>
-                onChange({ validationErrorMessage: e.target.value })
+              onChange={(event) =>
+                onChange({ validationErrorMessage: event.target.value })
               }
               placeholder={selectedHook?.errorMessage ?? "Please try again."}
               maxLength={500}
@@ -1555,11 +1587,11 @@ function ReplyValidationFields({
               max={MAX_ATTEMPTS_LIMIT}
               value={(data.maxAttempts as number | undefined) ?? ""}
               placeholder={String(DEFAULT_MAX_ATTEMPTS)}
-              onChange={(e) =>
+              onChange={(event) =>
                 onChange({
-                  maxAttempts: e.target.value
+                  maxAttempts: event.target.value
                     ? Math.min(
-                        Math.max(Number(e.target.value), 1),
+                        Math.max(Number(event.target.value), 1),
                         MAX_ATTEMPTS_LIMIT
                       )
                     : undefined,
@@ -1590,15 +1622,17 @@ function JumpToForm({
 }: {
   nodeId: string;
   data: Record<string, unknown>;
-  onChange: (u: Record<string, unknown>) => void;
+  onChange: (updates: Record<string, unknown>) => void;
   nodes: Node[];
 }) {
   const nodeOptions: SelectOption[] = nodes
-    .filter((n) => n.id !== nodeId)
-    .map((n) => ({
-      value: n.id,
+    .filter((node) => node.id !== nodeId)
+    .map((node) => ({
+      value: node.id,
       label:
-        ((n.data as Record<string, unknown>).label as string) ?? n.type ?? n.id,
+        ((node.data as Record<string, unknown>).label as string) ??
+        node.type ??
+        node.id,
     }));
 
   return (
@@ -1607,14 +1641,14 @@ function JumpToForm({
         <Select
           value={(data.targetNodeId as string) ?? ""}
           placeholder="Select a node…"
-          onChange={(v) => {
-            const targetNode = nodes.find((n) => n.id === v);
+          onChange={(value) => {
+            const targetNode = nodes.find((node) => node.id === value);
             const targetLabel =
               ((targetNode?.data as Record<string, unknown>)
                 ?.label as string) ??
               targetNode?.type ??
-              v;
-            onChange({ targetNodeId: v, targetNodeLabel: targetLabel });
+              value;
+            onChange({ targetNodeId: value, targetNodeLabel: targetLabel });
           }}
           options={nodeOptions}
         />
@@ -1626,8 +1660,10 @@ function JumpToForm({
           min={1}
           max={20}
           value={(data.maxJumps as number) ?? 1}
-          onChange={(e) =>
-            onChange({ maxJumps: e.target.value ? Number(e.target.value) : 1 })
+          onChange={(event) =>
+            onChange({
+              maxJumps: event.target.value ? Number(event.target.value) : 1,
+            })
           }
           className={inputCls}
         />
@@ -1640,8 +1676,6 @@ function JumpToForm({
     </>
   );
 }
-
-// ─── panel labels ─────────────────────────────────────────────────────────────
 
 const TYPE_LABEL: Record<string, string> = {
   trigger: "Trigger",
@@ -1656,8 +1690,6 @@ const TYPE_LABEL: Record<string, string> = {
   jumpTo: "Jump To",
 };
 
-// ─── panel ────────────────────────────────────────────────────────────────────
-
 export function NodeConfigPanel({
   node,
   nodes,
@@ -1666,8 +1698,7 @@ export function NodeConfigPanel({
   onDirty,
 }: Props) {
   const { setNodes } = useReactFlow();
-  // key={node.id} is set by the parent (WorkflowEditor) so this component
-  // remounts whenever the selected node changes — no sync effect needed.
+  // The parent keys this component by node.id, so it remounts when the selected node changes.
   const [data, setData] = useState<Record<string, unknown>>(
     node.data as Record<string, unknown>
   );
@@ -1681,7 +1712,7 @@ export function NodeConfigPanel({
   const { data: aiAgentConfigurations = [] } =
     useAiAgentConfigurations(workspaceId);
   const defaultAiAgentConfiguration = aiAgentConfigurations.find(
-    (c) => c.isDefault
+    (aiAgentConfiguration) => aiAgentConfiguration.isDefault
   );
   const extractionFieldVariables: WorkflowVariable[] = (
     defaultAiAgentConfiguration?.extractionFields ?? []
@@ -1729,8 +1760,7 @@ export function NodeConfigPanel({
     ...extractWorkflowVariables(nodes),
   ];
 
-  // secrets.NAME is only ever resolved by HttpRequestNodeExecutor on the backend — offered
-  // exclusively in that node's fields so a reference elsewhere doesn't silently go unresolved.
+  // secrets.NAME is only resolved by HttpRequestNodeExecutor, so it is offered only in that node's fields.
   const { data: secrets = [] } = useSecrets(workspaceId);
   const secretVariables: WorkflowVariable[] = secrets.map((secret) => ({
     name: `secrets.${secret.name}`,
@@ -1745,15 +1775,18 @@ export function NodeConfigPanel({
   function update(updates: Record<string, unknown>) {
     const next = { ...data, ...updates };
     setData(next);
-    setNodes((nds) =>
-      nds.map((n) => (n.id === node.id ? { ...n, data: next } : n))
+    setNodes((currentNodes) =>
+      currentNodes.map((currentNode) =>
+        currentNode.id === node.id
+          ? { ...currentNode, data: next }
+          : currentNode
+      )
     );
     onDirty();
   }
 
   return (
     <aside className="flex w-[28rem] flex-shrink-0 flex-col border-l border-neutral-300 bg-neutral-50">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-300 px-4 py-3">
         <span className="text-sm font-semibold text-neutral-800">
           {TYPE_LABEL[node.type ?? ""] ?? "Node"}
@@ -1772,20 +1805,17 @@ export function NodeConfigPanel({
         </button>
       </div>
 
-      {/* Form */}
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-        {/* Label — common to all nodes */}
         <Field label="Label">
           <input
             type="text"
             value={(data.label as string) ?? ""}
-            onChange={(e) => update({ label: e.target.value })}
+            onChange={(event) => update({ label: event.target.value })}
             placeholder="Node label"
             className={inputCls}
           />
         </Field>
 
-        {/* Type-specific fields */}
         {node.type === "trigger" && (
           <TriggerForm data={data} onChange={update} />
         )}

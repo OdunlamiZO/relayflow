@@ -5,10 +5,6 @@ import java.util.UUID;
 import lombok.Getter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 
-/**
- * Authentication token set in the SecurityContext when a valid API key is presented. The principal
- * carries the workspaceId the key belongs to.
- */
 @Getter
 public class ApiKeyAuthentication extends AbstractAuthenticationToken {
 

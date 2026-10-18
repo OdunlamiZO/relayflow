@@ -18,14 +18,10 @@ import org.springframework.lang.NonNull;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Fixed-window rate limiting for abuse-prone endpoints — auth (login, signup, email verification),
- * the public API, and inbound channel webhooks — keyed by client IP or API key and backed by Redis
- * so limits are shared across instances.
- */
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
+
     private static final String API_KEY_HEADER = "X-Api-Key";
 
     private final StringRedisTemplate redis;

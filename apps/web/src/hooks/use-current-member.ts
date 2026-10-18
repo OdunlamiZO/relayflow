@@ -8,5 +8,5 @@ export function useCurrentMember(
 ): WorkspaceMember | undefined {
   const { data: members } = useWorkspaceMembers(workspaceId);
 
-  return members?.find((m) => m.userId === userId);
+  return members?.find((member) => member.userId === userId);
 }

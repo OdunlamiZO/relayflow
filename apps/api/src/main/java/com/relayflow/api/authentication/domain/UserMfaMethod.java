@@ -16,12 +16,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * One second-factor authentication method belonging to a user.
- *
- * <p>A unique constraint on {@code (user_id, type)} ensures at most one active record per method
- * type. Adding SMS in the future is a new row with {@code type = SMS} — no schema change.
- */
 @Getter
 @Setter
 @Entity
@@ -40,10 +34,7 @@ public class UserMfaMethod {
     @Column(nullable = false, length = 20)
     private MfaMethodType type;
 
-    /**
-     * Encrypted TOTP base32 secret for {@link MfaMethodType#TOTP}; verified phone number for {@link
-     * MfaMethodType#SMS}; {@code null} until setup is confirmed.
-     */
+    /** Encrypted TOTP secret; null until setup is confirmed. */
     @Column private String credential;
 
     @Column(nullable = false)

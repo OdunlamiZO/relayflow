@@ -22,8 +22,6 @@ import {
 
 import { ContactTagEditor } from "./ContactTagEditor";
 
-// ── channel meta ──────────────────────────────────────────────────────────────
-
 const CHANNEL_META: Record<
   ChannelProvider,
   { label: string; icon: string; color: string }
@@ -79,15 +77,11 @@ function contactInitial(displayName: string | null): string {
   return (displayName ?? "?").trim().charAt(0).toUpperCase();
 }
 
-// ── props ─────────────────────────────────────────────────────────────────────
-
 type Props = {
   contactId: string;
   workspaceId: string;
   onClose: () => void;
 };
-
-// ── component ─────────────────────────────────────────────────────────────────
 
 export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
   const {
@@ -99,7 +93,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden border-l border-neutral-300 bg-neutral-100">
-      {/* Header */}
       <div className="flex flex-shrink-0 items-center justify-between border-b border-neutral-300 bg-neutral-100 px-4 py-3">
         <h2 className="text-sm font-semibold text-neutral-800">
           Contact detail
@@ -120,7 +113,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
         </button>
       </div>
 
-      {/* Body */}
       <div className="flex-1 overflow-y-auto pb-14 md:pb-0">
         {isPending && (
           <div className="flex justify-center py-16">
@@ -140,7 +132,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
 
         {contact && (
           <div className="space-y-6 px-4 py-5 sm:px-6">
-            {/* Avatar + name */}
             <div className="flex items-center gap-4">
               <div
                 className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xl font-semibold text-neutral-100"
@@ -170,7 +161,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
               </div>
             </div>
 
-            {/* Quick action */}
             <Link
               href={`/inbox?workspaceId=${workspaceId}&contactId=${contact.id}`}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-neutral-100 px-4 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200"
@@ -184,7 +174,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
               View conversations
             </Link>
 
-            {/* Connected channels */}
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 Connected channels
@@ -207,7 +196,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
                         key={identity.id}
                         className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3"
                       >
-                        {/* Channel badge */}
                         <span
                           className={`mt-0.5 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${meta.color}`}
                         >
@@ -220,7 +208,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
                           {meta.label}
                         </span>
 
-                        {/* Identity details */}
                         <div className="min-w-0 flex-1">
                           {channelAccountName && (
                             <p className="truncate text-sm font-medium text-neutral-800">
@@ -245,7 +232,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
               )}
             </div>
 
-            {/* Custom fields */}
             <ContactCustomFieldsSection
               key={contact.id}
               contactId={contact.id}
@@ -258,8 +244,6 @@ export function ContactDetailPanel({ contactId, workspaceId, onClose }: Props) {
     </div>
   );
 }
-
-// ── custom fields ─────────────────────────────────────────────────────────────
 
 type ContactCustomFieldsSectionProps = {
   contactId: string;
@@ -328,10 +312,10 @@ function ContactCustomFieldsSection({
                 id={`custom-field-${field.key}`}
                 type="text"
                 value={values[field.key] ?? ""}
-                onChange={(e) =>
-                  setValues((prev) => ({
-                    ...prev,
-                    [field.key]: e.target.value,
+                onChange={(event) =>
+                  setValues((previous) => ({
+                    ...previous,
+                    [field.key]: event.target.value,
                   }))
                 }
                 className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"

@@ -16,12 +16,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * Represents one authentication identity for a user — how they prove who they are.
- *
- * <p>A user may have multiple identities (e.g. email/password and Google OAuth) sharing the same
- * {@link User} record. The {@code (provider, provider_subject)} pair is globally unique.
- */
 @Getter
 @Setter
 @Entity
@@ -40,20 +34,13 @@ public class UserIdentity {
     @Column(nullable = false, length = 40)
     private AuthenticationProvider provider;
 
-    /**
-     * Provider-specific subject identifier. For EMAIL this is the email address; for GOOGLE it is
-     * the OAuth {@code sub} claim; for ANONYMOUS it is a random UUID.
-     */
+    /** The email for EMAIL, the OAuth sub claim for GOOGLE, and a random UUID for ANONYMOUS. */
     @Column(name = "provider_subject", nullable = false, length = 200)
     private String providerSubject;
 
-    /**
-     * Stored credential. BCrypt password hash for EMAIL identities; {@code null} for OAuth and
-     * anonymous identities.
-     */
+    /** BCrypt hash for EMAIL identities; null for OAuth and anonymous identities. */
     @Column private String credential;
 
-    /** Whether this identity has been verified (email confirmed, OAuth callback received, etc.). */
     @Column(nullable = false)
     private boolean verified;
 

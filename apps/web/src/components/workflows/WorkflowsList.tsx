@@ -34,12 +34,11 @@ export function WorkflowsList({ workspaceId }: Props) {
 
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close the open menu when clicking outside of it.
   useEffect(() => {
     if (!openMenuId) return;
 
-    function handleClick(e: MouseEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) {
+    function handleClick(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
         setOpenMenuId(null);
       }
     }
@@ -69,8 +68,8 @@ export function WorkflowsList({ workspaceId }: Props) {
       { id, name: trimmed },
       {
         onSuccess: () => setRenamingId(null),
-        onError: (err) => {
-          setActionError(errorMessage(err));
+        onError: (error) => {
+          setActionError(errorMessage(error));
           setRenamingId(null);
         },
       }
@@ -89,8 +88,8 @@ export function WorkflowsList({ workspaceId }: Props) {
           router.push(`/workflows?workspaceId=${workspaceId}`);
         }
       },
-      onError: (err) => {
-        setActionError(errorMessage(err));
+      onError: (error) => {
+        setActionError(errorMessage(error));
         setDeleteTarget(null);
       },
     });
@@ -149,11 +148,11 @@ export function WorkflowsList({ workspaceId }: Props) {
                   <input
                     autoFocus
                     value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
+                    onChange={(event) => setRenameValue(event.target.value)}
                     onBlur={() => commitRename(workflow.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename(workflow.id);
-                      if (e.key === "Escape") setRenamingId(null);
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") commitRename(workflow.id);
+                      if (event.key === "Escape") setRenamingId(null);
                     }}
                     className="flex-1 rounded-md border border-secondary bg-neutral-100 px-2 py-1 text-sm font-medium text-neutral-800 outline-none focus:ring-2 focus:ring-secondary/20"
                   />
@@ -181,8 +180,8 @@ export function WorkflowsList({ workspaceId }: Props) {
                 <button
                   type="button"
                   onClick={() =>
-                    setOpenMenuId((prev) =>
-                      prev === workflow.id ? null : workflow.id
+                    setOpenMenuId((previous) =>
+                      previous === workflow.id ? null : workflow.id
                     )
                   }
                   title="More options"

@@ -10,19 +10,17 @@ export function useMessages(
 ) {
   return useInfiniteQuery({
     queryKey: ["messages", workspaceId, conversationId],
-    // pageParam is the cursor (createdAt ISO string of the oldest message on the current page).
-    // undefined = first page = most recent messages.
+    // pageParam is the createdAt of the oldest loaded message; undefined loads the most recent page.
     queryFn: ({ pageParam }) =>
       messagingApi.listMessages(workspaceId!, conversationId!, {
         before: pageParam ?? undefined,
         limit: LIMIT,
       }),
     initialPageParam: undefined as string | undefined,
-    // nextCursor points at older messages (load-more scrolling upward).
     getNextPageParam: (firstPage) =>
       firstPage.hasMore ? (firstPage.nextCursor ?? undefined) : undefined,
     enabled: Boolean(workspaceId) && Boolean(conversationId),
-    // SSE is the primary delivery mechanism; polling is the fallback for missed events.
+    // SSE delivers updates; polling covers missed events.
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
   });

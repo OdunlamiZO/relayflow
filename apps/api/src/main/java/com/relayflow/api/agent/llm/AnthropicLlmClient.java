@@ -69,10 +69,10 @@ public class AnthropicLlmClient implements LlmClient {
             body.put("system", systemPrompt);
 
             ArrayNode messages = body.putArray("messages");
-            for (LlmMessage msg : request.messages()) {
-                ObjectNode m = messages.addObject();
-                m.put("role", msg.role());
-                m.put("content", msg.content());
+            for (LlmMessage message : request.messages()) {
+                ObjectNode messageNode = messages.addObject();
+                messageNode.put("role", message.role());
+                messageNode.put("content", message.content());
             }
 
             String raw =
@@ -82,8 +82,8 @@ public class AnthropicLlmClient implements LlmClient {
             String text = root.path("content").path(0).path("text").asText("");
 
             return AgentLlmResponseParser.parse(objectMapper, text);
-        } catch (Exception e) {
-            log.warn("Anthropic LLM call failed: {}", e.getMessage());
+        } catch (Exception exception) {
+            log.warn("Anthropic LLM call failed: {}", exception.getMessage());
 
             return AgentLlmResponseParser.failure();
         }

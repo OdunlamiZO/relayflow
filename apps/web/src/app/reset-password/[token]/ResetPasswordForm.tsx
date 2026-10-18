@@ -23,8 +23,8 @@ export function ResetPasswordForm({ token }: Props) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [mismatch, setMismatch] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     if (newPassword !== confirmPassword) {
       setMismatch(true);
@@ -96,8 +96,8 @@ export function ResetPasswordForm({ token }: Props) {
             required
             minLength={8}
             value={newPassword}
-            onChange={(e) => {
-              setNewPassword(e.target.value);
+            onChange={(event) => {
+              setNewPassword(event.target.value);
               setMismatch(false);
             }}
             placeholder="••••••••"
@@ -119,8 +119,8 @@ export function ResetPasswordForm({ token }: Props) {
             autoComplete="new-password"
             required
             value={confirmPassword}
-            onChange={(e) => {
-              setConfirmPassword(e.target.value);
+            onChange={(event) => {
+              setConfirmPassword(event.target.value);
               setMismatch(false);
             }}
             placeholder="••••••••"

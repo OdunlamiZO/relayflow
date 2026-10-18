@@ -16,11 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Named, encrypted secret values a workspace's workflows can reference (as {@code
- * {{secrets.NAME}}}, resolved only by {@code HttpRequestNodeExecutor}) without the plaintext value
- * ever appearing in the workflow definition, a run log, or an API response.
- */
 @Service
 public class SecretService {
 
@@ -53,7 +48,7 @@ public class SecretService {
 
         try {
             secretRepository.save(secret);
-        } catch (DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "A secret named \"" + request.name() + "\" already exists");
@@ -76,7 +71,7 @@ public class SecretService {
 
         try {
             secretRepository.save(secret);
-        } catch (DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "A secret named \"" + request.name() + "\" already exists");
@@ -99,11 +94,7 @@ public class SecretService {
         log.info("Secret deleted: id={}, workspace={}", secretId, workspaceId);
     }
 
-    /**
-     * Decrypts one secret by name for the workflow engine. Public only because its sole caller,
-     * {@code HttpRequestNodeExecutor}, lives in a different package — never expose this via a
-     * controller, and never write its result to a workflow variable, a run snapshot, or a log line.
-     */
+    /** Never expose through a controller or write the result to a variable, snapshot, or log. */
     @Transactional(readOnly = true)
     public Optional<String> resolveDecrypted(UUID workspaceId, String name) {
         return secretRepository
@@ -121,7 +112,8 @@ public class SecretService {
                                         HttpStatus.NOT_FOUND, "Secret not found"));
     }
 
-    private SecretResponse toResponse(WorkspaceSecret s) {
-        return new SecretResponse(s.getId(), s.getName(), s.getCreatedAt(), s.getUpdatedAt());
+    private SecretResponse toResponse(WorkspaceSecret secret) {
+        return new SecretResponse(
+                secret.getId(), secret.getName(), secret.getCreatedAt(), secret.getUpdatedAt());
     }
 }

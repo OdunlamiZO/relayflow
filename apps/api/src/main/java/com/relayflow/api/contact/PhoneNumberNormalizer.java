@@ -35,7 +35,7 @@ public class PhoneNumberNormalizer {
             }
 
             return Optional.of(phoneNumberUtil.format(parsed, PhoneNumberFormat.E164));
-        } catch (NumberParseException e) {
+        } catch (NumberParseException exception) {
             return Optional.empty();
         }
     }

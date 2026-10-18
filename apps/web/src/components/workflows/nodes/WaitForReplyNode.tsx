@@ -14,7 +14,6 @@ export type WaitForReplyNodeData = {
   responseType?: "generic" | "defined";
   responseVariable?: string;
   options?: WaitForReplyOption[];
-  /** Minutes to wait for a reply before following the "No reply" output. Defaults to 1440 (24 hours). */
   timeoutMinutes?: number;
   validationHook?: string;
   validationErrorMessage?: string;
@@ -23,7 +22,6 @@ export type WaitForReplyNodeData = {
 
 export const DEFAULT_TIMEOUT_MINUTES = 60 * 24;
 
-/** Formats a duration in minutes as a human-readable string (e.g. "24h", "90m", "2d"). */
 function formatTimeout(minutes: number): string {
   if (minutes % (60 * 24) === 0) {
     return `${minutes / (60 * 24)}d`;
@@ -48,28 +46,24 @@ export function WaitForReplyNode({
   const isValidated = isGeneric && !!data.validationHook;
   const options = data.options ?? [];
 
-  // For defined mode: N option handles + "Other" + "No reply"
   const totalHandles = options.length + 2;
 
   const definedFooter = !isGeneric ? (
     <div className="relative pb-5 pt-1">
-      {/* Option numbers — full text is listed in the body above instead, so
-          long or numerous options don't overlap here. */}
-      {options.map((opt, i) => {
-        const pct = ((i + 1) / (totalHandles + 1)) * 100;
+      {options.map((option, index) => {
+        const percentage = ((index + 1) / (totalHandles + 1)) * 100;
 
         return (
           <OutputLabel
-            key={opt.id}
-            left={`${pct}%`}
+            key={option.id}
+            left={`${percentage}%`}
             className="font-semibold text-blue-text"
           >
-            {i + 1}
+            {index + 1}
           </OutputLabel>
         );
       })}
 
-      {/* "Other" label — fallback branch when no option matches the reply */}
       <OutputLabel
         left={`${((totalHandles - 1) / (totalHandles + 1)) * 100}%`}
         className="text-neutral-400"
@@ -80,20 +74,18 @@ export function WaitForReplyNode({
 
       <NoReplyLabel left={`${(totalHandles / (totalHandles + 1)) * 100}%`} />
 
-      {/* Option handles — blue tint so they're distinct from the default */}
-      {options.map((opt, i) => (
+      {options.map((option, index) => (
         <Handle
-          key={opt.id}
+          key={option.id}
           type="source"
           position={Position.Bottom}
-          id={opt.id}
+          id={option.id}
           isConnectable={isConnectable}
-          style={{ left: `${((i + 1) / (totalHandles + 1)) * 100}%` }}
+          style={{ left: `${((index + 1) / (totalHandles + 1)) * 100}%` }}
           className="!border-2 !border-neutral-100 !bg-blue-border"
         />
       ))}
 
-      {/* Default "Other" handle — neutral, always present */}
       <Handle
         type="source"
         position={Position.Bottom}
@@ -181,11 +173,11 @@ export function WaitForReplyNode({
 
       {!isGeneric && options.length > 0 && (
         <ul className="mt-2 space-y-1">
-          {options.map((opt, i) => (
-            <li key={opt.id} className="flex gap-1.5 text-blue-text">
-              <span className="flex-shrink-0 font-semibold">{i + 1}.</span>
+          {options.map((option, index) => (
+            <li key={option.id} className="flex gap-1.5 text-blue-text">
+              <span className="flex-shrink-0 font-semibold">{index + 1}.</span>
               <span className="line-clamp-2 break-words">
-                {opt.text || `Option ${i + 1}`}
+                {option.text || `Option ${index + 1}`}
               </span>
             </li>
           ))}

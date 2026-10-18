@@ -36,7 +36,6 @@ function DesktopNavItem({ href, icon, label, active }: NavItemProps) {
         <span className="sr-only">{label}</span>
       </Link>
 
-      {/* Tooltip — appears to the right on hover */}
       <div
         role="tooltip"
         className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-neutral-200 bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 shadow-sm opacity-0 transition-opacity group-hover:opacity-100"
@@ -81,7 +80,6 @@ export function WorkspaceNav({ workspaceId }: Props) {
 
   return (
     <>
-      {/* ── Desktop sidebar ─────────────────────────────────────────── */}
       <nav className="hidden w-14 flex-shrink-0 flex-col items-center justify-between border-r border-neutral-300 bg-neutral-100 py-3 md:flex">
         <div className="flex flex-col items-center gap-1">
           {navItems.slice(0, 3).map((item) => (
@@ -92,7 +90,6 @@ export function WorkspaceNav({ workspaceId }: Props) {
         <DesktopNavItem {...navItems[3]} />
       </nav>
 
-      {/* ── Mobile bottom tab bar ───────────────────────────────────── */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center border-t border-neutral-300 bg-neutral-100 md:hidden">
         {navItems.map((item) => (
           <Link

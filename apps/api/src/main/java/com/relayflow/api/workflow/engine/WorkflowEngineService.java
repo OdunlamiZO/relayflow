@@ -32,22 +32,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Core workflow execution engine.
- *
- * <p>Parses the {@code draftGraph}, initialises the execution context from conversation data, and
- * walks the node graph — executing each node and following the appropriate outgoing edge.
- *
- * <p>When a node returns {@link NodeExecutionResult#waiting(Map, long)}, the run is persisted with
- * status {@link WorkflowRunStatus#WAITING} and the current context snapshot is saved. Execution
- * resumes via {@link #resumeWorkflow} when the contact replies.
- */
 @Service
 public class WorkflowEngineService {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowEngineService.class);
 
-    /** Maximum nodes to execute in a single run — prevents runaway loops. */
     private static final int MAX_STEPS = 100;
 
     private final WorkflowRunRepository runRepository;
@@ -83,13 +72,7 @@ public class WorkflowEngineService {
                         .collect(Collectors.toMap(NodeExecutor::nodeType, Function.identity()));
     }
 
-    /**
-     * Executes a workflow definition triggered by a conversation-opened event.
-     *
-     * <p>{@code @Async} dispatches each call to the shared task executor so multiple workflows for
-     * the same conversation run concurrently rather than sequentially. {@code REQUIRES_NEW} ensures
-     * each run gets its own transaction — a failure in one workflow never affects another.
-     */
+    /** REQUIRES_NEW isolates each run so one failing workflow never affects another. */
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeWorkflow(
@@ -97,12 +80,6 @@ public class WorkflowEngineService {
         executeWorkflowInternal(definition, conversation, triggeringMessage, Map.of());
     }
 
-    /**
-     * Same as {@link #executeWorkflow(WorkflowDefinition, Conversation, Message)}, but seeds the
-     * run's initial variables with {@code additionalVariables} on top of the usual built-ins (e.g.
-     * {@code agent.reply}/{@code agent.confidence} when the AI agent is the one triggering this
-     * workflow) — see {@link com.relayflow.api.agent.AiAgentInvocationService}.
-     */
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void executeWorkflow(
@@ -113,13 +90,6 @@ public class WorkflowEngineService {
         executeWorkflowInternal(definition, conversation, triggeringMessage, additionalVariables);
     }
 
-    /**
-     * Resumes a workflow run that was paused at a "Wait for Reply" node.
-     *
-     * <p>Called by {@link WorkflowResumeListener} after the contact sends a reply. The run is
-     * reloaded in a fresh transaction, the reply is applied to the execution context, and walking
-     * continues from the next node after the waiting node.
-     */
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void resumeWorkflow(UUID runId, Message replyMessage) {
@@ -129,6 +99,7 @@ public class WorkflowEngineService {
 
         if (run == null) {
             log.error("Cannot resume: workflow run {} not found", runId);
+
             return;
         }
 
@@ -137,6 +108,7 @@ public class WorkflowEngineService {
                     "Workflow run {} is not WAITING (status={}) — skipping resume",
                     runId,
                     run.getStatus());
+
             return;
         }
 
@@ -148,10 +120,10 @@ public class WorkflowEngineService {
             run.setFinishedAt(Instant.now());
             run.setErrorMessage("Run was WAITING with no waitingAtNodeId");
             runRepository.save(run);
+
             return;
         }
 
-        // Parse graph
         List<GraphNode> nodes = parseNodes(run.getWorkflowDefinition().getDraftGraph());
         List<GraphEdge> edges = parseEdges(run.getWorkflowDefinition().getDraftGraph());
         Map<String, GraphNode> nodeMap =
@@ -166,10 +138,10 @@ public class WorkflowEngineService {
             run.setFinishedAt(Instant.now());
             run.setErrorMessage("Waiting node not found: " + waitingNodeId);
             runRepository.save(run);
+
             return;
         }
 
-        // Rebuild execution context from the saved snapshot
         Map<String, Object> snapshot =
                 run.getContextSnapshot() != null ? run.getContextSnapshot() : Map.of();
         ExecutionContext context =
@@ -211,7 +183,6 @@ public class WorkflowEngineService {
                 return;
             }
 
-            // Clear waiting state and resume
             run.setStatus(WorkflowRunStatus.RUNNING);
             run.setWaitingAtNodeId(null);
             run.setContextSnapshot(null);
@@ -236,10 +207,10 @@ public class WorkflowEngineService {
                     "Resumed workflow run {}: runId={}",
                     run.getStatus().toString().toLowerCase(),
                     runId);
-        } catch (Exception e) {
+        } catch (Exception exception) {
             run.setStatus(WorkflowRunStatus.FAILED);
             run.setFinishedAt(Instant.now());
-            run.setErrorMessage(e.getMessage());
+            run.setErrorMessage(exception.getMessage());
             run.setWaitingAtNodeId(null);
             run.setContextSnapshot(null);
             run.setExpiresAt(null);
@@ -247,16 +218,14 @@ public class WorkflowEngineService {
 
             setConversationLock(conversationId, false);
 
-            log.error("Resumed workflow run failed: runId={}, error={}", runId, e.getMessage(), e);
+            log.error(
+                    "Resumed workflow run failed: runId={}, error={}",
+                    runId,
+                    exception.getMessage(),
+                    exception);
         }
     }
 
-    /**
-     * Handles a {@code WAITING} run whose Ask Question timed out: the step is recorded as failed
-     * and the run follows the node's "No reply" edge, or its "invalid" edge when it has a
-     * validation hook. With neither connected, the run fails. Called by {@link
-     * com.relayflow.api.workflow.WorkflowRunCleanupScheduler}.
-     */
     @Transactional
     public void expireWaitingRun(UUID runId) {
         WorkflowRun run = runRepository.findWithDefinitionById(runId).orElse(null);
@@ -324,11 +293,14 @@ public class WorkflowEngineService {
 
                 runRepository.save(run);
             }
-        } catch (Exception e) {
-            failRun(run, e.getMessage());
+        } catch (Exception exception) {
+            failRun(run, exception.getMessage());
 
             log.error(
-                    "Timed-out workflow run failed: runId={}, error={}", runId, e.getMessage(), e);
+                    "Timed-out workflow run failed: runId={}, error={}",
+                    runId,
+                    exception.getMessage(),
+                    exception);
 
             return;
         }
@@ -357,11 +329,6 @@ public class WorkflowEngineService {
         return "No reply before the timeout";
     }
 
-    /**
-     * Fails a {@code RUNNING} run that was interrupted by a server shutdown or crash, releasing the
-     * conversation lock. Called by {@link com.relayflow.api.workflow.WorkflowStartupRecovery} on
-     * startup.
-     */
     @Transactional
     public void failInterruptedRun(UUID runId) {
         WorkflowRun run = runRepository.findWithDefinitionById(runId).orElse(null);
@@ -380,8 +347,6 @@ public class WorkflowEngineService {
         log.warn("Workflow run interrupted by server shutdown: runId={}", runId);
     }
 
-    // ── execution orchestration ───────────────────────────────────────────────
-
     private void executeWorkflowInternal(
             WorkflowDefinition definition,
             Conversation conversation,
@@ -398,12 +363,9 @@ public class WorkflowEngineService {
                 definition.getId(),
                 conversation.getId());
 
-        // Re-fetch within the current session so all lazy associations (workspace, channelAccount,
-        // contact) are reachable. The conversation argument may be a detached entity from a prior
-        // transaction (e.g. passed through an @Async boundary).
+        // Re-fetched because the conversation may be detached after an @Async boundary.
         conversation = conversationRepository.findById(conversation.getId()).orElse(conversation);
 
-        // 1. Parse graph
         List<GraphNode> nodes = parseNodes(definition.getDraftGraph());
         List<GraphEdge> edges = parseEdges(definition.getDraftGraph());
 
@@ -415,20 +377,17 @@ public class WorkflowEngineService {
 
         if (triggerNode == null) {
             log.warn("Workflow {} has no trigger node — skipping", definition.getId());
+
             return;
         }
 
-        // 2. Build adjacency map: nodeId → outgoing edges
         Map<String, List<GraphEdge>> adjacency = buildAdjacency(edges);
 
-        // 3. Build node lookup map
         Map<String, GraphNode> nodeMap =
                 nodes.stream().collect(Collectors.toMap(GraphNode::id, Function.identity()));
 
-        // 4. Lock the conversation — agents cannot message while a workflow is running.
         setConversationLock(conversation.getId(), true);
 
-        // 5. Create the run record
         WorkflowRun run = new WorkflowRun();
         run.setWorkflowDefinition(definition);
         run.setWorkspace(conversation.getWorkspace());
@@ -436,16 +395,13 @@ public class WorkflowEngineService {
         run.setStatus(WorkflowRunStatus.RUNNING);
         runRepository.save(run);
 
-        // 6. Initialise execution context with conversation data
         ExecutionContext context =
                 buildContext(run, conversation, triggeringMessage, additionalVariables);
 
-        // 7. Walk the graph starting from the trigger node
         try {
             walk(triggerNode, nodeMap, adjacency, context, run);
 
-            // Only mark COMPLETED if the run is still RUNNING — a WAITING run must not be
-            // overwritten here; it will be completed by resumeWorkflow after the contact replies.
+            // A WAITING run is completed later by resumeWorkflow.
             if (run.getStatus() == WorkflowRunStatus.RUNNING) {
                 run.setStatus(WorkflowRunStatus.COMPLETED);
                 run.setFinishedAt(Instant.now());
@@ -458,19 +414,21 @@ public class WorkflowEngineService {
                     "Workflow run {}: runId={}",
                     run.getStatus().toString().toLowerCase(),
                     run.getId());
-        } catch (Exception e) {
+        } catch (Exception exception) {
             run.setStatus(WorkflowRunStatus.FAILED);
             run.setFinishedAt(Instant.now());
-            run.setErrorMessage(e.getMessage());
+            run.setErrorMessage(exception.getMessage());
             runRepository.save(run);
 
             setConversationLock(conversation.getId(), false);
 
-            log.error("Workflow run failed: runId={}, error={}", run.getId(), e.getMessage(), e);
+            log.error(
+                    "Workflow run failed: runId={}, error={}",
+                    run.getId(),
+                    exception.getMessage(),
+                    exception);
         }
     }
-
-    // ── graph walking ──────────────────────────────────────────────────────────
 
     private void walk(
             GraphNode startNode,
@@ -491,10 +449,6 @@ public class WorkflowEngineService {
         }
     }
 
-    /**
-     * Executes a single node, records the step, and returns the next node to execute (or null if
-     * the run should end or pause).
-     */
     private GraphNode executeStep(
             GraphNode node,
             Map<String, GraphNode> nodeMap,
@@ -506,6 +460,7 @@ public class WorkflowEngineService {
 
         if (executor == null) {
             log.warn("No executor found for node type '{}' — skipping", node.type());
+
             return null;
         }
 
@@ -525,7 +480,6 @@ public class WorkflowEngineService {
                     node.type());
 
             if (result.waiting()) {
-                // Pause the run — resumeWorkflow will continue after the contact replies.
                 run.setStatus(WorkflowRunStatus.WAITING);
                 run.setWaitingAtNodeId(node.id());
                 run.setContextSnapshot(context.snapshot());
@@ -559,12 +513,16 @@ public class WorkflowEngineService {
             }
 
             return resolveNextNode(node, result.nextHandle(), adjacency, nodeMap);
-
-        } catch (Exception e) {
-            finishStep(step, WorkflowRunStepStatus.FAILED, Map.of(), stepStart, e.getMessage());
+        } catch (Exception exception) {
+            finishStep(
+                    step,
+                    WorkflowRunStepStatus.FAILED,
+                    Map.of(),
+                    stepStart,
+                    exception.getMessage());
             run.getSteps().add(step);
 
-            throw e;
+            throw exception;
         }
     }
 
@@ -578,7 +536,6 @@ public class WorkflowEngineService {
         Optional<GraphEdge> match;
 
         if (nextHandle == null) {
-            // Single-output node — follow the edge with no sourceHandle
             match =
                     outgoing.stream()
                             .filter(
@@ -586,7 +543,7 @@ public class WorkflowEngineService {
                                             edge.sourceHandle() == null
                                                     || edge.sourceHandle().isBlank())
                             .findFirst()
-                            .or(() -> outgoing.stream().findFirst()); // fallback: any edge
+                            .or(() -> outgoing.stream().findFirst());
         } else {
             match =
                     outgoing.stream()
@@ -596,8 +553,6 @@ public class WorkflowEngineService {
 
         return match.map(edge -> nodeMap.get(edge.target())).orElse(null);
     }
-
-    // ── reply handling ─────────────────────────────────────────────────────────
 
     private GraphNode resolveReplyTarget(
             GraphNode waitingNode,
@@ -638,8 +593,6 @@ public class WorkflowEngineService {
                 .orElse(null);
     }
 
-    // ── context initialisation ─────────────────────────────────────────────────
-
     private ExecutionContext buildContext(
             WorkflowRun run,
             Conversation conversation,
@@ -653,7 +606,6 @@ public class WorkflowEngineService {
         vars.put("contact.id", conversation.getContact().getId().toString());
         vars.put("contact.name", nullSafe(conversation.getContact().getDisplayName()));
 
-        // Contact identifier from external identity (e.g. Telegram username / phone)
         externalIdentityRepository
                 .findForContactOnProvider(
                         conversation.getContact().getId(),
@@ -686,8 +638,6 @@ public class WorkflowEngineService {
                 run.getId(), conversation.getId(), conversation.getWorkspace().getId(), vars);
     }
 
-    // ── step helpers ───────────────────────────────────────────────────────────
-
     private WorkflowRunStep newStep(GraphNode node, WorkflowRun run, ExecutionContext context) {
         WorkflowRunStep step = new WorkflowRunStep();
         step.setRun(run);
@@ -718,8 +668,6 @@ public class WorkflowEngineService {
         step.setFinishedAt(now);
         step.setDurationMs(now.toEpochMilli() - startedAt.toEpochMilli());
     }
-
-    // ── graph parsing ──────────────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
     private List<GraphNode> parseNodes(Map<String, Object> graph) {
@@ -759,7 +707,7 @@ public class WorkflowEngineService {
         Map<String, List<GraphEdge>> adjacency = new HashMap<>();
 
         for (GraphEdge edge : edges) {
-            adjacency.computeIfAbsent(edge.source(), k -> new ArrayList<>()).add(edge);
+            adjacency.computeIfAbsent(edge.source(), key -> new ArrayList<>()).add(edge);
         }
 
         return adjacency;
@@ -769,10 +717,6 @@ public class WorkflowEngineService {
         return value != null ? value : "";
     }
 
-    /**
-     * Sets the workflow-lock flag on the conversation and broadcasts a {@code conversation.updated}
-     * SSE event so connected clients update their composer state immediately.
-     */
     private void setConversationLock(UUID conversationId, boolean locked) {
         conversationRepository
                 .findById(conversationId)

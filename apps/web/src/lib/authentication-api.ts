@@ -95,8 +95,6 @@ export class AuthenticationApiClient {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-
   signup(payload: SignupPayload) {
     return this.request<SignupResponse>("/auth/signup", {
       method: "POST",
@@ -143,8 +141,6 @@ export class AuthenticationApiClient {
       body: { newPassword: payload.newPassword },
     });
   }
-
-  // ── Profile ───────────────────────────────────────────────────────────────
 
   getProfile() {
     return this.request<ProfileResponse>("/profile");

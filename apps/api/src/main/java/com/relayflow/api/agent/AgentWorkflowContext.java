@@ -7,10 +7,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Builds the workflow variables seeded when the AI agent is the one triggering a run. Only keys
- * matching a configured {@code extractionField} are exposed as {@code agent.data.*} variables.
- */
 final class AgentWorkflowContext {
 
     static Map<String, String> build(

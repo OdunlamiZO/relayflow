@@ -22,5 +22,7 @@ export function countryOptions(locale?: string): SelectOption[] {
     }
   }
 
-  return options.sort((a, b) => a.label.localeCompare(b.label));
+  return options.sort((first, second) =>
+    first.label.localeCompare(second.label)
+  );
 }

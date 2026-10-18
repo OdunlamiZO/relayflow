@@ -58,8 +58,6 @@ public class AiAgentContextAssembler {
                 systemPrompt, messages, null, configuration.getExtractionFields());
     }
 
-    // ── Private ───────────────────────────────────────────────────────────────
-
     private String buildSystemPrompt(
             AiAgentConfiguration configuration, List<WorkflowMapping> workflowMappings) {
         StringBuilder sb = new StringBuilder();
@@ -112,16 +110,16 @@ public class AiAgentContextAssembler {
 
         List<LlmMessage> messages = new ArrayList<>(chronological.size());
 
-        for (int i = 0; i < chronological.size(); i++) {
-            Message msg = chronological.get(i);
-            String content = msg.getText() != null ? msg.getText() : "";
-            boolean isLast = i == chronological.size() - 1;
+        for (int index = 0; index < chronological.size(); index++) {
+            Message message = chronological.get(index);
+            String content = message.getText() != null ? message.getText() : "";
+            boolean isLast = index == chronological.size() - 1;
 
-            if (isLast && msg.getDirection() == MessageDirection.INBOUND) {
+            if (isLast && message.getDirection() == MessageDirection.INBOUND) {
                 content = content + buildContactFooter(configuration, conversation);
             }
 
-            if (msg.getDirection() == MessageDirection.INBOUND) {
+            if (message.getDirection() == MessageDirection.INBOUND) {
                 messages.add(LlmMessage.user(content));
             } else {
                 messages.add(LlmMessage.assistant(content));
@@ -172,11 +170,6 @@ public class AiAgentContextAssembler {
         return footer.append("</context>").toString();
     }
 
-    /**
-     * Merges {@link ReservedContactFieldResolver}'s auto-derived values with the contact's
-     * explicitly-stored custom fields — an explicitly-stored value always wins. Same precedence as
-     * {@code ContactService.getContactDetail}.
-     */
     private Map<String, String> effectiveContactFields(Contact contact) {
         List<ExternalIdentity> identities =
                 externalIdentityRepository.findByContact(contact.getId());

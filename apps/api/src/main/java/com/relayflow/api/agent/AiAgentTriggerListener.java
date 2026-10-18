@@ -14,13 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * Triggers AI agent processing for new conversations and inbound messages.
- *
- * <p>Runs {@code AFTER_COMMIT} (all DB writes are durable) and {@code @Async} (never blocks the
- * webhook thread). Guards are checked before delegating to {@link AiAgentInvocationService}, which
- * also re-checks them inside its own transaction to close the race window.
- */
+/** Guards are re-checked inside AiAgentInvocationService's transaction to close the race window. */
 @Component
 public class AiAgentTriggerListener {
 
@@ -75,8 +69,6 @@ public class AiAgentTriggerListener {
 
         invocationService.invoke(conversation, event.message());
     }
-
-    // ── Private ───────────────────────────────────────────────────────────────
 
     private boolean shouldInvoke(Conversation conversation) {
         if (conversation.getAssigneeId() != null) {

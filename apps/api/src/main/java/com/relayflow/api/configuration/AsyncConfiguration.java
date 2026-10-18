@@ -11,12 +11,6 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @Configuration
 public class AsyncConfiguration {
 
-    /**
-     * Dedicated thread pool for webhook delivery.
-     *
-     * <p>Core=4, max=16, queue=500 keeps webhook delivery isolated from the main request-handling
-     * threads and provides basic back-pressure.
-     */
     @Primary
     @Bean(name = "webhookExecutor")
     Executor webhookExecutor() {

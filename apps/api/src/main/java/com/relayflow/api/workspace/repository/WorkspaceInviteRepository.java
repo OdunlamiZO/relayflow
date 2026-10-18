@@ -12,7 +12,7 @@ public interface WorkspaceInviteRepository extends JpaRepository<WorkspaceInvite
 
     Optional<WorkspaceInvite> findByToken(UUID token);
 
-    /** Pending = not accepted and not revoked (may still be expired — service checks expiry). */
+    /** Pending invites may still be expired; the service checks expiry. */
     @Query(
             """
             SELECT i FROM WorkspaceInvite i
@@ -23,7 +23,6 @@ public interface WorkspaceInviteRepository extends JpaRepository<WorkspaceInvite
             """)
     List<WorkspaceInvite> findPending(@Param("workspaceId") UUID workspaceId);
 
-    /** Find any non-accepted, non-revoked invite for the given email in the workspace. */
     @Query(
             """
             SELECT i FROM WorkspaceInvite i

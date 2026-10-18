@@ -27,7 +27,6 @@ public class AiAgentInvocationCleanupScheduler {
         this.retentionDays = retentionDays;
     }
 
-    /** Runs every hour, removes invocation logs older than {@code retentionDays}. */
     @Scheduled(fixedDelay = 60 * 60 * 1000)
     @Transactional
     public void cleanupExpiredLogs() {

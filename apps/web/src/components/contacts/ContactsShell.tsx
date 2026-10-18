@@ -20,8 +20,6 @@ type Props = {
   workspaceId: string;
 };
 
-// ── channel meta ──────────────────────────────────────────────────────────────
-
 const CHANNEL_LABEL: Record<string, string> = {
   TELEGRAM: "Telegram",
   WHATSAPP: "WhatsApp",
@@ -41,8 +39,6 @@ const CHANNEL_COLOR: Record<string, string> = {
   EMAIL: "bg-yellow-bg text-yellow-text",
   SMS: "bg-orange-bg text-orange-text",
 };
-
-// ── helpers ───────────────────────────────────────────────────────────────────
 
 const LOCALE = "en-US";
 
@@ -69,8 +65,6 @@ function contactInitial(contact: Contact): string {
   return (contact.displayName ?? "?").trim().charAt(0).toUpperCase();
 }
 
-// ── action dropdown ───────────────────────────────────────────────────────────
-
 type ActionMenuProps = {
   contact: Contact;
   workspaceId: string;
@@ -87,8 +81,8 @@ function ActionMenu({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  function handleBlur(e: React.FocusEvent) {
-    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+  function handleBlur(event: React.FocusEvent) {
+    if (!containerRef.current?.contains(event.relatedTarget as Node)) {
       setOpen(false);
     }
   }
@@ -101,9 +95,9 @@ function ActionMenu({
     >
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((previous) => !previous);
         }}
         aria-label="Actions"
         aria-expanded={open}
@@ -120,7 +114,7 @@ function ActionMenu({
       {open && (
         <div
           className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 shadow-xl"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         >
           <div className="p-1">
             <Link
@@ -177,8 +171,6 @@ function ActionMenu({
   );
 }
 
-// ── contact row ───────────────────────────────────────────────────────────────
-
 type RowProps = {
   contact: Contact;
   workspaceId: string;
@@ -225,7 +217,6 @@ function ContactRow({
         </div>
       </td>
 
-      {/* Channels */}
       <td className="px-3 py-3">
         <div className="flex flex-wrap gap-1">
           {contact.identities.length === 0 ? (
@@ -252,7 +243,6 @@ function ContactRow({
         </div>
       </td>
 
-      {/* Created — hidden on small screens */}
       <td
         suppressHydrationWarning
         className="hidden whitespace-nowrap px-3 py-3 text-sm text-neutral-500 sm:table-cell"
@@ -272,12 +262,10 @@ function ContactRow({
   );
 }
 
-// ── shell ─────────────────────────────────────────────────────────────────────
-
 export function ContactsShell({ workspaceId }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const selectedContactId = searchParams.get("contactId");
+  const searchParameters = useSearchParams();
+  const selectedContactId = searchParameters.get("contactId");
 
   const {
     data,
@@ -294,25 +282,25 @@ export function ContactsShell({ workspaceId }: Props) {
   const [pendingDelete, setPendingDelete] = useState<Contact | null>(null);
   const [pendingMerge, setPendingMerge] = useState<Contact | null>(null);
 
-  const contacts = data?.pages.flatMap((p) => p.items) ?? [];
+  const contacts = data?.pages.flatMap((page) => page.items) ?? [];
   const totalLoaded = contacts.length;
 
   function selectContact(id: string) {
-    const params = new URLSearchParams(searchParams.toString());
+    const queryParameters = new URLSearchParams(searchParameters.toString());
 
-    if (params.get("contactId") === id) {
-      params.delete("contactId");
+    if (queryParameters.get("contactId") === id) {
+      queryParameters.delete("contactId");
     } else {
-      params.set("contactId", id);
+      queryParameters.set("contactId", id);
     }
 
-    router.replace(`?${params.toString()}`, { scroll: false });
+    router.replace(`?${queryParameters.toString()}`, { scroll: false });
   }
 
   function closeDetail() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("contactId");
-    router.replace(`?${params.toString()}`, { scroll: false });
+    const queryParameters = new URLSearchParams(searchParameters.toString());
+    queryParameters.delete("contactId");
+    router.replace(`?${queryParameters.toString()}`, { scroll: false });
   }
 
   const showDetail = !!selectedContactId;
@@ -321,13 +309,11 @@ export function ContactsShell({ workspaceId }: Props) {
     <div className="flex h-full overflow-hidden">
       <WorkspaceNav workspaceId={workspaceId} />
 
-      {/* Contact list — hidden on mobile when detail panel is open */}
       <div
         className={`flex-col overflow-hidden ${
           showDetail ? "hidden md:flex md:w-80 lg:w-96" : "flex flex-1"
         }`}
       >
-        {/* Top bar */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-neutral-300 bg-neutral-100 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
             <span
@@ -348,7 +334,6 @@ export function ContactsShell({ workspaceId }: Props) {
           )}
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto pb-14 md:pb-0">
           {isPending && (
             <div className="flex justify-center py-16">
@@ -421,7 +406,6 @@ export function ContactsShell({ workspaceId }: Props) {
             </table>
           )}
 
-          {/* Load more */}
           {hasNextPage && (
             <div className="flex justify-center py-4">
               <LoadingButton
@@ -445,7 +429,6 @@ export function ContactsShell({ workspaceId }: Props) {
         </div>
       </div>
 
-      {/* Detail panel */}
       {showDetail && (
         <div className="flex flex-1 flex-col overflow-hidden">
           <ContactDetailPanel
@@ -456,7 +439,6 @@ export function ContactsShell({ workspaceId }: Props) {
         </div>
       )}
 
-      {/* Merge modal */}
       {pendingMerge && (
         <MergeContactModal
           source={pendingMerge}
@@ -469,7 +451,6 @@ export function ContactsShell({ workspaceId }: Props) {
         />
       )}
 
-      {/* Delete confirmation modal */}
       {pendingDelete && (
         <ConfirmModal
           title="Delete contact?"

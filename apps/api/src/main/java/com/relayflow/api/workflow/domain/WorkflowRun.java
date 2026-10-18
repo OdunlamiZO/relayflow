@@ -61,11 +61,9 @@ public class WorkflowRun {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
-    /** Node ID where execution is paused, waiting for a contact reply. Null when not waiting. */
     @Column(name = "waiting_at_node_id", length = 255)
     private String waitingAtNodeId;
 
-    /** When a WAITING run should be failed if no reply has arrived. Null when not waiting. */
     @Column(name = "expires_at")
     private Instant expiresAt;
 
@@ -73,7 +71,6 @@ public class WorkflowRun {
     @Column(name = "reply_attempts", nullable = false)
     private int replyAttempts;
 
-    /** Snapshot of the execution context variables saved when the run entered WAITING state. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "context_snapshot", columnDefinition = "jsonb")
     private Map<String, Object> contextSnapshot;

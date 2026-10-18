@@ -59,7 +59,7 @@ export function ProfileShell() {
       </div>
 
       <div className="flex flex-col gap-6">
-        <ProfileInfoSection
+        <ProfileInformationSection
           displayName={profile.displayName ?? ""}
           email={profile.email}
         />
@@ -74,20 +74,21 @@ export function ProfileShell() {
   );
 }
 
-// ── Profile info ──────────────────────────────────────────────────────────────
-
-type ProfileInfoProps = {
+type ProfileInformationProps = {
   displayName: string;
   email: string;
 };
 
-function ProfileInfoSection({ displayName, email }: ProfileInfoProps) {
+function ProfileInformationSection({
+  displayName,
+  email,
+}: ProfileInformationProps) {
   const { mutate: updateProfile, isPending } = useUpdateProfile();
 
   const [name, setName] = useState(displayName);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     updateProfile({ displayName: name });
   }
 
@@ -112,8 +113,8 @@ function ProfileInfoSection({ displayName, email }: ProfileInfoProps) {
             required
             maxLength={200}
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
+            onChange={(event) => {
+              setName(event.target.value);
             }}
             className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
           />
@@ -146,8 +147,6 @@ function ProfileInfoSection({ displayName, email }: ProfileInfoProps) {
   );
 }
 
-// ── Password ───────────────────────────────────────────────────────────────
-
 function PasswordSection() {
   const { mutate: requestReset, isPending } = useRequestPasswordReset();
 
@@ -173,14 +172,12 @@ function PasswordSection() {
   );
 }
 
-// ── Two-factor authentication ─────────────────────────────────────────────────
-
 type TwoFactorProps = {
   twoFactorEnabled: boolean;
 };
 
 function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
-  // "setup" = showing QR + OTP confirm; "disable" = showing OTP for disable.
+  // "setup" shows the QR code and OTP confirmation; "disable" shows the OTP for disabling.
   const [mode, setMode] = useState<"idle" | "setup" | "disable">("idle");
   const [otpauthUri, setOtpauthUri] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
@@ -199,8 +196,8 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
     });
   }
 
-  function handleEnable(e: React.FormEvent) {
-    e.preventDefault();
+  function handleEnable(event: React.FormEvent) {
+    event.preventDefault();
 
     enable2FA(
       { otp },
@@ -214,8 +211,8 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
     );
   }
 
-  function handleDisable(e: React.FormEvent) {
-    e.preventDefault();
+  function handleDisable(event: React.FormEvent) {
+    event.preventDefault();
 
     disable2FA(
       { otp },
@@ -309,8 +306,8 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
                 maxLength={6}
                 required
                 value={otp}
-                onChange={(e) => {
-                  setOtp(e.target.value.replace(/\D/g, ""));
+                onChange={(event) => {
+                  setOtp(event.target.value.replace(/\D/g, ""));
                 }}
                 placeholder="000000"
                 className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-center font-mono text-lg tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
@@ -361,8 +358,8 @@ function TwoFactorSection({ twoFactorEnabled }: TwoFactorProps) {
               maxLength={6}
               required
               value={otp}
-              onChange={(e) => {
-                setOtp(e.target.value.replace(/\D/g, ""));
+              onChange={(event) => {
+                setOtp(event.target.value.replace(/\D/g, ""));
               }}
               placeholder="000000"
               className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-center font-mono text-lg tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"

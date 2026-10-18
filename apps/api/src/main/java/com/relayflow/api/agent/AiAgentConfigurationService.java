@@ -177,7 +177,7 @@ public class AiAgentConfigurationService {
         ConversationAiDraft draft =
                 draftRepository
                         .findByConversation(conversationId)
-                        .filter(d -> d.getWorkspace().getId().equals(workspaceId))
+                        .filter(candidate -> candidate.getWorkspace().getId().equals(workspaceId))
                         .orElseThrow(() -> new ResourceNotFoundException("AI draft not found"));
 
         String text =
@@ -215,7 +215,7 @@ public class AiAgentConfigurationService {
         ConversationAiDraft draft =
                 draftRepository
                         .findByConversation(conversationId)
-                        .filter(d -> d.getWorkspace().getId().equals(workspaceId))
+                        .filter(candidate -> candidate.getWorkspace().getId().equals(workspaceId))
                         .orElseThrow(() -> new ResourceNotFoundException("AI draft not found"));
 
         String expectedAction = "trigger_workflow:" + workflowId;
@@ -246,8 +246,6 @@ public class AiAgentConfigurationService {
 
         draftRepository.delete(draft);
 
-        // Triggered by a human approving the draft — no originating message, no confidence
-        // score (that lived on the invocation's LLM response, not the persisted draft).
         Map<String, String> agentContext =
                 AgentWorkflowContext.build(
                         draft.getProposedReply(), null, draft.getExtractedData(), extractionFields);
@@ -255,13 +253,7 @@ public class AiAgentConfigurationService {
         workflowEngineService.executeWorkflow(workflowDefinition, conversation, null, agentContext);
     }
 
-    // ── Package-private (used by the invocation pipeline) ───────────────────────
-
-    /**
-     * The channel's own assigned config if enabled, else the workspace's enabled default. An
-     * explicit channel assignment is authoritative — a disabled explicit assignment does not fall
-     * back to the default.
-     */
+    /** An explicit channel assignment wins even when it is disabled. */
     @Transactional(readOnly = true)
     Optional<AiAgentConfiguration> resolveEnabledConfiguration(
             UUID workspaceId, UUID channelAccountId) {
@@ -276,8 +268,6 @@ public class AiAgentConfigurationService {
                 .findDefault(workspaceId)
                 .filter(AiAgentConfiguration::isEnabled);
     }
-
-    // ── Private ───────────────────────────────────────────────────────────────
 
     private List<ExtractionField> extractionFieldsFor(UUID workspaceId, UUID channelAccountId) {
         Optional<AiAgentConfiguration> assigned =

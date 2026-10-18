@@ -23,7 +23,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class ApiKeyService {
 
     private static final Logger log = LoggerFactory.getLogger(ApiKeyService.class);
+
     private static final String KEY_PREFIX = "rfk_";
+
     private static final int KEY_RANDOM_BYTES = 32;
 
     private final WorkspaceApiKeyRepository apiKeyRepository;
@@ -35,7 +37,6 @@ public class ApiKeyService {
     @Transactional
     public CreateApiKeyResponse createApiKey(
             UUID workspaceId, UUID createdBy, CreateApiKeyRequest request) {
-        // Generate a cryptographically random key: rfk_<64 hex chars>
         byte[] randomBytes = new byte[KEY_RANDOM_BYTES];
         new SecureRandom().nextBytes(randomBytes);
         String rawKey = KEY_PREFIX + HexFormat.of().formatHex(randomBytes);
@@ -90,15 +91,15 @@ public class ApiKeyService {
         log.info("API key revoked: id={}, workspace={}", keyId, workspaceId);
     }
 
-    private ApiKeyResponse toResponse(WorkspaceApiKey k) {
+    private ApiKeyResponse toResponse(WorkspaceApiKey apiKey) {
         return new ApiKeyResponse(
-                k.getId(),
-                k.getName(),
-                k.getKeyPrefix(),
-                k.getCreatedAt(),
-                k.getLastUsedAt(),
-                k.getRevokedAt(),
-                k.getExpiresAt());
+                apiKey.getId(),
+                apiKey.getName(),
+                apiKey.getKeyPrefix(),
+                apiKey.getCreatedAt(),
+                apiKey.getLastUsedAt(),
+                apiKey.getRevokedAt(),
+                apiKey.getExpiresAt());
     }
 
     public static String sha256(String input) {
@@ -107,8 +108,8 @@ public class ApiKeyService {
             byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new RuntimeException("SHA-256 not available", exception);
         }
     }
 }

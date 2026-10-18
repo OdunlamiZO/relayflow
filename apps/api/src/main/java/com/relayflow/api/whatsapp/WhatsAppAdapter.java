@@ -110,19 +110,7 @@ public class WhatsAppAdapter {
         this.contactAccessService = contactAccessService;
     }
 
-    // ── Webhook verification ─────────────────────────────────────────────────
-
-    /**
-     * Handles the GET challenge Meta sends when you register (or update) a webhook URL in the
-     * Developer Console. Meta sends:
-     *
-     * <pre>
-     * GET /whatsapp/webhook/{id}?hub.mode=subscribe&amp;hub.verify_token=...&amp;hub.challenge=...
-     * </pre>
-     *
-     * <p>We verify the token against the stored credential and, on match, echo back {@code
-     * hub.challenge} as a plain-text response body.
-     */
+    /** Echoes hub.challenge when hub.verify_token matches the stored credential. */
     public String verifyWebhook(
             UUID channelAccountId, String mode, String verifyToken, String challenge) {
         ChannelAccount channelAccount =
@@ -199,16 +187,17 @@ public class WhatsAppAdapter {
                 List<WhatsAppContactEntry> contacts =
                         value.contacts() != null ? value.contacts() : List.of();
 
-                for (WhatsAppMessage msg : value.messages()) {
-                    String msgText = resolveMessageText(msg);
+                for (WhatsAppMessage whatsAppMessage : value.messages()) {
+                    String messageText = resolveMessageText(whatsAppMessage);
 
-                    if (msgText == null) {
+                    if (messageText == null) {
                         continue;
                     }
 
-                    String displayName = resolveDisplayName(msg.from(), contacts);
+                    String displayName = resolveDisplayName(whatsAppMessage.from(), contacts);
 
-                    processInboundMessage(channelAccount, msg, msgText, displayName);
+                    processInboundMessage(
+                            channelAccount, whatsAppMessage, messageText, displayName);
                 }
             }
         }
@@ -273,21 +262,21 @@ public class WhatsAppAdapter {
 
     private void processInboundMessage(
             ChannelAccount channelAccount,
-            WhatsAppMessage msg,
+            WhatsAppMessage whatsAppMessage,
             String messageText,
             String displayName) {
-        String waId = msg.from();
+        String whatsAppId = whatsAppMessage.from();
         Workspace workspace = channelAccount.getWorkspace();
         UUID workspaceId = workspace.getId();
 
-        if (!contactAccessService.isAllowed(workspace, waId)) {
+        if (!contactAccessService.isAllowed(workspace, whatsAppId)) {
             return;
         }
 
         ExternalIdentity identity =
                 externalIdentityRepository
-                        .findForExternalUser(channelAccount.getId(), waId)
-                        .orElseGet(() -> createIdentity(channelAccount, waId, displayName));
+                        .findForExternalUser(channelAccount.getId(), whatsAppId)
+                        .orElseGet(() -> createIdentity(channelAccount, whatsAppId, displayName));
 
         Contact contact = identity.getContact();
 
@@ -324,10 +313,10 @@ public class WhatsAppAdapter {
         inboundMessage.setDirection(MessageDirection.INBOUND);
         inboundMessage.setSenderType(MessageSenderType.CONTACT);
         inboundMessage.setText(messageText);
-        inboundMessage.setProviderMessageId(msg.id());
+        inboundMessage.setProviderMessageId(whatsAppMessage.id());
         inboundMessage.setRawPayload(
                 objectMapper.convertValue(
-                        msg, new TypeReference<LinkedHashMap<String, Object>>() {}));
+                        whatsAppMessage, new TypeReference<LinkedHashMap<String, Object>>() {}));
         inboundMessage = messageRepository.save(inboundMessage);
 
         conversation.setLastMessageAt(
@@ -358,18 +347,7 @@ public class WhatsAppAdapter {
                                 "conversationId", conversation.getId().toString())));
     }
 
-    /**
-     * Sends a message via the WhatsApp Cloud API. Retries once on failure.
-     *
-     * <ul>
-     *   <li>1–3 button options → interactive button message (native tap targets).
-     *   <li>4+ button options → plain text with numbered choices appended (API limit is 3 buttons).
-     *   <li>No options → plain text message.
-     * </ul>
-     *
-     * <p>Throws {@link WhatsAppSendException} if all attempts fail so the caller's transaction can
-     * be rolled back and the HTTP client receives a proper error.
-     */
+    /** The Cloud API allows three buttons, so more options are sent as numbered text. */
     private void sendWhatsAppMessage(
             WhatsAppCredentials credentials,
             String recipientWaId,
@@ -387,34 +365,28 @@ public class WhatsAppAdapter {
 
         Map<String, Object> body = buildOutboundBody(recipientWaId, text, buttonOptions);
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        Exception lastEx = null;
+        Exception lastException = null;
 
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 restTemplate.exchange(url, HttpMethod.POST, request, String.class);
 
                 return;
-            } catch (Exception e) {
-                lastEx = e;
+            } catch (Exception exception) {
+                lastException = exception;
                 log.warn(
                         "WhatsApp send attempt {}/2 to {} failed: {}",
                         attempt,
                         recipientWaId,
-                        e.getMessage());
+                        exception.getMessage());
             }
         }
 
         throw new WhatsAppSendException(
-                "Message failed to send — could not reach WhatsApp after 2 attempts", lastEx);
+                "Message failed to send — could not reach WhatsApp after 2 attempts",
+                lastException);
     }
 
-    /**
-     * Builds the JSON body for a WhatsApp Cloud API outbound message.
-     *
-     * <p>When {@code buttonOptions} has 1–3 items the message uses the {@code interactive/button}
-     * type so recipients see native tap targets. For 4+ options, the options are appended as a
-     * numbered list because the Cloud API caps buttons at 3.
-     */
     private Map<String, Object> buildOutboundBody(
             String recipientWaId, String text, List<String> buttonOptions) {
         Map<String, Object> base = new LinkedHashMap<>();
@@ -423,14 +395,13 @@ public class WhatsAppAdapter {
         base.put("to", recipientWaId);
 
         if (buttonOptions != null && !buttonOptions.isEmpty() && buttonOptions.size() <= 3) {
-            // Interactive button message (max 3 buttons per WhatsApp Cloud API spec).
             List<Map<String, Object>> buttons = new ArrayList<>();
 
-            for (int i = 0; i < buttonOptions.size(); i++) {
+            for (int index = 0; index < buttonOptions.size(); index++) {
                 Map<String, Object> reply = new LinkedHashMap<>();
-                reply.put("id", "btn-" + i);
+                reply.put("id", "btn-" + index);
                 // Button title is limited to 20 characters by the API.
-                String title = buttonOptions.get(i);
+                String title = buttonOptions.get(index);
                 reply.put("title", title.length() > 20 ? title.substring(0, 20) : title);
 
                 Map<String, Object> button = new LinkedHashMap<>();
@@ -449,11 +420,10 @@ public class WhatsAppAdapter {
             base.put("interactive", interactive);
 
         } else if (buttonOptions != null && buttonOptions.size() > 3) {
-            // Fallback: append numbered options as plain text.
             StringBuilder sb = new StringBuilder(text).append("\n\n");
 
-            for (int i = 0; i < buttonOptions.size(); i++) {
-                sb.append(i + 1).append(". ").append(buttonOptions.get(i)).append("\n");
+            for (int index = 0; index < buttonOptions.size(); index++) {
+                sb.append(index + 1).append(". ").append(buttonOptions.get(index)).append("\n");
             }
 
             base.put("type", "text");
@@ -472,44 +442,39 @@ public class WhatsAppAdapter {
 
         try {
             return objectMapper.readValue(json, WhatsAppCredentials.class);
-        } catch (Exception e) {
+        } catch (Exception exception) {
             throw new IllegalStateException(
                     "Failed to parse WhatsApp credentials for channel account "
                             + channelAccount.getId(),
-                    e);
+                    exception);
         }
     }
 
-    /**
-     * Extracts the human-readable message text from an inbound WhatsApp message regardless of
-     * whether it arrived as a plain {@code text} message or as an {@code interactive} button reply.
-     * Returns {@code null} for unsupported message types so the caller can skip them.
-     */
-    private String resolveMessageText(WhatsAppMessage msg) {
-        if ("text".equals(msg.type())) {
-            return msg.text() != null ? msg.text().body() : null;
+    private String resolveMessageText(WhatsAppMessage whatsAppMessage) {
+        if ("text".equals(whatsAppMessage.type())) {
+            return whatsAppMessage.text() != null ? whatsAppMessage.text().body() : null;
         }
 
-        if ("interactive".equals(msg.type())
-                && msg.interactive() != null
-                && msg.interactive().buttonReply() != null) {
-            return msg.interactive().buttonReply().title();
+        if ("interactive".equals(whatsAppMessage.type())
+                && whatsAppMessage.interactive() != null
+                && whatsAppMessage.interactive().buttonReply() != null) {
+            return whatsAppMessage.interactive().buttonReply().title();
         }
 
         return null;
     }
 
-    private String resolveDisplayName(String waId, List<WhatsAppContactEntry> contacts) {
+    private String resolveDisplayName(String whatsAppId, List<WhatsAppContactEntry> contacts) {
         return contacts.stream()
-                .filter(contact -> waId.equals(contact.waId()))
+                .filter(contact -> whatsAppId.equals(contact.whatsAppId()))
                 .findFirst()
                 .map(contact -> contact.profile() != null ? contact.profile().name() : null)
                 .filter(name -> name != null && !name.isBlank())
-                .orElse("+" + waId);
+                .orElse("+" + whatsAppId);
     }
 
     private ExternalIdentity createIdentity(
-            ChannelAccount channelAccount, String waId, String displayName) {
+            ChannelAccount channelAccount, String whatsAppId, String displayName) {
         Workspace workspace = channelAccount.getWorkspace();
 
         Contact contact = new Contact();
@@ -522,9 +487,9 @@ public class WhatsAppAdapter {
         identity.setContact(contact);
         identity.setChannelAccount(channelAccount);
         identity.setProvider(ChannelProvider.WHATSAPP);
-        identity.setExternalUserId(waId);
+        identity.setExternalUserId(whatsAppId);
         // WhatsApp is always 1:1; the conversation is identified by the contact's phone number.
-        identity.setExternalConversationId(waId);
+        identity.setExternalConversationId(whatsAppId);
         identity.setUsername(null);
         identity.setRawProfile(new LinkedHashMap<>());
 

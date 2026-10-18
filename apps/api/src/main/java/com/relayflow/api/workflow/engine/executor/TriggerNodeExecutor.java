@@ -8,7 +8,6 @@ import com.relayflow.api.workflow.engine.NodeExecutor;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/** Entry-point node — no action, just passes execution to the next node. */
 @Component
 public class TriggerNodeExecutor implements NodeExecutor {
 

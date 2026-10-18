@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChannelAccountController {
 
     private final ChannelAccountService channelAccountService;
+
     private final WorkspaceAuthorizationService authorizationService;
 
     public ChannelAccountController(

@@ -53,18 +53,12 @@ final class AgentLlmResponseParser {
                     needsClarification,
                     extractedData,
                     false);
-        } catch (Exception e) {
-
+        } catch (Exception exception) {
             return failure();
         }
     }
 
-    /**
-     * Used when the LLM call itself errored (network, auth, HTTP status) or its body couldn't be
-     * parsed — never a substitute for a normal, legitimately-empty response.
-     */
     static AgentLlmResponse failure() {
-
         return new AgentLlmResponse("", null, List.of(), false, false, Map.of(), true);
     }
 

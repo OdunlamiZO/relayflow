@@ -125,15 +125,11 @@ public class AuthenticationService {
         identity.setProvider(AuthenticationProvider.EMAIL);
         identity.setProviderSubject(request.email());
         identity.setCredential(passwordEncoder.encode(request.password()));
-        // The invite itself is the vouch — same trust level acceptInvite() already applies
-        // (case-insensitive email match, no re-verification), so no email round-trip here.
+        // The invite token vouches for the email, so no verification email is sent.
         identity.setVerified(true);
         identityRepository.save(identity);
 
-        // Reuses the invite's existing status handling (410 on REVOKED/EXPIRED) and
-        // case-insensitive email-match check (403) verbatim — a bad/expired/mismatched
-        // token throws from inside this call, and @Transactional rolls back the user
-        // rows created above.
+        // Throws on a revoked, expired, or mismatched invite, rolling back the new user rows.
         UUID workspaceId = workspaceInviteService.acceptInvite(request.inviteToken(), user.getId());
 
         establishSessionForUser(user, httpRequest, httpResponse);
@@ -171,8 +167,7 @@ public class AuthenticationService {
         identity.setProvider(AuthenticationProvider.EMAIL);
         identity.setProviderSubject(request.email());
         identity.setCredential(passwordEncoder.encode(request.password()));
-        // The operator has direct server access to provision a fresh instance — there's no
-        // guarantee email delivery is even configured yet, so there's nothing to verify against.
+        // Mail delivery may not be configured yet, so a bootstrapped admin skips verification.
         identity.setVerified(true);
         identityRepository.save(identity);
 
@@ -209,9 +204,7 @@ public class AuthenticationService {
                                                 HttpStatus.UNAUTHORIZED,
                                                 "Invalid email or password."));
 
-        // Confirms the account actually has an EMAIL/password identity (as opposed to
-        // Google-OAuth-only), so a mismatched login method gives the same generic error
-        // rather than a confusing failure from authenticationManager.authenticate() below.
+        // Google-only accounts get the same generic error as a wrong password.
         identityRepository
                 .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
                 .orElseThrow(
@@ -219,10 +212,8 @@ public class AuthenticationService {
                                 new ResponseStatusException(
                                         HttpStatus.UNAUTHORIZED, "Invalid email or password."));
 
-        // Validate credentials — throws BadCredentialsException if wrong.
         establishSession(request.email(), request.password(), httpRequest, httpResponse);
 
-        // If 2FA is enabled, invalidate the session we just created and issue a challenge instead.
         boolean has2FA =
                 mfaMethodRepository
                         .findByUserAndType(user, MfaMethodType.TOTP)
@@ -378,10 +369,6 @@ public class AuthenticationService {
         SecurityContextHolder.setContext(context);
     }
 
-    /**
-     * Establishes a session without requiring the plaintext password. Used after signup, instance
-     * bootstrap, and 2FA completion.
-     */
     private void establishSessionForUser(
             User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         UserDetails userDetails =
@@ -390,12 +377,12 @@ public class AuthenticationService {
                         .authorities(List.of())
                         .build();
 
-        UsernamePasswordAuthenticationToken auth =
+        UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(auth);
+        context.setAuthentication(authentication);
 
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
         SecurityContextHolder.setContext(context);

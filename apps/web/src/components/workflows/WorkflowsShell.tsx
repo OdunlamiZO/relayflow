@@ -24,8 +24,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
   const { user } = useAuthentication();
   const currentMember = useCurrentMember(workspaceId, user?.userId);
 
-  // While currentMember is loading (undefined), default to allowing creation
-  // so owners don't see a flash of a missing button.
+  // Defaults to allowing creation while currentMember loads so owners don't see the button flash in.
   const canCreateWorkflow =
     !currentMember ||
     currentMember.role === "OWNER" ||
@@ -36,17 +35,15 @@ export function WorkflowsShell({ workspaceId }: Props) {
   const [createError, setCreateError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus the input when the form opens.
   useEffect(() => {
     if (showCreate) inputRef.current?.focus();
   }, [showCreate]);
 
-  // ESC closes the form.
   useEffect(() => {
     if (!showCreate) return;
 
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
         setShowCreate(false);
         setName("");
         setCreateError(null);
@@ -58,8 +55,8 @@ export function WorkflowsShell({ workspaceId }: Props) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [showCreate]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     const trimmed = name.trim();
 
     if (!trimmed) return;
@@ -73,7 +70,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
           setName("");
           router.push(`/workflows/${workflow.id}?workspaceId=${workspaceId}`);
         },
-        onError: (err) => setCreateError(errorMessage(err)),
+        onError: (error) => setCreateError(errorMessage(error)),
       }
     );
   }
@@ -82,7 +79,6 @@ export function WorkflowsShell({ workspaceId }: Props) {
     <div className="flex h-full overflow-hidden">
       <WorkspaceNav workspaceId={workspaceId} />
 
-      {/* Sidebar — full-width on mobile */}
       <aside className="flex w-full flex-shrink-0 flex-col border-r border-neutral-300 bg-neutral-100 md:w-72 lg:w-80">
         <div className="flex items-center justify-between border-b border-neutral-300 px-4 py-3">
           <span className="text-sm font-semibold text-neutral-800">
@@ -92,7 +88,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
           {canCreateWorkflow && (
             <button
               onClick={() => {
-                setShowCreate((prev) => !prev);
+                setShowCreate((previous) => !previous);
                 setName("");
                 setCreateError(null);
               }}
@@ -111,7 +107,6 @@ export function WorkflowsShell({ workspaceId }: Props) {
           )}
         </div>
 
-        {/* Inline create form */}
         {canCreateWorkflow && showCreate && (
           <form
             onSubmit={handleSubmit}
@@ -122,7 +117,7 @@ export function WorkflowsShell({ workspaceId }: Props) {
               type="text"
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               placeholder="Workflow name"
               className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
             />
@@ -159,7 +154,6 @@ export function WorkflowsShell({ workspaceId }: Props) {
         <WorkflowsList workspaceId={workspaceId} />
       </aside>
 
-      {/* Main — hidden on mobile (tap a workflow to open the editor) */}
       <main className="hidden flex-1 items-center justify-center md:flex">
         <EmptyState
           icon="account_tree"

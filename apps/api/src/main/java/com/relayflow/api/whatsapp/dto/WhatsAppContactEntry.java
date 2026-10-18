@@ -4,4 +4,4 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record WhatsAppContactEntry(
         @JsonProperty("profile") WhatsAppContactProfile profile,
-        @JsonProperty("wa_id") String waId) {}
+        @JsonProperty("wa_id") String whatsAppId) {}

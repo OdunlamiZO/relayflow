@@ -44,7 +44,6 @@ export type ContactTagDefinition = {
   colors?: Record<string, ContactTagColor>;
 };
 
-/** Keys RelayFlow already derives automatically — can't be redefined as a custom field. */
 export const RESERVED_CONTACT_FIELD_KEYS = [
   "displayName",
   "firstName",
@@ -67,7 +66,6 @@ export function isReservedContactFieldKey(
   );
 }
 
-/** Reserved field labels and descriptions, keyed by ReservedContactFieldKey. */
 export const RESERVED_CONTACT_FIELDS: Record<
   ReservedContactFieldKey,
   { label: string; description: string }
@@ -346,7 +344,7 @@ export type ApiKey = {
 
 export type CreateApiKeyRequest = {
   name: string;
-  /** ISO-8601 timestamp. Null means no expiry. */
+  /** ISO-8601 timestamp; null means no expiry. */
   expiresAt?: string | null;
 };
 
@@ -356,13 +354,12 @@ export type CreateApiKeyResponse = {
   keyPrefix: string;
   createdAt: string;
   expiresAt: string | null;
-  /** Full plaintext key — shown once, never stored. */
+  /** Full plaintext key, shown once. */
   key: string;
 };
 
 export type Secret = {
   id: string;
-  /** Referenced in workflows as {{secrets.NAME}}. */
   name: string;
   createdAt: string;
   updatedAt: string;
@@ -423,7 +420,7 @@ export type WebhookConfig = {
   events: WebhookEventType[];
   createdAt: string;
   updatedAt: string;
-  /** Plaintext secret — only present in the response that creates the webhook. */
+  /** Only present in the response that creates the webhook. */
   generatedSecret?: string | null;
 };
 
@@ -434,7 +431,7 @@ export type SaveWebhookRequest = {
 };
 
 export type RotateWebhookSecretResponse = {
-  /** New plaintext HMAC secret — shown once, never stored. */
+  /** New plaintext HMAC secret, shown once. */
   secret: string;
 };
 
@@ -515,7 +512,6 @@ export type AiAgentConfiguration = {
   id: string;
   workspaceId: string;
   name: string;
-  /** The config a channel account uses when it has no explicit assignment of its own. */
   isDefault: boolean;
   enabled: boolean;
   autonomyCeiling: AutonomyCeiling;
@@ -543,7 +539,7 @@ export type UpdateAiAgentConfigurationRequest = {
 };
 
 export type ChannelAiAgentAssignment = {
-  /** Null means the channel uses the workspace's default config. */
+  /** Null means the channel uses the workspace's default configuration. */
   configurationId: string | null;
 };
 
@@ -561,7 +557,6 @@ export type ConversationAiDraft = {
 export type PageResponse<T> = {
   items: T[];
   hasMore: boolean;
-  /** Opaque cursor string. Present when {@code hasMore} is true and the endpoint is cursor-based. */
   nextCursor: string | null;
 };
 
@@ -936,8 +931,6 @@ export class MessagingApiClient {
     );
   }
 
-  // ── API Keys ──────────────────────────────────────────────────────────────
-
   listApiKeys(workspaceId: string) {
     return this.request<ApiKey[]>(
       `/workspaces/${encodeURIComponent(workspaceId)}/api-keys`
@@ -957,8 +950,6 @@ export class MessagingApiClient {
       { method: "DELETE" }
     );
   }
-
-  // ── Secrets ───────────────────────────────────────────────────────────────
 
   listSecrets(workspaceId: string) {
     return this.request<Secret[]>(
@@ -991,8 +982,6 @@ export class MessagingApiClient {
     );
   }
 
-  // ── Contact access ────────────────────────────────────────────────────────
-
   updateContactAccess(
     workspaceId: string,
     request: UpdateContactAccessRequest
@@ -1022,8 +1011,6 @@ export class MessagingApiClient {
       { method: "DELETE" }
     );
   }
-
-  // ── Hooks ────────────────────────────────────────────────────────
 
   listBuiltInHooks(workspaceId: string) {
     return this.request<BuiltInHook[]>(
@@ -1064,8 +1051,6 @@ export class MessagingApiClient {
       { method: "POST", body: request }
     );
   }
-
-  // ── Webhooks ──────────────────────────────────────────────────────────────
 
   listWebhooks(workspaceId: string) {
     return this.request<WebhookConfig[]>(

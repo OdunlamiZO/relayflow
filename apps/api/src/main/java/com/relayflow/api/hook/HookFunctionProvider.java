@@ -70,7 +70,7 @@ public class HookFunctionProvider extends JavaFunctionProvider {
 
             return ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
                     && uri.getHost() != null;
-        } catch (URISyntaxException e) {
+        } catch (URISyntaxException exception) {
             return false;
         }
     }

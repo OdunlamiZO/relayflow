@@ -23,12 +23,6 @@ public class WhatsAppController {
         this.whatsAppAdapter = whatsAppAdapter;
     }
 
-    /**
-     * Meta calls this URL (GET) when you register or update a webhook in the Developer Console.
-     * Responds with {@code hub.challenge} as plain text on a token match; 403 otherwise.
-     *
-     * <p>Register this URL in Meta: https://{your-domain}/whatsapp/webhook/{channelAccountId}
-     */
     @GetMapping(value = "/webhook/{channelAccountId}", produces = MediaType.TEXT_PLAIN_VALUE)
     String verifyWebhook(
             @PathVariable UUID channelAccountId,
@@ -38,10 +32,6 @@ public class WhatsAppController {
         return whatsAppAdapter.verifyWebhook(channelAccountId, mode, verifyToken, challenge);
     }
 
-    /**
-     * Meta calls this URL (POST) for every inbound message event. Returns 200 immediately;
-     * processing is synchronous within the request.
-     */
     @PostMapping("/webhook/{channelAccountId}")
     @ResponseStatus(HttpStatus.OK)
     void webhook(@PathVariable UUID channelAccountId, @RequestBody WhatsAppWebhookPayload payload) {

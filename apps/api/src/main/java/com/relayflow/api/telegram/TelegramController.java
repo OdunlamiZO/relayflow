@@ -21,13 +21,6 @@ public class TelegramController {
         this.telegramAdapter = telegramAdapter;
     }
 
-    /**
-     * Telegram calls this URL for every update when a webhook is registered. The URL to register
-     * with Telegram is: https://{your-domain}/telegram/webhook/{channelAccountId}
-     *
-     * <p>Register it via the Telegram Bot API: POST https://api.telegram.org/bot{token}/setWebhook
-     * Body: { "url": "https://{your-domain}/telegram/webhook/{channelAccountId}" }
-     */
     @PostMapping("/webhook/{channelAccountId}")
     @ResponseStatus(HttpStatus.OK)
     void webhook(

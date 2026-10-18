@@ -72,14 +72,6 @@ public class ProfileService {
         passwordResetService.issueForUser(userId);
     }
 
-    // ── 2FA ──────────────────────────────────────────────────────────────────
-
-    /**
-     * Generates a new TOTP secret, stores it encrypted on the method row (without enabling 2FA
-     * yet), and returns the {@code otpauth://} URI for QR code display.
-     *
-     * <p>The user must call {@link #enable2FA} with a valid OTP to actually turn 2FA on.
-     */
     @Transactional
     public Setup2FAResponse setup2FA(UUID userId) {
         User user = requireUser(userId);
@@ -91,11 +83,11 @@ public class ProfileService {
                         .findByUserAndType(user, MfaMethodType.TOTP)
                         .orElseGet(
                                 () -> {
-                                    UserMfaMethod m = new UserMfaMethod();
-                                    m.setUser(user);
-                                    m.setType(MfaMethodType.TOTP);
+                                    UserMfaMethod totpMethod = new UserMfaMethod();
+                                    totpMethod.setUser(user);
+                                    totpMethod.setType(MfaMethodType.TOTP);
 
-                                    return m;
+                                    return totpMethod;
                                 });
 
         method.setCredential(encryptionService.encrypt(rawSecret));
@@ -107,7 +99,6 @@ public class ProfileService {
         return new Setup2FAResponse(uri);
     }
 
-    /** Verifies the OTP against the pending secret and, if valid, enables 2FA. */
     @Transactional
     public void enable2FA(UUID userId, OtpRequest request) {
         User user = requireUser(userId);
@@ -135,7 +126,6 @@ public class ProfileService {
         log.info("2FA enabled: userId={}", userId);
     }
 
-    /** Verifies the current OTP and, if valid, disables and removes the TOTP method. */
     @Transactional
     public void disable2FA(UUID userId, OtpRequest request) {
         User user = requireUser(userId);
@@ -183,7 +173,9 @@ public class ProfileService {
         List<String> providers =
                 identityRepository.findAllByUser(user).stream()
                         .map(UserIdentity::getProvider)
-                        .filter(authProvider -> authProvider != AuthenticationProvider.ANONYMOUS)
+                        .filter(
+                                authenticationProvider ->
+                                        authenticationProvider != AuthenticationProvider.ANONYMOUS)
                         .map(AuthenticationProvider::name)
                         .toList();
 

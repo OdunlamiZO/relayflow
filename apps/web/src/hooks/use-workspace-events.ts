@@ -15,17 +15,9 @@ type AiDraftCreatedEvent = {
   conversationId: string;
 };
 
-/**
- * Opens a Server-Sent Events connection for the given workspace and invalidates
- * the relevant React Query caches whenever a {@code message.created} event
- * arrives.
- *
- * Falls back gracefully if the browser does not support {@code EventSource} or
- * if the connection fails — polling in the query hooks acts as the backstop.
- */
 export function useWorkspaceEvents(workspaceId: string | undefined) {
   const queryClient = useQueryClient();
-  const esRef = useRef<EventSource | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     if (!workspaceId || typeof window === "undefined" || !window.EventSource) {
@@ -33,12 +25,12 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
     }
 
     const url = `${BROWSER_API_BASE_URL}/sse/workspace/${workspaceId}`;
-    const es = new EventSource(url);
+    const eventSource = new EventSource(url);
 
-    esRef.current = es;
+    eventSourceRef.current = eventSource;
 
     // Catches up on anything sent while the stream was reconnecting.
-    es.onopen = () => {
+    eventSource.onopen = () => {
       void queryClient.invalidateQueries({
         queryKey: ["messages", workspaceId],
       });
@@ -47,7 +39,7 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
       });
     };
 
-    es.addEventListener("message.created", (event) => {
+    eventSource.addEventListener("message.created", (event) => {
       try {
         const data = JSON.parse(event.data) as MessageCreatedEvent;
 
@@ -59,11 +51,11 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
           queryKey: ["conversations", data.workspaceId],
         });
       } catch {
-        // Malformed event data — ignore; polling will catch up.
+        // Polling catches up after malformed event data.
       }
     });
 
-    es.addEventListener("ai.draft.created", (event) => {
+    eventSource.addEventListener("ai.draft.created", (event) => {
       try {
         const data = JSON.parse(event.data) as AiDraftCreatedEvent;
 
@@ -71,30 +63,29 @@ export function useWorkspaceEvents(workspaceId: string | undefined) {
           queryKey: ["ai-draft", workspaceId, data.conversationId],
         });
       } catch {
-        // Malformed event data — ignore.
+        // Malformed event data is ignored.
       }
     });
 
-    es.addEventListener("ai.escalated", () => {
+    eventSource.addEventListener("ai.escalated", () => {
       void queryClient.invalidateQueries({
         queryKey: ["conversations", workspaceId],
       });
     });
 
-    es.addEventListener("conversation.updated", () => {
+    eventSource.addEventListener("conversation.updated", () => {
       void queryClient.invalidateQueries({
         queryKey: ["conversations", workspaceId],
       });
     });
 
-    es.onerror = () => {
-      // Browser will automatically reconnect on transient failures.
-      // Log nothing to avoid noise from expected reconnects.
+    eventSource.onerror = () => {
+      // EventSource reconnects on its own after transient failures.
     };
 
     return () => {
-      es.close();
-      esRef.current = null;
+      eventSource.close();
+      eventSourceRef.current = null;
     };
   }, [workspaceId, queryClient]);
 }

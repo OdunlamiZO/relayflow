@@ -85,45 +85,36 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
   },
 ];
 
-// Permissions that are prerequisites for another permission.
-// key = dependent, value = the prerequisite it requires.
+// Maps each dependent permission to the prerequisite it requires.
 const PREREQUISITES: Partial<Record<WorkspacePermission, WorkspacePermission>> =
   {
     WORKFLOWS_DELETE: "WORKFLOWS_WRITE",
     CHANNELS_DELETE: "CHANNELS_WRITE",
   };
 
-/**
- * Returns a new Set after toggling `perm`, cascading dependency rules:
- * - Toggling ON a dependent → also adds its prerequisite.
- * - Toggling OFF a prerequisite → also removes its dependent.
- */
 function applyPermissionToggle(
-  prev: Set<WorkspacePermission>,
-  perm: WorkspacePermission
+  previous: Set<WorkspacePermission>,
+  permission: WorkspacePermission
 ): Set<WorkspacePermission> {
-  const next = new Set(prev);
+  const next = new Set(previous);
 
-  if (next.has(perm)) {
-    next.delete(perm);
-    // If this is a prerequisite, remove any dependent that relied on it.
-    for (const [dep, prereq] of Object.entries(PREREQUISITES) as [
+  if (next.has(permission)) {
+    next.delete(permission);
+    for (const [dependency, prerequisite] of Object.entries(PREREQUISITES) as [
       WorkspacePermission,
       WorkspacePermission,
     ][]) {
-      if (prereq === perm) next.delete(dep);
+      if (prerequisite === permission) next.delete(dependency);
     }
   } else {
-    next.add(perm);
-    // If this is a dependent, also add its prerequisite.
-    const prereq = PREREQUISITES[perm];
-    if (prereq) next.add(prereq);
+    next.add(permission);
+    const prerequisite = PREREQUISITES[permission];
+    if (prerequisite) next.add(prerequisite);
   }
 
   return next;
 }
 
-// Flat map used for the collapsed pill display
 const ALL_PERMISSION_LABELS: Record<WorkspacePermission, string> = {
   INBOX: "Inbox",
   CONTACTS_DELETE: "Delete contacts",
@@ -157,7 +148,8 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
   } = useWorkspaceMembers(workspaceId);
 
   const currentUserIsOwner =
-    members?.find((m) => m.userId === currentUserId)?.role === "OWNER";
+    members?.find((member) => member.userId === currentUserId)?.role ===
+    "OWNER";
 
   const { data: invites, isLoading: invitesLoading } = useWorkspaceInvites(
     workspaceId,
@@ -165,20 +157,22 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
   );
 
   const [email, setEmail] = useState("");
-  const [invitePerms, setInvitePerms] = useState<Set<WorkspacePermission>>(
-    new Set(["INBOX"])
-  );
+  const [invitePermissions, setInvitePermissions] = useState<
+    Set<WorkspacePermission>
+  >(new Set(["INBOX"]));
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   const { mutate: createInvite, isPending: isInviting } =
     useCreateInvite(workspaceId);
 
-  function toggleInvitePerm(perm: WorkspacePermission) {
-    setInvitePerms((prev) => applyPermissionToggle(prev, perm));
+  function toggleInvitePermission(permission: WorkspacePermission) {
+    setInvitePermissions((previous) =>
+      applyPermissionToggle(previous, permission)
+    );
   }
 
-  function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
+  function handleInvite(event: React.FormEvent) {
+    event.preventDefault();
 
     const trimmed = email.trim();
 
@@ -189,20 +183,19 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
     setInviteError(null);
 
     createInvite(
-      { email: trimmed, permissions: Array.from(invitePerms) },
+      { email: trimmed, permissions: Array.from(invitePermissions) },
       {
         onSuccess: () => {
           setEmail("");
-          setInvitePerms(new Set(["INBOX"]));
+          setInvitePermissions(new Set(["INBOX"]));
         },
-        onError: (err) => setInviteError(errorMessage(err)),
+        onError: (error) => setInviteError(errorMessage(error)),
       }
     );
   }
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 sm:px-8">
-      {/* Page header */}
       <div className="mb-8">
         <h1 className="text-xl font-bold text-primary">Members</h1>
         <p className="mt-1.5 text-sm text-neutral-500">
@@ -212,7 +205,6 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
         </p>
       </div>
 
-      {/* Invite form — owner only */}
       {currentUserIsOwner && (
         <section className="mb-8">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
@@ -234,7 +226,7 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
                 id="invite-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 placeholder="colleague@example.com"
                 required
                 disabled={isInviting}
@@ -248,8 +240,8 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
               </p>
 
               <PermissionEditor
-                checked={invitePerms}
-                onChange={toggleInvitePerm}
+                checked={invitePermissions}
+                onChange={toggleInvitePermission}
               />
             </div>
 
@@ -269,7 +261,6 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
         </section>
       )}
 
-      {/* Pending invites — owner only */}
       {currentUserIsOwner &&
         (invitesLoading || (invites && invites.length > 0)) && (
           <section className="mb-8">
@@ -295,7 +286,6 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
           </section>
         )}
 
-      {/* Current members */}
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Current members
@@ -319,7 +309,11 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
                 member={member}
                 workspaceId={workspaceId}
                 isCurrentUser={member.userId === currentUserId}
-                ownerCount={members.filter((m) => m.role === "OWNER").length}
+                ownerCount={
+                  members.filter(
+                    (workspaceMember) => workspaceMember.role === "OWNER"
+                  ).length
+                }
                 viewerIsOwner={currentUserIsOwner}
               />
             ))}
@@ -329,10 +323,6 @@ export function MembersList({ workspaceId, currentUserId }: Props) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Invite row
-// ---------------------------------------------------------------------------
 
 function InviteRow({
   invite,
@@ -348,7 +338,6 @@ function InviteRow({
   return (
     <>
       <li className="flex items-center gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3">
-        {/* Envelope icon */}
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500">
           <span
             className="material-symbols-rounded text-[16px] leading-none"
@@ -393,10 +382,6 @@ function InviteRow({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Member row
-// ---------------------------------------------------------------------------
-
 function MemberRow({
   member,
   workspaceId,
@@ -411,9 +396,9 @@ function MemberRow({
   viewerIsOwner: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [pendingPerms, setPendingPerms] = useState<Set<WorkspacePermission>>(
-    new Set(member.permissions)
-  );
+  const [pendingPermissions, setPendingPermissions] = useState<
+    Set<WorkspacePermission>
+  >(new Set(member.permissions));
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const { mutate: updateMember, isPending: isSaving } =
@@ -426,31 +411,31 @@ function MemberRow({
   const isLastOwner = member.role === "OWNER" && ownerCount <= 1;
   const isOwner = member.role === "OWNER";
 
-  function togglePerm(perm: WorkspacePermission) {
-    setPendingPerms((prev) => applyPermissionToggle(prev, perm));
+  function togglePermission(permission: WorkspacePermission) {
+    setPendingPermissions((previous) =>
+      applyPermissionToggle(previous, permission)
+    );
   }
 
   function handleSave() {
     updateMember(
       {
         memberId: member.id,
-        request: { permissions: Array.from(pendingPerms) },
+        request: { permissions: Array.from(pendingPermissions) },
       },
       { onSuccess: () => setExpanded(false) }
     );
   }
 
   function handleCancel() {
-    setPendingPerms(new Set(member.permissions));
+    setPendingPermissions(new Set(member.permissions));
     setExpanded(false);
   }
 
   return (
     <>
       <li className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
-        {/* Member row */}
         <div className="flex items-center gap-3 p-4">
-          {/* Avatar */}
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-secondary/10 text-sm font-semibold text-secondary">
             {member.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -464,7 +449,6 @@ function MemberRow({
             )}
           </div>
 
-          {/* Name / email */}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-primary">
               {member.displayName ?? member.email ?? "Unknown"}
@@ -481,7 +465,6 @@ function MemberRow({
             )}
           </div>
 
-          {/* Role badge */}
           <span
             className={`flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
               isOwner
@@ -492,19 +475,17 @@ function MemberRow({
             {isOwner ? "Owner" : "Member"}
           </span>
 
-          {/* Edit permissions — viewer must be owner; displayed member must not be owner */}
           {viewerIsOwner && !isOwner && (
             <IconButton
               icon={expanded ? "expand_less" : "tune"}
               label="Edit permissions"
               onClick={() => {
-                setPendingPerms(new Set(member.permissions));
-                setExpanded((v) => !v);
+                setPendingPermissions(new Set(member.permissions));
+                setExpanded((previous) => !previous);
               }}
             />
           )}
 
-          {/* Generate password reset link — viewer must be owner; displayed member must not be owner */}
           {viewerIsOwner && !isOwner && (
             <IconButton
               icon="password"
@@ -514,7 +495,6 @@ function MemberRow({
             />
           )}
 
-          {/* Remove — viewer must be owner; cannot remove the last owner */}
           {viewerIsOwner && !isLastOwner && (
             <IconButton
               icon="person_remove"
@@ -525,24 +505,22 @@ function MemberRow({
           )}
         </div>
 
-        {/* Permission pills (collapsed view) — only shown to owners */}
         {viewerIsOwner &&
           !isOwner &&
           !expanded &&
           member.permissions.length > 0 && (
             <div className="flex flex-wrap gap-1.5 border-t border-neutral-100 px-4 py-2.5">
-              {member.permissions.map((p) => (
+              {member.permissions.map((permission) => (
                 <span
-                  key={p}
+                  key={permission}
                   className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600"
                 >
-                  {ALL_PERMISSION_LABELS[p] ?? p}
+                  {ALL_PERMISSION_LABELS[permission] ?? permission}
                 </span>
               ))}
             </div>
           )}
 
-        {/* Expanded permission editor — only owners can reach this state */}
         {viewerIsOwner && !isOwner && expanded && (
           <div className="border-t border-neutral-100 px-4 pb-4 pt-3">
             <p className="mb-2.5 text-xs font-medium text-neutral-600">
@@ -550,7 +528,10 @@ function MemberRow({
             </p>
 
             <div className="mb-4">
-              <PermissionEditor checked={pendingPerms} onChange={togglePerm} />
+              <PermissionEditor
+                checked={pendingPermissions}
+                onChange={togglePermission}
+              />
             </div>
 
             <div className="flex items-center gap-2">
@@ -595,16 +576,12 @@ function MemberRow({
   );
 }
 
-// ---------------------------------------------------------------------------
-// PermissionEditor — grouped, sectioned permission selector
-// ---------------------------------------------------------------------------
-
 function PermissionEditor({
   checked,
   onChange,
 }: {
   checked: Set<WorkspacePermission>;
-  onChange: (perm: WorkspacePermission) => void;
+  onChange: (permission: WorkspacePermission) => void;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -613,7 +590,6 @@ function PermissionEditor({
           key={group.section}
           className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100"
         >
-          {/* Section header */}
           <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50 px-3.5 py-2">
             <span
               className="material-symbols-rounded text-[15px] text-neutral-400"
@@ -626,16 +602,15 @@ function PermissionEditor({
             </span>
           </div>
 
-          {/* Permission rows */}
-          {group.rows.map((row, idx) => {
+          {group.rows.map((row, index) => {
             const isChecked = checked.has(row.key);
-            const isLast = idx === group.rows.length - 1;
+            const isLast = index === group.rows.length - 1;
 
-            // A prerequisite is locked on when its dependent is currently checked.
-            // e.g. CHANNELS_WRITE is locked when CHANNELS_DELETE is on.
+            // A prerequisite is locked on while its dependent is checked.
             const isLocked = Object.entries(PREREQUISITES).some(
-              ([dep, prereq]) =>
-                prereq === row.key && checked.has(dep as WorkspacePermission)
+              ([dependency, prerequisite]) =>
+                prerequisite === row.key &&
+                checked.has(dependency as WorkspacePermission)
             );
 
             return (
@@ -656,7 +631,6 @@ function PermissionEditor({
                       : "hover:bg-neutral-200"
                 }`}
               >
-                {/* Label */}
                 <span
                   className={`flex-1 text-sm transition-colors ${
                     isChecked || isLocked
@@ -667,7 +641,6 @@ function PermissionEditor({
                   {row.label}
                 </span>
 
-                {/* Locked indicator — lock icon replaces toggle pill */}
                 {isLocked ? (
                   <span
                     className="material-symbols-rounded flex-shrink-0 text-[16px] text-secondary/60"
@@ -676,7 +649,6 @@ function PermissionEditor({
                     lock
                   </span>
                 ) : (
-                  /* Toggle pill */
                   <div
                     className={`relative flex h-[22px] w-[38px] flex-shrink-0 items-center rounded-full transition-colors ${
                       isChecked ? "bg-secondary" : "bg-neutral-200"

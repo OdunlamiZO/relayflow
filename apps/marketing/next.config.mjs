@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Static export for GitHub Pages — no server, so no API routes or
-  // force-dynamic pages are allowed anywhere in this app.
+  // Static export for GitHub Pages, so no API routes or force-dynamic pages are allowed.
   output: "export",
   // Served at https://<user>.github.io/relayflow/, not the domain root.
   basePath: "/relayflow",

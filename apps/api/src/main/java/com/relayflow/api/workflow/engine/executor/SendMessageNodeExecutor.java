@@ -1,7 +1,6 @@
 package com.relayflow.api.workflow.engine.executor;
 
 import com.relayflow.api.messaging.domain.Message;
-import com.relayflow.api.messaging.domain.MessageSenderType;
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.engine.ExecutionContext;
 import com.relayflow.api.workflow.engine.GraphNode;
@@ -13,12 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/**
- * Sends a message to the conversation that triggered the workflow.
- *
- * <p>The message is tagged as {@link MessageSenderType#WORKFLOW} so the Telegram adapter delivers
- * it and the trigger listener does not re-fire the workflow.
- */
+/** Tagged as WORKFLOW so the trigger listener does not re-fire the workflow. */
 @Component
 public class SendMessageNodeExecutor implements NodeExecutor {
 

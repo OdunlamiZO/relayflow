@@ -64,10 +64,8 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
     return <InviteStatusMessage status={preview.status} />;
   }
 
-  // PENDING — show the invite card.
   return (
     <div className="overflow-hidden rounded-2xl border border-neutral-300 bg-neutral-100 shadow-sm">
-      {/* Header */}
       <div className="bg-neutral-100 px-7 py-6">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Workspace invite
@@ -83,23 +81,22 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
         </p>
       </div>
 
-      {/* Permissions */}
       {preview.permissions.length > 0 && (
         <div className="border-t border-neutral-200 bg-neutral-50 px-7 py-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
             Your permissions
           </p>
           <ul className="flex flex-col gap-2">
-            {preview.permissions.map((p) => (
-              <li key={p} className="flex items-center gap-2.5">
+            {preview.permissions.map((permission) => (
+              <li key={permission} className="flex items-center gap-2.5">
                 <span
                   className="material-symbols-rounded text-[17px] text-secondary"
                   aria-hidden="true"
                 >
-                  {PERMISSION_ICON[p]}
+                  {PERMISSION_ICON[permission]}
                 </span>
                 <span className="text-sm text-neutral-700">
-                  {PERMISSION_LABEL[p]}
+                  {PERMISSION_LABEL[permission]}
                 </span>
               </li>
             ))}
@@ -107,7 +104,6 @@ export function InviteAcceptCard({ token, preview, isAuthenticated }: Props) {
         </div>
       )}
 
-      {/* Action */}
       <div className="border-t border-neutral-200 px-7 py-6">
         {error && (
           <p className="mb-4 rounded-lg bg-red-bg px-3 py-2 text-sm text-red-text">

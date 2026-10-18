@@ -9,23 +9,16 @@ import { useMergeContact } from "@/hooks/use-merge-contact";
 import type { Contact } from "@/lib/messaging-api";
 import type { ApiError } from "@/lib/messaging-api";
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-
 function contactInitial(contact: Contact): string {
   return (contact.displayName ?? "?").trim().charAt(0).toUpperCase();
 }
 
-// ── props ─────────────────────────────────────────────────────────────────────
-
 type Props = {
-  /** The contact being merged FROM (will be deleted after merge). */
   source: Contact;
   workspaceId: string;
   onSuccess: () => void;
   onCancel: () => void;
 };
-
-// ── component ─────────────────────────────────────────────────────────────────
 
 export function MergeContactModal({
   source,
@@ -43,17 +36,17 @@ export function MergeContactModal({
     error,
   } = useMergeContact(workspaceId);
 
-  const allContacts = data?.pages.flatMap((p) => p.items) ?? [];
+  const allContacts = data?.pages.flatMap((page) => page.items) ?? [];
 
-  const candidates = allContacts.filter((c) => {
-    if (c.id === source.id) return false;
+  const candidates = allContacts.filter((contact) => {
+    if (contact.id === source.id) return false;
 
     if (!query.trim()) return true;
 
-    const q = query.toLowerCase();
-    const name = (c.displayName ?? "").toLowerCase();
+    const lowercaseQuery = query.toLowerCase();
+    const name = (contact.displayName ?? "").toLowerCase();
 
-    return name.includes(q);
+    return name.includes(lowercaseQuery);
   });
 
   function handleConfirm() {
@@ -72,7 +65,6 @@ export function MergeContactModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-neutral-100 shadow-2xl sm:rounded-2xl">
-        {/* Header */}
         <div className="flex items-start justify-between border-b border-neutral-300 px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-neutral-900">
@@ -102,7 +94,6 @@ export function MergeContactModal({
           </button>
         </div>
 
-        {/* Search */}
         <div className="border-b border-neutral-300 px-4 py-3">
           <div className="flex items-center gap-2 rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 focus-within:border-secondary focus-within:ring-1 focus-within:ring-secondary">
             <span
@@ -115,8 +106,8 @@ export function MergeContactModal({
               type="text"
               placeholder="Search contacts…"
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
+              onChange={(event) => {
+                setQuery(event.target.value);
                 setSelected(null);
               }}
               className="flex-1 bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400"
@@ -124,7 +115,6 @@ export function MergeContactModal({
           </div>
         </div>
 
-        {/* Contact list */}
         <div className="flex-1 overflow-y-auto">
           {isLoadingContacts && (
             <div className="flex justify-center py-8">
@@ -187,14 +177,12 @@ export function MergeContactModal({
           )}
         </div>
 
-        {/* Error */}
         {errorMessage && (
           <p className="border-t border-neutral-200 px-5 py-2.5 text-xs text-red-text">
             {errorMessage}
           </p>
         )}
 
-        {/* Footer */}
         <div className="flex items-center justify-end gap-2 border-t border-neutral-300 px-5 py-3">
           <button
             type="button"

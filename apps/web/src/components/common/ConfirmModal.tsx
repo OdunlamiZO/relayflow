@@ -26,8 +26,8 @@ export function ConfirmModal({
   onCancel,
 }: Props) {
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
     }
 
     document.addEventListener("keydown", onKeyDown);
@@ -41,14 +41,12 @@ export function ConfirmModal({
       aria-modal="true"
       role="dialog"
     >
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-neutral-900/40"
         onClick={onCancel}
         aria-hidden="true"
       />
 
-      {/* Dialog */}
       <div className="relative w-full max-w-sm rounded-2xl bg-neutral-100 p-6 shadow-xl">
         <h2 className="text-base font-semibold text-primary">{title}</h2>
 

@@ -55,8 +55,8 @@ export function GeneralPanel({ workspaceId }: Props) {
     isReservedContactFieldKey(field.key)
   );
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     if (!trimmed || isUnchanged) return;
 
@@ -87,14 +87,16 @@ export function GeneralPanel({ workspaceId }: Props) {
     value: string
   ) {
     patchFields(
-      contactFieldDefinitions.map((entry, i) =>
-        i === index ? { ...entry, [field]: value } : entry
+      contactFieldDefinitions.map((entry, fieldIndex) =>
+        fieldIndex === index ? { ...entry, [field]: value } : entry
       )
     );
   }
 
   function removeContactField(index: number) {
-    patchFields(contactFieldDefinitions.filter((_, i) => i !== index));
+    patchFields(
+      contactFieldDefinitions.filter((_, fieldIndex) => fieldIndex !== index)
+    );
   }
 
   function handleSaveContactFields() {
@@ -126,8 +128,8 @@ export function GeneralPanel({ workspaceId }: Props) {
           <input
             type="text"
             value={name}
-            onChange={(e) => {
-              setEdited(e.target.value);
+            onChange={(event) => {
+              setEdited(event.target.value);
             }}
             maxLength={160}
             required
@@ -155,7 +157,6 @@ export function GeneralPanel({ workspaceId }: Props) {
           matching key (see AI Agent → Data extraction).
         </p>
 
-        {/* Built-in fields — always present, never editable here */}
         <div className="mb-4 space-y-2">
           {RESERVED_CONTACT_FIELD_KEYS.map((key) => (
             <div
@@ -177,32 +178,33 @@ export function GeneralPanel({ workspaceId }: Props) {
           ))}
         </div>
 
-        {/* Custom fields — editable only with CONTACT_FIELDS_WRITE */}
         <div className="space-y-3">
-          {contactFieldDefinitions.map((field, i) => {
+          {contactFieldDefinitions.map((field, index) => {
             const isReserved = isReservedContactFieldKey(field.key);
 
             return canEditContactFields ? (
               <div
-                key={i}
+                key={index}
                 className="rounded-lg border border-neutral-300 bg-neutral-100 p-3"
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-sm font-medium text-neutral-400">
-                    Field {i + 1}
+                    Field {index + 1}
                   </span>
                   <IconButton
                     icon="delete"
                     destructive
-                    label={`Remove field ${i + 1}`}
-                    onClick={() => removeContactField(i)}
+                    label={`Remove field ${index + 1}`}
+                    onClick={() => removeContactField(index)}
                   />
                 </div>
                 <input
                   type="text"
                   placeholder="Key (e.g. orderNumber)"
                   value={field.key}
-                  onChange={(e) => updateContactField(i, "key", e.target.value)}
+                  onChange={(event) =>
+                    updateContactField(index, "key", event.target.value)
+                  }
                   className={`mb-2 w-full rounded-lg border bg-neutral-100 px-3 py-2 font-mono text-sm text-neutral-800 outline-none transition-colors focus:ring-2 ${
                     isReserved
                       ? "border-red-400 focus:border-red-500 focus:ring-red-500/20"
@@ -218,8 +220,8 @@ export function GeneralPanel({ workspaceId }: Props) {
                   type="text"
                   placeholder="Label (e.g. Order Number)"
                   value={field.label}
-                  onChange={(e) =>
-                    updateContactField(i, "label", e.target.value)
+                  onChange={(event) =>
+                    updateContactField(index, "label", event.target.value)
                   }
                   className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
                 />
@@ -227,15 +229,15 @@ export function GeneralPanel({ workspaceId }: Props) {
                   type="text"
                   placeholder="Description (optional)"
                   value={field.description}
-                  onChange={(e) =>
-                    updateContactField(i, "description", e.target.value)
+                  onChange={(event) =>
+                    updateContactField(index, "description", event.target.value)
                   }
                   className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
                 />
               </div>
             ) : (
               <div
-                key={i}
+                key={index}
                 className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5"
               >
                 <span className="text-sm font-medium text-neutral-800">

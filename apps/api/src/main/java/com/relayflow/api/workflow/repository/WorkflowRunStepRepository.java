@@ -10,9 +10,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface WorkflowRunStepRepository extends JpaRepository<WorkflowRunStep, UUID> {
 
-    /**
-     * Deletes steps belonging to runs started before {@code cutoff} — run log retention cleanup.
-     */
     @Modifying
     @Query("delete from WorkflowRunStep s where s.run.startedAt < :cutoff")
     int deleteByRunStartedAtBefore(@Param("cutoff") Instant cutoff);

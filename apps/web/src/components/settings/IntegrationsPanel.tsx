@@ -81,8 +81,6 @@ export function IntegrationsPanel({
   );
 }
 
-// ── API Keys sub-component ────────────────────────────────────────────────────
-
 type ApiKeysListProps = {
   workspaceId: string;
 };
@@ -132,7 +130,7 @@ function ApiKeysList({ workspaceId }: ApiKeysListProps) {
     );
   }
 
-  const activeKeys = keys?.filter((k) => !k.revokedAt) ?? [];
+  const activeKeys = keys?.filter((apiKey) => !apiKey.revokedAt) ?? [];
 
   return (
     <>
@@ -210,8 +208,6 @@ function ApiKeysList({ workspaceId }: ApiKeysListProps) {
     </>
   );
 }
-
-// ── Individual key row ────────────────────────────────────────────────────────
 
 type ApiKeyRowProps = {
   apiKey: ApiKey;

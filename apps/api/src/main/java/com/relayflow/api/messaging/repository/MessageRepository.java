@@ -13,10 +13,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
-    /**
-     * Returns the most recent {@code pageable.pageSize} messages for the given conversation,
-     * ordered newest-first. The caller reverses the list before returning to the client.
-     */
     @Query(
             """
             select m from Message m
@@ -28,11 +24,7 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
             @Param("workspaceId") UUID workspaceId,
             Pageable pageable);
 
-    /**
-     * Like {@link #findRecentByConversation} but limited to messages created at or after {@code
-     * sessionStart}. Used by the AI agent to avoid feeding it history from a prior session when the
-     * same conversation entity is reused across multiple open/close cycles.
-     */
+    /** Limits history to the current session of a reopened conversation. */
     @Query(
             """
             select m from Message m
@@ -47,10 +39,6 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
             @Param("sessionStart") Instant sessionStart,
             Pageable pageable);
 
-    /**
-     * Returns messages strictly before {@code before}, ordered newest-first. Used for cursor-based
-     * pagination to load older messages.
-     */
     @Query(
             """
             select m from Message m

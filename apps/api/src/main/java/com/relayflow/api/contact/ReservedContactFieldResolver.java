@@ -15,11 +15,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 
-/**
- * Resolves the fields RelayFlow can already derive from existing data — without needing the AI
- * agent to ask for them or an operator to enter them manually. See {@link ReservedContactField} for
- * the full set of reserved keys.
- */
 @Component
 public class ReservedContactFieldResolver {
 
@@ -33,9 +28,9 @@ public class ReservedContactFieldResolver {
         }
 
         findTelegramProfileField(identities, "firstName")
-                .ifPresent(v -> fields.put(ReservedContactField.FIRST_NAME.key(), v));
+                .ifPresent(value -> fields.put(ReservedContactField.FIRST_NAME.key(), value));
         findTelegramProfileField(identities, "lastName")
-                .ifPresent(v -> fields.put(ReservedContactField.LAST_NAME.key(), v));
+                .ifPresent(value -> fields.put(ReservedContactField.LAST_NAME.key(), value));
 
         String phone = findIdentifier(identities, ChannelProvider.WHATSAPP, ChannelProvider.SMS);
         if (phone != null) {
@@ -57,7 +52,7 @@ public class ReservedContactFieldResolver {
         return identities.stream()
                 .filter(identity -> identity.getProvider() == ChannelProvider.TELEGRAM)
                 .map(identity -> identity.getRawProfile().get(key))
-                .filter(value -> value instanceof String s && !s.isBlank())
+                .filter(value -> value instanceof String text && !text.isBlank())
                 .map(value -> (String) value)
                 .findFirst();
     }
@@ -86,8 +81,7 @@ public class ReservedContactFieldResolver {
             Locale region = new Locale.Builder().setRegion(regionCode).build();
 
             return Optional.of(region.getDisplayCountry(Locale.ENGLISH));
-        } catch (NumberParseException e) {
-
+        } catch (NumberParseException exception) {
             return Optional.empty();
         }
     }

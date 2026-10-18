@@ -77,7 +77,6 @@ public class OAuth2UserProvisioningService extends DefaultOAuth2UserService {
                                     return identityRepository.save(newIdentity);
                                 });
 
-        // Update profile fields that the provider may have changed since last login.
         User user = identity.getUser();
         user.setEmail(email);
         user.setDisplayName(stringAttribute(attributes, "name"));

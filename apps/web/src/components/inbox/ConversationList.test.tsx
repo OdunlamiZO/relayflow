@@ -23,14 +23,14 @@ const mockConversation = {
   createdAt: "2026-05-26T09:00:00Z",
 };
 
-// Because vi.doMock doesn't work well across describe blocks we use vi.mock
-// at the module level and override the return value per test instead.
+// vi.mock at module level with per-test return values, since vi.doMock doesn't work across describe blocks.
 const mockUseConversations = vi.fn();
 const mockUseCurrentMember = vi.fn();
 const mockUseChannelAccounts = vi.fn();
 
 vi.mock("@/hooks/use-conversations", () => ({
-  useConversations: (...args: unknown[]) => mockUseConversations(...args),
+  useConversations: (...callArguments: unknown[]) =>
+    mockUseConversations(...callArguments),
 }));
 
 vi.mock("@/hooks/use-authentication", () => ({
@@ -38,11 +38,13 @@ vi.mock("@/hooks/use-authentication", () => ({
 }));
 
 vi.mock("@/hooks/use-current-member", () => ({
-  useCurrentMember: (...args: unknown[]) => mockUseCurrentMember(...args),
+  useCurrentMember: (...callArguments: unknown[]) =>
+    mockUseCurrentMember(...callArguments),
 }));
 
 vi.mock("@/hooks/use-channel-accounts", () => ({
-  useChannelAccounts: (...args: unknown[]) => mockUseChannelAccounts(...args),
+  useChannelAccounts: (...callArguments: unknown[]) =>
+    mockUseChannelAccounts(...callArguments),
 }));
 
 const ownerMember = {

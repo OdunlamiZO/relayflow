@@ -12,11 +12,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * A single-use link for setting a new password — self-requested from the profile page, or generated
- * by a workspace owner on a member's behalf. There is no self-service "change password" form; this
- * token is the only way a password gets set after signup.
- */
 @Getter
 @Setter
 @Entity

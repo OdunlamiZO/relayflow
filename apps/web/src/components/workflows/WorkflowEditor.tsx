@@ -54,8 +54,7 @@ const edgeTypes = {
   default: DeletableEdge,
 };
 
-// @xyflow/react requires ComponentType<NodeProps> in the map; we cast because
-// each node is typed with its specific Node<Data, Type> variant.
+// @xyflow/react expects ComponentType<NodeProps>; each node is typed with its own Node<Data, Type>.
 const nodeTypes: Record<string, ComponentType<NodeProps>> = {
   trigger: TriggerNode as ComponentType<NodeProps>,
   sendMessage: SendMessageNode as ComponentType<NodeProps>,
@@ -160,8 +159,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
   const { user } = useAuthentication();
   const currentMember = useCurrentMember(workspaceId, user?.userId);
 
-  // While currentMember is loading (undefined), default to allowing edits so
-  // owners don't see a flash of a read-only editor.
+  // Defaults to allowing edits while currentMember loads so owners don't see a read-only flash.
   const canEdit =
     !currentMember ||
     currentMember.role === "OWNER" ||
@@ -176,21 +174,17 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
 
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  // Track which workflow we've initialised local state for.
   const [seenWorkflowId, setSeenWorkflowId] = useState<string | undefined>();
 
   const nodeIdRef = useRef(0);
 
-  // Derived state — reset name and dirty flag synchronously during render when
-  // a different workflow is loaded. This is the React-idiomatic replacement for
-  // calling setState inside a useEffect body (which triggers a double render).
+  // Resets the name and dirty state during render when a different workflow loads.
   if (workflow && workflow.id !== seenWorkflowId) {
     setSeenWorkflowId(workflow.id);
     setName(workflow.name);
     setIsDirty(false);
   }
 
-  // Sync ReactFlow's external node/edge state whenever the workflow data changes.
   useEffect(() => {
     if (!workflow) return;
 
@@ -207,13 +201,12 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
 
   const isLocked = workflow?.enabled ?? false;
 
-  // Read-only when published, or when the user lacks WORKFLOWS_WRITE.
   const readOnly = isLocked || !canEdit;
 
   const onConnect = useCallback(
     (connection: Connection) => {
       if (readOnly) return;
-      setEdges((eds) => addEdge(connection, eds));
+      setEdges((currentEdges) => addEdge(connection, currentEdges));
       setIsDirty(true);
     },
     [setEdges, readOnly]
@@ -234,8 +227,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
 
       if (!type) return;
 
-      // Only one trigger node is allowed per workflow.
-      if (type === "trigger" && nodes.some((n) => n.type === "trigger")) {
+      if (type === "trigger" && nodes.some((node) => node.type === "trigger")) {
         return;
       }
 
@@ -247,22 +239,23 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
       const id = `${type}-${++nodeIdRef.current}`;
 
       const defaultData: Record<string, unknown> = {
-        label: palette.find((p) => p.type === type)?.label ?? type,
+        label:
+          palette.find((paletteItem) => paletteItem.type === type)?.label ??
+          type,
       };
 
-      // Seed mandatory fields so nodes are valid on first drop.
       if (type === "trigger") defaultData.event = "conversation_opened";
       if (type === "jumpTo") defaultData.maxJumps = 1;
 
       const newNode: Node = { id, type, position, data: defaultData };
 
-      setNodes((nds) => [...nds, newNode]);
+      setNodes((currentNodes) => [...currentNodes, newNode]);
       setIsDirty(true);
     },
     [screenToFlowPosition, setNodes, readOnly, nodes]
   );
 
-  const hasTrigger = nodes.some((n) => n.type === "trigger");
+  const hasTrigger = nodes.some((node) => node.type === "trigger");
 
   function handleSave() {
     setPublishError(null);
@@ -322,9 +315,9 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     importInputRef.current?.click();
   }
 
-  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
+  function handleImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
 
     if (!file) return;
 
@@ -373,11 +366,9 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     setPublishError(null);
 
     if (workflow.enabled) {
-      // Deactivate — no validation needed.
       save({ enabled: false });
     } else {
-      // Activate — always include the current graph so the backend validates
-      // what the user sees, even if there are unsaved changes.
+      // Sends the current graph so the backend validates what the user sees, including unsaved changes.
       save(
         {
           name,
@@ -386,9 +377,11 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
         },
         {
           onSuccess: () => setIsDirty(false),
-          onError: (err) => {
+          onError: (error) => {
             const message =
-              err instanceof Error ? err.message : "Failed to publish workflow";
+              error instanceof Error
+                ? error.message
+                : "Failed to publish workflow";
             setPublishError(message);
           },
         }
@@ -412,10 +405,13 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
     );
   }
 
-  const selectedNode = (!readOnly && nodes.find((n) => n.selected)) ?? null;
+  const selectedNode =
+    (!readOnly && nodes.find((node) => node.selected)) ?? null;
 
   function closeConfigPanel() {
-    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => ({ ...node, selected: false }))
+    );
   }
 
   return (
@@ -423,7 +419,6 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
       <WorkspaceNav workspaceId={workspaceId} />
 
       <div className="flex flex-1 flex-col overflow-hidden pb-14 md:pb-0">
-        {/* Editor top bar */}
         <div className="flex flex-shrink-0 flex-col border-b border-neutral-300 bg-neutral-100">
           <div className="flex items-center gap-3 px-4 py-2.5">
             <Link
@@ -443,9 +438,9 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               type="text"
               value={name}
               readOnly={readOnly}
-              onChange={(e) => {
+              onChange={(event) => {
                 if (readOnly) return;
-                setName(e.target.value);
+                setName(event.target.value);
                 setIsDirty(true);
               }}
               className={`flex-1 bg-transparent text-sm font-semibold text-neutral-800 outline-none placeholder:text-neutral-400 focus:text-neutral-900 ${
@@ -592,7 +587,6 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
           )}
         </div>
 
-        {/* Node palette — horizontal scroll on mobile */}
         {!readOnly && (
           <div className="flex flex-shrink-0 gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-100 p-2 md:hidden">
             {palette.map(({ type, label, icon, color }) => {
@@ -602,10 +596,10 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
                 <div
                   key={type}
                   draggable={!isTriggerDisabled}
-                  onDragStart={(e) => {
+                  onDragStart={(event) => {
                     if (isTriggerDisabled) return;
-                    e.dataTransfer.setData("application/reactflow", type);
-                    e.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("application/reactflow", type);
+                    event.dataTransfer.effectAllowed = "move";
                   }}
                   title={
                     isTriggerDisabled
@@ -631,9 +625,7 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
           </div>
         )}
 
-        {/* Canvas area */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Node palette — vertical sidebar on desktop */}
           <aside className="hidden w-48 flex-shrink-0 flex-col gap-2 border-r border-neutral-300 bg-neutral-100 p-3 md:flex">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
               Nodes
@@ -647,10 +639,10 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
                 <div
                   key={type}
                   draggable={!disabled}
-                  onDragStart={(e) => {
+                  onDragStart={(event) => {
                     if (disabled) return;
-                    e.dataTransfer.setData("application/reactflow", type);
-                    e.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("application/reactflow", type);
+                    event.dataTransfer.effectAllowed = "move";
                   }}
                   title={
                     isTriggerDisabled
@@ -675,19 +667,17 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
             })}
           </aside>
 
-          {/* React Flow canvas */}
           <ReactFlow
             nodes={nodes}
             edges={edges}
             onNodesChange={(changes) => {
               onNodesChange(changes);
-              // "select" and "dimensions" are internal React Flow bookkeeping —
-              // not user edits. Only position, add, remove, and replace changes
-              // mean the graph actually changed.
+              // select and dimensions changes are React Flow bookkeeping, not user edits.
               if (
                 !readOnly &&
                 changes.some(
-                  (c) => c.type !== "select" && c.type !== "dimensions"
+                  (change) =>
+                    change.type !== "select" && change.type !== "dimensions"
                 )
               ) {
                 setIsDirty(true);
@@ -695,7 +685,10 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
             }}
             onEdgesChange={(changes) => {
               onEdgesChange(changes);
-              if (!readOnly && changes.some((c) => c.type !== "select")) {
+              if (
+                !readOnly &&
+                changes.some((change) => change.type !== "select")
+              ) {
                 setIsDirty(true);
               }
             }}
@@ -717,7 +710,6 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
             <MiniMap zoomable pannable className="!bg-neutral-100" />
           </ReactFlow>
 
-          {/* Config panel — slides in when a node is selected (locked canvas never has a selection) */}
           {selectedNode && (
             <NodeConfigPanel
               key={selectedNode.id}

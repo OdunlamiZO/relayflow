@@ -50,7 +50,6 @@ export function ChannelsList({ workspaceId }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 sm:px-8">
-      {/* Page header */}
       <div className="mb-8">
         <h1 className="text-xl font-bold text-primary">Channels</h1>
         <p className="mt-1.5 text-sm text-neutral-500">
@@ -58,7 +57,6 @@ export function ChannelsList({ workspaceId }: Props) {
         </p>
       </div>
 
-      {/* Connected channels */}
       <section className="mb-8">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Connected
@@ -91,7 +89,6 @@ export function ChannelsList({ workspaceId }: Props) {
         )}
       </section>
 
-      {/* Add channel */}
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Add channel
@@ -229,9 +226,6 @@ function ChannelItem({
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Show the webhook URL so the workspace owner knows what to configure externally.
-  // Telegram: relay reads automatically — show for reference.
-  // WhatsApp: must be manually pasted into Meta Developer Console.
   const webhookUrl = channel.status === "ACTIVE" ? channel.webhookUrl : null;
 
   return (
@@ -384,7 +378,9 @@ function AiAgentAssignmentRow({
     return null;
   }
 
-  const defaultConfig = configurations.find((c) => c.isDefault);
+  const defaultConfig = configurations.find(
+    (configuration) => configuration.isDefault
+  );
   const selectedValue = assignment?.configurationId ?? defaultConfig?.id ?? "";
 
   return (
@@ -397,11 +393,11 @@ function AiAgentAssignmentRow({
           onChange={(value) =>
             setAssignment.mutate(value === defaultConfig?.id ? null : value)
           }
-          options={configurations.map((c) => ({
-            value: c.id,
-            label: c.isDefault
-              ? `${c.name || "AI Agent"} · Default`
-              : c.name || "AI Agent",
+          options={configurations.map((configuration) => ({
+            value: configuration.id,
+            label: configuration.isDefault
+              ? `${configuration.name || "AI Agent"} · Default`
+              : configuration.name || "AI Agent",
           }))}
         />
       </div>

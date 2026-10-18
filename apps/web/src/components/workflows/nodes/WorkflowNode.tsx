@@ -3,31 +3,17 @@ import { type ReactNode } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 
 type Props = {
-  /** The node's id — needed for the delete action. */
   id: string;
-  /** Icon name (Material Symbols). */
   icon: string;
-  /** Node label. */
   label: string;
-  /** Tailwind colour classes for the header stripe. */
   headerColor: string;
-  /** Whether this node has an incoming handle. */
   hasTarget?: boolean;
-  /** Whether this node has an outgoing handle. */
   hasSource?: boolean;
-  /**
-   * Forwarded from ReactFlow's NodeProps — must be passed so handles
-   * respect the global nodesConnectable setting.
-   */
+  /** Must be forwarded so handles respect React Flow's global nodesConnectable setting. */
   isConnectable?: boolean;
-  /** Extra content rendered below the header, with px-3 py-2 padding. */
   children?: ReactNode;
-  /**
-   * Content rendered below children with NO horizontal padding — use this
-   * for elements (e.g. branch labels) that must align with full-width handles.
-   */
+  /** Rendered with no horizontal padding, for elements that align with full-width handles. */
   footer?: ReactNode;
-  /** Whether the node is currently selected. */
   selected?: boolean;
 };
 
@@ -45,8 +31,8 @@ export function WorkflowNode({
 }: Props) {
   const { deleteElements } = useReactFlow();
 
-  function handleDelete(e: React.MouseEvent) {
-    e.stopPropagation();
+  function handleDelete(event: React.MouseEvent) {
+    event.stopPropagation();
     void deleteElements({ nodes: [{ id }] });
   }
 

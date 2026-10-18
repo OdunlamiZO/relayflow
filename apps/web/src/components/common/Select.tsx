@@ -23,14 +23,13 @@ export function Select({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selected = options.find((o) => o.value === value);
+  const selected = options.find((option) => option.value === value);
 
-  // Close on outside click.
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(event: MouseEvent) {
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
       }
@@ -41,12 +40,11 @@ export function Select({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close on ESC.
   useEffect(() => {
     if (!isOpen) return;
 
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setIsOpen(false);
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -58,7 +56,7 @@ export function Select({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => setIsOpen((previous) => !previous)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         className="flex w-full items-center justify-between rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 transition-colors hover:border-neutral-400 focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20"

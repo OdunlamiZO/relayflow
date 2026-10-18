@@ -194,7 +194,7 @@ public class HookService {
 
             try {
                 hookId = UUID.fromString(hookKey.substring(Hook.KEY_PREFIX.length()));
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException exception) {
                 return Optional.empty();
             }
 
@@ -229,7 +229,7 @@ public class HookService {
     private void save(Hook hook) {
         try {
             hookRepository.saveAndFlush(hook);
-        } catch (DataIntegrityViolationException e) {
+        } catch (DataIntegrityViolationException exception) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "A hook named \"" + hook.getName() + "\" already exists");
         }

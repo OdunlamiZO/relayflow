@@ -81,8 +81,8 @@ export function ContactTagsSection({
     const next =
       editing.index === null
         ? [...savedDefinitions, definition]
-        : savedDefinitions.map((saved, i) =>
-            i === editing.index ? definition : saved
+        : savedDefinitions.map((saved, index) =>
+            index === editing.index ? definition : saved
           );
 
     persist(next, "Contact tag saved", () => setEditing(null));
@@ -92,7 +92,7 @@ export function ContactTagsSection({
     if (deleteIndex === null) return;
 
     persist(
-      savedDefinitions.filter((_, i) => i !== deleteIndex),
+      savedDefinitions.filter((_, index) => index !== deleteIndex),
       "Contact tag deleted",
       () => setDeleteIndex(null)
     );
@@ -120,12 +120,12 @@ export function ContactTagsSection({
       </p>
 
       <div className="space-y-3">
-        {savedDefinitions.map((definition, i) =>
-          editing?.index === i ? (
-            <div key={i}>{form}</div>
+        {savedDefinitions.map((definition, index) =>
+          editing?.index === index ? (
+            <div key={index}>{form}</div>
           ) : (
             <div
-              key={i}
+              key={index}
               className="rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5"
             >
               <div className="flex items-start justify-between gap-3">
@@ -144,13 +144,13 @@ export function ContactTagsSection({
                       icon="edit"
                       label={`Edit ${definition.label || definition.key}`}
                       onClick={() =>
-                        setEditing({ index: i, draft: definition })
+                        setEditing({ index: index, draft: definition })
                       }
                     />
                     <IconButton
                       icon="delete"
                       label={`Delete ${definition.label || definition.key}`}
-                      onClick={() => setDeleteIndex(i)}
+                      onClick={() => setDeleteIndex(index)}
                       destructive
                     />
                   </div>
@@ -227,22 +227,22 @@ function ContactTagForm({
         type="text"
         placeholder="Key (e.g. kyc_status)"
         value={draft.key}
-        onChange={(e) => onChange({ ...draft, key: e.target.value })}
+        onChange={(event) => onChange({ ...draft, key: event.target.value })}
         className={`mb-2 font-mono ${INPUT_CLASS}`}
       />
       <input
         type="text"
         placeholder="Label (e.g. KYC status)"
         value={draft.label}
-        onChange={(e) => onChange({ ...draft, label: e.target.value })}
+        onChange={(event) => onChange({ ...draft, label: event.target.value })}
         className={`mb-2 ${INPUT_CLASS}`}
       />
       <input
         type="text"
         placeholder="Values, comma-separated (e.g. pending, verified, rejected)"
         value={draft.values.join(",")}
-        onChange={(e) =>
-          onChange({ ...draft, values: e.target.value.split(",") })
+        onChange={(event) =>
+          onChange({ ...draft, values: event.target.value.split(",") })
         }
         className={INPUT_CLASS}
       />

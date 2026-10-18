@@ -8,7 +8,7 @@ export type WorkflowVariable = {
   group: "contact" | "ai" | "conversation" | "workflow" | "secrets";
 };
 
-/** Transforms supported by the `{{variable | filter}}` pipe syntax — mirrors VariableInterpolator on the backend. */
+/** Mirrors VariableInterpolator's filters on the backend. */
 export const VARIABLE_FILTERS = {
   UPPER: "upper",
   LOWER: "lower",
@@ -22,7 +22,6 @@ const KNOWN_FILTERS: ReadonlySet<string> = new Set(
   Object.values(VARIABLE_FILTERS)
 );
 
-/** Returns the distinct, unrecognised `{{variable | filter}}` filter names used in `text`. */
 export function findUnknownFilters(text: string | undefined): string[] {
   if (!text) return [];
 
@@ -41,7 +40,6 @@ export function findUnknownFilters(text: string | undefined): string[] {
   return Array.from(unknown);
 }
 
-/** Inline warning shown below a field when it contains an unrecognised `{{variable | filter}}`. */
 export function FilterWarning({ text }: { text: string | undefined }) {
   const unknown = findUnknownFilters(text);
 
@@ -50,13 +48,12 @@ export function FilterWarning({ text }: { text: string | undefined }) {
   return (
     <p className="text-xs text-red-text">
       Unknown filter{unknown.length > 1 ? "s" : ""}:{" "}
-      {unknown.map((f) => `"${f}"`).join(", ")}. Supported:{" "}
+      {unknown.map((field) => `"${field}"`).join(", ")}. Supported:{" "}
       {Object.values(VARIABLE_FILTERS).join(", ")}.
     </p>
   );
 }
 
-/** Variables seeded into every workflow run — conversation.id and workspace.id are excluded. */
 export const BUILT_IN_VARIABLES: WorkflowVariable[] = [
   { name: "contact.id", label: "Contact ID", group: "contact" },
   { name: "contact.name", label: "Contact name", group: "contact" },
@@ -85,11 +82,7 @@ export const BUILT_IN_VARIABLES: WorkflowVariable[] = [
 
 type Props = {
   variables: WorkflowVariable[];
-  /**
-   * Called with the placeholder expression (no braces) — either the raw variable name, or
-   * `name | upper` / `name | lower` if a transform was picked. The caller decides how to format
-   * it (e.g. wrapping in `{{...}}`).
-   */
+  /** Receives the expression without braces, such as name or name | upper. */
   onSelect: (expression: string) => void;
 };
 
@@ -100,10 +93,10 @@ export function VariablePicker({ variables, onSelect }: Props) {
   useEffect(() => {
     if (!open) return;
 
-    function onMouseDown(e: MouseEvent) {
+    function onMouseDown(event: MouseEvent) {
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as globalThis.Node)
+        !containerRef.current.contains(event.target as globalThis.Node)
       ) {
         setOpen(false);
       }
@@ -119,19 +112,25 @@ export function VariablePicker({ variables, onSelect }: Props) {
     items: WorkflowVariable[];
     allowFilters?: boolean;
   }[] = [
-    { title: "Contact", items: variables.filter((v) => v.group === "contact") },
-    { title: "AI agent", items: variables.filter((v) => v.group === "ai") },
+    {
+      title: "Contact",
+      items: variables.filter((variable) => variable.group === "contact"),
+    },
+    {
+      title: "AI agent",
+      items: variables.filter((variable) => variable.group === "ai"),
+    },
     {
       title: "Conversation",
-      items: variables.filter((v) => v.group === "conversation"),
+      items: variables.filter((variable) => variable.group === "conversation"),
     },
     {
       title: "From workflow",
-      items: variables.filter((v) => v.group === "workflow"),
+      items: variables.filter((variable) => variable.group === "workflow"),
     },
     {
       title: "Secrets",
-      items: variables.filter((v) => v.group === "secrets"),
+      items: variables.filter((variable) => variable.group === "secrets"),
       allowFilters: false,
     },
   ].filter((section) => section.items.length > 0);
@@ -140,7 +139,7 @@ export function VariablePicker({ variables, onSelect }: Props) {
     <div ref={containerRef} className="relative flex-shrink-0">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((previous) => !previous)}
         title="Insert variable"
         className="rounded px-1.5 py-0.5 font-mono text-[10px] text-neutral-400 transition-colors hover:bg-secondary/10 hover:text-secondary"
       >
@@ -155,12 +154,12 @@ export function VariablePicker({ variables, onSelect }: Props) {
             </p>
           )}
 
-          {sections.map((section, i) => (
+          {sections.map((section, index) => (
             <VariableGroup
               key={section.title}
               title={section.title}
               items={section.items}
-              bordered={i > 0}
+              bordered={index > 0}
               allowFilters={section.allowFilters ?? true}
               onSelect={(name) => {
                 onSelect(name);
@@ -197,25 +196,25 @@ function VariableGroup({
         </span>
       </div>
 
-      {items.map((v) => (
+      {items.map((variable) => (
         <div
-          key={v.name}
+          key={variable.name}
           className="flex items-center justify-between gap-1 px-3 py-1.5 transition-colors hover:bg-neutral-200"
         >
           <button
             type="button"
-            onClick={() => onSelect(v.name)}
+            onClick={() => onSelect(variable.name)}
             className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
           >
             <span className="truncate font-mono text-[11px] text-secondary">
               {"{{"}
-              {v.name}
+              {variable.name}
               {"}}"}
             </span>
 
-            {v.label !== v.name && (
+            {variable.label !== variable.name && (
               <span className="truncate text-[11px] text-neutral-400">
-                {v.label}
+                {variable.label}
               </span>
             )}
           </button>
@@ -226,7 +225,7 @@ function VariableGroup({
                 type="button"
                 title="Insert as UPPERCASE"
                 onClick={() =>
-                  onSelect(`${v.name} | ${VARIABLE_FILTERS.UPPER}`)
+                  onSelect(`${variable.name} | ${VARIABLE_FILTERS.UPPER}`)
                 }
                 className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
               >
@@ -237,7 +236,7 @@ function VariableGroup({
                 type="button"
                 title="Insert as lowercase"
                 onClick={() =>
-                  onSelect(`${v.name} | ${VARIABLE_FILTERS.LOWER}`)
+                  onSelect(`${variable.name} | ${VARIABLE_FILTERS.LOWER}`)
                 }
                 className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
               >
@@ -248,7 +247,7 @@ function VariableGroup({
                 type="button"
                 title="Insert as Title Case"
                 onClick={() =>
-                  onSelect(`${v.name} | ${VARIABLE_FILTERS.TITLE}`)
+                  onSelect(`${variable.name} | ${VARIABLE_FILTERS.TITLE}`)
                 }
                 className="rounded px-1 py-0.5 text-[10px] font-semibold text-neutral-400 transition-colors hover:bg-neutral-300 hover:text-neutral-700"
               >
