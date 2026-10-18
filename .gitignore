@@ -74,3 +74,6 @@ postgres_data/
 redis_data/
 apps/web/next-env.d.ts
 apps/marketing/next-env.d.ts
+
+# Private docs
+docs/prd/

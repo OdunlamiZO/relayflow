@@ -14,7 +14,6 @@ apps/
 packages/
   contracts/  Shared OpenAPI spec and JSON schemas
 docs/
-  prd/        Product and technical planning documents
   codebase-components.md  Living architecture reference
 infra/
   docker/     Local infrastructure notes and config
