@@ -1,5 +1,7 @@
 package com.relayflow.api.whatsapp;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.channel.domain.ChannelAccount;
@@ -127,13 +129,13 @@ public class WhatsAppAdapter {
 
         if (!"subscribe".equals(mode) || !credentials.verifyToken().equals(verifyToken)) {
             log.warn(
-                    "WhatsApp webhook verification failed for channel account {} — token mismatch or bad mode",
-                    channelAccountId);
+                    "WhatsApp webhook verification failed {}",
+                    kv("channelAccountId", channelAccountId));
 
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Verification failed");
         }
 
-        log.info("WhatsApp webhook verified for channel account {}", channelAccountId);
+        log.info("WhatsApp webhook verified {}", kv("channelAccountId", channelAccountId));
 
         return challenge;
     }
@@ -152,17 +154,17 @@ public class WhatsAppAdapter {
 
         if (channelAccount.getProvider() != ChannelProvider.WHATSAPP) {
             log.warn(
-                    "Channel account {} is not a WhatsApp account — ignoring update",
-                    channelAccountId);
+                    "WhatsApp update ignored, channel account is not a WhatsApp account {}",
+                    kv("channelAccountId", channelAccountId));
 
             return;
         }
 
         if (channelAccount.getStatus() != ChannelAccountStatus.ACTIVE) {
             log.debug(
-                    "Channel account {} is not active (status={}) — ignoring update",
-                    channelAccountId,
-                    channelAccount.getStatus());
+                    "WhatsApp update ignored, channel account is not active {} {}",
+                    kv("channelAccountId", channelAccountId),
+                    kv("status", channelAccount.getStatus()));
 
             return;
         }
@@ -234,8 +236,8 @@ public class WhatsAppAdapter {
                 || credentials.phoneNumberId() == null
                 || credentials.phoneNumberId().isBlank()) {
             log.warn(
-                    "Incomplete credentials for WhatsApp channel account {} — skipping relay",
-                    channelAccount.getId());
+                    "WhatsApp relay skipped, credentials are incomplete {}",
+                    kv("channelAccountId", channelAccount.getId()));
 
             return;
         }
@@ -326,10 +328,11 @@ public class WhatsAppAdapter {
         conversationRepository.save(conversation);
 
         log.info(
-                "Inbound WhatsApp message saved — workspace={} conversation={} from={}",
-                workspaceId,
-                conversation.getId(),
-                contact.getDisplayName());
+                "Inbound message saved {} {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("conversationId", conversation.getId()),
+                kv("contactId", contact.getId()),
+                kv("provider", ChannelProvider.WHATSAPP));
 
         if (triggersWorkflow) {
             eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, inboundMessage));
@@ -375,10 +378,10 @@ public class WhatsAppAdapter {
             } catch (Exception exception) {
                 lastException = exception;
                 log.warn(
-                        "WhatsApp send attempt {}/2 to {} failed: {}",
-                        attempt,
-                        recipientWaId,
-                        exception.getMessage());
+                        "WhatsApp send attempt failed {} {} {}",
+                        kv("attempt", attempt),
+                        kv("maxAttempts", 2),
+                        kv("error", exception.getMessage()));
             }
         }
 

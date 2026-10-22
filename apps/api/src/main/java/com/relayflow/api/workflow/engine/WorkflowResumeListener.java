@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow.engine;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.workflow.domain.WorkflowRun;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
 import com.relayflow.api.workflow.repository.WorkflowRunRepository;
@@ -40,18 +42,17 @@ public class WorkflowResumeListener {
         }
 
         log.info(
-                "Resuming {} waiting workflow run(s) for conversation={}",
-                waitingRuns.size(),
-                conversationId);
+                "Resuming waiting workflow runs {} {}",
+                kv("conversationId", conversationId),
+                kv("count", waitingRuns.size()));
 
         for (WorkflowRun run : waitingRuns) {
             try {
                 workflowEngineService.resumeWorkflow(run.getId(), event.message());
             } catch (Exception exception) {
                 log.error(
-                        "Failed to resume workflow run={}: {}",
-                        run.getId(),
-                        exception.getMessage(),
+                        "Workflow run resume failed {}",
+                        kv("workflowRunId", run.getId()),
                         exception);
             }
         }

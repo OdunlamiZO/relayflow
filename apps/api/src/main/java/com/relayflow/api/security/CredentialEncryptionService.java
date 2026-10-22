@@ -1,5 +1,7 @@
 package com.relayflow.api.security;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -36,7 +38,7 @@ public class CredentialEncryptionService {
 
         byte[] keyBytes = Base64.getDecoder().decode(base64Key);
         this.secretKey = new SecretKeySpec(keyBytes, "AES");
-        log.info("Credential encryption enabled (AES-256-GCM)");
+        log.info("Credential encryption enabled {}", kv("algorithm", "AES-256-GCM"));
     }
 
     public String encrypt(String plaintext) {

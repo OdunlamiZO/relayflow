@@ -157,7 +157,7 @@ public class SecurityConfiguration {
                         publicApiWindowSeconds,
                         webhookLimit,
                         webhookWindowSeconds));
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
         registration.addUrlPatterns(
                 "/auth/*", "/public/v1/*", "/telegram/webhook/*", "/whatsapp/webhook/*");
 

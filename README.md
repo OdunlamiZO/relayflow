@@ -63,6 +63,12 @@ cd apps/api
 mvn spring-boot:run
 ```
 
+Logs are human-readable by default. For structured logs, set `LOG_FORMAT` to `json` (Datadog and most log agents), `ecs` (Elastic), `gelf` (Graylog), or `logfmt` (Loki):
+
+```bash
+LOG_FORMAT=json mvn spring-boot:run
+```
+
 Enable Google login locally:
 
 ```bash

@@ -1,5 +1,7 @@
 package com.relayflow.api.workspace;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.authentication.domain.User;
 import com.relayflow.api.authentication.repository.UserRepository;
 import com.relayflow.api.common.ResourceNotFoundException;
@@ -123,10 +125,9 @@ public class WorkspaceInviteService {
         emailService.sendInvite(request.email(), inviterName, workspace.getName(), acceptUrl);
 
         log.info(
-                "Invite created: id={}, workspace={}, email={}",
-                invite.getId(),
-                workspaceId,
-                request.email());
+                "Invite created {} {}",
+                kv("workspaceId", workspaceId),
+                kv("inviteId", invite.getId()));
 
         return toResponse(invite, inviterName);
     }
@@ -160,7 +161,7 @@ public class WorkspaceInviteService {
         invite.setRevokedAt(Instant.now());
         inviteRepository.save(invite);
 
-        log.info("Invite revoked: id={}, workspace={}", inviteId, workspaceId);
+        log.info("Invite revoked {} {}", kv("workspaceId", workspaceId), kv("inviteId", inviteId));
     }
 
     @Transactional(readOnly = true)
@@ -235,10 +236,10 @@ public class WorkspaceInviteService {
         inviteRepository.save(invite);
 
         log.info(
-                "Invite accepted: id={}, userId={}, workspace={}",
-                invite.getId(),
-                userId,
-                invite.getWorkspaceId());
+                "Invite accepted {} {} {}",
+                kv("workspaceId", invite.getWorkspaceId()),
+                kv("inviteId", invite.getId()),
+                kv("userId", userId));
 
         return invite.getWorkspaceId();
     }

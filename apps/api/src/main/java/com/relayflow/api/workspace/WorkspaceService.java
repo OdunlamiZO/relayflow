@@ -1,5 +1,7 @@
 package com.relayflow.api.workspace;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.repository.AiAgentConfigurationRepository;
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
@@ -117,10 +119,9 @@ public class WorkspaceService {
         workspaceMemberRepository.save(member);
 
         log.info(
-                "Workspace created: id={}, name={}, owner={}",
-                workspace.getId(),
-                workspace.getName(),
-                ownerId);
+                "Workspace created {} {}",
+                kv("workspaceId", workspace.getId()),
+                kv("ownerUserId", ownerId));
 
         return mapper.toDto(workspace);
     }
@@ -275,7 +276,8 @@ public class WorkspaceService {
         member.setPermissions(permissions);
         workspaceMemberRepository.save(member);
 
-        log.info("Member invited: userId={}, workspace={}", user.getId(), workspaceId);
+        log.info(
+                "Member invited {} {}", kv("workspaceId", workspaceId), kv("userId", user.getId()));
 
         return toMemberResponse(member, user);
     }
@@ -327,7 +329,7 @@ public class WorkspaceService {
 
         workspaceMemberRepository.delete(member);
 
-        log.info("Member removed: id={}, workspace={}", memberId, workspaceId);
+        log.info("Member removed {} {}", kv("workspaceId", workspaceId), kv("memberId", memberId));
     }
 
     public void generatePasswordResetForMember(UUID workspaceId, UUID memberId) {
@@ -368,15 +370,15 @@ public class WorkspaceService {
         workspaceMemberRepository.save(newOwner);
 
         log.info(
-                "Ownership transferred: workspace={}, from={}, to={}",
-                workspaceId,
-                currentOwner.getId(),
-                newOwner.getId());
+                "Ownership transferred {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("previousOwnerMemberId", currentOwner.getId()),
+                kv("newOwnerMemberId", newOwner.getId()));
     }
 
     @Transactional
     public void deleteWorkspace(UUID workspaceId) {
-        log.info("Soft-deleting workspace and all associated data: {}", workspaceId);
+        log.info("Soft-deleting workspace {}", kv("workspaceId", workspaceId));
         Instant now = Instant.now();
         messageRepository.softDeleteByWorkspace(workspaceId, now);
         conversationRepository.softDeleteByWorkspace(workspaceId, now);

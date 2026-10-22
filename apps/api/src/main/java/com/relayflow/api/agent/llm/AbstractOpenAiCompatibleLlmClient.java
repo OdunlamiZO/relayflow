@@ -1,5 +1,7 @@
 package com.relayflow.api.agent.llm;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
@@ -54,11 +56,7 @@ abstract class AbstractOpenAiCompatibleLlmClient implements LlmClient {
 
             return AgentLlmResponseParser.parse(objectMapper, content);
         } catch (Exception exception) {
-            log.error(
-                    "LLM call failed for provider={}: {}",
-                    provider(),
-                    exception.getMessage(),
-                    exception);
+            log.error("LLM call failed {}", kv("provider", provider()), exception);
 
             return AgentLlmResponseParser.failure();
         }

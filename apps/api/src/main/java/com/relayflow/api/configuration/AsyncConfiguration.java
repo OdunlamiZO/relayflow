@@ -1,5 +1,6 @@
 package com.relayflow.api.configuration;
 
+import com.relayflow.api.logging.RequestIdTaskDecorator;
 import java.util.concurrent.Executor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +20,7 @@ public class AsyncConfiguration {
         executor.setMaxPoolSize(16);
         executor.setQueueCapacity(500);
         executor.setThreadNamePrefix("webhook-");
+        executor.setTaskDecorator(new RequestIdTaskDecorator());
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
         executor.initialize();

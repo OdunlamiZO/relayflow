@@ -1,5 +1,7 @@
 package com.relayflow.api.agent.llm;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -83,7 +85,7 @@ public class AnthropicLlmClient implements LlmClient {
 
             return AgentLlmResponseParser.parse(objectMapper, text);
         } catch (Exception exception) {
-            log.warn("Anthropic LLM call failed: {}", exception.getMessage());
+            log.error("LLM call failed {}", kv("provider", provider()), exception);
 
             return AgentLlmResponseParser.failure();
         }

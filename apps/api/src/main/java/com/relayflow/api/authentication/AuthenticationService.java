@@ -1,5 +1,7 @@
 package com.relayflow.api.authentication;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.authentication.domain.*;
 import com.relayflow.api.authentication.dto.AuthenticatedUserResponse;
 import com.relayflow.api.authentication.dto.BootstrapRequest;
@@ -135,9 +137,9 @@ public class AuthenticationService {
         establishSessionForUser(user, httpRequest, httpResponse);
 
         log.info(
-                "New user registered via invite: email={}, workspace={}",
-                request.email(),
-                workspaceId);
+                "User registered via invite {} {}",
+                kv("workspaceId", workspaceId),
+                kv("userId", user.getId()));
 
         return new SignupResponse(
                 true, user.getId(), user.getEmail(), user.getDisplayName(), workspaceId);
@@ -177,7 +179,10 @@ public class AuthenticationService {
 
         establishSessionForUser(user, httpRequest, httpResponse);
 
-        log.info("Instance bootstrapped: admin={}, workspace={}", request.email(), workspace.id());
+        log.info(
+                "Instance bootstrapped {} {}",
+                kv("workspaceId", workspace.id()),
+                kv("userId", user.getId()));
 
         return new BootstrapResponse(
                 true, user.getId(), user.getEmail(), user.getDisplayName(), workspace.id());
@@ -193,7 +198,7 @@ public class AuthenticationService {
             LoginRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        log.info("Login attempt: email={}", request.email());
+        log.debug("Login attempt {}", kv("email", request.email()));
 
         User user =
                 userRepository
@@ -230,11 +235,13 @@ public class AuthenticationService {
             challenge.setExpiresAt(Instant.now().plus(Duration.ofMinutes(5)));
             challengeRepository.save(challenge);
 
-            log.info("2FA challenge issued: email={}", request.email());
+            log.info("Two-factor challenge issued {}", kv("userId", user.getId()));
 
             return new AuthenticatedUserResponse(
                     false, null, null, null, null, true, challengeToken);
         }
+
+        log.info("User logged in {} {}", kv("userId", user.getId()), kv("method", "password"));
 
         return new AuthenticatedUserResponse(
                 true,
@@ -286,7 +293,7 @@ public class AuthenticationService {
         challengeRepository.delete(challenge);
         establishSessionForUser(user, httpRequest, httpResponse);
 
-        log.info("Login via 2FA: email={}", user.getEmail());
+        log.info("User logged in {} {}", kv("userId", user.getId()), kv("method", "password_2fa"));
 
         return new AuthenticatedUserResponse(
                 true,

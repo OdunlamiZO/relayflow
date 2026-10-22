@@ -1,5 +1,7 @@
 package com.relayflow.api.authentication;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.authentication.domain.AuthenticationProvider;
 import com.relayflow.api.authentication.domain.User;
 import com.relayflow.api.authentication.domain.UserIdentity;
@@ -72,7 +74,9 @@ public class OAuth2UserProvisioningService extends DefaultOAuth2UserService {
                                     newIdentity.setProviderSubject(subject);
                                     newIdentity.setVerified(true);
 
-                                    log.info("Provisioned new Google user: email={}", email);
+                                    log.info(
+                                            "Google user provisioned {}",
+                                            kv("userId", newUser.getId()));
 
                                     return identityRepository.save(newIdentity);
                                 });

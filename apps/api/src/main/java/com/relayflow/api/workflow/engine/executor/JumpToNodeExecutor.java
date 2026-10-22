@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow.engine.executor;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.engine.ExecutionContext;
 import com.relayflow.api.workflow.engine.GraphNode;
@@ -37,7 +39,7 @@ public class JumpToNodeExecutor implements NodeExecutor {
         int jumpCount = rawCount instanceof Number n ? n.intValue() : 0;
 
         if (jumpCount >= maxJumps) {
-            log.warn("Jump limit reached: nodeId={}, maxJumps={}", node.id(), maxJumps);
+            log.warn("Jump limit reached {} {}", kv("nodeId", node.id()), kv("maxJumps", maxJumps));
 
             return NodeExecutionResult.next(Map.of("jumpCount", jumpCount, "limitReached", true));
         }
@@ -45,11 +47,11 @@ public class JumpToNodeExecutor implements NodeExecutor {
         context.setVariable(jumpKey, jumpCount + 1);
 
         log.debug(
-                "Jumping: from={}, to={}, count={}/{}",
-                node.id(),
-                targetNodeId,
-                jumpCount + 1,
-                maxJumps);
+                "Jumping to node {} {} {} {}",
+                kv("fromNodeId", node.id()),
+                kv("toNodeId", targetNodeId),
+                kv("jumpCount", jumpCount + 1),
+                kv("maxJumps", maxJumps));
 
         return NodeExecutionResult.jumpTo(
                 targetNodeId, Map.of("targetNodeId", targetNodeId, "jumpCount", jumpCount + 1));

@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.common.ResourceNotFoundException;
 import com.relayflow.api.common.dto.PageResponse;
 import com.relayflow.api.hook.HookService;
@@ -73,10 +75,9 @@ public class WorkflowService {
         workflowRepository.save(workflow);
 
         log.info(
-                "Workflow created: id={}, workspace={}, name={}",
-                workflow.getId(),
-                workspace.getId(),
-                workflow.getName());
+                "Workflow created {} {}",
+                kv("workspaceId", workspace.getId()),
+                kv("workflowId", workflow.getId()));
 
         return toDto(workflow);
     }
@@ -113,14 +114,14 @@ public class WorkflowService {
 
             if (!wasEnabled && request.enabled()) {
                 log.info(
-                        "Workflow published: id={}, workspace={}",
-                        workflow.getId(),
-                        workflow.getWorkspace().getId());
+                        "Workflow published {} {}",
+                        kv("workspaceId", workflow.getWorkspace().getId()),
+                        kv("workflowId", workflow.getId()));
             } else if (wasEnabled && !request.enabled()) {
                 log.info(
-                        "Workflow unpublished: id={}, workspace={}",
-                        workflow.getId(),
-                        workflow.getWorkspace().getId());
+                        "Workflow unpublished {} {}",
+                        kv("workspaceId", workflow.getWorkspace().getId()),
+                        kv("workflowId", workflow.getId()));
             }
         }
 
@@ -179,7 +180,7 @@ public class WorkflowService {
 
         workflowRepository.delete(workflow);
 
-        log.info("Workflow deleted: id={}, workspace={}", id, workspaceId);
+        log.info("Workflow deleted {} {}", kv("workspaceId", workspaceId), kv("workflowId", id));
     }
 
     private WorkflowDefinition getDefinition(UUID id, UUID workspaceId) {

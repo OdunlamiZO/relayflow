@@ -1,5 +1,7 @@
 package com.relayflow.api.profile;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.authentication.PasswordResetService;
 import com.relayflow.api.authentication.domain.AuthenticationProvider;
 import com.relayflow.api.authentication.domain.MfaMethodType;
@@ -123,7 +125,7 @@ public class ProfileService {
         method.setEnabled(true);
         mfaMethodRepository.save(method);
 
-        log.info("2FA enabled: userId={}", userId);
+        log.info("Two-factor authentication enabled {}", kv("userId", userId));
     }
 
     @Transactional
@@ -153,7 +155,7 @@ public class ProfileService {
 
         mfaMethodRepository.delete(method);
 
-        log.info("2FA disabled: userId={}", userId);
+        log.info("Two-factor authentication disabled {}", kv("userId", userId));
     }
 
     private User requireUser(UUID userId) {

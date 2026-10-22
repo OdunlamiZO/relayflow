@@ -1,5 +1,7 @@
 package com.relayflow.api.webhook;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.webhook.domain.WorkspaceWebhook;
 import com.relayflow.api.webhook.dto.RotateWebhookSecretResponse;
@@ -62,7 +64,10 @@ public class WebhookService {
 
         webhook = webhookRepository.save(webhook);
 
-        log.info("Webhook created: workspaceId={}, url={}", workspaceId, webhook.getUrl());
+        log.info(
+                "Webhook created {} {}",
+                kv("workspaceId", workspaceId),
+                kv("webhookId", webhook.getId()));
 
         return toResponse(webhook, generatedSecret);
     }
@@ -83,7 +88,10 @@ public class WebhookService {
 
         webhook = webhookRepository.save(webhook);
 
-        log.info("Webhook updated: workspaceId={}, webhookId={}", workspaceId, webhookId);
+        log.info(
+                "Webhook updated {} {}",
+                kv("workspaceId", workspaceId),
+                kv("webhookId", webhookId));
 
         return toResponse(webhook, null);
     }
@@ -92,7 +100,10 @@ public class WebhookService {
     public void deleteWebhook(UUID workspaceId, UUID webhookId) {
         webhookRepository.delete(getOrThrow(workspaceId, webhookId));
 
-        log.info("Webhook deleted: workspaceId={}, webhookId={}", workspaceId, webhookId);
+        log.info(
+                "Webhook deleted {} {}",
+                kv("workspaceId", workspaceId),
+                kv("webhookId", webhookId));
     }
 
     @Transactional
@@ -103,7 +114,10 @@ public class WebhookService {
         webhook.setSecret(encryptionService.encrypt(newSecret));
         webhookRepository.save(webhook);
 
-        log.info("Webhook secret rotated: workspaceId={}, webhookId={}", workspaceId, webhookId);
+        log.info(
+                "Webhook secret rotated {} {}",
+                kv("workspaceId", workspaceId),
+                kv("webhookId", webhookId));
 
         return new RotateWebhookSecretResponse(newSecret);
     }

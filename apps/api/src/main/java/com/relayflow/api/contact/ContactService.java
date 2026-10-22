@@ -1,5 +1,7 @@
 package com.relayflow.api.contact;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.channel.ChannelAccountService;
 import com.relayflow.api.channel.domain.ChannelAccount;
@@ -231,10 +233,10 @@ public class ContactService {
                                                 "conversationId", conversationId.toString()))));
 
         log.info(
-                "Contact deleted: id={}, workspace={}, conversations={}",
-                id,
-                workspaceId,
-                conversationIds.size());
+                "Contact deleted {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("contactId", id),
+                kv("conversationCount", conversationIds.size()));
     }
 
     @Transactional
@@ -302,10 +304,10 @@ public class ContactService {
                         ContactSnapshotBuilder.build(target).contact(), mergedContact));
 
         log.info(
-                "Contacts merged — target={} source={} workspace={}",
-                targetId,
-                sourceId,
-                workspaceId);
+                "Contacts merged {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("targetContactId", targetId),
+                kv("sourceContactId", sourceId));
 
         List<UUID> contactIds = List.of(targetId);
         Map<UUID, List<ExternalIdentityResponse>> identitiesByContact =

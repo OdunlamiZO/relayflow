@@ -1,5 +1,7 @@
 package com.relayflow.api.agent;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
@@ -49,8 +51,9 @@ public class AiAgentTriggerListener {
         }
 
         log.debug(
-                "AI agent triggered by conversation_opened for conversation={}",
-                conversation.getId());
+                "AI agent triggered {} {}",
+                kv("trigger", "conversation_opened"),
+                kv("conversationId", conversation.getId()));
 
         invocationService.invoke(conversation, event.triggeringMessage());
     }
@@ -65,7 +68,9 @@ public class AiAgentTriggerListener {
         }
 
         log.debug(
-                "AI agent triggered by message_received for conversation={}", conversation.getId());
+                "AI agent triggered {} {}",
+                kv("trigger", "message_received"),
+                kv("conversationId", conversation.getId()));
 
         invocationService.invoke(conversation, event.message());
     }

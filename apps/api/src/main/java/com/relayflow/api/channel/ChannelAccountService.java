@@ -1,5 +1,7 @@
 package com.relayflow.api.channel;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.channel.domain.ChannelAccount;
 import com.relayflow.api.channel.domain.ChannelAccountStatus;
 import com.relayflow.api.channel.domain.ChannelProvider;
@@ -84,10 +86,10 @@ public class ChannelAccountService {
         }
 
         log.info(
-                "Channel account created: id={}, provider={}, workspace={}",
-                channelAccount.getId(),
-                channelAccount.getProvider(),
-                workspace.getId());
+                "Channel account created {} {} {}",
+                kv("workspaceId", workspace.getId()),
+                kv("channelAccountId", channelAccount.getId()),
+                kv("provider", channelAccount.getProvider()));
 
         return mapper.toDto(channelAccount);
     }
@@ -104,10 +106,10 @@ public class ChannelAccountService {
         channelAccountRepository.save(channelAccount);
 
         log.info(
-                "Channel account disconnected: id={}, provider={}, workspace={}",
-                id,
-                channelAccount.getProvider(),
-                workspaceId);
+                "Channel account disconnected {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("channelAccountId", id),
+                kv("provider", channelAccount.getProvider()));
     }
 
     @Transactional
@@ -122,10 +124,10 @@ public class ChannelAccountService {
         channelAccountRepository.save(channelAccount);
 
         log.info(
-                "Channel account reconnected: id={}, provider={}, workspace={}",
-                id,
-                channelAccount.getProvider(),
-                workspaceId);
+                "Channel account reconnected {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("channelAccountId", id),
+                kv("provider", channelAccount.getProvider()));
 
         return mapper.toDto(channelAccount);
     }
@@ -141,10 +143,10 @@ public class ChannelAccountService {
         channelAccountRepository.delete(channelAccount);
 
         log.info(
-                "Channel account deleted: id={}, provider={}, workspace={}",
-                id,
-                channelAccount.getProvider(),
-                workspaceId);
+                "Channel account deleted {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("channelAccountId", id),
+                kv("provider", channelAccount.getProvider()));
     }
 
     public ChannelAccount getChannelAccount(UUID channelAccountId, UUID workspaceId) {

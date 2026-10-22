@@ -44,6 +44,7 @@ docker compose --profile prod up -d
 | `GOOGLE_AUTH_ENABLED` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | Off by default. In Google Cloud, add the redirect URI `<RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google` |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GROQ_API_KEY` | No | At least one needed for AI agent features |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | No | Works with any SMTP provider (Resend, SES, Mailgun, Postmark, Gmail, self-hosted, etc.). Blank host runs email in no-op/log mode |
+| `LOG_FORMAT` / `LOG_LEVEL` | No | `json` (default in the prod stack), `ecs`, `gelf`, `logfmt` or `text`; `INFO` by default — see [Logging](#logging) |
 | Rate limiting, timeouts, retention vars | No | All have safe defaults — see `.env.example` |
 
 ## First-run walkthrough
@@ -93,6 +94,69 @@ Migrations are forward-only — there are no down-migrations, so plan upgrades a
 - If you run the web container outside the bundled `docker-compose.yml`, set
   `RELAYFLOW_API_INTERNAL_URL` on it to the address it reaches the API at, such as
   `http://api:8080`.
+
+## Logging
+
+The API writes logs to stdout, one event per line, in the format set by `LOG_FORMAT` in `.env`:
+
+| `LOG_FORMAT` | Output | Use with |
+|---|---|---|
+| `json` (default in the prod stack) | JSON with Datadog field names | Datadog, Fluent Bit, Vector, Splunk, any JSON-reading agent |
+| `ecs` | JSON in [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html) | Elasticsearch / Kibana, Elastic Agent, Filebeat |
+| `gelf` | JSON in [GELF 1.1](https://go2docs.graylog.org/current/getting_in_log_data/gelf.html) | Graylog |
+| `logfmt` | `key=value` pairs | Grafana Loki, Heroku-style tooling |
+| `text` | Human-readable lines | Reading with `docker compose --profile prod logs api` |
+
+Apply a change with `docker compose --profile prod up -d api`. The API refuses to start if
+`LOG_FORMAT` is not one of these values. A `json` line looks like this:
+
+```json
+{"timestamp":"2026-10-18T09:12:44.103Z","message":"Channel account created workspaceId=… channelAccountId=… provider=TELEGRAM","logger.name":"com.relayflow.api.channel.ChannelAccountService","logger.thread_name":"http-nio-8080-exec-3","level":"INFO","requestId":"5f0c…","workspaceId":"…","channelAccountId":"…","provider":"TELEGRAM"}
+```
+
+- Every key/value in a message is also a top-level field (`workspaceId`, `conversationId`,
+  `workflowRunId`, `channelAccountId`, …), so you can filter and facet on it.
+- `requestId` ties together every line written while handling one HTTP request, including
+  asynchronous work it starts. The API reuses an incoming `X-Request-Id` header and returns the
+  ID in the `X-Request-Id` response header.
+- Exceptions appear as `error.kind`, `error.message` and `error.stack` (`error.type`,
+  `error.message`, `error.stack_trace` in `ecs`; `full_message`, `_error_kind`, `_error_message`
+  in `gelf`).
+- In `gelf`, every additional field is prefixed with `_` (`_requestId`, `_workspaceId`, …), as
+  GELF requires. In `logfmt` and `gelf`, the message omits the key/value pairs, which appear only
+  as fields.
+- At `INFO` and above, logs carry IDs only. `LOG_LEVEL=DEBUG` adds personal data such as email
+  addresses.
+
+### Datadog
+
+1. Run the Datadog Agent on the Docker host with container log collection enabled
+   (`DD_LOGS_ENABLED=true`, `DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true`).
+2. Label the `api` service so the Agent tags its logs:
+
+   ```yaml
+   api:
+     labels:
+       com.datadoghq.ad.logs: '[{"source": "java", "service": "relayflow-api"}]'
+   ```
+
+3. For trace correlation, attach the Datadog Java tracer and turn on log injection. The tracer
+   adds `dd.trace_id` and `dd.span_id` to each log line:
+
+   ```yaml
+   api:
+     environment:
+       JAVA_TOOL_OPTIONS: -javaagent:/dd/dd-java-agent.jar
+       DD_LOGS_INJECTION: "true"
+       DD_SERVICE: relayflow-api
+       DD_ENV: production
+       DD_AGENT_HOST: datadog-agent
+     volumes:
+       - ./dd-java-agent.jar:/dd/dd-java-agent.jar:ro
+   ```
+
+Any agent that reads JSON from container stdout (Fluent Bit, Vector, Grafana Alloy, the
+Elastic Agent) can collect these logs the same way.
 
 ## Using your own reverse proxy
 

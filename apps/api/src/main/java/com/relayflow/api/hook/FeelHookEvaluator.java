@@ -1,5 +1,7 @@
 package com.relayflow.api.hook;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.hook.domain.HookOutcome;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
@@ -68,7 +70,9 @@ public class FeelHookEvaluator {
             // FEEL can't be interrupted; a timed-out evaluation holds its thread until done.
             result = future.get(EVALUATION_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
         } catch (TimeoutException exception) {
-            log.warn("Hook evaluation timed out after {}ms", EVALUATION_TIMEOUT_MILLISECONDS);
+            log.warn(
+                    "Hook evaluation timed out {}",
+                    kv("timeoutMs", EVALUATION_TIMEOUT_MILLISECONDS));
 
             return HookOutcome.error(
                     "Hook took longer than " + EVALUATION_TIMEOUT_MILLISECONDS + "ms to evaluate",
@@ -76,7 +80,7 @@ public class FeelHookEvaluator {
         } catch (RejectedExecutionException exception) {
             return HookOutcome.error("Too many hooks are being evaluated — try again", List.of());
         } catch (ExecutionException exception) {
-            log.warn("Hook evaluation threw an exception", exception.getCause());
+            log.warn("Hook evaluation failed", exception.getCause());
 
             return HookOutcome.error(
                     "Hook evaluation failed: " + exception.getCause().getMessage(), List.of());

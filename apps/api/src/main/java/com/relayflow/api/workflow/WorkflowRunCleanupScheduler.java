@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
 import com.relayflow.api.workflow.engine.WorkflowEngineService;
 import com.relayflow.api.workflow.repository.WorkflowRunRepository;
@@ -49,9 +51,9 @@ public class WorkflowRunCleanupScheduler {
 
         if (deletedRuns > 0) {
             log.info(
-                    "Cleaned up {} expired workflow run(s) and {} step(s)",
-                    deletedRuns,
-                    deletedSteps);
+                    "Expired workflow runs deleted {} {}",
+                    kv("runCount", deletedRuns),
+                    kv("stepCount", deletedSteps));
         }
     }
 
@@ -67,8 +69,8 @@ public class WorkflowRunCleanupScheduler {
 
         if (!expiredRunIds.isEmpty()) {
             log.info(
-                    "Handled {} workflow run(s) that got no reply before the timeout",
-                    expiredRunIds.size());
+                    "Workflow runs timed out waiting for a reply {}",
+                    kv("count", expiredRunIds.size()));
         }
     }
 }

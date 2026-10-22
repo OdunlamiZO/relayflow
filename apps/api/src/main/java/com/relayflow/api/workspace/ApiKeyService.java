@@ -1,5 +1,7 @@
 package com.relayflow.api.workspace;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.workspace.domain.WorkspaceApiKey;
 import com.relayflow.api.workspace.dto.ApiKeyResponse;
 import com.relayflow.api.workspace.dto.CreateApiKeyRequest;
@@ -52,10 +54,10 @@ public class ApiKeyService {
         apiKeyRepository.save(apiKey);
 
         log.info(
-                "API key created: id={}, workspace={}, expiresAt={}",
-                apiKey.getId(),
-                workspaceId,
-                apiKey.getExpiresAt());
+                "API key created {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("apiKeyId", apiKey.getId()),
+                kv("expiresAt", apiKey.getExpiresAt()));
 
         return new CreateApiKeyResponse(
                 apiKey.getId(),
@@ -88,7 +90,7 @@ public class ApiKeyService {
         apiKey.setRevokedAt(Instant.now());
         apiKeyRepository.save(apiKey);
 
-        log.info("API key revoked: id={}, workspace={}", keyId, workspaceId);
+        log.info("API key revoked {} {}", kv("workspaceId", workspaceId), kv("apiKeyId", keyId));
     }
 
     private ApiKeyResponse toResponse(WorkspaceApiKey apiKey) {

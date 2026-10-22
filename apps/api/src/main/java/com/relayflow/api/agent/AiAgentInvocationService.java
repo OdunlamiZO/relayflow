@@ -1,5 +1,7 @@
 package com.relayflow.api.agent;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.domain.AiAgentConfiguration;
 import com.relayflow.api.agent.domain.AiAgentInvocationLog;
 import com.relayflow.api.agent.domain.AiAgentInvocationStatus;
@@ -160,8 +162,8 @@ public class AiAgentInvocationService {
 
         if (claimed.isEmpty()) {
             log.debug(
-                    "AI agent invocation skipped for conversation={} — another invocation is already active",
-                    conversationId);
+                    "AI agent invocation skipped, another invocation is active {}",
+                    kv("conversationId", conversationId));
 
             return;
         }
@@ -185,8 +187,8 @@ public class AiAgentInvocationService {
         if (workflowActive) {
             invocationLogRepository.delete(invocationLog);
             log.debug(
-                    "AI agent invocation aborted for conversation={} — workflow claimed it first",
-                    conversationId);
+                    "AI agent invocation aborted, a workflow claimed the conversation {}",
+                    kv("conversationId", conversationId));
 
             return;
         }
@@ -195,10 +197,7 @@ public class AiAgentInvocationService {
             runPipeline(configuration, conversation, triggeringMessage, invocationLog);
         } catch (Exception exception) {
             log.error(
-                    "AI agent pipeline failed for conversation={}: {}",
-                    conversationId,
-                    exception.getMessage(),
-                    exception);
+                    "AI agent pipeline failed {}", kv("conversationId", conversationId), exception);
             invocationLog.setStatus(AiAgentInvocationStatus.FAILED);
             invocationLog.setEscalationReason("Internal error: " + exception.getMessage());
             invocationLog.setFinishedAt(Instant.now());
@@ -462,9 +461,9 @@ public class AiAgentInvocationService {
             workflowId = UUID.fromString(rawWorkflowId);
         } catch (IllegalArgumentException exception) {
             log.warn(
-                    "AI agent returned invalid workflow ID '{}' for conversation={}",
-                    rawWorkflowId,
-                    conversation.getId());
+                    "AI agent returned an invalid workflow ID {} {}",
+                    kv("conversationId", conversation.getId()),
+                    kv("workflowId", rawWorkflowId));
             finalise(
                     invocationLog,
                     AiAgentInvocationStatus.FAILED,
@@ -478,9 +477,9 @@ public class AiAgentInvocationService {
 
         if (workflowDefinitionOptional.isEmpty()) {
             log.warn(
-                    "AI agent referenced unknown workflow={} in workspace={}",
-                    workflowId,
-                    workspaceId);
+                    "AI agent referenced an unknown workflow {} {}",
+                    kv("workspaceId", workspaceId),
+                    kv("workflowId", workflowId));
             finalise(
                     invocationLog,
                     AiAgentInvocationStatus.FAILED,

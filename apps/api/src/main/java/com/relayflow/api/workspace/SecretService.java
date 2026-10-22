@@ -1,5 +1,7 @@
 package com.relayflow.api.workspace;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.workspace.domain.WorkspaceSecret;
 import com.relayflow.api.workspace.dto.SaveSecretRequest;
@@ -55,10 +57,9 @@ public class SecretService {
         }
 
         log.info(
-                "Secret created: id={}, name={}, workspace={}",
-                secret.getId(),
-                secret.getName(),
-                workspaceId);
+                "Secret created {} {}",
+                kv("workspaceId", workspaceId),
+                kv("secretId", secret.getId()));
 
         return toResponse(secret);
     }
@@ -77,11 +78,7 @@ public class SecretService {
                     "A secret named \"" + request.name() + "\" already exists");
         }
 
-        log.info(
-                "Secret updated: id={}, name={}, workspace={}",
-                secretId,
-                secret.getName(),
-                workspaceId);
+        log.info("Secret updated {} {}", kv("workspaceId", workspaceId), kv("secretId", secretId));
 
         return toResponse(secret);
     }
@@ -91,7 +88,7 @@ public class SecretService {
         WorkspaceSecret secret = getOrThrow(workspaceId, secretId);
         secretRepository.delete(secret);
 
-        log.info("Secret deleted: id={}, workspace={}", secretId, workspaceId);
+        log.info("Secret deleted {} {}", kv("workspaceId", workspaceId), kv("secretId", secretId));
     }
 
     /** Never expose through a controller or write the result to a variable, snapshot, or log. */

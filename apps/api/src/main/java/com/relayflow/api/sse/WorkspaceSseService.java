@@ -1,5 +1,7 @@
 package com.relayflow.api.sse;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +50,7 @@ public class WorkspaceSseService {
             remove.run();
         }
 
-        log.debug("SSE client subscribed to workspace {}", workspaceId);
+        log.debug("SSE client subscribed {}", kv("workspaceId", workspaceId));
 
         return emitter;
     }
@@ -59,9 +61,7 @@ public class WorkspaceSseService {
         try {
             broadcast(event.workspaceId(), event.eventType().getEventName(), event.payload());
         } catch (Exception exception) {
-            log.debug(
-                    "SSE broadcast swallowed after commit (likely a closed socket): {}",
-                    exception.getMessage());
+            log.debug("SSE broadcast failed after commit {}", kv("error", exception.getMessage()));
         }
     }
 
@@ -95,7 +95,10 @@ public class WorkspaceSseService {
         list.removeAll(dead);
 
         if (!dead.isEmpty()) {
-            log.debug("Pruned {} dead SSE emitter(s) for workspace {}", dead.size(), workspaceId);
+            log.debug(
+                    "Dead SSE emitters pruned {} {}",
+                    kv("workspaceId", workspaceId),
+                    kv("count", dead.size()));
         }
     }
 

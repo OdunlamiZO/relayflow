@@ -1,5 +1,7 @@
 package com.relayflow.api.agent;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.domain.ExtractionField;
 import com.relayflow.api.agent.domain.ExtractionValidation;
 import com.relayflow.api.agent.domain.RejectedExtraction;
@@ -69,11 +71,11 @@ public class ExtractedDataValidator {
                         rejections.add(new RejectedExtraction(key, value, outcome.errorMessage()));
                 default -> {
                     log.warn(
-                            "Validation hook {} failed for extraction field {} in workspace={}: {}",
-                            field.validationHook(),
-                            key,
-                            workspaceId,
-                            outcome.errorMessage());
+                            "Validation hook failed for extraction field {} {} {} {}",
+                            kv("workspaceId", workspaceId),
+                            kv("hookKey", field.validationHook()),
+                            kv("field", key),
+                            kv("error", outcome.errorMessage()));
                     rejections.add(
                             new RejectedExtraction(
                                     key,

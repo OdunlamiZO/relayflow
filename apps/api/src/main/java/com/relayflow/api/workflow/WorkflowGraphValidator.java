@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,7 +32,10 @@ public class WorkflowGraphValidator {
         List<Map<String, Object>> nodes = parseNodes(graph);
         List<Map<String, Object>> edges = parseEdges(graph);
 
-        log.debug("Validating workflow graph: {} node(s), {} edge(s)", nodes.size(), edges.size());
+        log.debug(
+                "Validating workflow graph {} {}",
+                kv("nodeCount", nodes.size()),
+                kv("edgeCount", edges.size()));
 
         List<Map<String, Object>> triggerNodes =
                 nodes.stream()
@@ -130,7 +135,7 @@ public class WorkflowGraphValidator {
             }
         }
 
-        log.debug("Workflow graph validation passed: {} node(s)", nodes.size());
+        log.debug("Workflow graph validation passed {}", kv("nodeCount", nodes.size()));
     }
 
     private void validateConditionBranches(

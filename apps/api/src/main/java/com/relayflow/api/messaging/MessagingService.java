@@ -1,5 +1,7 @@
 package com.relayflow.api.messaging;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.repository.ConversationAiDraftRepository;
 import com.relayflow.api.channel.ChannelAccountService;
 import com.relayflow.api.channel.domain.ChannelAccount;
@@ -283,9 +285,9 @@ public class MessagingService {
 
         if (message.getDirection() == MessageDirection.OUTBOUND) {
             log.debug(
-                    "Publishing outbound event: messageId={}, conversationId={}",
-                    message.getId(),
-                    conversationId);
+                    "Publishing outbound message event {} {}",
+                    kv("conversationId", conversationId),
+                    kv("messageId", message.getId()));
 
             eventPublisher.publishEvent(
                     new OutboundMessageEvent(message, conversation.getChannelAccount()));

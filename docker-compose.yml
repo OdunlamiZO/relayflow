@@ -147,6 +147,7 @@ services:
       DATABASE_USERNAME: ${POSTGRES_USER:-relayflow}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-}
       REDIS_URL: redis://redis:6379
+      LOG_FORMAT: ${LOG_FORMAT:-json}
     depends_on:
       postgres:
         condition: service_healthy

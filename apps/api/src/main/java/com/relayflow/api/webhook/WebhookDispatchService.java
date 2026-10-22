@@ -1,5 +1,7 @@
 package com.relayflow.api.webhook;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.security.CredentialEncryptionService;
 import com.relayflow.api.webhook.domain.WebhookEventType;
@@ -67,11 +69,11 @@ public class WebhookDispatchService {
 
     private void deliver(WorkspaceWebhook webhook, WebhookEventType eventType, Object data) {
         if (!urlValidator.isSafe(webhook.getUrl())) {
-            log.error(
-                    "Webhook delivery skipped — URL no longer resolves to a public address:"
-                            + " event={}, workspace={}",
-                    eventType,
-                    webhook.getWorkspaceId());
+            log.warn(
+                    "Webhook delivery skipped, URL no longer resolves to a public address {} {} {}",
+                    kv("workspaceId", webhook.getWorkspaceId()),
+                    kv("webhookId", webhook.getId()),
+                    kv("eventType", eventType));
 
             return;
         }
@@ -87,7 +89,12 @@ public class WebhookDispatchService {
                                     "workspaceId", webhook.getWorkspaceId().toString(),
                                     "data", data));
         } catch (Exception exception) {
-            log.error("Failed to serialise webhook payload for event={}", eventType, exception);
+            log.error(
+                    "Webhook payload serialization failed {} {} {}",
+                    kv("workspaceId", webhook.getWorkspaceId()),
+                    kv("webhookId", webhook.getId()),
+                    kv("eventType", eventType),
+                    exception);
 
             return;
         }
@@ -113,29 +120,32 @@ public class WebhookDispatchService {
 
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
                     log.debug(
-                            "Webhook delivered: event={}, workspace={}, status={}",
-                            eventType,
-                            webhook.getWorkspaceId(),
-                            response.statusCode());
+                            "Webhook delivered {} {} {} {}",
+                            kv("workspaceId", webhook.getWorkspaceId()),
+                            kv("webhookId", webhook.getId()),
+                            kv("eventType", eventType),
+                            kv("statusCode", response.statusCode()));
 
                     return;
                 }
 
                 log.warn(
-                        "Webhook rejected: event={}, workspace={}, status={}, attempt={}/{}",
-                        eventType,
-                        webhook.getWorkspaceId(),
-                        response.statusCode(),
-                        attempt + 1,
-                        RETRY_DELAYS_SECONDS.length + 1);
+                        "Webhook delivery rejected {} {} {} {} {} {}",
+                        kv("workspaceId", webhook.getWorkspaceId()),
+                        kv("webhookId", webhook.getId()),
+                        kv("eventType", eventType),
+                        kv("statusCode", response.statusCode()),
+                        kv("attempt", attempt + 1),
+                        kv("maxAttempts", RETRY_DELAYS_SECONDS.length + 1));
             } catch (Exception exception) {
                 log.warn(
-                        "Webhook delivery failed: event={}, workspace={}, attempt={}/{}: {}",
-                        eventType,
-                        webhook.getWorkspaceId(),
-                        attempt + 1,
-                        RETRY_DELAYS_SECONDS.length + 1,
-                        exception.getMessage());
+                        "Webhook delivery failed {} {} {} {} {} {}",
+                        kv("workspaceId", webhook.getWorkspaceId()),
+                        kv("webhookId", webhook.getId()),
+                        kv("eventType", eventType),
+                        kv("attempt", attempt + 1),
+                        kv("maxAttempts", RETRY_DELAYS_SECONDS.length + 1),
+                        kv("error", String.valueOf(exception)));
             }
 
             if (attempt < RETRY_DELAYS_SECONDS.length) {
@@ -150,9 +160,10 @@ public class WebhookDispatchService {
         }
 
         log.error(
-                "Webhook delivery exhausted all retries: event={}, workspace={}",
-                eventType,
-                webhook.getWorkspaceId());
+                "Webhook delivery retries exhausted {} {} {}",
+                kv("workspaceId", webhook.getWorkspaceId()),
+                kv("webhookId", webhook.getId()),
+                kv("eventType", eventType));
     }
 
     private static String sign(String secret, String payload) {

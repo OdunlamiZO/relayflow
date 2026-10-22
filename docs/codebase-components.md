@@ -36,6 +36,12 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`ApiKeyAuthentication`](#apikeyauthentication)
   - [`ApiKeyAuthenticationFilter`](#apikeyauthenticationfilter)
   - [`AsyncConfiguration`](#asyncconfiguration)
+  - [`LoggingConfiguration`](#loggingconfiguration)
+  - [`RequestIdFilter`](#requestidfilter)
+  - [`RequestIdTaskDecorator`](#requestidtaskdecorator)
+  - [`LogfmtLayout`](#logfmtlayout)
+  - [`GelfJsonProvider`](#gelfjsonprovider)
+  - [`StructuredLogEvents`](#structuredlogevents)
 - [Common Backend](#common-backend)
   - [`ResourceNotFoundException`](#resourcenotfoundexception)
   - [`PageResponse`](#pageresponse)
@@ -610,6 +616,42 @@ Important executors:
 - `webhookExecutor` for outbound webhook delivery.
 
 We need it so workflow execution and webhook delivery do not block inbound HTTP/webhook request handling.
+
+### `LoggingConfiguration`
+
+Registers `RequestIdFilter` ahead of every other servlet filter and fails startup when `LOG_FORMAT` is not `text`, `json`, `ecs`, `gelf`, or `logfmt`. `logback-spring.xml` defines one console appender per format: `text` uses the standard Spring Boot console pattern, `json` uses `LogstashEncoder` with Datadog field names, `ecs` uses `LoggingEventCompositeJsonEncoder` with Elastic Common Schema field names, `gelf` uses `GelfJsonProvider`, and `logfmt` uses `LogfmtLayout`.
+
+We need it so self-hosted deployments can ship structured logs to Datadog or any other log agent.
+
+### `RequestIdFilter`
+
+Puts a `requestId` into the logging MDC for the duration of each HTTP request and returns it in the `X-Request-Id` response header. Reuses a well-formed incoming `X-Request-Id` (letters, digits, `.`, `_`, `-`, up to 128 characters) and generates a UUID otherwise.
+
+We need it to tie together every log line written while handling one request.
+
+### `RequestIdTaskDecorator`
+
+Copies the submitting thread's `requestId` into tasks run on the async executor.
+
+We need it so logs from `@Async` listeners and webhook delivery carry the request that triggered them.
+
+### `LogfmtLayout`
+
+Writes each log event as one line of `key=value` pairs: `timestamp`, `level`, `logger`, `thread`, `msg`, MDC entries, structured arguments, and `error.kind` / `error.message` / `error.stack` for exceptions. Values containing spaces, `=`, `"` or control characters are quoted and escaped.
+
+We need it for `LOG_FORMAT=logfmt`.
+
+### `GelfJsonProvider`
+
+Writes each log event as a GELF 1.1 object: `version`, `host`, `short_message`, `full_message` (stack trace), `timestamp` in epoch seconds, syslog `level`, and `_`-prefixed additional fields for the logger, thread, MDC entries, structured arguments and exception.
+
+We need it for `LOG_FORMAT=gelf`.
+
+### `StructuredLogEvents`
+
+Extracts the `kv(...)` structured arguments from a log event and strips their placeholders from the message template.
+
+We need it so `LogfmtLayout` and `GelfJsonProvider` can write key/value pairs as fields and keep the message free of them.
 
 ## Common Backend
 

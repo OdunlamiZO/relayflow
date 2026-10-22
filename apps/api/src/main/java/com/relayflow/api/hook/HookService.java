@@ -1,5 +1,7 @@
 package com.relayflow.api.hook;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.hook.domain.BuiltInHook;
 import com.relayflow.api.hook.domain.Hook;
 import com.relayflow.api.hook.domain.HookOutcome;
@@ -67,11 +69,7 @@ public class HookService {
 
         save(hook);
 
-        log.info(
-                "Hook created: id={}, name={}, workspace={}",
-                hook.getId(),
-                hook.getName(),
-                workspaceId);
+        log.info("Hook created {} {}", kv("workspaceId", workspaceId), kv("hookId", hook.getId()));
 
         return toResponse(hook);
     }
@@ -85,7 +83,7 @@ public class HookService {
 
         save(hook);
 
-        log.info("Hook updated: id={}, workspace={}", hookId, workspaceId);
+        log.info("Hook updated {} {}", kv("workspaceId", workspaceId), kv("hookId", hookId));
 
         return toResponse(hook);
     }
@@ -110,7 +108,7 @@ public class HookService {
 
         hookRepository.delete(hook);
 
-        log.info("Hook deleted: id={}, workspace={}", hookId, workspaceId);
+        log.info("Hook deleted {} {}", kv("workspaceId", workspaceId), kv("hookId", hookId));
     }
 
     public TestHookResponse testHook(TestHookRequest request) {

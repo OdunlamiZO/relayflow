@@ -1,5 +1,7 @@
 package com.relayflow.api.telegram;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.common.dto.ErrorResponse;
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -19,7 +21,7 @@ public class TelegramExceptionHandler {
 
     @ExceptionHandler(TelegramSendException.class)
     ResponseEntity<ErrorResponse> telegramSendFailed(TelegramSendException exception) {
-        log.warn("Telegram delivery failed: {}", exception.getMessage());
+        log.warn("Telegram delivery failed {}", kv("reason", exception.getMessage()));
 
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));

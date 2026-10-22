@@ -1,5 +1,7 @@
 package com.relayflow.api.agent;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -34,7 +36,7 @@ public class AiAgentInvocationCleanupScheduler {
         int deleted = invocationLogRepository.deleteByStartedAtBefore(cutoff);
 
         if (deleted > 0) {
-            log.info("Cleaned up {} expired AI agent invocation log(s)", deleted);
+            log.info("Expired AI agent invocation logs deleted {}", kv("count", deleted));
         }
     }
 }

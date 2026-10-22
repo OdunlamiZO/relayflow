@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow.engine.executor;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -141,8 +143,9 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                     }
                 } catch (Exception exception) {
                     log.warn(
-                            "Could not parse response body as JSON for mapping: {}",
-                            exception.getMessage());
+                            "HTTP response body is not JSON, response mapping skipped {} {}",
+                            kv("nodeId", node.id()),
+                            kv("error", exception.getMessage()));
                 }
             }
 
@@ -161,7 +164,10 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                     exception.getMessage() != null
                             ? exception.getMessage()
                             : exception.getClass().getSimpleName();
-            log.warn("HTTP request failed for node {}: {}", node.id(), errorMessage);
+            log.warn(
+                    "HTTP request node failed {} {}",
+                    kv("nodeId", node.id()),
+                    kv("error", errorMessage));
 
             context.setVariable("error.message", errorMessage);
             output.put("error", errorMessage);

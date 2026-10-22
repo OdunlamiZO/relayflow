@@ -1,5 +1,7 @@
 package com.relayflow.api.authentication;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.authentication.domain.AuthenticationProvider;
 import com.relayflow.api.authentication.domain.PasswordResetToken;
 import com.relayflow.api.authentication.domain.User;
@@ -78,7 +80,7 @@ public class PasswordResetService {
 
         emailService.sendPasswordReset(user.getEmail(), user.getDisplayName(), resetUrl);
 
-        log.info("Password reset link issued: userId={}", userId);
+        log.info("Password reset link issued {}", kv("userId", userId));
     }
 
     @Transactional
@@ -121,6 +123,6 @@ public class PasswordResetService {
         resetToken.setUsedAt(Instant.now());
         tokenRepository.save(resetToken);
 
-        log.info("Password reset via token: userId={}", user.getId());
+        log.info("Password reset completed {}", kv("userId", user.getId()));
     }
 }

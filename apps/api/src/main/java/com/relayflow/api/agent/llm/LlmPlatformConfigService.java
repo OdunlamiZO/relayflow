@@ -1,5 +1,7 @@
 package com.relayflow.api.agent.llm;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -27,7 +29,9 @@ public class LlmPlatformConfigService {
             }
         } catch (Exception exception) {
             log.warn(
-                    "Failed to read Redis key={} — using default: {}", key, exception.getMessage());
+                    "Redis read failed, using default {} {}",
+                    kv("key", key),
+                    kv("error", exception.getMessage()));
         }
 
         return defaultValue;
@@ -42,14 +46,14 @@ public class LlmPlatformConfigService {
             }
         } catch (IllegalArgumentException exception) {
             log.warn(
-                    "Unknown LLM provider value in Redis (key={}) — defaulting to ANTHROPIC: {}",
-                    PROVIDER_KEY,
-                    exception.getMessage());
+                    "Unknown LLM provider in Redis, defaulting to ANTHROPIC {} {}",
+                    kv("key", PROVIDER_KEY),
+                    kv("error", exception.getMessage()));
         } catch (Exception exception) {
             log.warn(
-                    "Failed to read LLM provider from Redis (key={}) — defaulting to ANTHROPIC: {}",
-                    PROVIDER_KEY,
-                    exception.getMessage());
+                    "Redis read failed, defaulting LLM provider to ANTHROPIC {} {}",
+                    kv("key", PROVIDER_KEY),
+                    kv("error", exception.getMessage()));
         }
 
         return LlmProvider.ANTHROPIC;

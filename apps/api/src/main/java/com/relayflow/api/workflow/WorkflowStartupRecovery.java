@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.workflow.domain.WorkflowRun;
 import com.relayflow.api.workflow.domain.WorkflowRunStatus;
 import com.relayflow.api.workflow.engine.WorkflowEngineService;
@@ -43,8 +45,8 @@ public class WorkflowStartupRecovery {
 
         if (!interruptedRunIds.isEmpty()) {
             log.warn(
-                    "Recovered {} workflow run(s) interrupted by previous crash",
-                    interruptedRunIds.size());
+                    "Interrupted workflow runs recovered {}",
+                    kv("count", interruptedRunIds.size()));
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.common.dto.ErrorResponse;
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -18,7 +20,7 @@ public class WorkflowExceptionHandler {
 
     @ExceptionHandler(WorkflowValidationException.class)
     ResponseEntity<ErrorResponse> workflowValidation(WorkflowValidationException exception) {
-        log.warn("Workflow validation failed: {}", exception.getMessage());
+        log.info("Workflow validation failed {}", kv("reason", exception.getMessage()));
 
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));

@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow.engine;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.agent.repository.AiAgentInvocationLogRepository;
 import com.relayflow.api.workflow.NodeType;
 import com.relayflow.api.workflow.domain.WorkflowDefinition;
@@ -43,8 +45,8 @@ public class WorkflowTriggerListener {
 
         if (aiAgentInvocationLogRepository.existsActiveForConversation(conversation.getId())) {
             log.debug(
-                    "Skipping workflow trigger for conversation={} — AI agent is already active",
-                    conversation.getId());
+                    "Workflow trigger skipped, AI agent is active {}",
+                    kv("conversationId", conversation.getId()));
 
             return;
         }
@@ -62,10 +64,11 @@ public class WorkflowTriggerListener {
         }
 
         log.info(
-                "Triggering {} conversation_opened workflow(s) for conversation={} workspace={}",
-                workflows.size(),
-                conversation.getId(),
-                workspaceId);
+                "Triggering workflows {} {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("conversationId", conversation.getId()),
+                kv("trigger", "conversation_opened"),
+                kv("count", workflows.size()));
 
         for (WorkflowDefinition workflow : workflows) {
             try {
@@ -73,10 +76,9 @@ public class WorkflowTriggerListener {
                         workflow, conversation, event.triggeringMessage());
             } catch (Exception exception) {
                 log.error(
-                        "Uncaught exception running workflow={} for conversation={}: {}",
-                        workflow.getId(),
-                        conversation.getId(),
-                        exception.getMessage(),
+                        "Workflow execution failed {} {}",
+                        kv("workflowId", workflow.getId()),
+                        kv("conversationId", conversation.getId()),
                         exception);
             }
         }

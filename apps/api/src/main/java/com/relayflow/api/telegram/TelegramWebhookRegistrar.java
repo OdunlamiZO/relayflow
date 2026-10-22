@@ -1,5 +1,7 @@
 package com.relayflow.api.telegram;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -37,16 +39,16 @@ public class TelegramWebhookRegistrar {
             restTemplate.postForObject(
                     url, Map.of("url", webhookUrl, "secret_token", secretToken), String.class);
             log.info(
-                    "Registered Telegram webhook: channelAccountId={}, url={}",
-                    channelAccountId,
-                    webhookUrl);
+                    "Telegram webhook registered {} {}",
+                    kv("channelAccountId", channelAccountId),
+                    kv("webhookUrl", webhookUrl));
 
             return secretToken;
         } catch (Exception exception) {
             log.error(
-                    "Failed to register Telegram webhook for channel account {}: {}",
-                    channelAccountId,
-                    exception.getMessage());
+                    "Telegram webhook registration failed {} {}",
+                    kv("channelAccountId", channelAccountId),
+                    kv("error", TelegramFailures.describe(exception)));
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,

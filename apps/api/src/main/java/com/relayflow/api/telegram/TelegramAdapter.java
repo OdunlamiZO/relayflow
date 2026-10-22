@@ -1,5 +1,7 @@
 package com.relayflow.api.telegram;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.api.channel.domain.ChannelAccount;
@@ -144,17 +146,17 @@ public class TelegramAdapter {
 
         if (channelAccount.getProvider() != ChannelProvider.TELEGRAM) {
             log.warn(
-                    "Channel account {} is not a Telegram account — ignoring update",
-                    channelAccountId);
+                    "Telegram update ignored, channel account is not a Telegram account {}",
+                    kv("channelAccountId", channelAccountId));
 
             return;
         }
 
         if (channelAccount.getStatus() != ChannelAccountStatus.ACTIVE) {
             log.debug(
-                    "Channel account {} is not active (status={}) — ignoring update",
-                    channelAccountId,
-                    channelAccount.getStatus());
+                    "Telegram update ignored, channel account is not active {} {}",
+                    kv("channelAccountId", channelAccountId),
+                    kv("status", channelAccount.getStatus()));
 
             return;
         }
@@ -191,8 +193,8 @@ public class TelegramAdapter {
 
         if (botToken == null || botToken.isBlank()) {
             log.warn(
-                    "No bot token configured for Telegram channel account {} — skipping relay",
-                    channelAccount.getId());
+                    "Telegram relay skipped, no bot token configured {}",
+                    kv("channelAccountId", channelAccount.getId()));
 
             return;
         }
@@ -289,10 +291,11 @@ public class TelegramAdapter {
         conversationRepository.save(conversation);
 
         log.info(
-                "Inbound message saved — workspace={} conversation={} from={}",
-                workspaceId,
-                conversation.getId(),
-                contact.getDisplayName());
+                "Inbound message saved {} {} {} {}",
+                kv("workspaceId", workspaceId),
+                kv("conversationId", conversation.getId()),
+                kv("contactId", contact.getId()),
+                kv("provider", ChannelProvider.TELEGRAM));
 
         if (triggersWorkflow) {
             eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, inboundMessage));
@@ -346,26 +349,22 @@ public class TelegramAdapter {
             body.put("reply_markup", replyMarkup);
         }
 
-        Exception lastException = null;
-
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 restTemplate.postForObject(url, body, String.class);
 
                 return;
             } catch (Exception exception) {
-                lastException = exception;
                 log.warn(
-                        "Telegram send attempt {}/2 to chat {} failed: {}",
-                        attempt,
-                        chatId,
-                        exception.getMessage());
+                        "Telegram send attempt failed {} {} {}",
+                        kv("attempt", attempt),
+                        kv("maxAttempts", 2),
+                        kv("error", TelegramFailures.describe(exception)));
             }
         }
 
         throw new TelegramSendException(
-                "Message failed to send — could not reach Telegram after 2 attempts",
-                lastException);
+                "Message failed to send — could not reach Telegram after 2 attempts", null);
     }
 
     private void sendTelegramMessageQuietly(String botToken, String chatId, String text) {
@@ -377,10 +376,7 @@ public class TelegramAdapter {
         try {
             sendTelegramMessage(botToken, chatId, text, replyMarkup);
         } catch (TelegramSendException exception) {
-            log.warn(
-                    "Bot reply to chat {} could not be delivered (non-fatal): {}",
-                    chatId,
-                    exception.getMessage());
+            log.warn("Telegram bot reply not delivered {}", kv("error", exception.getMessage()));
         }
     }
 

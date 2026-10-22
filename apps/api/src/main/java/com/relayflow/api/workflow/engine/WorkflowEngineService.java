@@ -1,5 +1,7 @@
 package com.relayflow.api.workflow.engine;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.contact.repository.ExternalIdentityRepository;
 import com.relayflow.api.messaging.domain.Conversation;
 import com.relayflow.api.messaging.domain.Message;
@@ -93,21 +95,21 @@ public class WorkflowEngineService {
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void resumeWorkflow(UUID runId, Message replyMessage) {
-        log.info("Resuming workflow run: runId={}", runId);
+        log.info("Resuming workflow run {}", kv("workflowRunId", runId));
 
         WorkflowRun run = runRepository.findWithDefinitionById(runId).orElse(null);
 
         if (run == null) {
-            log.error("Cannot resume: workflow run {} not found", runId);
+            log.error("Workflow run not found, cannot resume {}", kv("workflowRunId", runId));
 
             return;
         }
 
         if (run.getStatus() != WorkflowRunStatus.WAITING) {
             log.warn(
-                    "Workflow run {} is not WAITING (status={}) — skipping resume",
-                    runId,
-                    run.getStatus());
+                    "Workflow run resume skipped, run is not waiting {} {}",
+                    kv("workflowRunId", runId),
+                    kv("status", run.getStatus()));
 
             return;
         }
@@ -115,7 +117,7 @@ public class WorkflowEngineService {
         String waitingNodeId = run.getWaitingAtNodeId();
 
         if (waitingNodeId == null) {
-            log.error("Workflow run {} is WAITING but has no waitingAtNodeId", runId);
+            log.error("Waiting workflow run has no waiting node {}", kv("workflowRunId", runId));
             run.setStatus(WorkflowRunStatus.FAILED);
             run.setFinishedAt(Instant.now());
             run.setErrorMessage("Run was WAITING with no waitingAtNodeId");
@@ -133,7 +135,10 @@ public class WorkflowEngineService {
         GraphNode waitingNode = nodeMap.get(waitingNodeId);
 
         if (waitingNode == null) {
-            log.error("Waiting node {} not found in graph for run {}", waitingNodeId, runId);
+            log.error(
+                    "Waiting node not found in workflow graph {} {}",
+                    kv("workflowRunId", runId),
+                    kv("nodeId", waitingNodeId));
             run.setStatus(WorkflowRunStatus.FAILED);
             run.setFinishedAt(Instant.now());
             run.setErrorMessage("Waiting node not found: " + waitingNodeId);
@@ -176,9 +181,9 @@ public class WorkflowEngineService {
                 runRepository.save(run);
 
                 log.info(
-                        "Reply rejected by validation hook, asking again: runId={}, attempt={}",
-                        runId,
-                        run.getReplyAttempts());
+                        "Reply rejected by validation hook, asking again {} {}",
+                        kv("workflowRunId", runId),
+                        kv("attempt", run.getReplyAttempts()));
 
                 return;
             }
@@ -204,9 +209,9 @@ public class WorkflowEngineService {
             runRepository.save(run);
 
             log.info(
-                    "Resumed workflow run {}: runId={}",
-                    run.getStatus().toString().toLowerCase(),
-                    runId);
+                    "Workflow run resumed {} {}",
+                    kv("workflowRunId", runId),
+                    kv("status", run.getStatus()));
         } catch (Exception exception) {
             run.setStatus(WorkflowRunStatus.FAILED);
             run.setFinishedAt(Instant.now());
@@ -218,11 +223,7 @@ public class WorkflowEngineService {
 
             setConversationLock(conversationId, false);
 
-            log.error(
-                    "Resumed workflow run failed: runId={}, error={}",
-                    runId,
-                    exception.getMessage(),
-                    exception);
+            log.error("Resumed workflow run failed {}", kv("workflowRunId", runId), exception);
         }
     }
 
@@ -296,19 +297,15 @@ public class WorkflowEngineService {
         } catch (Exception exception) {
             failRun(run, exception.getMessage());
 
-            log.error(
-                    "Timed-out workflow run failed: runId={}, error={}",
-                    runId,
-                    exception.getMessage(),
-                    exception);
+            log.error("Timed-out workflow run failed {}", kv("workflowRunId", runId), exception);
 
             return;
         }
 
         log.info(
-                "Workflow run got no reply, {}: runId={}",
-                run.getStatus().toString().toLowerCase(),
-                runId);
+                "Workflow run reply timed out {} {}",
+                kv("workflowRunId", runId),
+                kv("status", run.getStatus()));
     }
 
     private void failRun(WorkflowRun run, String errorMessage) {
@@ -344,7 +341,7 @@ public class WorkflowEngineService {
 
         setConversationLock(run.getConversation().getId(), false);
 
-        log.warn("Workflow run interrupted by server shutdown: runId={}", runId);
+        log.warn("Workflow run interrupted by server shutdown {}", kv("workflowRunId", runId));
     }
 
     private void executeWorkflowInternal(
@@ -353,15 +350,15 @@ public class WorkflowEngineService {
             Message triggeringMessage,
             Map<String, String> additionalVariables) {
         if (!definition.isEnabled()) {
-            log.info("Skipping unpublished workflow: workflow={}", definition.getId());
+            log.debug("Unpublished workflow skipped {}", kv("workflowId", definition.getId()));
 
             return;
         }
 
         log.info(
-                "Starting workflow run: workflow={}, conversation={}",
-                definition.getId(),
-                conversation.getId());
+                "Starting workflow run {} {}",
+                kv("workflowId", definition.getId()),
+                kv("conversationId", conversation.getId()));
 
         // Re-fetched because the conversation may be detached after an @Async boundary.
         conversation = conversationRepository.findById(conversation.getId()).orElse(conversation);
@@ -376,7 +373,7 @@ public class WorkflowEngineService {
                         .orElse(null);
 
         if (triggerNode == null) {
-            log.warn("Workflow {} has no trigger node — skipping", definition.getId());
+            log.warn("Workflow skipped, no trigger node {}", kv("workflowId", definition.getId()));
 
             return;
         }
@@ -411,9 +408,9 @@ public class WorkflowEngineService {
             runRepository.save(run);
 
             log.info(
-                    "Workflow run {}: runId={}",
-                    run.getStatus().toString().toLowerCase(),
-                    run.getId());
+                    "Workflow run executed {} {}",
+                    kv("workflowRunId", run.getId()),
+                    kv("status", run.getStatus()));
         } catch (Exception exception) {
             run.setStatus(WorkflowRunStatus.FAILED);
             run.setFinishedAt(Instant.now());
@@ -422,11 +419,7 @@ public class WorkflowEngineService {
 
             setConversationLock(conversation.getId(), false);
 
-            log.error(
-                    "Workflow run failed: runId={}, error={}",
-                    run.getId(),
-                    exception.getMessage(),
-                    exception);
+            log.error("Workflow run failed {}", kv("workflowRunId", run.getId()), exception);
         }
     }
 
@@ -459,7 +452,11 @@ public class WorkflowEngineService {
         NodeExecutor executor = nodeType != null ? executors.get(nodeType) : null;
 
         if (executor == null) {
-            log.warn("No executor found for node type '{}' — skipping", node.type());
+            log.warn(
+                    "Workflow node skipped, no executor for node type {} {} {}",
+                    kv("workflowRunId", run.getId()),
+                    kv("nodeId", node.id()),
+                    kv("nodeType", node.type()));
 
             return null;
         }
@@ -474,10 +471,10 @@ public class WorkflowEngineService {
             run.getSteps().add(step);
 
             log.debug(
-                    "Node executed: runId={}, nodeId={}, type={}",
-                    run.getId(),
-                    node.id(),
-                    node.type());
+                    "Workflow node executed {} {} {}",
+                    kv("workflowRunId", run.getId()),
+                    kv("nodeId", node.id()),
+                    kv("nodeType", node.type()));
 
             if (result.waiting()) {
                 run.setStatus(WorkflowRunStatus.WAITING);
@@ -486,9 +483,9 @@ public class WorkflowEngineService {
                 run.setExpiresAt(Instant.now().plusSeconds(result.timeoutSeconds()));
 
                 log.debug(
-                        "Workflow run paused waiting for reply: runId={}, nodeId={}",
-                        run.getId(),
-                        node.id());
+                        "Workflow run waiting for reply {} {}",
+                        kv("workflowRunId", run.getId()),
+                        kv("nodeId", node.id()));
 
                 return null;
             }
@@ -504,10 +501,10 @@ public class WorkflowEngineService {
                 }
 
                 log.debug(
-                        "Jump taken: runId={}, from={}, to={}",
-                        run.getId(),
-                        node.id(),
-                        result.jumpToNodeId());
+                        "Workflow jump taken {} {} {}",
+                        kv("workflowRunId", run.getId()),
+                        kv("fromNodeId", node.id()),
+                        kv("toNodeId", result.jumpToNodeId()));
 
                 return jumpTarget;
             }

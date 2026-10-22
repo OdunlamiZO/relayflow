@@ -1,5 +1,7 @@
 package com.relayflow.api.email;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import jakarta.mail.internet.MimeMessage;
 import java.util.Properties;
 import org.slf4j.Logger;
@@ -55,10 +57,9 @@ public class SmtpEmailService implements EmailService {
     public void sendInvite(String to, String inviterName, String workspaceName, String acceptUrl) {
         if (host.isBlank()) {
             log.info(
-                    "[no-op email] Invite for {} to workspace '{}' — accept: {}",
-                    to,
-                    workspaceName,
-                    acceptUrl);
+                    "SMTP not configured, email not sent {} {}",
+                    kv("emailType", "invite"),
+                    kv("link", acceptUrl));
 
             return;
         }
@@ -68,16 +69,19 @@ public class SmtpEmailService implements EmailService {
 
         try {
             send(to, subject, html);
-            log.info("Invite email sent to {}", to);
+            log.info("Email sent {}", kv("emailType", "invite"));
         } catch (Exception exception) {
-            log.error("Failed to send invite email to {}: {}", to, exception.getMessage());
+            log.error("Email delivery failed {}", kv("emailType", "invite"), exception);
         }
     }
 
     @Override
     public void sendEmailVerification(String to, String name, String verifyUrl) {
         if (host.isBlank()) {
-            log.info("[no-op email] Verify email for {} — link: {}", to, verifyUrl);
+            log.info(
+                    "SMTP not configured, email not sent {} {}",
+                    kv("emailType", "email_verification"),
+                    kv("link", verifyUrl));
 
             return;
         }
@@ -87,16 +91,19 @@ public class SmtpEmailService implements EmailService {
 
         try {
             send(to, subject, html);
-            log.info("Verification email sent to {}", to);
+            log.info("Email sent {}", kv("emailType", "email_verification"));
         } catch (Exception exception) {
-            log.error("Failed to send verification email to {}: {}", to, exception.getMessage());
+            log.error("Email delivery failed {}", kv("emailType", "email_verification"), exception);
         }
     }
 
     @Override
     public void sendPasswordReset(String to, String name, String resetUrl) {
         if (host.isBlank()) {
-            log.info("[no-op email] Password reset for {} — link: {}", to, resetUrl);
+            log.info(
+                    "SMTP not configured, email not sent {} {}",
+                    kv("emailType", "password_reset"),
+                    kv("link", resetUrl));
 
             return;
         }
@@ -106,9 +113,9 @@ public class SmtpEmailService implements EmailService {
 
         try {
             send(to, subject, html);
-            log.info("Password reset email sent to {}", to);
+            log.info("Email sent {}", kv("emailType", "password_reset"));
         } catch (Exception exception) {
-            log.error("Failed to send password reset email to {}: {}", to, exception.getMessage());
+            log.error("Email delivery failed {}", kv("emailType", "password_reset"), exception);
         }
     }
 
@@ -117,11 +124,10 @@ public class SmtpEmailService implements EmailService {
             String to, String workspaceName, int lockedChannels, int lockedWorkflows) {
         if (host.isBlank()) {
             log.info(
-                    "[no-op email] Downgrade notice for {} — workspace='{}', lockedChannels={}, lockedWorkflows={}",
-                    to,
-                    workspaceName,
-                    lockedChannels,
-                    lockedWorkflows);
+                    "SMTP not configured, email not sent {} {} {}",
+                    kv("emailType", "downgrade_notice"),
+                    kv("lockedChannels", lockedChannels),
+                    kv("lockedWorkflows", lockedWorkflows));
 
             return;
         }
@@ -131,9 +137,9 @@ public class SmtpEmailService implements EmailService {
 
         try {
             send(to, subject, html);
-            log.info("Downgrade notice sent to {}", to);
+            log.info("Email sent {}", kv("emailType", "downgrade_notice"));
         } catch (Exception exception) {
-            log.error("Failed to send downgrade notice to {}: {}", to, exception.getMessage());
+            log.error("Email delivery failed {}", kv("emailType", "downgrade_notice"), exception);
         }
     }
 

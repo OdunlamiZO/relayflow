@@ -1,5 +1,7 @@
 package com.relayflow.api.common;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.relayflow.api.common.dto.ErrorResponse;
 import java.time.Instant;
 import java.util.stream.Collectors;
@@ -26,7 +28,7 @@ public class CommonExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     ResponseEntity<ErrorResponse> notFound(ResourceNotFoundException exception) {
-        log.debug("Resource not found: {}", exception.getMessage());
+        log.debug("Resource not found {}", kv("reason", exception.getMessage()));
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
@@ -34,7 +36,10 @@ public class CommonExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<ErrorResponse> illegalArgument(IllegalArgumentException exception) {
-        log.warn("Illegal argument: {}", exception.getMessage());
+        log.info(
+                "Request rejected {} {}",
+                kv("statusCode", HttpStatus.CONFLICT.value()),
+                kv("reason", exception.getMessage()));
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
@@ -42,8 +47,6 @@ public class CommonExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ErrorResponse> validation(MethodArgumentNotValidException exception) {
-        log.warn("Request validation failed: {}", exception.getMessage());
-
         String message =
                 exception.getBindingResult().getFieldErrors().stream()
                         .map(
@@ -52,6 +55,11 @@ public class CommonExceptionHandler {
                                                 + ": "
                                                 + fieldError.getDefaultMessage())
                         .collect(Collectors.joining("; "));
+
+        log.info(
+                "Request rejected {} {}",
+                kv("statusCode", HttpStatus.BAD_REQUEST.value()),
+                kv("reason", message));
 
         return ResponseEntity.badRequest()
                 .body(
@@ -63,7 +71,10 @@ public class CommonExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     ResponseEntity<ErrorResponse> missingParameter(
             MissingServletRequestParameterException exception) {
-        log.warn("Missing request parameter: {}", exception.getMessage());
+        log.info(
+                "Request rejected {} {}",
+                kv("statusCode", HttpStatus.BAD_REQUEST.value()),
+                kv("reason", exception.getMessage()));
 
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
@@ -71,7 +82,10 @@ public class CommonExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ErrorResponse> accessDenied(AccessDeniedException exception) {
-        log.warn("Request rejected: {}", exception.getMessage());
+        log.warn(
+                "Request rejected {} {}",
+                kv("statusCode", HttpStatus.FORBIDDEN.value()),
+                kv("reason", exception.getMessage()));
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ErrorResponse(exception.getMessage(), Instant.now()));
@@ -79,7 +93,10 @@ public class CommonExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<ErrorResponse> responseStatus(ResponseStatusException exception) {
-        log.warn("Request rejected: {}", exception.getReason());
+        log.info(
+                "Request rejected {} {}",
+                kv("statusCode", exception.getStatusCode().value()),
+                kv("reason", exception.getReason()));
 
         return ResponseEntity.status(exception.getStatusCode())
                 .body(new ErrorResponse(exception.getReason(), Instant.now()));
