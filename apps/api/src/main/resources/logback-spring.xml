@@ -38,7 +38,7 @@
 
     <appender name="logfmt" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
-            <layout class="com.relayflow.api.logging.LogfmtLayout"/>
+            <layout class="io.odunlamizo.relayflow.logging.LogfmtLayout"/>
             <charset>UTF-8</charset>
         </encoder>
     </appender>
@@ -82,7 +82,7 @@
     <appender name="gelf" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
             <providers>
-                <provider class="com.relayflow.api.logging.GelfJsonProvider"/>
+                <provider class="io.odunlamizo.relayflow.logging.GelfJsonProvider"/>
             </providers>
         </encoder>
     </appender>

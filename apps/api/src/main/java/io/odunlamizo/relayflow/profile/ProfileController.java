@@ -1,0 +1,70 @@
+package io.odunlamizo.relayflow.profile;
+
+import io.odunlamizo.relayflow.authentication.SecurityUtils;
+import io.odunlamizo.relayflow.profile.dto.OtpRequest;
+import io.odunlamizo.relayflow.profile.dto.ProfileResponse;
+import io.odunlamizo.relayflow.profile.dto.Setup2FAResponse;
+import io.odunlamizo.relayflow.profile.dto.UpdateProfileRequest;
+import jakarta.validation.Valid;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/profile")
+public class ProfileController {
+
+    private final ProfileService profileService;
+
+    private final SecurityUtils securityUtils;
+
+    public ProfileController(ProfileService profileService, SecurityUtils securityUtils) {
+        this.profileService = profileService;
+        this.securityUtils = securityUtils;
+    }
+
+    @GetMapping
+    ProfileResponse getProfile(Authentication authentication) {
+        return profileService.getProfile(currentUserId(authentication));
+    }
+
+    @PatchMapping
+    ProfileResponse updateProfile(
+            @Valid @RequestBody UpdateProfileRequest request, Authentication authentication) {
+        return profileService.updateProfile(currentUserId(authentication), request);
+    }
+
+    @PostMapping("/request-password-reset")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void requestPasswordReset(Authentication authentication) {
+        profileService.requestPasswordReset(currentUserId(authentication));
+    }
+
+    @PostMapping("/2fa/setup")
+    Setup2FAResponse setup2FA(Authentication authentication) {
+        return profileService.setup2FA(currentUserId(authentication));
+    }
+
+    @PostMapping("/2fa/enable")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void enable2FA(@Valid @RequestBody OtpRequest request, Authentication authentication) {
+        profileService.enable2FA(currentUserId(authentication), request);
+    }
+
+    @PostMapping("/2fa/disable")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void disable2FA(@Valid @RequestBody OtpRequest request, Authentication authentication) {
+        profileService.disable2FA(currentUserId(authentication), request);
+    }
+
+    private UUID currentUserId(Authentication authentication) {
+        return securityUtils.resolveUserId(authentication);
+    }
+}

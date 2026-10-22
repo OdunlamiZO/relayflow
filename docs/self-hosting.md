@@ -111,7 +111,7 @@ Apply a change with `docker compose --profile prod up -d api`. The API refuses t
 `LOG_FORMAT` is not one of these values. A `json` line looks like this:
 
 ```json
-{"timestamp":"2026-10-18T09:12:44.103Z","message":"Channel account created workspaceId=… channelAccountId=… provider=TELEGRAM","logger.name":"com.relayflow.api.channel.ChannelAccountService","logger.thread_name":"http-nio-8080-exec-3","level":"INFO","requestId":"5f0c…","workspaceId":"…","channelAccountId":"…","provider":"TELEGRAM"}
+{"timestamp":"2026-10-18T09:12:44.103Z","message":"Channel account created workspaceId=… channelAccountId=… provider=TELEGRAM","logger.name":"io.odunlamizo.relayflow.channel.ChannelAccountService","logger.thread_name":"http-nio-8080-exec-3","level":"INFO","requestId":"5f0c…","workspaceId":"…","channelAccountId":"…","provider":"TELEGRAM"}
 ```
 
 - Every key/value in a message is also a top-level field (`workspaceId`, `conversationId`,

@@ -1,0 +1,5 @@
+package io.odunlamizo.relayflow.workflow.engine;
+
+import java.util.Map;
+
+public record GraphNode(String id, String type, Map<String, Object> data) {}

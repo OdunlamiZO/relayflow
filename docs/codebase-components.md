@@ -409,7 +409,7 @@ We need it so Google login creates a local `User` record and returns consistent 
 
 ### `PasswordResetService`
 
-`@Service` in `com.relayflow.api.authentication`. There is no self-service "change password" form — this is the only way a password gets set after signup.
+`@Service` in `io.odunlamizo.relayflow.authentication`. There is no self-service "change password" form — this is the only way a password gets set after signup.
 
 Important methods:
 
@@ -420,7 +420,7 @@ We need it as the single place password-setting logic lives, since it's reached 
 
 ### `PasswordResetToken`
 
-JPA entity mapped to `password_reset_tokens`, in `com.relayflow.api.authentication.domain`. Modeled on `WorkspaceInvite` — `token` is a random `UUID` (unique), `expires_at` is stamped 60 minutes past `created_at` in `@PrePersist`, and `used_at` (rather than a status enum or soft-delete column) tracks consumption. `isValid()` returns `usedAt == null && now < expiresAt`.
+JPA entity mapped to `password_reset_tokens`, in `io.odunlamizo.relayflow.authentication.domain`. Modeled on `WorkspaceInvite` — `token` is a random `UUID` (unique), `expires_at` is stamped 60 minutes past `created_at` in `@PrePersist`, and `used_at` (rather than a status enum or soft-delete column) tracks consumption. `isValid()` returns `usedAt == null && now < expiresAt`.
 
 We need it so a reset link is single-use and time-boxed without a separate session-tracking mechanism.
 
@@ -655,7 +655,7 @@ We need it so `LogfmtLayout` and `GelfJsonProvider` can write key/value pairs as
 
 ## Common Backend
 
-`com.relayflow.api.common` — small infrastructure shared across every other backend package, not owned by any single domain.
+`io.odunlamizo.relayflow.common` — small infrastructure shared across every other backend package, not owned by any single domain.
 
 ### `ResourceNotFoundException`
 
@@ -702,7 +702,7 @@ We need it because that copy-or-empty logic was duplicated identically in all th
 
 ## Workspace Backend
 
-`com.relayflow.api.workspace` — workspace CRUD, membership, invites, and API keys. Owns the tenant boundary the other domains (`channel`, `contact`, `messaging`) are scoped within.
+`io.odunlamizo.relayflow.workspace` — workspace CRUD, membership, invites, and API keys. Owns the tenant boundary the other domains (`channel`, `contact`, `messaging`) are scoped within.
 
 ### `WorkspaceController`
 
@@ -976,7 +976,7 @@ We need them so services do not contain SQL or persistence boilerplate.
 
 ## Channel Backend
 
-`com.relayflow.api.channel` — connected messaging channels (Telegram, WhatsApp, ...) that route inbound/outbound messages.
+`io.odunlamizo.relayflow.channel` — connected messaging channels (Telegram, WhatsApp, ...) that route inbound/outbound messages.
 
 ### `ChannelAccountController`
 
@@ -1055,7 +1055,7 @@ We need it so the service does not contain SQL or persistence boilerplate.
 
 ## Contact Backend
 
-`com.relayflow.api.contact` — customer contacts and their per-channel external identities.
+`io.odunlamizo.relayflow.contact` — customer contacts and their per-channel external identities.
 
 ### `ContactController`
 
@@ -1174,7 +1174,7 @@ We need them so services do not contain SQL or persistence boilerplate.
 
 ## Messaging Backend
 
-`com.relayflow.api.messaging` — conversations and messages, the inbox core. Depends on `workspace`, `channel`, and `contact` for validating the parties a conversation references, but nothing in those three depends back on it.
+`io.odunlamizo.relayflow.messaging` — conversations and messages, the inbox core. Depends on `workspace`, `channel`, and `contact` for validating the parties a conversation references, but nothing in those three depends back on it.
 
 ### `MessagingController`
 
@@ -1301,7 +1301,7 @@ We need them so services do not contain SQL or persistence boilerplate.
 
 ### `PublicApiController`
 
-API-key-authenticated controller under `/public/v1`, in `com.relayflow.api.publicapi`.
+API-key-authenticated controller under `/public/v1`, in `io.odunlamizo.relayflow.publicapi`.
 
 Endpoints:
 
@@ -1316,7 +1316,7 @@ We need it so third-party systems can inspect conversations and send outbound re
 
 ### `WebhookService`
 
-Creates, lists, updates, deletes, and rotates a workspace's webhooks, in `com.relayflow.api.webhook`. A workspace can have any number of webhooks, each its own row (`WorkspaceWebhook`) with its own URL, enabled state, and event subscriptions.
+Creates, lists, updates, deletes, and rotates a workspace's webhooks, in `io.odunlamizo.relayflow.webhook`. A workspace can have any number of webhooks, each its own row (`WorkspaceWebhook`) with its own URL, enabled state, and event subscriptions.
 
 Important methods:
 
@@ -1367,7 +1367,7 @@ We need them so invite/verification/reset delivery can be swapped or disabled wi
 
 ### `WorkspaceWebhook`
 
-JPA entity for one of a workspace's outbound webhooks, in `com.relayflow.api.webhook.domain`. A workspace can own any number of rows — `id` is its own primary key and `workspaceId` scopes it.
+JPA entity for one of a workspace's outbound webhooks, in `io.odunlamizo.relayflow.webhook.domain`. A workspace can own any number of rows — `id` is its own primary key and `workspaceId` scopes it.
 
 Important fields:
 
@@ -1382,11 +1382,11 @@ Important fields:
 
 We need it to persist webhook delivery settings and encrypted signing secrets.
 
-`WorkspaceWebhookRepository` (in `com.relayflow.api.webhook`) has `findByWorkspace` and `findInWorkspace`.
+`WorkspaceWebhookRepository` (in `io.odunlamizo.relayflow.webhook`) has `findByWorkspace` and `findInWorkspace`.
 
 ### `WebhookEventType`
 
-Enum of outbound webhook event types, in `com.relayflow.api.webhook.domain` alongside `WorkspaceWebhook`.
+Enum of outbound webhook event types, in `io.odunlamizo.relayflow.webhook.domain` alongside `WorkspaceWebhook`.
 
 Values:
 
@@ -1399,13 +1399,13 @@ We need it so persisted webhook subscriptions and dispatched payload names stay 
 
 ### `ContactSnapshotBuilder`
 
-Static builder in `com.relayflow.api.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by every contact webhook (the write paths above, deletion, and both sides of a merge) so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key. Tags are nested under `tags`.
+Static builder in `io.odunlamizo.relayflow.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by every contact webhook (the write paths above, deletion, and both sides of a merge) so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key. Tags are nested under `tags`.
 
-We need it because the same payload had to be built from three different packages (`contact`, `agent`, `workflow.engine.executor`), all of which already depend on `com.relayflow.api.webhook` for `WebhookDispatchService`.
+We need it because the same payload had to be built from three different packages (`contact`, `agent`, `workflow.engine.executor`), all of which already depend on `io.odunlamizo.relayflow.webhook` for `WebhookDispatchService`.
 
 ### `ContactSnapshot`
 
-`record ContactSnapshot(Map<String, Object> contact)` in `com.relayflow.api.webhook.dto` — the `contact.updated` and `contact.deleted` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
+`record ContactSnapshot(Map<String, Object> contact)` in `io.odunlamizo.relayflow.webhook.dto` — the `contact.updated` and `contact.deleted` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
 
 We need it so the outer payload shape (`{"contact": {...}}`) is a typed DTO like the rest of `webhook.dto`, even though the inner contact map stays dynamic.
 
@@ -1985,7 +1985,7 @@ We need it for workflows that complete support flows or hand off after resolutio
 
 ## Hooks
 
-Hooks (package `com.relayflow.api.hook`) are FEEL (DMN's Friendly Enough Expression Language) expressions run against a value. There are two hook points: an open-ended Ask Question reply (`validationHook` on the node) and a value an AI agent extracts (`validationHook` on an `ExtractionField`, run by `ExtractedDataValidator`). Built-in and user-defined hooks are evaluated identically, via Camunda's `feel-engine` (`org.camunda.feel:feel-engine`).
+Hooks (package `io.odunlamizo.relayflow.hook`) are FEEL (DMN's Friendly Enough Expression Language) expressions run against a value. There are two hook points: an open-ended Ask Question reply (`validationHook` on the node) and a value an AI agent extracts (`validationHook` on an `ExtractionField`, run by `ExtractedDataValidator`). Built-in and user-defined hooks are evaluated identically, via Camunda's `feel-engine` (`org.camunda.feel:feel-engine`).
 
 ### `FeelHookEvaluator`
 

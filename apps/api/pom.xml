@@ -11,8 +11,8 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.relayflow</groupId>
-    <artifactId>api</artifactId>
+    <groupId>io.odunlamizo</groupId>
+    <artifactId>relayflow-api</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <name>relayflow-api</name>
     <description>RelayFlow API</description>
