@@ -1,0 +1,182 @@
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ConversationList } from "./ConversationList";
+
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+  usePathname: vi.fn(() => "/inbox"),
+}));
+
+const mockConversation = {
+  id: "conv-1",
+  workspaceId: "ws-1",
+  contactId: "contact-1",
+  contactDisplayName: "Ada Lovelace",
+  channelAccountId: "ch-1",
+  channelProvider: "TELEGRAM" as const,
+  channelAccountName: "My Bot",
+  status: "OPEN" as const,
+  assigneeId: null,
+  lastMessageAt: "2026-05-26T10:00:00Z",
+  createdAt: "2026-05-26T09:00:00Z",
+};
+
+// vi.mock at module level with per-test return values, since vi.doMock doesn't work across describe blocks.
+const mockUseConversations = vi.fn();
+const mockUseCurrentMember = vi.fn();
+const mockUseChannelAccounts = vi.fn();
+
+vi.mock("@/hooks/use-conversations", () => ({
+  useConversations: (...callArguments: unknown[]) =>
+    mockUseConversations(...callArguments),
+}));
+
+vi.mock("@/hooks/use-authentication", () => ({
+  useAuthentication: () => ({ user: { userId: "user-1" } }),
+}));
+
+vi.mock("@/hooks/use-current-member", () => ({
+  useCurrentMember: (...callArguments: unknown[]) =>
+    mockUseCurrentMember(...callArguments),
+}));
+
+vi.mock("@/hooks/use-channel-accounts", () => ({
+  useChannelAccounts: (...callArguments: unknown[]) =>
+    mockUseChannelAccounts(...callArguments),
+}));
+
+const ownerMember = {
+  id: "member-1",
+  userId: "user-1",
+  email: "owner@example.com",
+  displayName: "Owner",
+  avatarUrl: null,
+  role: "OWNER" as const,
+  permissions: [],
+  joinedAt: "2026-05-26T09:00:00Z",
+};
+
+function baseHookReturn(overrides = {}) {
+  return {
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    fetchNextPage: vi.fn(),
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    ...overrides,
+  };
+}
+
+function renderList(props?: { selectedId?: string }) {
+  return render(
+    <ConversationList
+      workspaceId="ws-1"
+      selectedConversationId={props?.selectedId}
+      onSelect={vi.fn()}
+    />
+  );
+}
+
+describe("ConversationList", () => {
+  beforeEach(() => {
+    mockUseCurrentMember.mockReturnValue(ownerMember);
+    mockUseChannelAccounts.mockReturnValue({ data: undefined });
+  });
+
+  it("shows a spinner while loading", () => {
+    mockUseConversations.mockReturnValue(baseHookReturn({ isLoading: true }));
+
+    renderList();
+
+    expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+
+  it("shows an error message when the request fails", () => {
+    mockUseConversations.mockReturnValue(baseHookReturn({ isError: true }));
+
+    renderList();
+
+    expect(
+      screen.getByText(/could not load conversations/i)
+    ).toBeInTheDocument();
+  });
+
+  it("shows the connect-channel prompt when empty", () => {
+    mockUseConversations.mockReturnValue(
+      baseHookReturn({ data: { pages: [{ items: [], hasMore: false }] } })
+    );
+
+    renderList();
+
+    expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /connect a channel/i })
+    ).toBeInTheDocument();
+  });
+
+  it("shows a plain empty state without a connect prompt when a channel is already connected", () => {
+    mockUseChannelAccounts.mockReturnValue({
+      data: [{ id: "ch-1", status: "ACTIVE" }],
+    });
+    mockUseConversations.mockReturnValue(
+      baseHookReturn({ data: { pages: [{ items: [], hasMore: false }] } })
+    );
+
+    renderList();
+
+    expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/messages will show up here/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /connect a channel/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /connect a channel/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("disables the connect-channel button for a member without channel access", () => {
+    mockUseCurrentMember.mockReturnValue({
+      ...ownerMember,
+      role: "MEMBER",
+      permissions: [],
+    });
+    mockUseConversations.mockReturnValue(
+      baseHookReturn({ data: { pages: [{ items: [], hasMore: false }] } })
+    );
+
+    renderList();
+
+    expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /connect a channel/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /connect a channel/i })
+    ).toBeDisabled();
+  });
+
+  it("renders conversation items", () => {
+    mockUseConversations.mockReturnValue(
+      baseHookReturn({
+        data: { pages: [{ items: [mockConversation], hasMore: false }] },
+      })
+    );
+
+    renderList();
+
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+  });
+
+  it("renders the Conversations heading", () => {
+    mockUseConversations.mockReturnValue(baseHookReturn());
+
+    renderList();
+
+    expect(
+      screen.getByRole("heading", { name: /conversations/i })
+    ).toBeInTheDocument();
+  });
+});

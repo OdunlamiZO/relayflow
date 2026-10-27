@@ -1,0 +1,128 @@
+package io.odunlamizo.relayflow.authentication;
+
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
+import io.odunlamizo.relayflow.authentication.domain.AuthenticationProvider;
+import io.odunlamizo.relayflow.authentication.domain.PasswordResetToken;
+import io.odunlamizo.relayflow.authentication.domain.User;
+import io.odunlamizo.relayflow.authentication.domain.UserIdentity;
+import io.odunlamizo.relayflow.authentication.repository.PasswordResetTokenRepository;
+import io.odunlamizo.relayflow.authentication.repository.UserIdentityRepository;
+import io.odunlamizo.relayflow.authentication.repository.UserRepository;
+import io.odunlamizo.relayflow.email.EmailService;
+import java.time.Instant;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class PasswordResetService {
+
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
+
+    private final PasswordResetTokenRepository tokenRepository;
+
+    private final UserRepository userRepository;
+
+    private final UserIdentityRepository identityRepository;
+
+    private final EmailService emailService;
+
+    private final PasswordEncoder passwordEncoder;
+
+    private final String webBaseUrl;
+
+    public PasswordResetService(
+            PasswordResetTokenRepository tokenRepository,
+            UserRepository userRepository,
+            UserIdentityRepository identityRepository,
+            EmailService emailService,
+            PasswordEncoder passwordEncoder,
+            @Value("${relayflow.web.base-url:http://localhost:3000}") String webBaseUrl) {
+        this.tokenRepository = tokenRepository;
+        this.userRepository = userRepository;
+        this.identityRepository = identityRepository;
+        this.emailService = emailService;
+        this.passwordEncoder = passwordEncoder;
+        this.webBaseUrl = webBaseUrl;
+    }
+
+    @Transactional
+    public void issueForUser(UUID userId) {
+        User user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "User not found."));
+
+        identityRepository
+                .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
+                .orElseThrow(
+                        () ->
+                                new ResponseStatusException(
+                                        HttpStatus.BAD_REQUEST,
+                                        "This account doesn't use a password — nothing to"
+                                                + " reset."));
+
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setUserId(userId);
+        resetToken = tokenRepository.save(resetToken);
+
+        String resetUrl = webBaseUrl + "/reset-password/" + resetToken.getToken();
+
+        emailService.sendPasswordReset(user.getEmail(), user.getDisplayName(), resetUrl);
+
+        log.info("Password reset link issued {}", kv("userId", userId));
+    }
+
+    @Transactional
+    public void resetPassword(UUID token, String newPassword) {
+        PasswordResetToken resetToken =
+                tokenRepository
+                        .findByToken(token)
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND,
+                                                "This reset link is invalid."));
+
+        if (!resetToken.isValid()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "This reset link has expired or was already used. Request a new one.");
+        }
+
+        User user =
+                userRepository
+                        .findById(resetToken.getUserId())
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "User not found."));
+
+        UserIdentity identity =
+                identityRepository
+                        .findByUserAndProvider(user, AuthenticationProvider.EMAIL)
+                        .orElseThrow(
+                                () ->
+                                        new ResponseStatusException(
+                                                HttpStatus.BAD_REQUEST,
+                                                "This account doesn't use a password."));
+
+        identity.setCredential(passwordEncoder.encode(newPassword));
+        identityRepository.save(identity);
+
+        resetToken.setUsedAt(Instant.now());
+        tokenRepository.save(resetToken);
+
+        log.info("Password reset completed {}", kv("userId", user.getId()));
+    }
+}

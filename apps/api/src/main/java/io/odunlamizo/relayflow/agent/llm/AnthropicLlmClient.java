@@ -1,0 +1,93 @@
+package io.odunlamizo.relayflow.agent.llm;
+
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+@Component
+public class AnthropicLlmClient implements LlmClient {
+
+    private static final Logger log = LoggerFactory.getLogger(AnthropicLlmClient.class);
+
+    private static final String DEFAULT_MODEL = "claude-haiku-4-5";
+
+    private static final String MODEL_REDIS_KEY = "platform:llm:anthropic:model";
+
+    @Value("${relayflow.llm.anthropic.api-key}")
+    private String apiKey;
+
+    private final ObjectMapper objectMapper;
+
+    private final LlmPlatformConfigService configService;
+
+    private RestClient restClient;
+
+    public AnthropicLlmClient(ObjectMapper objectMapper, LlmPlatformConfigService configService) {
+        this.objectMapper = objectMapper;
+        this.configService = configService;
+    }
+
+    @PostConstruct
+    void init() {
+        restClient =
+                RestClient.builder()
+                        .baseUrl("https://api.anthropic.com")
+                        .defaultHeader("x-api-key", apiKey)
+                        .defaultHeader("anthropic-version", "2023-06-01")
+                        .defaultHeader("content-type", "application/json")
+                        .build();
+    }
+
+    @Override
+    public LlmProvider provider() {
+
+        return LlmProvider.ANTHROPIC;
+    }
+
+    @Override
+    public AgentLlmResponse complete(AgentLlmRequest request) {
+        try {
+            String model =
+                    (request.model() != null && !request.model().isBlank())
+                            ? request.model()
+                            : configService.getConfigValue(MODEL_REDIS_KEY, DEFAULT_MODEL);
+
+            String systemPrompt =
+                    request.systemPrompt()
+                            + LlmPrompts.buildFormatInstruction(request.extractionFields());
+
+            ObjectNode body = objectMapper.createObjectNode();
+            body.put("model", model);
+            body.put("max_tokens", 4096);
+            body.put("system", systemPrompt);
+
+            ArrayNode messages = body.putArray("messages");
+            for (LlmMessage message : request.messages()) {
+                ObjectNode messageNode = messages.addObject();
+                messageNode.put("role", message.role());
+                messageNode.put("content", message.content());
+            }
+
+            String raw =
+                    restClient.post().uri("/v1/messages").body(body).retrieve().body(String.class);
+
+            JsonNode root = objectMapper.readTree(raw);
+            String text = root.path("content").path(0).path("text").asText("");
+
+            return AgentLlmResponseParser.parse(objectMapper, text);
+        } catch (Exception exception) {
+            log.error("LLM call failed {}", kv("provider", provider()), exception);
+
+            return AgentLlmResponseParser.failure();
+        }
+    }
+}

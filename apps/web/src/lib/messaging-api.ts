@@ -1,0 +1,1227 @@
+import { apiBaseUrl } from "@/lib/api-base-url";
+import {
+  ApiError,
+  type RequestOptions,
+  apiErrorMessage,
+  readResponseBody,
+} from "@/lib/api-client";
+
+export type ChannelProvider =
+  | "TELEGRAM"
+  | "WHATSAPP"
+  | "INSTAGRAM"
+  | "MESSENGER"
+  | "WEBCHAT"
+  | "EMAIL"
+  | "SMS";
+
+export type ChannelAccountStatus = "ACTIVE" | "DISABLED";
+export type ConversationStatus = "OPEN" | "CLOSED" | "PENDING";
+export type MessageDirection = "INBOUND" | "OUTBOUND";
+export type MessageSenderType = "CONTACT" | "AGENT" | "SYSTEM" | "WORKFLOW";
+export type JsonObject = Record<string, unknown>;
+
+export type ContactFieldDefinition = {
+  key: string;
+  label: string;
+  description: string;
+};
+
+export type ContactTagColor =
+  | "neutral"
+  | "blue"
+  | "green"
+  | "yellow"
+  | "orange"
+  | "red"
+  | "purple"
+  | "teal";
+
+export type ContactTagDefinition = {
+  key: string;
+  label: string;
+  values: string[];
+  colors?: Record<string, ContactTagColor>;
+};
+
+export const RESERVED_CONTACT_FIELD_KEYS = [
+  "displayName",
+  "firstName",
+  "lastName",
+  "phone",
+  "email",
+  "country",
+] as const;
+
+export type ReservedContactFieldKey =
+  (typeof RESERVED_CONTACT_FIELD_KEYS)[number];
+
+export function isReservedContactFieldKey(
+  key: string
+): key is ReservedContactFieldKey {
+  const normalized = key.trim().toLowerCase();
+
+  return RESERVED_CONTACT_FIELD_KEYS.some(
+    (reservedKey) => reservedKey.toLowerCase() === normalized
+  );
+}
+
+export const RESERVED_CONTACT_FIELDS: Record<
+  ReservedContactFieldKey,
+  { label: string; description: string }
+> = {
+  displayName: {
+    label: "Display Name",
+    description: "The contact's display name.",
+  },
+  firstName: {
+    label: "First Name",
+    description: "The contact's first name.",
+  },
+  lastName: {
+    label: "Last Name",
+    description: "The contact's last name.",
+  },
+  phone: {
+    label: "Phone",
+    description: "The contact's phone number.",
+  },
+  email: {
+    label: "Email",
+    description: "The contact's email address.",
+  },
+  country: {
+    label: "Country",
+    description: "The contact's country.",
+  },
+};
+
+export type Workspace = {
+  id: string;
+  name: string;
+  contactFieldDefinitions: ContactFieldDefinition[];
+  contactTagDefinitions: ContactTagDefinition[];
+  contactAccess: ContactAccess;
+  phoneRegion: string | null;
+  createdAt: string;
+};
+
+export type ContactAccess = "ALL" | "WHITELIST";
+
+export type UpdateContactAccessRequest = {
+  contactAccess: ContactAccess;
+  phoneRegion: string | null;
+};
+
+export type WhitelistedPhoneNumber = {
+  id: string;
+  phoneNumber: string;
+  createdAt: string;
+};
+
+export type ChannelAccount = {
+  id: string;
+  workspaceId: string;
+  provider: ChannelProvider;
+  name: string;
+  status: ChannelAccountStatus;
+  metadata: JsonObject;
+  webhookUrl: string | null;
+  createdAt: string;
+};
+
+export type Contact = {
+  id: string;
+  workspaceId: string;
+  displayName: string | null;
+  customFields: Record<string, string>;
+  tags: Record<string, string>;
+  createdAt: string;
+  identities: ExternalIdentity[];
+};
+
+/** Alias kept for components that import ContactDetail by name. */
+export type ContactDetail = Contact;
+
+export type ExternalIdentity = {
+  id: string;
+  workspaceId: string;
+  contactId: string;
+  channelAccountId: string | null;
+  provider: ChannelProvider;
+  externalUserId: string;
+  externalConversationId: string | null;
+  username: string | null;
+  rawProfile: JsonObject;
+  createdAt: string;
+};
+
+export type Conversation = {
+  id: string;
+  workspaceId: string;
+  contactId: string;
+  contactDisplayName: string | null;
+  contactTags: Record<string, string>;
+  channelAccountId: string;
+  channelProvider: ChannelProvider;
+  channelAccountName: string;
+  status: ConversationStatus;
+  lockedByWorkflow: boolean;
+  lockedByAiAgent: boolean;
+  assigneeId: string | null;
+  lastMessageAt: string | null;
+  escalatedAt: string | null;
+  escalationReason: string | null;
+  createdAt: string;
+};
+
+export type Message = {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  direction: MessageDirection;
+  senderType: MessageSenderType;
+  text: string | null;
+  providerMessageId: string | null;
+  rawPayload: JsonObject;
+  createdAt: string;
+};
+
+export type CreateWorkspaceRequest = {
+  name: string;
+};
+
+export type UpdateWorkspaceRequest = {
+  name: string;
+};
+
+export type UpdateContactFieldDefinitionsRequest = {
+  contactFieldDefinitions: ContactFieldDefinition[];
+};
+
+export type UpdateContactCustomFieldsRequest = {
+  customFields: Record<string, string>;
+};
+
+export type UpdateContactTagDefinitionsRequest = {
+  contactTagDefinitions: ContactTagDefinition[];
+};
+
+export type UpdateContactTagsRequest = {
+  tags: Record<string, string | null>;
+};
+
+export type CreateChannelAccountRequest = {
+  workspaceId: string;
+  provider: ChannelProvider;
+  name: string;
+  status?: ChannelAccountStatus;
+  encryptedCredentials?: string;
+  metadata?: JsonObject;
+};
+
+export type CreateContactRequest = {
+  workspaceId: string;
+  displayName?: string;
+};
+
+export type MergeContactRequest = {
+  sourceContactId: string;
+};
+
+export type CreateExternalIdentityRequest = {
+  workspaceId: string;
+  contactId: string;
+  provider: ChannelProvider;
+  externalUserId: string;
+  externalConversationId?: string;
+  username?: string;
+  rawProfile?: JsonObject;
+};
+
+export type CreateConversationRequest = {
+  workspaceId: string;
+  contactId: string;
+  channelAccountId: string;
+  status?: ConversationStatus;
+  assigneeId?: string;
+};
+
+export type UpdateConversationRequest = {
+  status: ConversationStatus;
+};
+
+export type UpdateAssigneeRequest = {
+  assigneeId: string | null;
+};
+
+export type CreateMessageRequest = {
+  direction: MessageDirection;
+  senderType: MessageSenderType;
+  text?: string;
+  providerMessageId?: string;
+  rawPayload?: JsonObject;
+};
+
+export type WorkspacePermission =
+  | "INBOX"
+  | "CONTACTS_DELETE"
+  | "CONTACT_FIELDS_WRITE"
+  | "WORKFLOWS_WRITE"
+  | "WORKFLOWS_DELETE"
+  | "CHANNELS_WRITE"
+  | "CHANNELS_DELETE"
+  | "AI_AGENT_WRITE"
+  | "API_KEYS_WRITE"
+  | "WEBHOOKS_WRITE"
+  | "SECRETS_WRITE";
+export type WorkspaceRole = "OWNER" | "MEMBER";
+export type InviteStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
+
+export type WorkspaceMember = {
+  id: string;
+  userId: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: WorkspaceRole;
+  permissions: WorkspacePermission[];
+  joinedAt: string;
+};
+
+export type InviteMemberRequest = {
+  email: string;
+  permissions: WorkspacePermission[];
+};
+
+export type UpdateMemberRequest = {
+  role?: WorkspaceRole;
+  permissions: WorkspacePermission[];
+};
+
+export type WorkspaceInvite = {
+  id: string;
+  email: string;
+  inviterName: string;
+  permissions: WorkspacePermission[];
+  status: InviteStatus;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type CreateInviteRequest = {
+  email: string;
+  permissions: WorkspacePermission[];
+};
+
+export type InvitePreview = {
+  inviteId: string;
+  workspaceId: string;
+  workspaceName: string;
+  inviterName: string;
+  email: string;
+  permissions: WorkspacePermission[];
+  status: InviteStatus;
+  expiresAt: string;
+  accountExists: boolean;
+};
+
+export type WebhookEventType =
+  | "CONTACT_CREATED"
+  | "CONTACT_UPDATED"
+  | "CONTACT_DELETED"
+  | "CONTACT_MERGED";
+
+export type ApiKey = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  expiresAt: string | null;
+};
+
+export type CreateApiKeyRequest = {
+  name: string;
+  /** ISO-8601 timestamp; null means no expiry. */
+  expiresAt?: string | null;
+};
+
+export type CreateApiKeyResponse = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdAt: string;
+  expiresAt: string | null;
+  /** Full plaintext key, shown once. */
+  key: string;
+};
+
+export type Secret = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveSecretRequest = {
+  name: string;
+  value: string;
+};
+
+export type HookOutcomeStatus = "ACCEPTED" | "REJECTED" | "ERROR";
+
+export type BuiltInHook = {
+  key: string;
+  name: string;
+  description: string;
+  expression: string;
+  errorMessage: string;
+};
+
+export type Hook = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  expression: string;
+  errorMessage: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveHookRequest = {
+  name: string;
+  description?: string | null;
+  expression: string;
+  errorMessage: string;
+};
+
+export type TestHookRequest = {
+  expression: string;
+  value: string;
+  variables?: Record<string, unknown>;
+};
+
+export type TestHookResponse = {
+  status: HookOutcomeStatus;
+  value: unknown;
+  errorMessage: string | null;
+  variables: Record<string, unknown>;
+  warnings: string[];
+};
+
+export type WebhookConfig = {
+  id: string;
+  workspaceId: string;
+  url: string;
+  enabled: boolean;
+  events: WebhookEventType[];
+  createdAt: string;
+  updatedAt: string;
+  /** Only present in the response that creates the webhook. */
+  generatedSecret?: string | null;
+};
+
+export type SaveWebhookRequest = {
+  url: string;
+  enabled: boolean;
+  events: WebhookEventType[];
+};
+
+export type RotateWebhookSecretResponse = {
+  /** New plaintext HMAC secret, shown once. */
+  secret: string;
+};
+
+export type WorkflowDefinition = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  enabled: boolean;
+  draftGraph: JsonObject;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateWorkflowRequest = {
+  workspaceId: string;
+  name: string;
+};
+
+export type UpdateWorkflowRequest = {
+  name?: string;
+  enabled?: boolean;
+  draftGraph?: JsonObject;
+};
+
+export type WorkflowRunStatus = "RUNNING" | "WAITING" | "COMPLETED" | "FAILED";
+export type WorkflowRunStepStatus = "COMPLETED" | "FAILED" | "SKIPPED";
+
+export type WorkflowRun = {
+  id: string;
+  workflowDefinitionId: string;
+  conversationId: string;
+  status: WorkflowRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  errorMessage: string | null;
+  waitingAtNodeId: string | null;
+};
+
+export type WorkflowRunStep = {
+  id: string;
+  nodeId: string;
+  nodeType: string;
+  status: WorkflowRunStepStatus;
+  inputSnapshot: JsonObject;
+  outputSnapshot: JsonObject;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+};
+
+export type WorkflowRunDetail = WorkflowRun & {
+  steps: WorkflowRunStep[];
+};
+
+export type AutonomyCeiling = "DRAFT_ONLY" | "AUTO_SEND";
+
+export type LlmProvider = "ANTHROPIC" | "OPENAI" | "GROQ" | "OLLAMA";
+
+export type KnowledgeEntry = {
+  question: string;
+  answer: string;
+};
+
+export type WorkflowMapping = {
+  workflowId: string;
+  name: string;
+  triggerDescription: string;
+};
+
+export type ExtractionField = {
+  key: string;
+  description: string;
+  validationHook?: string | null;
+};
+
+export type AiAgentConfiguration = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  isDefault: boolean;
+  enabled: boolean;
+  autonomyCeiling: AutonomyCeiling;
+  /** Null means this agent uses the platform's active LLM provider. */
+  llmProvider: LlmProvider | null;
+  instructions: string | null;
+  knowledgeBase: KnowledgeEntry[];
+  escalationKeywords: string[];
+  workflowMappings: WorkflowMapping[];
+  extractionFields: ExtractionField[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpdateAiAgentConfigurationRequest = {
+  name?: string;
+  enabled: boolean;
+  autonomyCeiling: AutonomyCeiling;
+  llmProvider?: LlmProvider | null;
+  instructions?: string | null;
+  knowledgeBase?: KnowledgeEntry[];
+  escalationKeywords?: string[];
+  workflowMappings?: WorkflowMapping[];
+  extractionFields?: ExtractionField[];
+};
+
+export type ChannelAiAgentAssignment = {
+  /** Null means the channel uses the workspace's default configuration. */
+  configurationId: string | null;
+};
+
+export type ConversationAiDraft = {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  invocationLogId: string | null;
+  proposedReply: string;
+  suggestedActions: string[];
+  extractedData: Record<string, string>;
+  createdAt: string;
+};
+
+export type PageResponse<T> = {
+  items: T[];
+  hasMore: boolean;
+  nextCursor: string | null;
+};
+
+export { ApiError };
+
+export class MessagingApiClient {
+  private readonly baseUrl: string;
+
+  constructor(baseUrl = apiBaseUrl()) {
+    this.baseUrl = baseUrl.replace(/\/$/, "");
+  }
+
+  listWorkspaces() {
+    return this.request<Workspace[]>("/workspaces");
+  }
+
+  createWorkspace(request: CreateWorkspaceRequest) {
+    return this.request<Workspace>("/workspaces", {
+      method: "POST",
+      body: request,
+    });
+  }
+
+  updateWorkspace(workspaceId: string, request: UpdateWorkspaceRequest) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}`,
+      {
+        method: "PATCH",
+        body: request,
+      }
+    );
+  }
+
+  updateContactFieldDefinitions(
+    workspaceId: string,
+    request: UpdateContactFieldDefinitionsRequest
+  ) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/contact-field-definitions`,
+      {
+        method: "PUT",
+        body: request,
+      }
+    );
+  }
+
+  updateContactTagDefinitions(
+    workspaceId: string,
+    request: UpdateContactTagDefinitionsRequest
+  ) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/contact-tag-definitions`,
+      {
+        method: "PUT",
+        body: request,
+      }
+    );
+  }
+
+  listChannelAccounts(workspaceId: string) {
+    return this.request<ChannelAccount[]>(
+      `/channel-accounts?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  createChannelAccount(request: CreateChannelAccountRequest) {
+    return this.request<ChannelAccount>("/channel-accounts", {
+      method: "POST",
+      body: request,
+    });
+  }
+
+  disconnectChannelAccount(id: string, workspaceId: string) {
+    return this.request<void>(
+      `/channel-accounts/${id}/disconnect?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "POST" }
+    );
+  }
+
+  deleteChannelAccount(id: string, workspaceId: string) {
+    return this.request<void>(
+      `/channel-accounts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  reconnectChannelAccount(id: string, workspaceId: string) {
+    return this.request<ChannelAccount>(
+      `/channel-accounts/${id}/reconnect?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "POST" }
+    );
+  }
+
+  listContacts(workspaceId: string, page = 0, size = 50) {
+    return this.request<PageResponse<Contact>>(
+      `/contacts?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`
+    );
+  }
+
+  createContact(request: CreateContactRequest) {
+    return this.request<Contact>("/contacts", {
+      method: "POST",
+      body: request,
+    });
+  }
+
+  getContact(id: string, workspaceId: string) {
+    return this.request<ContactDetail>(
+      `/contacts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  updateContactCustomFields(
+    id: string,
+    workspaceId: string,
+    request: UpdateContactCustomFieldsRequest
+  ) {
+    return this.request<ContactDetail>(
+      `/contacts/${id}/custom-fields?workspaceId=${encodeURIComponent(workspaceId)}`,
+      {
+        method: "PATCH",
+        body: request,
+      }
+    );
+  }
+
+  updateContactTags(
+    id: string,
+    workspaceId: string,
+    request: UpdateContactTagsRequest
+  ) {
+    return this.request<ContactDetail>(
+      `/contacts/${id}/tags?workspaceId=${encodeURIComponent(workspaceId)}`,
+      {
+        method: "PATCH",
+        body: request,
+      }
+    );
+  }
+
+  mergeContact(
+    targetId: string,
+    workspaceId: string,
+    request: MergeContactRequest
+  ) {
+    return this.request<Contact>(
+      `/contacts/${targetId}/merge?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "POST", body: request }
+    );
+  }
+
+  deleteContact(id: string, workspaceId: string) {
+    return this.request<void>(
+      `/contacts/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  createExternalIdentity(request: CreateExternalIdentityRequest) {
+    return this.request<ExternalIdentity>("/external-identities", {
+      method: "POST",
+      body: request,
+    });
+  }
+
+  createConversation(request: CreateConversationRequest) {
+    return this.request<Conversation>("/conversations", {
+      method: "POST",
+      body: request,
+    });
+  }
+
+  listConversations(
+    workspaceId: string,
+    page = 0,
+    size = 30,
+    contactId?: string
+  ) {
+    let url = `/conversations?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`;
+
+    if (contactId) {
+      url += `&contactId=${encodeURIComponent(contactId)}`;
+    }
+
+    return this.request<PageResponse<Conversation>>(url);
+  }
+
+  getConversation(workspaceId: string, conversationId: string) {
+    return this.request<Conversation>(
+      `/conversations/${conversationId}?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  updateConversation(
+    workspaceId: string,
+    conversationId: string,
+    request: UpdateConversationRequest
+  ) {
+    return this.request<Conversation>(
+      `/conversations/${conversationId}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "PATCH", body: request }
+    );
+  }
+
+  updateConversationAssignee(
+    workspaceId: string,
+    conversationId: string,
+    request: UpdateAssigneeRequest
+  ) {
+    return this.request<Conversation>(
+      `/conversations/${conversationId}/assignee?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "PATCH", body: request }
+    );
+  }
+
+  listMessages(
+    workspaceId: string,
+    conversationId: string,
+    params?: { before?: string; limit?: number }
+  ) {
+    let url = `/conversations/${conversationId}/messages?workspaceId=${encodeURIComponent(workspaceId)}`;
+
+    if (params?.before) {
+      url += `&before=${encodeURIComponent(params.before)}`;
+    }
+
+    if (params?.limit !== undefined) {
+      url += `&limit=${params.limit}`;
+    }
+
+    return this.request<PageResponse<Message>>(url);
+  }
+
+  createMessage(
+    workspaceId: string,
+    conversationId: string,
+    request: CreateMessageRequest
+  ) {
+    return this.request<Message>(
+      `/conversations/${conversationId}/messages?workspaceId=${encodeURIComponent(
+        workspaceId
+      )}`,
+      {
+        method: "POST",
+        body: request,
+      }
+    );
+  }
+
+  listInvites(workspaceId: string) {
+    return this.request<WorkspaceInvite[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/invites`
+    );
+  }
+
+  createInvite(workspaceId: string, request: CreateInviteRequest) {
+    return this.request<WorkspaceInvite>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/invites`,
+      { method: "POST", body: request }
+    );
+  }
+
+  revokeInvite(workspaceId: string, inviteId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  getInvitePreview(token: string) {
+    return this.request<InvitePreview>(`/invites/${encodeURIComponent(token)}`);
+  }
+
+  acceptInvite(token: string) {
+    return this.request<{ workspaceId: string }>(
+      `/invites/${encodeURIComponent(token)}/accept`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  listMembers(workspaceId: string) {
+    return this.request<WorkspaceMember[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/members`
+    );
+  }
+
+  inviteMember(workspaceId: string, request: InviteMemberRequest) {
+    return this.request<WorkspaceMember>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/members`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateMember(
+    workspaceId: string,
+    memberId: string,
+    request: UpdateMemberRequest
+  ) {
+    return this.request<WorkspaceMember>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
+      { method: "PATCH", body: request }
+    );
+  }
+
+  removeMember(workspaceId: string, memberId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  generateMemberPasswordReset(workspaceId: string, memberId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}/reset-password`,
+      { method: "POST" }
+    );
+  }
+
+  listWorkflows(workspaceId: string) {
+    return this.request<WorkflowDefinition[]>(
+      `/workflows?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  createWorkflow(request: CreateWorkflowRequest) {
+    return this.request<WorkflowDefinition>("/workflows", {
+      method: "POST",
+      body: request,
+    });
+  }
+
+  getWorkflow(id: string, workspaceId: string) {
+    return this.request<WorkflowDefinition>(
+      `/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  updateWorkflow(
+    id: string,
+    workspaceId: string,
+    request: UpdateWorkflowRequest
+  ) {
+    return this.request<WorkflowDefinition>(
+      `/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "PATCH", body: request }
+    );
+  }
+
+  listWorkflowRuns(
+    workflowId: string,
+    workspaceId: string,
+    page = 0,
+    size = 30
+  ) {
+    return this.request<PageResponse<WorkflowRun>>(
+      `/workflows/${workflowId}/runs?workspaceId=${encodeURIComponent(workspaceId)}&page=${page}&size=${size}`
+    );
+  }
+
+  getWorkflowRun(workflowId: string, runId: string, workspaceId: string) {
+    return this.request<WorkflowRunDetail>(
+      `/workflows/${workflowId}/runs/${runId}?workspaceId=${encodeURIComponent(workspaceId)}`
+    );
+  }
+
+  deleteWorkflow(id: string, workspaceId: string) {
+    return this.request<void>(
+      `/workflows/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  listApiKeys(workspaceId: string) {
+    return this.request<ApiKey[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/api-keys`
+    );
+  }
+
+  createApiKey(workspaceId: string, request: CreateApiKeyRequest) {
+    return this.request<CreateApiKeyResponse>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/api-keys`,
+      { method: "POST", body: request }
+    );
+  }
+
+  revokeApiKey(workspaceId: string, keyId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/api-keys/${encodeURIComponent(keyId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  listSecrets(workspaceId: string) {
+    return this.request<Secret[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets`
+    );
+  }
+
+  createSecret(workspaceId: string, request: SaveSecretRequest) {
+    return this.request<Secret>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateSecret(
+    workspaceId: string,
+    secretId: string,
+    request: SaveSecretRequest
+  ) {
+    return this.request<Secret>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets/${encodeURIComponent(secretId)}`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  deleteSecret(workspaceId: string, secretId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/secrets/${encodeURIComponent(secretId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  updateContactAccess(
+    workspaceId: string,
+    request: UpdateContactAccessRequest
+  ) {
+    return this.request<Workspace>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/contact-access`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  listWhitelist(workspaceId: string) {
+    return this.request<WhitelistedPhoneNumber[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/whitelist`
+    );
+  }
+
+  addToWhitelist(workspaceId: string, phoneNumbers: string[]) {
+    return this.request<WhitelistedPhoneNumber[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/whitelist`,
+      { method: "POST", body: { phoneNumbers } }
+    );
+  }
+
+  removeFromWhitelist(workspaceId: string, entryId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/whitelist/${encodeURIComponent(entryId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  listBuiltInHooks(workspaceId: string) {
+    return this.request<BuiltInHook[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/built-in`
+    );
+  }
+
+  listHooks(workspaceId: string) {
+    return this.request<Hook[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks`
+    );
+  }
+
+  createHook(workspaceId: string, request: SaveHookRequest) {
+    return this.request<Hook>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateHook(workspaceId: string, hookId: string, request: SaveHookRequest) {
+    return this.request<Hook>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/${encodeURIComponent(hookId)}`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  deleteHook(workspaceId: string, hookId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/${encodeURIComponent(hookId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  testHook(workspaceId: string, request: TestHookRequest) {
+    return this.request<TestHookResponse>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/hooks/test`,
+      { method: "POST", body: request }
+    );
+  }
+
+  listWebhooks(workspaceId: string) {
+    return this.request<WebhookConfig[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks`
+    );
+  }
+
+  createWebhook(workspaceId: string, request: SaveWebhookRequest) {
+    return this.request<WebhookConfig>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateWebhook(
+    workspaceId: string,
+    webhookId: string,
+    request: SaveWebhookRequest
+  ) {
+    return this.request<WebhookConfig>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks/${encodeURIComponent(webhookId)}`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  deleteWebhook(workspaceId: string, webhookId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks/${encodeURIComponent(webhookId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  rotateWebhookSecret(workspaceId: string, webhookId: string) {
+    return this.request<RotateWebhookSecretResponse>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/webhooks/${encodeURIComponent(webhookId)}/rotate-secret`,
+      { method: "POST" }
+    );
+  }
+
+  listAiAgentConfigurations(workspaceId: string) {
+    return this.request<AiAgentConfiguration[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs`
+    );
+  }
+
+  getPlatformLlmProvider(workspaceId: string) {
+    return this.request<{ provider: LlmProvider }>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/platform-llm-provider`
+    );
+  }
+
+  createAiAgentConfiguration(
+    workspaceId: string,
+    request: UpdateAiAgentConfigurationRequest
+  ) {
+    return this.request<AiAgentConfiguration>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateAiAgentConfiguration(
+    workspaceId: string,
+    configurationId: string,
+    request: UpdateAiAgentConfigurationRequest
+  ) {
+    return this.request<AiAgentConfiguration>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/${encodeURIComponent(configurationId)}`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  deleteAiAgentConfiguration(workspaceId: string, configurationId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/${encodeURIComponent(configurationId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  setDefaultAiAgentConfiguration(workspaceId: string, configurationId: string) {
+    return this.request<AiAgentConfiguration>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/${encodeURIComponent(configurationId)}/set-default`,
+      { method: "POST" }
+    );
+  }
+
+  getChannelAiAgentAssignment(workspaceId: string, channelAccountId: string) {
+    return this.request<ChannelAiAgentAssignment>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/channel-accounts/${encodeURIComponent(channelAccountId)}/ai-agent-config`
+    );
+  }
+
+  setChannelAiAgentAssignment(
+    workspaceId: string,
+    channelAccountId: string,
+    configurationId: string | null
+  ) {
+    return this.request<ChannelAiAgentAssignment>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/channel-accounts/${encodeURIComponent(channelAccountId)}/ai-agent-config`,
+      { method: "PUT", body: { configurationId } }
+    );
+  }
+
+  getConversationAiDraft(workspaceId: string, conversationId: string) {
+    return this.request<ConversationAiDraft>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft`
+    );
+  }
+
+  sendAiDraft(workspaceId: string, conversationId: string, text?: string) {
+    return this.request<Message>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft/send`,
+      { method: "POST", body: text ? { text } : undefined }
+    );
+  }
+
+  discardAiDraft(workspaceId: string, conversationId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft`,
+      { method: "DELETE" }
+    );
+  }
+
+  triggerWorkflowFromDraft(
+    workspaceId: string,
+    conversationId: string,
+    workflowId: string
+  ) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft/trigger-workflow/${encodeURIComponent(workflowId)}`,
+      { method: "POST" }
+    );
+  }
+
+  private async request<T>(path: string, options: RequestOptions = {}) {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: options.method ?? "GET",
+      credentials: "include",
+      headers:
+        options.body === undefined
+          ? undefined
+          : {
+              "Content-Type": "application/json",
+            },
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 && typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+
+      const details = await readResponseBody(response);
+
+      throw new ApiError(
+        response.status,
+        apiErrorMessage(response.status, details),
+        details
+      );
+    }
+
+    if (
+      response.status === 204 ||
+      response.headers.get("content-length") === "0"
+    ) {
+      return undefined as T;
+    }
+
+    return (await response.json()) as T;
+  }
+}
+
+export const messagingApi = new MessagingApiClient();

@@ -1,0 +1,230 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
+
+import { GoogleIcon } from "@/components/common/GoogleIcon";
+import { LoadingButton } from "@/components/common/LoadingButton";
+import { useLogin } from "@/hooks/use-login";
+import { useLogin2FA } from "@/hooks/use-login-2fa";
+import { BROWSER_API_BASE_URL } from "@/lib/api-base-url";
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
+  const router = useRouter();
+  const searchParameters = useSearchParams();
+  const returnUrl = searchParameters.get("returnUrl");
+
+  const { mutate: login, isPending: isLoginPending } = useLogin();
+  const { mutate: login2FA, isPending: is2FAPending } = useLogin2FA();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [otp, setOtp] = useState("");
+  const otpInputRef = useRef<HTMLInputElement>(null);
+
+  const destination =
+    returnUrl && returnUrl.startsWith("/") ? returnUrl : "/inbox";
+
+  function handleLoginSubmit(event: React.FormEvent) {
+    event.preventDefault();
+
+    login(
+      { email, password },
+      {
+        onSuccess: (data) => {
+          if (data.twoFactorRequired && data.challengeToken) {
+            setChallengeToken(data.challengeToken);
+            setTimeout(() => {
+              otpInputRef.current?.focus();
+            }, 0);
+
+            return;
+          }
+
+          router.push(destination);
+        },
+      }
+    );
+  }
+
+  function handleOtpSubmit(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (!challengeToken) return;
+
+    login2FA(
+      { challengeToken, otp },
+      {
+        onSuccess: () => {
+          router.push(destination);
+        },
+      }
+    );
+  }
+
+  if (challengeToken) {
+    return (
+      <>
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <span
+              className="material-symbols-rounded text-[28px] text-primary"
+              aria-hidden="true"
+            >
+              phonelink_lock
+            </span>
+          </div>
+
+          <div className="text-center">
+            <h1 className="m-0 text-xl font-semibold text-primary">
+              Two-factor authentication
+            </h1>
+
+            <p className="mt-1 text-sm text-neutral-600">
+              Enter the 6-digit code from your authenticator app.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleOtpSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="otp"
+              className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
+            >
+              Authenticator code
+            </label>
+
+            <input
+              ref={otpInputRef}
+              id="otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              value={otp}
+              onChange={(event) => {
+                setOtp(event.target.value.replace(/\D/g, ""));
+              }}
+              placeholder="000000"
+              className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-center text-lg font-mono tracking-widest text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+            />
+          </div>
+
+          <LoadingButton
+            type="submit"
+            isLoading={is2FAPending}
+            disabled={otp.length !== 6}
+            className="mt-1 w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Verify
+          </LoadingButton>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => {
+            setChallengeToken(null);
+            setOtp("");
+          }}
+          className="mt-4 w-full text-center text-sm text-neutral-500 hover:text-neutral-700"
+        >
+          ← Back to login
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h1 className="m-0 text-xl font-semibold text-primary">Welcome back</h1>
+
+      <p className="mb-6 mt-1 text-sm text-neutral-600">
+        Sign in to your RelayFlow account
+      </p>
+
+      <a
+        href={`${BROWSER_API_BASE_URL}/oauth2/authorization/google`}
+        className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-200"
+      >
+        <GoogleIcon />
+        Continue with Google
+      </a>
+
+      <div className="my-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-neutral-300" />
+        <span className="text-xs text-neutral-500">or</span>
+        <div className="h-px flex-1 bg-neutral-300" />
+      </div>
+
+      <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="email"
+            className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
+          >
+            Email
+          </label>
+
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+            }}
+            placeholder="you@company.com"
+            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="password"
+            className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
+          >
+            Password
+          </label>
+
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value);
+            }}
+            placeholder="••••••••"
+            className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2.5 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+          />
+        </div>
+
+        <LoadingButton
+          type="submit"
+          isLoading={isLoginPending}
+          className="mt-1 w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Sign in
+        </LoadingButton>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-neutral-600">
+        Don&apos;t have an account? Ask your workspace owner for an invite link.
+      </p>
+    </>
+  );
+}

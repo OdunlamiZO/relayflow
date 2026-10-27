@@ -1,0 +1,64 @@
+package io.odunlamizo.relayflow.messaging.repository;
+
+import io.odunlamizo.relayflow.messaging.domain.Message;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface MessageRepository extends JpaRepository<Message, UUID> {
+
+    @Query(
+            """
+            select m from Message m
+            where m.conversation.id = :conversationId and m.workspace.id = :workspaceId
+            order by m.createdAt desc
+            """)
+    List<Message> findRecentByConversation(
+            @Param("conversationId") UUID conversationId,
+            @Param("workspaceId") UUID workspaceId,
+            Pageable pageable);
+
+    /** Limits history to the current session of a reopened conversation. */
+    @Query(
+            """
+            select m from Message m
+            where m.conversation.id = :conversationId
+              and m.workspace.id = :workspaceId
+              and m.createdAt >= :sessionStart
+            order by m.createdAt desc
+            """)
+    List<Message> findRecentByConversationSince(
+            @Param("conversationId") UUID conversationId,
+            @Param("workspaceId") UUID workspaceId,
+            @Param("sessionStart") Instant sessionStart,
+            Pageable pageable);
+
+    @Query(
+            """
+            select m from Message m
+            where m.conversation.id = :conversationId
+              and m.workspace.id = :workspaceId
+              and m.createdAt < :before
+            order by m.createdAt desc
+            """)
+    List<Message> findBeforeCursor(
+            @Param("conversationId") UUID conversationId,
+            @Param("workspaceId") UUID workspaceId,
+            @Param("before") Instant before,
+            Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Message m SET m.deletedAt = :now WHERE m.workspace.id = :workspaceId")
+    void softDeleteByWorkspace(@Param("workspaceId") UUID workspaceId, @Param("now") Instant now);
+
+    @Modifying
+    @Query("UPDATE Message m SET m.deletedAt = :now WHERE m.conversation.id in :conversationIds")
+    void softDeleteByConversations(
+            @Param("conversationIds") Collection<UUID> conversationIds, @Param("now") Instant now);
+}

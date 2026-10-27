@@ -1,0 +1,248 @@
+"use client";
+
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+
+import { LoadingButton } from "@/components/common/LoadingButton";
+import { useCreateWorkspace } from "@/hooks/use-create-workspace";
+import { useWorkspaces } from "@/hooks/use-workspaces";
+
+type Props = {
+  workspaceId: string;
+};
+
+const WORKSPACE_SECTIONS = ["inbox", "contacts", "workflows", "settings"];
+
+export function workspaceUrl(pathname: string, workspaceId: string, hash = "") {
+  const section = pathname.split("/")[1];
+
+  if (!WORKSPACE_SECTIONS.includes(section)) {
+    return `/inbox?workspaceId=${workspaceId}`;
+  }
+
+  return `/${section}?workspaceId=${workspaceId}${section === "settings" ? hash : ""}`;
+}
+
+export function WorkspaceSwitcher({ workspaceId }: Props) {
+  const { data: workspaces = [] } = useWorkspaces();
+  const { mutate: createWorkspace, isPending: isCreating } =
+    useCreateWorkspace();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const current = workspaces.find((workspace) => workspace.id === workspaceId);
+
+  function close() {
+    setIsOpen(false);
+    setShowCreate(false);
+    setNewName("");
+  }
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        close();
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (showCreate) {
+          setShowCreate(false);
+          setNewName("");
+        } else {
+          close();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, showCreate]);
+
+  useEffect(() => {
+    if (showCreate) inputRef.current?.focus();
+  }, [showCreate]);
+
+  function selectWorkspace(id: string) {
+    close();
+
+    if (id !== workspaceId) {
+      router.push(workspaceUrl(pathname, id, window.location.hash));
+    }
+  }
+
+  function handleCreate(event: React.FormEvent) {
+    event.preventDefault();
+    const name = newName.trim();
+
+    if (!name) return;
+
+    createWorkspace(
+      { name },
+      {
+        onSuccess: (workspace) => {
+          close();
+          router.push(`/inbox?workspaceId=${workspace.id}`);
+        },
+      }
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative flex min-w-0 items-center">
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen((previous) => !previous);
+          setShowCreate(false);
+          setNewName("");
+        }}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label="Switch workspace"
+        className="group flex min-w-0 max-w-64 items-center gap-2 py-1 text-left"
+      >
+        <span
+          className="material-symbols-rounded shrink-0 text-[16px] leading-none text-neutral-400 transition-colors group-hover:text-neutral-700"
+          aria-hidden="true"
+        >
+          workspaces
+        </span>
+
+        <span className="truncate text-sm font-medium text-neutral-700 transition-colors group-hover:text-neutral-900">
+          {current?.name ?? "Workspace"}
+        </span>
+
+        <span
+          className="material-symbols-rounded shrink-0 text-[16px] text-neutral-400 transition-colors group-hover:text-neutral-700"
+          aria-hidden="true"
+        >
+          {isOpen ? "expand_less" : "expand_more"}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 shadow-xl">
+          {showCreate ? (
+            <form onSubmit={handleCreate} className="p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                New workspace
+              </p>
+
+              <input
+                ref={inputRef}
+                type="text"
+                required
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+                placeholder="Workspace name"
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-800 outline-none placeholder:text-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+              />
+
+              <div className="mt-2.5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreate(false);
+                    setNewName("");
+                  }}
+                  className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-200"
+                >
+                  Cancel
+                </button>
+
+                <LoadingButton
+                  type="submit"
+                  isLoading={isCreating}
+                  disabled={!newName.trim()}
+                  className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-neutral-100 transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                >
+                  Create
+                </LoadingButton>
+              </div>
+            </form>
+          ) : (
+            <>
+              {workspaces.length > 0 && (
+                <ul role="listbox" aria-label="Workspaces" className="p-1.5">
+                  {workspaces.map((workspace) => (
+                    <li key={workspace.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={workspace.id === workspaceId}
+                        onClick={() => selectWorkspace(workspace.id)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-200"
+                      >
+                        <span
+                          className="material-symbols-rounded shrink-0 text-[15px] leading-none text-secondary"
+                          aria-hidden="true"
+                        >
+                          workspaces
+                        </span>
+
+                        <span className="flex-1 truncate text-left">
+                          {workspace.name}
+                        </span>
+
+                        {workspace.id === workspaceId && (
+                          <span
+                            className="material-symbols-rounded shrink-0 text-[15px] leading-none text-secondary"
+                            aria-hidden="true"
+                          >
+                            check
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div
+                className={
+                  workspaces.length > 0
+                    ? "border-t border-neutral-100 p-1.5"
+                    : "p-1.5"
+                }
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(true)}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-200"
+                >
+                  <span
+                    className="material-symbols-rounded shrink-0 text-[15px] leading-none"
+                    aria-hidden="true"
+                  >
+                    add
+                  </span>
+                  New workspace
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

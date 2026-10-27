@@ -1,0 +1,79 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / editors
+.idea/
+.vscode/
+*.iml
+
+# Java / Maven
+apps/api/target/
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# Node / Next.js
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+apps/web/dist/
+apps/web/.turbo/
+apps/web/.vercel/
+apps/web/coverage/
+apps/web/tsconfig.tsbuildinfo
+apps/web/.eslintcache
+apps/web/playwright-report/
+apps/web/test-results/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node / Next.js (marketing)
+apps/marketing/node_modules/
+apps/marketing/.next/
+apps/marketing/out/
+apps/marketing/build/
+apps/marketing/dist/
+apps/marketing/.turbo/
+apps/marketing/.vercel/
+apps/marketing/tsconfig.tsbuildinfo
+apps/marketing/.eslintcache
+apps/marketing/coverage/
+
+# SQLite data (apps/marketing's license-issuance database)
+apps/marketing/data/
+
+# Environment files
+.env
+.env.*
+!.env.example
+apps/api/.env
+apps/api/.env.*
+!apps/api/.env.example
+# Local dev secrets — never commit this file; it contains real credentials
+apps/api/src/main/resources/.env
+apps/web/.env
+apps/web/.env.*
+!apps/web/.env.example
+apps/marketing/.env
+apps/marketing/.env.*
+!apps/marketing/.env.example
+
+# Local runtime data
+postgres_data/
+redis_data/
+apps/web/next-env.d.ts
+apps/marketing/next-env.d.ts
+
+# Private docs
+docs/prd/

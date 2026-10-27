@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <property name="LOG_CORRELATION_PATTERN" value="%replace([%X{requestId}] ){'\[\] ', ''}"/>
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="logFormat" source="LOG_FORMAT" defaultValue="text"/>
+
+    <springProperty scope="context" name="applicationName" source="spring.application.name" defaultValue="relayflow-api"/>
+
+    <appender name="text" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>${CONSOLE_LOG_CHARSET}</charset>
+        </encoder>
+    </appender>
+
+    <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+                <logger>logger.name</logger>
+                <thread>logger.thread_name</thread>
+                <stackTrace>error.stack</stackTrace>
+            </fieldNames>
+            <provider class="net.logstash.logback.composite.loggingevent.ThrowableClassNameJsonProvider">
+                <fieldName>error.kind</fieldName>
+                <useSimpleClassName>false</useSimpleClassName>
+            </provider>
+            <provider class="net.logstash.logback.composite.loggingevent.ThrowableMessageJsonProvider">
+                <fieldName>error.message</fieldName>
+            </provider>
+        </encoder>
+    </appender>
+
+    <appender name="logfmt" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="io.odunlamizo.relayflow.logging.LogfmtLayout"/>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="ecs" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>@timestamp</fieldName>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <logLevel>
+                    <fieldName>log.level</fieldName>
+                </logLevel>
+                <message/>
+                <pattern>
+                    <pattern>{"ecs.version":"8.11.0","service.name":"${applicationName}"}</pattern>
+                </pattern>
+                <loggerName>
+                    <fieldName>log.logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>process.thread.name</fieldName>
+                </threadName>
+                <mdc/>
+                <arguments/>
+                <throwableClassName>
+                    <fieldName>error.type</fieldName>
+                    <useSimpleClassName>false</useSimpleClassName>
+                </throwableClassName>
+                <throwableMessage>
+                    <fieldName>error.message</fieldName>
+                </throwableMessage>
+                <stackTrace>
+                    <fieldName>error.stack_trace</fieldName>
+                </stackTrace>
+            </providers>
+        </encoder>
+    </appender>
+
+    <appender name="gelf" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <provider class="io.odunlamizo.relayflow.logging.GelfJsonProvider"/>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="${logFormat}"/>
+    </root>
+</configuration>
