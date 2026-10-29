@@ -25,6 +25,26 @@ export type ConditionRule = {
   value?: string;
 };
 
+/** Operators that only check the variable, so they take no value. */
+export const NO_VALUE_OPERATORS = new Set<ConditionOperator>([
+  "is_set",
+  "is_not_set",
+]);
+
+/**
+ * The update for an operator change. Switching to an operator that takes no value clears the
+ * value, so the saved workflow never holds a value the editor hides.
+ */
+export function operatorChange(
+  operator: ConditionOperator
+): Partial<ConditionRule> {
+  if (NO_VALUE_OPERATORS.has(operator)) {
+    return { operator, value: undefined };
+  }
+
+  return { operator };
+}
+
 export type ConditionBranch = {
   id: string;
   label: string;

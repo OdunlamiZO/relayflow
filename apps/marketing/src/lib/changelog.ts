@@ -23,6 +23,19 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.1.0",
+    date: "2026-10-29",
+    changes: {
+      changed: [
+        'Breaking: public API errors are now RFC 9457 problem details (application/problem+json) with a code to branch on, such as CONVERSATION_NOT_FOUND or INVALID_TAG_VALUE, instead of {"message", "timestamp"}. See the error table in the README.',
+      ],
+      fixed: [
+        "A public API request with a missing or invalid API key returned an empty 403. It now returns 401 with MISSING_API_KEY or INVALID_API_KEY.",
+        "A public API request with malformed JSON or an invalid ID returned 500. It now returns 400 with INVALID_REQUEST.",
+      ],
+    },
+  },
+  {
     version: "1.0.0",
     date: "2026-10-27",
     changes: {
