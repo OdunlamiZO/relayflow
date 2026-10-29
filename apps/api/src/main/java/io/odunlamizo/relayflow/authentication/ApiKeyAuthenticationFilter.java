@@ -16,7 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final String HEADER = "X-Api-Key";
+    public static final String HEADER = "X-Api-Key";
 
     private static final Duration LAST_USED_UPDATE_INTERVAL = Duration.ofHours(1);
 

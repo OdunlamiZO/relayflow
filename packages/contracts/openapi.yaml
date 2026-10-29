@@ -2305,6 +2305,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationPageResponse"
+        "400":
+          $ref: "#/components/responses/PublicInvalidRequest"
+        "401":
+          $ref: "#/components/responses/PublicUnauthorized"
+        "429":
+          $ref: "#/components/responses/PublicRateLimited"
+        "500":
+          $ref: "#/components/responses/PublicInternalError"
 
   /public/v1/conversations/{conversationId}:
     get:
@@ -2322,6 +2330,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationResponse"
+        "400":
+          $ref: "#/components/responses/PublicInvalidRequest"
+        "404":
+          $ref: "#/components/responses/PublicConversationNotFound"
+        "401":
+          $ref: "#/components/responses/PublicUnauthorized"
+        "429":
+          $ref: "#/components/responses/PublicRateLimited"
+        "500":
+          $ref: "#/components/responses/PublicInternalError"
 
   /public/v1/conversations/{conversationId}/messages:
     get:
@@ -2350,6 +2368,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessagePageResponse"
+        "400":
+          $ref: "#/components/responses/PublicInvalidRequest"
+        "404":
+          $ref: "#/components/responses/PublicConversationNotFound"
+        "401":
+          $ref: "#/components/responses/PublicUnauthorized"
+        "429":
+          $ref: "#/components/responses/PublicRateLimited"
+        "500":
+          $ref: "#/components/responses/PublicInternalError"
     post:
       operationId: publicSendMessage
       summary: Send an outbound agent message via API key
@@ -2372,12 +2400,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/PublicInvalidRequest"
+        "404":
+          $ref: "#/components/responses/PublicConversationNotFound"
         "409":
-          description: Conversation is currently locked by an active workflow
+          description: A workflow is handling the conversation
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Problem"
+              examples:
+                CONVERSATION_LOCKED:
+                  value:
+                    type: /problems/conversation-locked
+                    title: Conversation locked
+                    status: 409
+                    detail: A workflow is currently handling this conversation. Wait for the workflow to finish before replying.
+                    instance: /public/v1/conversations/6f1c2a3e-5b8d-4c1f-9e2a-7d3b4c5e6f70/messages
+                    code: CONVERSATION_LOCKED
+        "415":
+          $ref: "#/components/responses/PublicUnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/PublicUnauthorized"
+        "429":
+          $ref: "#/components/responses/PublicRateLimited"
+        "500":
+          $ref: "#/components/responses/PublicInternalError"
+        "502":
+          description: Telegram or WhatsApp didn't accept the message
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+              examples:
+                CHANNEL_DELIVERY_FAILED:
+                  value:
+                    type: /problems/channel-delivery-failed
+                    title: Channel delivery failed
+                    status: 502
+                    detail: Telegram channel is disconnected — reconnect it from the channel settings
+                    instance: /public/v1/conversations/6f1c2a3e-5b8d-4c1f-9e2a-7d3b4c5e6f70/messages
+                    code: CHANNEL_DELIVERY_FAILED
 
   /public/v1/contacts/{contactId}/tags:
     put:
@@ -2413,11 +2477,59 @@ paths:
               schema:
                 $ref: "#/components/schemas/ContactTagsResponse"
         "400":
-          description: Undefined tag, or a value outside its allowed list
+          description: Undefined tag, a value outside its allowed list, or a malformed request
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Problem"
+              examples:
+                UNKNOWN_TAG:
+                  value:
+                    type: /problems/unknown-tag
+                    title: Unknown tag
+                    status: 400
+                    detail: '"tier" is not a contact tag.'
+                    instance: /public/v1/contacts/2b7e9c41-0d3a-4f6e-8a1b-5c9d0e2f3a4b/tags
+                    code: UNKNOWN_TAG
+                INVALID_TAG_VALUE:
+                  value:
+                    type: /problems/invalid-tag-value
+                    title: Invalid tag value
+                    status: 400
+                    detail: '"done" is not an allowed value for "kyc_status". Allowed values: pending, verified.'
+                    instance: /public/v1/contacts/2b7e9c41-0d3a-4f6e-8a1b-5c9d0e2f3a4b/tags
+                    code: INVALID_TAG_VALUE
+                INVALID_REQUEST:
+                  value:
+                    type: /problems/invalid-request
+                    title: Invalid request
+                    status: 400
+                    detail: The request body is missing or isn't valid JSON.
+                    instance: /public/v1/contacts/2b7e9c41-0d3a-4f6e-8a1b-5c9d0e2f3a4b/tags
+                    code: INVALID_REQUEST
+        "404":
+          description: No such contact in the key's workspace
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+              examples:
+                CONTACT_NOT_FOUND:
+                  value:
+                    type: /problems/contact-not-found
+                    title: Contact not found
+                    status: 404
+                    detail: Contact not found
+                    instance: /public/v1/contacts/2b7e9c41-0d3a-4f6e-8a1b-5c9d0e2f3a4b/tags
+                    code: CONTACT_NOT_FOUND
+        "415":
+          $ref: "#/components/responses/PublicUnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/PublicUnauthorized"
+        "429":
+          $ref: "#/components/responses/PublicRateLimited"
+        "500":
+          $ref: "#/components/responses/PublicInternalError"
 
 # ── Reusable components ────────────────────────────────────────────────────────
 
@@ -2976,6 +3088,49 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    Problem:
+      description: >-
+        RFC 9457 problem details, returned by every public API error as `application/problem+json`.
+        Branch on `code`; `detail` says what went wrong.
+      type: object
+      required: [type, title, status, detail, instance, code]
+      properties:
+        type:
+          type: string
+          description: Relative URI identifying the problem type.
+          example: /problems/conversation-not-found
+        title:
+          type: string
+          example: Conversation not found
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          description: What went wrong.
+        instance:
+          type: string
+          description: The request path.
+          example: /public/v1/conversations/6f1c2a3e-5b8d-4c1f-9e2a-7d3b4c5e6f70
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST
+            - UNKNOWN_TAG
+            - INVALID_TAG_VALUE
+            - MISSING_API_KEY
+            - INVALID_API_KEY
+            - ENDPOINT_NOT_FOUND
+            - CONVERSATION_NOT_FOUND
+            - CONTACT_NOT_FOUND
+            - RESOURCE_NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - CONVERSATION_LOCKED
+            - UNSUPPORTED_MEDIA_TYPE
+            - RATE_LIMITED
+            - INTERNAL_ERROR
+            - CHANNEL_DELIVERY_FAILED
 
     AuthenticatedUserResponse:
       type: object
@@ -4083,3 +4238,113 @@ components:
         nextCursor:
           type: string
           nullable: true
+
+  responses:
+    PublicInvalidRequest:
+      description: A field fails validation, the body isn't valid JSON, or a parameter has the wrong type
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          examples:
+            INVALID_REQUEST:
+              value:
+                type: /problems/invalid-request
+                title: Invalid request
+                status: 400
+                detail: '"not-a-uuid" isn''t a valid conversationId.'
+                instance: /public/v1/conversations/not-a-uuid
+                code: INVALID_REQUEST
+
+    PublicUnauthorized:
+      description: Missing, unknown, revoked, or expired API key
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          examples:
+            MISSING_API_KEY:
+              value:
+                type: /problems/missing-api-key
+                title: Missing API key
+                status: 401
+                detail: Send your API key in the X-Api-Key header.
+                instance: /public/v1/conversations
+                code: MISSING_API_KEY
+            INVALID_API_KEY:
+              value:
+                type: /problems/invalid-api-key
+                title: Invalid API key
+                status: 401
+                detail: The API key is unknown, revoked, or expired.
+                instance: /public/v1/conversations
+                code: INVALID_API_KEY
+
+    PublicConversationNotFound:
+      description: No such conversation in the key's workspace
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          examples:
+            CONVERSATION_NOT_FOUND:
+              value:
+                type: /problems/conversation-not-found
+                title: Conversation not found
+                status: 404
+                detail: Conversation not found
+                instance: /public/v1/conversations/6f1c2a3e-5b8d-4c1f-9e2a-7d3b4c5e6f70
+                code: CONVERSATION_NOT_FOUND
+
+    PublicUnsupportedMediaType:
+      description: The body isn't application/json
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          examples:
+            UNSUPPORTED_MEDIA_TYPE:
+              value:
+                type: /problems/unsupported-media-type
+                title: Unsupported media type
+                status: 415
+                detail: Send the request body as application/json.
+                instance: /public/v1/conversations/6f1c2a3e-5b8d-4c1f-9e2a-7d3b4c5e6f70/messages
+                code: UNSUPPORTED_MEDIA_TYPE
+
+    PublicRateLimited:
+      description: Too many requests for this API key
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          examples:
+            RATE_LIMITED:
+              value:
+                type: /problems/rate-limited
+                title: Rate limited
+                status: 429
+                detail: Too many requests. Retry after the number of seconds in the Retry-After header.
+                instance: /public/v1/conversations
+                code: RATE_LIMITED
+
+    PublicInternalError:
+      description: Something failed on the server
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          examples:
+            INTERNAL_ERROR:
+              value:
+                type: /problems/internal-error
+                title: Internal error
+                status: 500
+                detail: An unexpected error occurred.
+                instance: /public/v1/conversations
+                code: INTERNAL_ERROR

@@ -111,6 +111,10 @@ It intentionally focuses on components that define behavior or shared contracts.
 - [Messaging Repositories](#messaging-repositories)
 - [Public API Backend](#public-api-backend)
   - [`PublicApiController`](#publicapicontroller)
+  - [`PublicApiProblem`](#publicapiproblem)
+  - [`PublicApiExceptionResolver`](#publicapiexceptionresolver)
+  - [`PublicApiProblemWriter`](#publicapiproblemwriter)
+  - [`PublicApiAuthenticationEntryPoint`](#publicapiauthenticationentrypoint)
 - [Webhook And Email Backend](#webhook-and-email-backend)
   - [`WebhookService`](#webhookservice)
   - [`WebhookDispatchService`](#webhookdispatchservice)
@@ -1071,7 +1075,7 @@ We need it as the REST boundary for the contacts UI and channel adapters creatin
 
 ### `ContactTagService`
 
-`applyTags(contact, changes)` sets each given tag to its value, or clears it when the value is blank or null. An undefined tag or a value outside its allowed list is a 400 `ResponseStatusException`. Saves and sends `contact.updated` only when the tags actually change. Used by the contact page (`PATCH /contacts/{id}/tags`), the public API (`PUT /public/v1/contacts/{id}/tags`), and `SetContactTagNodeExecutor`.
+`applyTags(contact, changes)` sets each given tag to its value, or clears it when the value is blank or null. An undefined tag throws `UnknownContactTagException` and a value outside its allowed list throws `InvalidContactTagValueException`. Both are 400 `ResponseStatusException`s, so the internal API's error body is unchanged, while the public API maps them to its own `UNKNOWN_TAG` and `INVALID_TAG_VALUE` codes. Saves and sends `contact.updated` only when the tags actually change. Used by the contact page (`PATCH /contacts/{id}/tags`), the public API (`PUT /public/v1/contacts/{id}/tags`), and `SetContactTagNodeExecutor`.
 
 We need it so every way of setting a tag enforces the same rules.
 
@@ -1100,7 +1104,7 @@ Important methods:
 - `getContactDetail`: merges `ReservedContactFieldResolver`'s auto-derived values with `Contact.customFields` — an explicitly-stored value always overrides a derived one.
 - `updateContactTags`: applies tag changes via `ContactTagService` and returns the contact detail.
 - `createExternalIdentity`
-- `getContact`: looks up a contact within a workspace or throws `ResourceNotFoundException`. Called by `MessagingService` when creating a conversation.
+- `getContact`: looks up a contact within a workspace or throws `ContactNotFoundException`, a `ResourceNotFoundException` the public API reports as `CONTACT_NOT_FOUND`. Called by `MessagingService` when creating a conversation.
 
 We need it because contacts have cross-entity rules (merge reassignment, derived-field precedence) that should not live in controllers or repositories.
 
@@ -1219,6 +1223,8 @@ We need it so a locked-conversation write attempt gets a clear, specific respons
 
 Runtime exception thrown when an agent or public API client tries to send a message while an active workflow owns the conversation.
 
+`ConversationNotFoundException`, a `ResourceNotFoundException` thrown when a conversation isn't in the workspace, sits beside it so the public API can report `CONVERSATION_NOT_FOUND`.
+
 We need it to enforce workflow-driven conversations without silently dropping agent replies.
 
 ### `OutboundMessageEvent`
@@ -1311,6 +1317,30 @@ Endpoints:
 - `sendMessage`: calls `MessagingService.createMessage` with `reopenIfClosed = false`, so a closed conversation stays closed.
 
 We need it so third-party systems can inspect conversations and send outbound replies for a workspace.
+
+### `PublicApiProblem`
+
+Enum of every public API error. Each constant's name is the `code` clients branch on, and carries its HTTP status, a `title`, and a `type` URI derived from the name (`CONVERSATION_NOT_FOUND` → `/problems/conversation-not-found`).
+
+We need it so the codes, statuses, and titles are defined once and the OpenAPI contract's `Problem.code` enum has a single source.
+
+### `PublicApiExceptionResolver`
+
+`HandlerExceptionResolver` that turns every exception on a `/public/v1` request into RFC 9457 problem details (`application/problem+json`), and returns `null` for every other path so the `@RestControllerAdvice` handlers keep the internal API's `ErrorResponse`. Ordered just after Spring Boot's error-attributes resolver, ahead of the advice beans. A resolver rather than an advice because it also sees errors raised before a controller is chosen — an unknown path (`ENDPOINT_NOT_FOUND`), a wrong method (`METHOD_NOT_ALLOWED`, with an `Allow` header), or a non-JSON body (`UNSUPPORTED_MEDIA_TYPE`). Unexpected exceptions become `INTERNAL_ERROR` with a generic `detail` and are logged at `ERROR`; channel delivery failures log at `WARN`; everything else logs at `INFO`.
+
+We need it so a public API client gets one machine-readable error format for every failure.
+
+### `PublicApiProblemWriter`
+
+Writes a `ProblemResponse` (`type`, `title`, `status`, `detail`, `instance`, `code`) straight to the servlet response, and decides whether a request is a public API request (`isPublicApiRequest`). Shared by `PublicApiExceptionResolver`, `PublicApiAuthenticationEntryPoint`, and `RateLimitFilter`.
+
+We need it so errors raised in filters, before Spring MVC runs, use the same format as errors raised in the controller.
+
+### `PublicApiAuthenticationEntryPoint`
+
+The public API security chain's `AuthenticationEntryPoint`: answers a request without a valid key with a 401 problem — `MISSING_API_KEY` when there's no `X-Api-Key` header, `INVALID_API_KEY` when the key is unknown, revoked, or expired.
+
+We need it because, without an entry point, Spring Security answered these requests with an empty `403`.
 
 ## Webhook And Email Backend
 

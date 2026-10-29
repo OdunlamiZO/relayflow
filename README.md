@@ -215,7 +215,37 @@ Public API requests authenticate with `X-Api-Key`:
 - `GET  /public/v1/conversations/{id}`
 - `GET  /public/v1/conversations/{id}/messages`
 - `POST /public/v1/conversations/{id}/messages` — sends an outbound message; a closed conversation stays closed
-- `PUT  /public/v1/contacts/{id}/tags` — sets contact tags, e.g. `{"kyc_status": "verified"}`; `null` clears a tag; an undefined tag or a value outside its allowed list returns `400`
+- `PUT  /public/v1/contacts/{id}/tags` — sets contact tags, e.g. `{"kyc_status": "verified"}`; `null` clears a tag; an undefined tag returns `UNKNOWN_TAG` and a value outside its allowed list returns `INVALID_TAG_VALUE`
+
+Every public API error is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details (`application/problem+json`). Branch on `code`; `detail` says what went wrong:
+
+```json
+{
+  "type": "/problems/conversation-not-found",
+  "title": "Conversation not found",
+  "status": 404,
+  "detail": "Conversation not found",
+  "instance": "/public/v1/conversations/6f1c…",
+  "code": "CONVERSATION_NOT_FOUND"
+}
+```
+
+| `code` | Status | When |
+| --- | --- | --- |
+| `INVALID_REQUEST` | 400 | A field fails validation, the body isn't valid JSON, or a parameter has the wrong type |
+| `UNKNOWN_TAG` / `INVALID_TAG_VALUE` | 400 | The tag isn't defined, or the value isn't in its allowed list |
+| `MISSING_API_KEY` / `INVALID_API_KEY` | 401 | No `X-Api-Key` header, or the key is unknown, revoked, or expired |
+| `CONVERSATION_NOT_FOUND` / `CONTACT_NOT_FOUND` | 404 | No such conversation or contact in the key's workspace |
+| `RESOURCE_NOT_FOUND` | 404 | Any other record the request needs is missing |
+| `ENDPOINT_NOT_FOUND` | 404 | No endpoint at that path |
+| `METHOD_NOT_ALLOWED` | 405 | The endpoint doesn't support that HTTP method; see the `Allow` header |
+| `CONVERSATION_LOCKED` | 409 | A workflow is handling the conversation |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | The body isn't `application/json` |
+| `RATE_LIMITED` | 429 | Too many requests; retry after the `Retry-After` header's seconds |
+| `INTERNAL_ERROR` | 500 | Something failed on the server |
+| `CHANNEL_DELIVERY_FAILED` | 502 | Telegram or WhatsApp didn't accept the message |
+
+The rest of the API keeps its `{"message", "timestamp"}` error body.
 
 ### Workflows
 

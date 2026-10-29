@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.authentication.ApiKeyAuthenticationFilter;
 import io.odunlamizo.relayflow.authentication.EmailPasswordUserDetailsService;
 import io.odunlamizo.relayflow.authentication.OAuth2UserProvisioningService;
+import io.odunlamizo.relayflow.publicapi.PublicApiAuthenticationEntryPoint;
+import io.odunlamizo.relayflow.publicapi.PublicApiProblemWriter;
 import io.odunlamizo.relayflow.security.RateLimitFilter;
 import io.odunlamizo.relayflow.workspace.repository.WorkspaceApiKeyRepository;
 import jakarta.servlet.DispatcherType;
@@ -68,7 +70,10 @@ public class SecurityConfiguration {
     @Bean
     @Order(1)
     SecurityFilterChain publicApiFilterChain(
-            HttpSecurity http, WorkspaceApiKeyRepository apiKeyRepository) throws Exception {
+            HttpSecurity http,
+            WorkspaceApiKeyRepository apiKeyRepository,
+            PublicApiAuthenticationEntryPoint authenticationEntryPoint)
+            throws Exception {
         ApiKeyAuthenticationFilter apiKeyFilter = new ApiKeyAuthenticationFilter(apiKeyRepository);
 
         http.securityMatcher("/public/v1/**")
@@ -76,6 +81,10 @@ public class SecurityConfiguration {
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(
+                        exceptionHandling ->
+                                exceptionHandling.authenticationEntryPoint(
+                                        authenticationEntryPoint))
                 .authorizeHttpRequests(authorization -> authorization.anyRequest().authenticated());
 
         return http.build();
@@ -133,6 +142,7 @@ public class SecurityConfiguration {
     FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(
             StringRedisTemplate redis,
             ObjectMapper objectMapper,
+            PublicApiProblemWriter problemWriter,
             @Value("${relayflow.ratelimit.enabled:true}") boolean enabled,
             @Value("${relayflow.ratelimit.login.limit:5}") int loginLimit,
             @Value("${relayflow.ratelimit.login.window-seconds:60}") int loginWindowSeconds,
@@ -148,6 +158,7 @@ public class SecurityConfiguration {
                 new RateLimitFilter(
                         redis,
                         objectMapper,
+                        problemWriter,
                         enabled,
                         loginLimit,
                         loginWindowSeconds,

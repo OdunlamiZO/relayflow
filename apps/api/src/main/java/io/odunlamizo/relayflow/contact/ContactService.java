@@ -6,7 +6,6 @@ import io.odunlamizo.relayflow.agent.repository.ConversationAiDraftRepository;
 import io.odunlamizo.relayflow.channel.ChannelAccountService;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.common.MapUtils;
-import io.odunlamizo.relayflow.common.ResourceNotFoundException;
 import io.odunlamizo.relayflow.common.dto.PageResponse;
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.contact.domain.ExternalIdentity;
@@ -336,12 +335,10 @@ public class ContactService {
 
     public Contact getContact(UUID contactId, UUID workspaceId) {
         Contact contact =
-                contactRepository
-                        .findById(contactId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Contact not found"));
+                contactRepository.findById(contactId).orElseThrow(ContactNotFoundException::new);
 
         if (!contact.getWorkspace().getId().equals(workspaceId)) {
-            throw new ResourceNotFoundException("Contact not found");
+            throw new ContactNotFoundException();
         }
 
         return contact;
