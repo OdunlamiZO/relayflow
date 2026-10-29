@@ -36,8 +36,6 @@ import {
   type ConditionOperator,
   type ConditionRule,
   DEFAULT_CONDITION_BRANCHES,
-  NO_VALUE_OPERATORS,
-  operatorChange,
 } from "./nodes/ConditionNode";
 import {
   DEFAULT_TIMEOUT_MINUTES,
@@ -356,6 +354,9 @@ const CONDITION_OPERATORS: { value: ConditionOperator; label: string }[] = [
 
 const DEFAULT_CONDITION_OPERATOR: ConditionOperator = "eq";
 
+/** Operators that compare against a value; the value field is hidden for the rest. */
+const NO_VALUE_OPERATORS = new Set<ConditionOperator>(["is_set", "is_not_set"]);
+
 const MAX_TOTAL_TIMEOUT_MINUTES = 7 * 24 * 60;
 
 /** WhatsApp truncates interactive button titles beyond this length. */
@@ -585,11 +586,9 @@ function ConditionForm({
                             condition.operator ?? DEFAULT_CONDITION_OPERATOR
                           }
                           onChange={(value) =>
-                            updateCondition(
-                              branch,
-                              condition.id,
-                              operatorChange(value as ConditionOperator)
-                            )
+                            updateCondition(branch, condition.id, {
+                              operator: value as ConditionOperator,
+                            })
                           }
                           options={CONDITION_OPERATORS}
                         />
