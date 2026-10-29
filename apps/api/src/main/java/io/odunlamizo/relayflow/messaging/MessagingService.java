@@ -304,6 +304,6 @@ public class MessagingService {
     private Conversation getConversationRecord(UUID conversationId, UUID workspaceId) {
         return conversationRepository
                 .findInWorkspace(conversationId, workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
+                .orElseThrow(ConversationNotFoundException::new);
     }
 }

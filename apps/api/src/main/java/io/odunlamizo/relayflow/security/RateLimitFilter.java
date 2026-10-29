@@ -2,6 +2,8 @@ package io.odunlamizo.relayflow.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.common.dto.ErrorResponse;
+import io.odunlamizo.relayflow.publicapi.PublicApiProblem;
+import io.odunlamizo.relayflow.publicapi.PublicApiProblemWriter;
 import io.odunlamizo.relayflow.workspace.ApiKeyService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -28,6 +30,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final ObjectMapper objectMapper;
 
+    private final PublicApiProblemWriter problemWriter;
+
     private final boolean enabled;
 
     private final List<RateLimitRule> rules;
@@ -35,6 +39,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     public RateLimitFilter(
             StringRedisTemplate redis,
             ObjectMapper objectMapper,
+            PublicApiProblemWriter problemWriter,
             boolean enabled,
             int loginLimit,
             int loginWindowSeconds,
@@ -46,6 +51,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             int webhookWindowSeconds) {
         this.redis = redis;
         this.objectMapper = objectMapper;
+        this.problemWriter = problemWriter;
         this.enabled = enabled;
         this.rules =
                 List.of(
@@ -115,7 +121,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         for (RateLimitRule rule : rules) {
             if (PATH_MATCHER.match(rule.path(), path) && !allow(rule, request)) {
-                rejectRequest(response, rule);
+                rejectRequest(request, response, rule);
 
                 return;
             }
@@ -149,10 +155,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return clientIp(request);
     }
 
-    private void rejectRequest(HttpServletResponse response, RateLimitRule rule)
+    private void rejectRequest(
+            HttpServletRequest request, HttpServletResponse response, RateLimitRule rule)
             throws IOException {
-        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setHeader("Retry-After", String.valueOf(rule.windowSeconds()));
+
+        if (PublicApiProblemWriter.isPublicApiRequest(request)) {
+            problemWriter.write(
+                    request,
+                    response,
+                    PublicApiProblem.RATE_LIMITED,
+                    "Too many requests. Retry after the number of seconds in the Retry-After header.");
+
+            return;
+        }
+
+        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(
                 response.getWriter(),

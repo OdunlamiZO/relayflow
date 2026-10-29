@@ -10,10 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 /** A blank value clears the tag. */
 @Service
@@ -42,8 +40,7 @@ public class ContactTagService {
             ContactTagDefinition definition = definitions.get(key);
 
             if (definition == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "\"" + key + "\" is not a contact tag.");
+                throw new UnknownContactTagException(key);
             }
 
             String value = change.getValue() != null ? change.getValue().trim() : "";
@@ -55,15 +52,7 @@ public class ContactTagService {
             }
 
             if (!definition.values().contains(value)) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "\""
-                                + value
-                                + "\" is not an allowed value for \""
-                                + key
-                                + "\". Allowed values: "
-                                + String.join(", ", definition.values())
-                                + ".");
+                throw new InvalidContactTagValueException(key, value, definition.values());
             }
 
             tags.put(key, value);
