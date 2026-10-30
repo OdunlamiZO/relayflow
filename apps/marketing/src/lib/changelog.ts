@@ -25,6 +25,17 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.2.0",
+    date: "2026-10-30",
+    changes: {
+      changed: [
+        "Breaking: the OpenAI, Groq, and Ollama LLM providers are replaced by one OpenAI-compatible provider that works with any API in OpenAI's format, including OpenRouter, Together, DeepSeek, and vLLM. Set OPENAI_COMPATIBLE_BASE_URL and OPENAI_COMPATIBLE_API_KEY, and choose the model in Redis at platform:llm:openai-compatible:model. OPENAI_API_KEY and GROQ_API_KEY are no longer read. Agents set to OpenAI, Groq, or Ollama move to the new provider automatically.",
+        "The API's heap can now use 75% of its container's memory limit, up from the JVM default of 25%. Override it with JAVA_OPTS.",
+        "Import and Load sample only appear on an empty workflow, so an import can't replace an existing one.",
+      ],
+    },
+  },
+  {
     version: "1.1.0",
     date: "2026-10-29",
     changes: {
