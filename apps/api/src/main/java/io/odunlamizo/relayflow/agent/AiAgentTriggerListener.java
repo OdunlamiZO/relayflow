@@ -4,7 +4,6 @@ package io.odunlamizo.relayflow.agent;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
-import io.odunlamizo.relayflow.agent.repository.AiAgentInvocationLogRepository;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.workflow.domain.WorkflowRunStatus;
 import io.odunlamizo.relayflow.workflow.engine.ConversationMessageReceivedEvent;
@@ -26,19 +25,15 @@ public class AiAgentTriggerListener {
 
     private final AiAgentConfigurationService aiAgentConfigurationService;
 
-    private final AiAgentInvocationLogRepository invocationLogRepository;
-
     private final WorkflowRunRepository workflowRunRepository;
 
     private final AiAgentInvocationService invocationService;
 
     public AiAgentTriggerListener(
             AiAgentConfigurationService aiAgentConfigurationService,
-            AiAgentInvocationLogRepository invocationLogRepository,
             WorkflowRunRepository workflowRunRepository,
             AiAgentInvocationService invocationService) {
         this.aiAgentConfigurationService = aiAgentConfigurationService;
-        this.invocationLogRepository = invocationLogRepository;
         this.workflowRunRepository = workflowRunRepository;
         this.invocationService = invocationService;
     }

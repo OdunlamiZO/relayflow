@@ -369,10 +369,6 @@ public class TelegramAdapter {
                 "Message failed to send — could not reach Telegram after 2 attempts", null);
     }
 
-    private void sendTelegramMessageQuietly(String botToken, String chatId, String text) {
-        sendTelegramMessageQuietly(botToken, chatId, text, (Map<String, Object>) null);
-    }
-
     private void sendTelegramMessageQuietly(
             String botToken, String chatId, String text, Map<String, Object> replyMarkup) {
         try {

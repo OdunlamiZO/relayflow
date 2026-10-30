@@ -488,22 +488,20 @@ function EditorCanvas({ workflowId, workspaceId }: Props) {
               Export
             </button>
 
-            {!readOnly && (
+            {!readOnly && nodes.length === 0 && (
               <>
-                {nodes.length === 0 && (
-                  <button
-                    onClick={handleLoadSample}
-                    className="flex h-7 items-center gap-1.5 rounded-md border border-neutral-300 bg-neutral-100 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
+                <button
+                  onClick={handleLoadSample}
+                  className="flex h-7 items-center gap-1.5 rounded-md border border-neutral-300 bg-neutral-100 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-200"
+                >
+                  <span
+                    className="material-symbols-rounded text-[12px] leading-none"
+                    aria-hidden="true"
                   >
-                    <span
-                      className="material-symbols-rounded text-[12px] leading-none"
-                      aria-hidden="true"
-                    >
-                      bolt
-                    </span>
-                    Load sample
-                  </button>
-                )}
+                    bolt
+                  </span>
+                  Load sample
+                </button>
 
                 <button
                   onClick={handleImportClick}
