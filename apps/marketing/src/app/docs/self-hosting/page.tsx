@@ -54,6 +54,12 @@ const ENVIRONMENT_VARIABLE_ROWS: Array<{
       "Works with any SMTP provider (Resend, SES, Mailgun, Postmark, Gmail, self-hosted, etc.). Blank host runs email in no-op/log mode",
   },
   {
+    name: "JAVA_OPTS",
+    required: false,
+    notes:
+      "Extra JVM flags for the API. Defaults to -XX:MaxRAMPercentage=75, so the heap can use 75% of the API container's 1 GB memory limit; raise the limit in docker-compose.yml for heavier workloads",
+  },
+  {
     name: "Rate limiting, timeouts, retention vars",
     required: false,
     notes: "All have safe defaults — see .env.example below",

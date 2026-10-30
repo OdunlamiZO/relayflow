@@ -148,6 +148,8 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-}
       REDIS_URL: redis://redis:6379
       LOG_FORMAT: ${LOG_FORMAT:-json}
+      # The JVM's own default heap is 25% of the memory limit below.
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75}
     depends_on:
       postgres:
         condition: service_healthy

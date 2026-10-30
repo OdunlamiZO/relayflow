@@ -45,6 +45,7 @@ docker compose --profile prod up -d
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GROQ_API_KEY` | No | At least one needed for AI agent features |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | No | Works with any SMTP provider (Resend, SES, Mailgun, Postmark, Gmail, self-hosted, etc.). Blank host runs email in no-op/log mode |
 | `LOG_FORMAT` / `LOG_LEVEL` | No | `json` (default in the prod stack), `ecs`, `gelf`, `logfmt` or `text`; `INFO` by default — see [Logging](#logging) |
+| `JAVA_OPTS` | No | Extra JVM flags for the API. Defaults to `-XX:MaxRAMPercentage=75`, so the heap can use 75% of the API container's 1 GB memory limit; raise the limit in `docker-compose.yml` for heavier workloads |
 | Rate limiting, timeouts, retention vars | No | All have safe defaults — see `.env.example` |
 
 ## First-run walkthrough
