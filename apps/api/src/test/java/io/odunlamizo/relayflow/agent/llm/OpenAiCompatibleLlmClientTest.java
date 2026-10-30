@@ -109,10 +109,9 @@ class OpenAiCompatibleLlmClientTest {
         assertThat(response.failed()).isTrue();
     }
 
-    /** {@code model} is what Redis holds; empty means the key isn't set. */
-    private OpenAiCompatibleLlmClient client(String baseUrl, String apiKey, String model) {
+    private OpenAiCompatibleLlmClient client(String baseUrl, String apiKey, String redisModel) {
         when(configService.getConfigValue("platform:llm:openai-compatible:model", ""))
-                .thenReturn(model);
+                .thenReturn(redisModel);
 
         return new OpenAiCompatibleLlmClient(
                 new ObjectMapper(), configService, restClientBuilder, baseUrl, apiKey);

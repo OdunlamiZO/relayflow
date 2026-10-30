@@ -17,8 +17,6 @@ public class LlmPlatformConfigService {
 
     private static final String PROVIDER_KEY = "platform:llm:provider";
 
-    // Providers that became OPENAI_COMPATIBLE, so an existing platform:llm:provider value keeps
-    // working.
     private static final Set<String> FORMER_OPENAI_COMPATIBLE_PROVIDERS =
             Set.of("OPENAI", "GROQ", "OLLAMA", "OPENROUTER");
 

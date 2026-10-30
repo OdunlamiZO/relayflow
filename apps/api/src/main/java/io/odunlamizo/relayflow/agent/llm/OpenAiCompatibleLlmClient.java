@@ -19,10 +19,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-/**
- * Calls any OpenAI-compatible chat completions API — OpenAI, Groq, OpenRouter, Together, DeepSeek,
- * Mistral, Ollama, vLLM, LM Studio — at the base URL the administrator configures.
- */
 @Component
 public class OpenAiCompatibleLlmClient implements LlmClient {
 
@@ -121,9 +117,7 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
         payload.put("messages", buildMessages(systemPrompt, request.messages()));
         payload.put("response_format", Map.of("type", "json_object"));
 
-        // OpenRouter may otherwise route to a host that ignores response_format and replies in
-        // prose, which the parser can't read. Other APIs reject the unknown field, so it's
-        // OpenRouter-only.
+        // OpenRouter only: skips hosts that ignore response_format; other APIs reject this field.
         if (OPENROUTER_HOST.equals(URI.create(baseUrl).getHost())) {
             payload.put("provider", Map.of("require_parameters", true));
         }
