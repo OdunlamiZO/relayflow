@@ -24,6 +24,7 @@ import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -56,10 +57,11 @@ public class PublicApiExceptionResolver implements HandlerExceptionResolver, Ord
     }
 
     @Override
+    @Nullable
     public ModelAndView resolveException(
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
-            Object handler,
+            @Nullable Object handler,
             @NonNull Exception exception) {
         if (!PublicApiProblemWriter.isPublicApiRequest(request) || response.isCommitted()) {
             return null;

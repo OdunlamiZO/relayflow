@@ -4224,7 +4224,9 @@ Source:
 - [`PublishedWorkflowMappingsTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/PublishedWorkflowMappingsTest.java)
 - [`AgentLlmResponseParserTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/AgentLlmResponseParserTest.java)
 - [`LlmClientFactoryTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmClientFactoryTest.java)
+- [`LlmPlatformConfigServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmPlatformConfigServiceTest.java)
 - [`LlmPromptsTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmPromptsTest.java)
+- [`OpenAiCompatibleLlmClientTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/OpenAiCompatibleLlmClientTest.java)
 - [`ChannelAccountControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountControllerTest.java)
 - [`ChannelAccountMapperTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountMapperTest.java)
 - [`HibernateJsonConfigurationTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/configuration/HibernateJsonConfigurationTest.java)
@@ -4275,7 +4277,7 @@ Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest`
 - `WorkflowEngineServiceTest`, `ReplyRouterTest`: "No reply" handling, unpublished workflows, and reply routing with and without hooks.
 - `ConditionNodeExecutorTest`, `HttpRequestNodeExecutorTest`, `SetContactFieldNodeExecutorTest`: the default operator, secret resolution without leaking into output, and contact field writes.
 - `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, and published-only workflow mappings.
-- `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPromptsTest`: LLM response parsing, provider selection, and the extraction prompt.
+- `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `OpenAiCompatibleLlmClientTest`: LLM response parsing, provider selection (including former provider names read as `OPENAI_COMPATIBLE`), the extraction prompt, and the OpenAI-compatible provider's request URL, key, Redis model, OpenRouter routing option, and failure handling.
 
 We need them to protect the behavior each describes; the pre-commit hook runs the unit tests.
 
@@ -4618,7 +4620,7 @@ Interface: `provider()` returns `LlmProvider`; `complete(AgentLlmRequest)` retur
 
 Source: [`LlmProvider.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmProvider.java)
 
-Enum: `ANTHROPIC`, `OPENAI`, `OLLAMA`, `GROQ`.
+Enum: `ANTHROPIC`, `OPENAI_COMPATIBLE`. `OPENAI_COMPATIBLE` replaced the former `OPENAI`, `GROQ`, `OLLAMA`, and `OPENROUTER` values — migration `V11` rewrites stored agent configs, and `LlmPlatformConfigService` reads the old names from Redis as `OPENAI_COMPATIBLE`.
 
 #### `AgentLlmRequest`
 
@@ -4650,37 +4652,23 @@ Package-private class holding `buildFormatInstruction(extractionFields)`, append
 
 Source: [`AnthropicLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AnthropicLlmClient.java)
 
-Implements `LlmClient` via the Anthropic Java SDK (`anthropic-java:0.8.2`). Built in `@PostConstruct` using `ANTHROPIC_API_KEY`. Model read from Redis `platform:llm:anthropic:model`, default `claude-haiku-4-5`.
+Implements `LlmClient` by calling Anthropic's Messages API (`/v1/messages`) directly with a Spring `RestClient` built in `@PostConstruct` — `x-api-key: {ANTHROPIC_API_KEY}` and `anthropic-version: 2023-06-01` headers, the system prompt as the top-level `system` field, `max_tokens: 4096`, reply read from `content[0].text`. It stays separate from `OpenAiCompatibleLlmClient` because every one of those differs from the chat completions format. Model read from Redis `platform:llm:anthropic:model`, default `claude-haiku-4-5`.
 
-#### `AbstractOpenAiCompatibleLlmClient`
+#### `OpenAiCompatibleLlmClient`
 
-Source: [`AbstractOpenAiCompatibleLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AbstractOpenAiCompatibleLlmClient.java)
+Source: [`OpenAiCompatibleLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/OpenAiCompatibleLlmClient.java)
 
-Package-private abstract base for `OpenAiLlmClient`, `OllamaLlmClient`, and `GroqLlmClient`. Implements the OpenAI-compatible chat completions contract: builds the JSON payload, POSTs to `/v1/chat/completions` via Spring `RestClient`, extracts `choices[0].message.content`, and parses it into `AgentLlmResponse`.
+Implements `LlmClient` for `LlmProvider.OPENAI_COMPATIBLE` — any API speaking OpenAI's chat completions format (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio). Configured from `OPENAI_COMPATIBLE_BASE_URL` (including `/v1`, trailing slashes stripped) and `OPENAI_COMPATIBLE_API_KEY` (sent as a bearer token; omitted when blank, for local servers). The model comes only from Redis `platform:llm:openai-compatible:model` — there's no default, since a model name that works on one API fails on another. Builds the JSON payload with `response_format: json_object`, POSTs to `{baseUrl}/chat/completions` through the injected `RestClient.Builder`, extracts `choices[0].message.content`, and parses it into `AgentLlmResponse`. A missing base URL or model fails the call without sending anything, with an error log naming the variables to set.
 
-#### `OpenAiLlmClient`
+When the base URL's host is `openrouter.ai`, it also sends `provider.require_parameters: true`.
 
-Source: [`OpenAiLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/OpenAiLlmClient.java)
-
-Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built once in `@PostConstruct` with `Authorization: Bearer {OPENAI_API_KEY}`. Model from Redis `platform:llm:openai:model`, default `gpt-4o-mini`.
-
-#### `OllamaLlmClient`
-
-Source: [`OllamaLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/OllamaLlmClient.java)
-
-Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built per call with URL from Redis `platform:llm:ollama:url` (default `http://localhost:11434`). Model from Redis `platform:llm:ollama:model`, default `llama3.2`.
-
-#### `GroqLlmClient`
-
-Source: [`GroqLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/GroqLlmClient.java)
-
-Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built in `@PostConstruct` using `GROQ_API_KEY`, base URL `https://api.groq.com/openai`. Model from Redis `platform:llm:groq:model`.
+We need that so OpenRouter only routes to hosts that honour `response_format` — otherwise it may pick one that replies in prose, which `AgentLlmResponseParser` can't read. It's limited to OpenRouter because other APIs reject the unknown field.
 
 #### `LlmPlatformConfigService`
 
 Source: [`LlmPlatformConfigService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmPlatformConfigService.java)
 
-Reads the active `LlmProvider` from Redis key `platform:llm:provider`. Falls back to `ANTHROPIC` on missing/invalid values. Also exposes `getConfigValue(key, default)` — a generic Redis read with a fallback — used by all three clients for per-provider model and URL config.
+Reads the active `LlmProvider` from Redis key `platform:llm:provider`, ignoring case and treating `-` as `_`. Falls back to `ANTHROPIC` on missing/invalid values, and maps the former provider names `OPENAI`, `GROQ`, `OLLAMA`, and `OPENROUTER` to `OPENAI_COMPATIBLE` so an existing setting keeps working after the upgrade. Also exposes `getConfigValue(key, default)` — a generic Redis read with a fallback — used by both clients for their Redis model overrides.
 
 #### `LlmClientFactory`
 

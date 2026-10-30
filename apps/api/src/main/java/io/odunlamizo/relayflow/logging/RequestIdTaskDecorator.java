@@ -4,11 +4,13 @@ package io.odunlamizo.relayflow.logging;
 
 import org.slf4j.MDC;
 import org.springframework.core.task.TaskDecorator;
+import org.springframework.lang.NonNull;
 
 public class RequestIdTaskDecorator implements TaskDecorator {
 
     @Override
-    public Runnable decorate(Runnable runnable) {
+    @NonNull
+    public Runnable decorate(@NonNull Runnable runnable) {
         String requestId = MDC.get(RequestIdFilter.REQUEST_ID_KEY);
 
         if (requestId == null) {

@@ -2631,7 +2631,7 @@ components:
 
     LlmProvider:
       type: string
-      enum: [ANTHROPIC, OPENAI, GROQ, OLLAMA]
+      enum: [ANTHROPIC, OPENAI_COMPATIBLE]
 
     HookOutcomeStatus:
       type: string

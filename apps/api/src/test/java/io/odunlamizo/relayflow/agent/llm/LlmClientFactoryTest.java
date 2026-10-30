@@ -13,25 +13,26 @@ class LlmClientFactoryTest {
 
     private final LlmClient anthropicClient = stubClient(LlmProvider.ANTHROPIC);
 
-    private final LlmClient groqClient = stubClient(LlmProvider.GROQ);
+    private final LlmClient openAiCompatibleClient = stubClient(LlmProvider.OPENAI_COMPATIBLE);
 
     private final LlmPlatformConfigService configService = mock(LlmPlatformConfigService.class);
 
     private final LlmClientFactory factory =
-            new LlmClientFactory(List.of(anthropicClient, groqClient), configService);
+            new LlmClientFactory(List.of(anthropicClient, openAiCompatibleClient), configService);
 
     @Test
     void getClientReturnsExplicitOverrideRegardlessOfPlatformDefault() {
         when(configService.getActiveProvider()).thenReturn(LlmProvider.ANTHROPIC);
 
-        assertThat(factory.getClient(LlmProvider.GROQ)).isSameAs(groqClient);
+        assertThat(factory.getClient(LlmProvider.OPENAI_COMPATIBLE))
+                .isSameAs(openAiCompatibleClient);
     }
 
     @Test
     void getClientFallsBackToPlatformDefaultWhenOverrideIsNull() {
-        when(configService.getActiveProvider()).thenReturn(LlmProvider.GROQ);
+        when(configService.getActiveProvider()).thenReturn(LlmProvider.OPENAI_COMPATIBLE);
 
-        assertThat(factory.getClient(null)).isSameAs(groqClient);
+        assertThat(factory.getClient(null)).isSameAs(openAiCompatibleClient);
     }
 
     @Test
@@ -43,7 +44,11 @@ class LlmClientFactoryTest {
 
     @Test
     void getClientFallsBackToAnthropicWhenOverrideHasNoRegisteredClient() {
-        assertThat(factory.getClient(LlmProvider.OPENAI)).isSameAs(anthropicClient);
+        LlmClientFactory anthropicOnly =
+                new LlmClientFactory(List.of(anthropicClient), configService);
+
+        assertThat(anthropicOnly.getClient(LlmProvider.OPENAI_COMPATIBLE))
+                .isSameAs(anthropicClient);
     }
 
     private static LlmClient stubClient(LlmProvider provider) {
