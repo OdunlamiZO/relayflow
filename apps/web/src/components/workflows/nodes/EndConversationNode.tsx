@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#endconversationnode
 import { type Node, type NodeProps } from "@xyflow/react";
 
 import { WorkflowNode } from "./WorkflowNode";

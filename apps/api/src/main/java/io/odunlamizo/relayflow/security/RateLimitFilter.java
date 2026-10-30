@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.security;
 
+// Docs: docs/codebase-components.md#ratelimitfilter
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.common.dto.ErrorResponse;
 import io.odunlamizo.relayflow.publicapi.PublicApiProblem;

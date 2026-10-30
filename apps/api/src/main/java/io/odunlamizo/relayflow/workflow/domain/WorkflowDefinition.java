@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.domain;
 
+// Docs: docs/codebase-components.md#workflowdefinition
+
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

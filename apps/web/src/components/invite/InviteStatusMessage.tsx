@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#invitestatusmessage
 import Link from "next/link";
 
 type Status = "ACCEPTED" | "REVOKED" | "EXPIRED";

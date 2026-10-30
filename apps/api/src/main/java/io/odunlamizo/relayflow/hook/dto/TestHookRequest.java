@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.hook.dto;
 
+// Docs: docs/codebase-components.md#hook
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

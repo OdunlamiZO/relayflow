@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#aidraftbanner
 import { FormattedText } from "@/components/common/FormattedText";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { useDiscardAiDraft } from "@/hooks/use-discard-ai-draft";

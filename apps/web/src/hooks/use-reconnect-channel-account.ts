@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#channel-hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components/providers/ToastProvider";

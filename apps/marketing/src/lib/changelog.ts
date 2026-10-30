@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#changelog-page-and-changelogts
+
 export type ChangeCategory = "added" | "changed" | "fixed" | "removed";
 
 export type ChangelogRelease = {

@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#root-layout-components
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging;
 
+// Docs: docs/codebase-components.md#outboundmessageevent
+
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.messaging.domain.Message;
 import java.util.List;

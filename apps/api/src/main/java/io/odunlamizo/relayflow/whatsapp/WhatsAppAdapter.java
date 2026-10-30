@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.whatsapp;
 
+// Docs: docs/codebase-components.md#whatsappadapter
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.core.type.TypeReference;

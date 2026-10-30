@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#contactdisplaynamesync
+
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.workspace.domain.ReservedContactField;
 

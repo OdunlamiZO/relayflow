@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#contactaccessservice
+
 import io.odunlamizo.relayflow.common.ResourceNotFoundException;
 import io.odunlamizo.relayflow.contact.domain.WhitelistedPhoneNumber;
 import io.odunlamizo.relayflow.contact.dto.WhitelistedPhoneNumberResponse;

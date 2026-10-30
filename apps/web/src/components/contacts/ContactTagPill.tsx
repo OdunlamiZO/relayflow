@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#contacttagpill
 import type {
   ContactTagColor,
   ContactTagDefinition,

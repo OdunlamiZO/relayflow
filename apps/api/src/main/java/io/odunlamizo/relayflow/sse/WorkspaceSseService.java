@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.sse;
 
+// Docs: docs/codebase-components.md#workspacesseservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import java.io.IOException;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication.repository;
 
+// Docs: docs/codebase-components.md#authentication-satellite-repositories
+
 import io.odunlamizo.relayflow.authentication.domain.TwoFactorChallenge;
 import java.util.Optional;
 import java.util.UUID;

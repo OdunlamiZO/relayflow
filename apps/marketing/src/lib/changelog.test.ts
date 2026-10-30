@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#changelog-page-and-changelogts
 import { describe, expect, it } from "vitest";
 
 import { CHANGELOG_RELEASES, formatReleaseDate } from "./changelog";

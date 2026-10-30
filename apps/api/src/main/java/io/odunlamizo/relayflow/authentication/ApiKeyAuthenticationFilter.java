@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication;
 
+// Docs: docs/codebase-components.md#apikeyauthenticationfilter
+
 import io.odunlamizo.relayflow.workspace.ApiKeyService;
 import io.odunlamizo.relayflow.workspace.domain.WorkspaceApiKey;
 import io.odunlamizo.relayflow.workspace.repository.WorkspaceApiKeyRepository;

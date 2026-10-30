@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workflownode
 import { type ReactNode } from "react";
 
 import { Handle, Position, useReactFlow } from "@xyflow/react";

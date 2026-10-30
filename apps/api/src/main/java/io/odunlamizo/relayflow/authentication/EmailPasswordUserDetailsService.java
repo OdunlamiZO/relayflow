@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication;
 
+// Docs: docs/codebase-components.md#emailpassworduserdetailsservice
+
 import io.odunlamizo.relayflow.authentication.domain.AuthenticationProvider;
 import io.odunlamizo.relayflow.authentication.domain.UserIdentity;
 import io.odunlamizo.relayflow.authentication.repository.UserIdentityRepository;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine;
 
+// Docs: docs/codebase-components.md#executioncontext
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,6 +46,10 @@ public class ExecutionContext {
 
     public void setVariable(String name, Object value) {
         variables.put(name, value);
+    }
+
+    public void removeVariable(String name) {
+        variables.remove(name);
     }
 
     public String interpolate(String template) {

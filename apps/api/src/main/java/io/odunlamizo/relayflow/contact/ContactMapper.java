@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#contactmapper
+
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.contact.domain.ExternalIdentity;
 import io.odunlamizo.relayflow.contact.dto.ContactResponse;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.publicapi;
 
+// Docs: docs/codebase-components.md#publicapicontroller
+
 import io.odunlamizo.relayflow.authentication.ApiKeyAuthentication;
 import io.odunlamizo.relayflow.common.dto.PageResponse;
 import io.odunlamizo.relayflow.contact.ContactService;

@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#inboxshell
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/common/EmptyState";

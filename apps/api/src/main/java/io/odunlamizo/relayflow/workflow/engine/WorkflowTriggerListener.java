@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine;
 
+// Docs: docs/codebase-components.md#workflowtriggerlistener
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.agent.repository.AiAgentInvocationLogRepository;

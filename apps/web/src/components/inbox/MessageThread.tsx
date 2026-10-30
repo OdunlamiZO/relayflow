@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#messagethread
 import { useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/common/EmptyState";

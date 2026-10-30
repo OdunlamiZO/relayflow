@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook.domain;
 
+// Docs: docs/codebase-components.md#workspacewebhook
+
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;

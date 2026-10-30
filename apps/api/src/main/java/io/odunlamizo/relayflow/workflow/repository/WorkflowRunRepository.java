@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.repository;
 
+// Docs: docs/codebase-components.md#workflow-repositories
+
 import io.odunlamizo.relayflow.workflow.domain.WorkflowRun;
 import io.odunlamizo.relayflow.workflow.domain.WorkflowRunStatus;
 import java.time.Instant;

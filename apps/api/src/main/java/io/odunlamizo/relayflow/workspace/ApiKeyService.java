@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace;
 
+// Docs: docs/codebase-components.md#apikeyservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.workspace.domain.WorkspaceApiKey;

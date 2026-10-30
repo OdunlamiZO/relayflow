@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#message-formattingtestts
 import { describe, expect, it } from "vitest";
 
 import {

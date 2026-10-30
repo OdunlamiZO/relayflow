@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#proxytestts
 // @vitest-environment node
 import { NextRequest } from "next/server";
 

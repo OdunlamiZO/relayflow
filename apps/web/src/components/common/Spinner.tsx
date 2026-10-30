@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#spinner
+
 type Size = "sm" | "md" | "lg";
 
 type Props = {

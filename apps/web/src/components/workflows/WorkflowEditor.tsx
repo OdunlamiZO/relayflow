@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#workfloweditor
 import Link from "next/link";
 import {
   type ComponentType,

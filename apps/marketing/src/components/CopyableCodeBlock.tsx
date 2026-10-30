@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#marketing-components
 import { useState } from "react";
 
 type Props = {

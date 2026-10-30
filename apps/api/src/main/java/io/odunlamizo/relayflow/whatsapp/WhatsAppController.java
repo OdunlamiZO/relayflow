@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.whatsapp;
 
+// Docs: docs/codebase-components.md#whatsappcontroller
+
 import io.odunlamizo.relayflow.whatsapp.dto.WhatsAppWebhookPayload;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;

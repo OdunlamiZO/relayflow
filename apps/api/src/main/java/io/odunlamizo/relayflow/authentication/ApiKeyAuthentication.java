@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication;
 
+// Docs: docs/codebase-components.md#apikeyauthentication
+
 import java.util.List;
 import java.util.UUID;
 import lombok.Getter;

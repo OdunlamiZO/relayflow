@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.domain;
 
+// Docs: docs/codebase-components.md#contacttagdefinition
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;

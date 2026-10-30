@@ -37,6 +37,13 @@ These rules are enforced by formatters/linters where possible, and checked in re
 - **Comments**: default to none. Well-named functions and variables should carry the intent.
   Only add a comment for something the code genuinely can't express — an external constraint, a
   workaround, a non-obvious invariant — and keep it to one flat, descriptive line.
+- **Codebase components doc**: every source file starts with a link to the section of
+  [`docs/codebase-components.md`](docs/codebase-components.md) that describes it —
+  `// Docs: docs/codebase-components.md#<anchor>`, below the `package` line in Java and below any
+  `"use client"` directive in TypeScript. A new class, record, enum, or exported function,
+  component, or constant needs an entry there in the same change, and that section links back to
+  the file with a `Source:` line.
+  `node hooks/check-codebase-components.mjs` checks all of this, and the pre-commit hook runs it.
 
 ## Before opening a pull request
 
@@ -47,8 +54,8 @@ cd apps/api
 mvn install -Pdevelopment
 ```
 
-It runs backend formatting/tests and frontend/marketing lint, typecheck, format, and unit tests
-on every commit. A PR won't be merged if any of these fail in CI:
+It checks the codebase components doc, then runs backend formatting/tests and frontend/marketing
+lint, typecheck, format, and unit tests on every commit. A PR won't be merged if any of these fail in CI:
 
 ```bash
 # Backend

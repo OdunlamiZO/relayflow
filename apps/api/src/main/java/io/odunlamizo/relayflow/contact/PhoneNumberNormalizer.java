@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#phonenumbernormalizer
+
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;

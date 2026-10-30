@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication.dto;
 
+// Docs: docs/codebase-components.md#auth-dto-records
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

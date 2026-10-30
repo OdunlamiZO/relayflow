@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.common;
 
+// Docs: docs/codebase-components.md#commonexceptionhandler
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.common.dto.ErrorResponse;

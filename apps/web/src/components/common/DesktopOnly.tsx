@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#desktoponly
 import Link from "next/link";
 import { type ReactNode, useSyncExternalStore } from "react";
 

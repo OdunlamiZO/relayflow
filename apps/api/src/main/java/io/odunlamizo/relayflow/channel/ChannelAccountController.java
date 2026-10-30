@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.channel;
 
+// Docs: docs/codebase-components.md#channelaccountcontroller
+
 import io.odunlamizo.relayflow.channel.dto.ChannelAccountResponse;
 import io.odunlamizo.relayflow.channel.dto.CreateChannelAccountRequest;
 import io.odunlamizo.relayflow.workspace.WorkspaceAuthorizationService;

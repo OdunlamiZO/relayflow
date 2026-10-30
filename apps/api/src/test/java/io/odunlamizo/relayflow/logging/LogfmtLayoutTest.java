@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.logging;
 
+// Docs: docs/codebase-components.md#backend-tests
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 import static org.assertj.core.api.Assertions.assertThat;
 

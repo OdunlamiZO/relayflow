@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.publicapi;
 
+// Docs: docs/codebase-components.md#backend-tests
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;

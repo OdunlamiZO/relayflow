@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.telegram;
 
+// Docs: docs/codebase-components.md#telegramadapter
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.core.type.TypeReference;

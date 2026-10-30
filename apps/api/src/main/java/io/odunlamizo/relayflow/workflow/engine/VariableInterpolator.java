@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine;
 
+// Docs: docs/codebase-components.md#variableinterpolator
+
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;

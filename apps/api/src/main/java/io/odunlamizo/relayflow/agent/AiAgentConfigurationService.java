@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#aiagentconfigurationservice
+
 import io.odunlamizo.relayflow.agent.domain.AiAgentConfiguration;
 import io.odunlamizo.relayflow.agent.domain.ConversationAiDraft;
 import io.odunlamizo.relayflow.agent.domain.ExtractionField;

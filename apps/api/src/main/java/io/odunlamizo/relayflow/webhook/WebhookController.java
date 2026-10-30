@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook;
 
+// Docs: docs/codebase-components.md#webhookcontroller
+
 import io.odunlamizo.relayflow.webhook.dto.RotateWebhookSecretResponse;
 import io.odunlamizo.relayflow.webhook.dto.SaveWebhookRequest;
 import io.odunlamizo.relayflow.webhook.dto.WebhookConfigResponse;

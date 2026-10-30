@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.sse;
 
+// Docs: docs/codebase-components.md#sseeventtype
+
 public enum SseEventType {
     MESSAGE_CREATED("message.created"),
     CONVERSATION_UPDATED("conversation.updated"),

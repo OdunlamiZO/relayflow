@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.channel.domain;
 
+// Docs: docs/codebase-components.md#channelaccount
+
 import io.odunlamizo.relayflow.agent.domain.AiAgentConfiguration;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import jakarta.persistence.Column;

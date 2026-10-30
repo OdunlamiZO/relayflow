@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#appsmarketing
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";

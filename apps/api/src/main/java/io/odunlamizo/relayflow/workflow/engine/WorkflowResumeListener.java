@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine;
 
+// Docs: docs/codebase-components.md#workflowresumelistener
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.workflow.domain.WorkflowRun;

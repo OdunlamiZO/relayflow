@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#setup-page
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

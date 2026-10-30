@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.channel;
 
+// Docs: docs/codebase-components.md#channelaccountmapper
+
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.channel.dto.ChannelAccountResponse;
 import org.mapstruct.Mapper;

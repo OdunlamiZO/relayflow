@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.configuration;
 
+// Docs: docs/codebase-components.md#asyncconfiguration
+
 import io.odunlamizo.relayflow.logging.RequestIdTaskDecorator;
 import java.util.concurrent.Executor;
 import org.springframework.context.annotation.Bean;

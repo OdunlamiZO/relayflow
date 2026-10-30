@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.publicapi;
 
+// Docs: docs/codebase-components.md#publicapiproblem
+
 import java.util.Locale;
 import org.springframework.http.HttpStatus;
 

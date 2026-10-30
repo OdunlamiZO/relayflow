@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.email;
 
+// Docs: docs/codebase-components.md#emailservice-and-smtpemailservice
+
 public interface EmailService {
 
     void sendInvite(String to, String inviterName, String workspaceName, String acceptUrl);

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#aiagentinvocationservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.agent.domain.AiAgentConfiguration;

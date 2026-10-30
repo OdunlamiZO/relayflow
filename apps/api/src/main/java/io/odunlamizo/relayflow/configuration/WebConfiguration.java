@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.configuration;
 
+// Docs: docs/codebase-components.md#webconfiguration
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

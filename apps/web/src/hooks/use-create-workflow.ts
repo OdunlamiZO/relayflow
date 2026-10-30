@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workflow-hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import type { CreateWorkflowRequest } from "@/lib/messaging-api";

@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#auth-hooks
 import { useQuery } from "@tanstack/react-query";
 
 import { authenticationApi } from "@/lib/authentication-api";

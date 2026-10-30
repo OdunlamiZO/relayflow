@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.repository;
 
+// Docs: docs/codebase-components.md#workspace-repositories
+
 import io.odunlamizo.relayflow.workspace.domain.WorkspaceMember;
 import io.odunlamizo.relayflow.workspace.domain.WorkspaceRole;
 import java.time.Instant;

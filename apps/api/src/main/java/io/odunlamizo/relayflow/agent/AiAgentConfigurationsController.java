@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#aiagentconfigurationscontroller
+
 import io.odunlamizo.relayflow.agent.dto.AiAgentConfigurationResponse;
 import io.odunlamizo.relayflow.agent.dto.PlatformLlmProviderResponse;
 import io.odunlamizo.relayflow.agent.dto.UpdateAiAgentConfigurationRequest;

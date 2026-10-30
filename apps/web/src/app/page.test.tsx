@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#pagetesttsx
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Imported after mocks so the mock is in place.

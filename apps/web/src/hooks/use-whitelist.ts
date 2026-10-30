@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workspace-hooks
 import { useQuery } from "@tanstack/react-query";
 
 import { type WhitelistedPhoneNumber, messagingApi } from "@/lib/messaging-api";

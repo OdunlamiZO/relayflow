@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#profile-pages
 import { Suspense } from "react";
 
 import { Spinner } from "@/components/common/Spinner";

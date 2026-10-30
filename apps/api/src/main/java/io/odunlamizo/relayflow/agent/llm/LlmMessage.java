@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.llm;
 
+// Docs: docs/codebase-components.md#llmmessage
+
 public record LlmMessage(String role, String content) {
 
     public static LlmMessage user(String content) {

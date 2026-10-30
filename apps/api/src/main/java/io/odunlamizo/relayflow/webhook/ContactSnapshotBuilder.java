@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook;
 
+// Docs: docs/codebase-components.md#contactsnapshotbuilder
+
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.webhook.dto.ContactSnapshot;
 import java.util.LinkedHashMap;

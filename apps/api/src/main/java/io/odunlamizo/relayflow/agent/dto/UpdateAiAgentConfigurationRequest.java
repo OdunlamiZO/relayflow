@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.dto;
 
+// Docs: docs/codebase-components.md#ai-agent-dto-records
+
 import io.odunlamizo.relayflow.agent.domain.AutonomyCeiling;
 import io.odunlamizo.relayflow.agent.domain.ExtractionField;
 import io.odunlamizo.relayflow.agent.domain.KnowledgeEntry;

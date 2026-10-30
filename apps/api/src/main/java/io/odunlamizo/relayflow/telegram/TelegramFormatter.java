@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.telegram;
 
+// Docs: docs/codebase-components.md#telegramformatter
+
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

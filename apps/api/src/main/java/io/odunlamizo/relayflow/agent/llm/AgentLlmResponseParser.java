@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.llm;
 
+// Docs: docs/codebase-components.md#ai-agent-domain-records
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;

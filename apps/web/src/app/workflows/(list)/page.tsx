@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workflow-pages
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 

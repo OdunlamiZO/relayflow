@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#rundetail
 import { EmptyState } from "@/components/common/EmptyState";
 import { Spinner } from "@/components/common/Spinner";
 import { useWorkflowRun } from "@/hooks/use-workflow-run";

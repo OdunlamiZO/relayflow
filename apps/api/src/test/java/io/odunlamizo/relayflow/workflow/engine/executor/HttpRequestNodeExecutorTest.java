@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine.executor;
 
+// Docs: docs/codebase-components.md#backend-tests
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
@@ -120,5 +122,70 @@ class HttpRequestNodeExecutorTest {
                                                 context(workspaceId)))
                 .isInstanceOf(NodeExecutionException.class)
                 .hasMessageContaining("MISSING");
+    }
+
+    @Test
+    void clearsOutputVariablesWhenNoResponseArrives() {
+        ExecutionContext context =
+                new ExecutionContext(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        Map.of("statusCode", 422, "errorCode", "AMOUNT_BELOW_MINIMUM"));
+
+        NodeExecutionResult result =
+                executor()
+                        .execute(
+                                new GraphNode(
+                                        "n1",
+                                        "httpRequest",
+                                        Map.of(
+                                                "method",
+                                                "GET",
+                                                "url",
+                                                "http://127.0.0.1:1",
+                                                "responseStatusVariable",
+                                                "statusCode",
+                                                "responseMappings",
+                                                java.util.List.of(
+                                                        Map.of(
+                                                                "path",
+                                                                "code",
+                                                                "variable",
+                                                                "errorCode")))),
+                                context);
+
+        assertThat(result.nextHandle()).isEqualTo("error");
+        assertThat(context.getVariables()).doesNotContainKeys("statusCode", "errorCode");
+    }
+
+    @Test
+    void clearsAMappedVariableTheResponseDoesNotContain() {
+        ExecutionContext context =
+                new ExecutionContext(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        Map.of("errorCode", "AMOUNT_BELOW_MINIMUM"));
+
+        executor()
+                .execute(
+                        new GraphNode(
+                                "n1",
+                                "httpRequest",
+                                Map.of(
+                                        "method",
+                                        "GET",
+                                        "url",
+                                        "http://127.0.0.1:" + server.getAddress().getPort(),
+                                        "responseStatusVariable",
+                                        "statusCode",
+                                        "responseMappings",
+                                        java.util.List.of(
+                                                Map.of("path", "code", "variable", "errorCode")))),
+                        context);
+
+        assertThat(context.getVariables()).containsEntry("statusCode", 200);
+        assertThat(context.getVariables()).doesNotContainKey("errorCode");
     }
 }

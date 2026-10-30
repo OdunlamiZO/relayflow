@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#root-layout-components
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 

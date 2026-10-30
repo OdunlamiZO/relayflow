@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.domain;
 
+// Docs: docs/codebase-components.md#workspacepermission
+
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;

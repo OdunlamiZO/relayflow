@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#api-clientts
+
 // Shared across API clients so `error instanceof ApiError` works everywhere.
 
 export type RequestOptions = {

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.sse;
 
+// Docs: docs/codebase-components.md#ssecontroller
+
 import io.odunlamizo.relayflow.authentication.SecurityUtils;
 import io.odunlamizo.relayflow.workspace.WorkspaceService;
 import java.util.UUID;

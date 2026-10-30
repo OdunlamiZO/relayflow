@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.repository;
 
+// Docs: docs/codebase-components.md#ai-agent-repositories
+
 import io.odunlamizo.relayflow.agent.domain.AiAgentInvocationLog;
 import io.odunlamizo.relayflow.agent.domain.AiAgentInvocationStatus;
 import java.time.Instant;

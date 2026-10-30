@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.logging;
 
+// Docs: docs/codebase-components.md#structuredlogevents
+
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import java.util.Arrays;
 import java.util.List;

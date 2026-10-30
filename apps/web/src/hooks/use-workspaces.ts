@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workspace-hooks
 import { useQuery } from "@tanstack/react-query";
 
 import type { Workspace } from "@/lib/messaging-api";

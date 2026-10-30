@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#contactservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.agent.repository.ConversationAiDraftRepository;

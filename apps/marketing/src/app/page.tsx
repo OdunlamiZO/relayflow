@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#appsmarketing
 import Link from "next/link";
 
 import { CtaButton } from "@/components/CtaButton";

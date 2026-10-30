@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#messagebubble
 import { FormattedText } from "@/components/common/FormattedText";
 import type { Message } from "@/lib/messaging-api";
 

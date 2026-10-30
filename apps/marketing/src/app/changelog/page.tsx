@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#changelog-page-and-changelogts
 import type { Metadata } from "next";
 import Link from "next/link";
 

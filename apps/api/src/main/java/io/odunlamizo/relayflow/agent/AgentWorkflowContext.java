@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#agentworkflowcontext
+
 import io.odunlamizo.relayflow.agent.domain.ExtractionField;
 import java.util.LinkedHashMap;
 import java.util.List;

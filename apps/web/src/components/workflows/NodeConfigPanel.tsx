@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#nodeconfigpanel
 import { useRef } from "react";
 import { useState } from "react";
 

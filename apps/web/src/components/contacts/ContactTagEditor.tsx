@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#contacttageditor
 import { PopoverMenu } from "@/components/common/PopoverMenu";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAuthentication } from "@/hooks/use-authentication";

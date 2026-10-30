@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#message-formattingts
+
 export type FormattedNode =
   | string
   | { type: "bold" | "italic" | "strike"; children: FormattedNode[] }

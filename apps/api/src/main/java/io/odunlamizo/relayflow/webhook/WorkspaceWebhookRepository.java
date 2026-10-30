@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook;
 
+// Docs: docs/codebase-components.md#workspacewebhook
+
 import io.odunlamizo.relayflow.webhook.domain.WorkspaceWebhook;
 import java.util.List;
 import java.util.Optional;

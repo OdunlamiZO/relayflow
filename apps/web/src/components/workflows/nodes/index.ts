@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#nodesindexts
+
 export { TriggerNode } from "./TriggerNode";
 export { SendMessageNode } from "./SendMessageNode";
 export { ConditionNode } from "./ConditionNode";

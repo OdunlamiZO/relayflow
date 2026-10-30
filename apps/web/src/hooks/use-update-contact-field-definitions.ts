@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workspace-hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import type { ContactFieldDefinition } from "@/lib/messaging-api";

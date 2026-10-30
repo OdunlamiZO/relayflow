@@ -3,6 +3,9 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 
+printf "Checking codebase components doc...\n"
+node "$repo_root/hooks/check-codebase-components.mjs"
+
 printf "Running backend format check...\n"
 cd "$repo_root/apps/api"
 mvn spotless:check -Pdevelopment

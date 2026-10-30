@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.hook;
 
+// Docs: docs/codebase-components.md#backend-tests
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.odunlamizo.relayflow.hook.domain.BuiltInHook;

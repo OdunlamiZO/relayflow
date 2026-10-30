@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow;
 
+// Docs: docs/codebase-components.md#workflowcontroller
+
 import io.odunlamizo.relayflow.common.dto.PageResponse;
 import io.odunlamizo.relayflow.workflow.dto.CreateWorkflowDefinitionRequest;
 import io.odunlamizo.relayflow.workflow.dto.UpdateWorkflowDefinitionRequest;

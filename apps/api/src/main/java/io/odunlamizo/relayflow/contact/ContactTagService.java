@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#contacttagservice
+
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.contact.repository.ContactRepository;
 import io.odunlamizo.relayflow.webhook.ContactSnapshotBuilder;

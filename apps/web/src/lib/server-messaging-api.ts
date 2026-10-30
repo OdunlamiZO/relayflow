@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#server-messaging-apits
 import { cookies } from "next/headers";
 
 import { serverApiBaseUrl } from "@/lib/api-base-url";

@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#workflowslist
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";

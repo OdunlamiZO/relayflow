@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#appheader
 import Link from "next/link";
 import { Suspense } from "react";
 

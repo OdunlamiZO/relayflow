@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.logging;
 
+// Docs: docs/codebase-components.md#backend-tests
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;

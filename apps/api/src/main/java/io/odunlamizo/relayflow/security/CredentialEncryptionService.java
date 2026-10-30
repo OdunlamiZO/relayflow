@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.security;
 
+// Docs: docs/codebase-components.md#credentialencryptionservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import java.nio.charset.StandardCharsets;

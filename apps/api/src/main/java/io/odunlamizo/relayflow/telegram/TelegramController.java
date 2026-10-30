@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.telegram;
 
+// Docs: docs/codebase-components.md#telegramcontroller
+
 import io.odunlamizo.relayflow.telegram.dto.TelegramWebhookPayload;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.domain;
 
+// Docs: docs/codebase-components.md#reservedcontactfield
+
 import java.util.Arrays;
 
 /** Labels and descriptions live in RESERVED_CONTACT_FIELDS in messaging-api.ts. */

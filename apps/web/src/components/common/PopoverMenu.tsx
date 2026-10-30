@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#popovermenu
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 export type PopoverMenuItem = {

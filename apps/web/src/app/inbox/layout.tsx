@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#inbox-pages
 import { AppHeader } from "@/components/workspace/AppHeader";
 import { requireAuthentication } from "@/lib/server-authentication";
 

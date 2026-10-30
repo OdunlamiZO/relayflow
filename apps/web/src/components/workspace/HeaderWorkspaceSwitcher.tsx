@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#appheader
 import { useSearchParams } from "next/navigation";
 
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";

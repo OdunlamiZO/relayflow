@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.configuration;
 
+// Docs: docs/codebase-components.md#securityconfiguration
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.authentication.ApiKeyAuthenticationFilter;
 import io.odunlamizo.relayflow.authentication.EmailPasswordUserDetailsService;

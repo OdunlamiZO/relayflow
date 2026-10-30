@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.domain;
 
+// Docs: docs/codebase-components.md#ai-agent-domain-records
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;

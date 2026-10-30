@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.domain;
 
+// Docs: docs/codebase-components.md#aiagentinvocationlog
+
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import jakarta.persistence.Column;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.dto;
 
+// Docs: docs/codebase-components.md#workspace-dto-records
+
 import io.odunlamizo.relayflow.workspace.domain.WorkspaceInvite.InviteStatus;
 import io.odunlamizo.relayflow.workspace.domain.WorkspacePermission;
 import java.time.Instant;

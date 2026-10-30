@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact.repository;
 
+// Docs: docs/codebase-components.md#contact-repositories
+
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import java.time.Instant;
 import java.util.List;

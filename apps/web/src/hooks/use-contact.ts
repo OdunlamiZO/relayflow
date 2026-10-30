@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#contact-hooks
 import { useQuery } from "@tanstack/react-query";
 
 import type { ContactDetail } from "@/lib/messaging-api";

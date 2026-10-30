@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.llm;
 
+// Docs: docs/codebase-components.md#llmplatformconfigservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import org.slf4j.Logger;

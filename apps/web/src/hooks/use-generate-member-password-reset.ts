@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workspace-hooks
 import { useMutation } from "@tanstack/react-query";
 
 import { useToast } from "@/components/providers/ToastProvider";

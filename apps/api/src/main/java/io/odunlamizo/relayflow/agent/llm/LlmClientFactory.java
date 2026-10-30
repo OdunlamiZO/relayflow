@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.llm;
 
+// Docs: docs/codebase-components.md#llmclientfactory
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;

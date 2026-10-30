@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#publishedworkflowmappings
+
 import io.odunlamizo.relayflow.agent.domain.WorkflowMapping;
 import io.odunlamizo.relayflow.workflow.repository.WorkflowDefinitionRepository;
 import java.util.List;

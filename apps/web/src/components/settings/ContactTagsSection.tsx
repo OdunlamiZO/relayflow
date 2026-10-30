@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#generalpanel
 import { useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";

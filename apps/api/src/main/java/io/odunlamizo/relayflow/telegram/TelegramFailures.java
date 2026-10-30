@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.telegram;
 
+// Docs: docs/codebase-components.md#telegramfailures
+
 import org.springframework.web.client.RestClientResponseException;
 
 /** Describes a Telegram API failure without the request URL, which embeds the bot token. */

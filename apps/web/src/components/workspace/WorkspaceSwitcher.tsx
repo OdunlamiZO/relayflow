@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#workspaceswitcher
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 

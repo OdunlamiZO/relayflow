@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine;
 
+// Docs: docs/codebase-components.md#nodeexecutionresult
+
 import java.util.Map;
 
 public record NodeExecutionResult(

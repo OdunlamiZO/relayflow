@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.profile;
 
+// Docs: docs/codebase-components.md#profilecontroller
+
 import io.odunlamizo.relayflow.authentication.SecurityUtils;
 import io.odunlamizo.relayflow.profile.dto.OtpRequest;
 import io.odunlamizo.relayflow.profile.dto.ProfileResponse;

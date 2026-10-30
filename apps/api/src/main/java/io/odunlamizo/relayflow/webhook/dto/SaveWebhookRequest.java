@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook.dto;
 
+// Docs: docs/codebase-components.md#webhook-dto-records
+
 import io.odunlamizo.relayflow.webhook.domain.WebhookEventType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

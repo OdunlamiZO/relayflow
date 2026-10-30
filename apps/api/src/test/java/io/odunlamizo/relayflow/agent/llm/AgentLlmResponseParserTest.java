@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.llm;
 
+// Docs: docs/codebase-components.md#backend-tests
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;

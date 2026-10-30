@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#toastprovider
 import {
   createContext,
   useCallback,

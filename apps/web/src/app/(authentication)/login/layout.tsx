@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#auth-pages
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

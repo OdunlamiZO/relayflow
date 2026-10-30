@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#workspace-hooks
 import { type WorkspaceMember } from "@/lib/messaging-api";
 
 import { useWorkspaceMembers } from "./use-workspace-members";

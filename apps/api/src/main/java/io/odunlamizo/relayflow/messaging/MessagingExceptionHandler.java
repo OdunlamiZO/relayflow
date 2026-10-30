@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging;
 
+// Docs: docs/codebase-components.md#messagingexceptionhandler
+
 import io.odunlamizo.relayflow.common.dto.ErrorResponse;
 import java.time.Instant;
 import org.springframework.core.Ordered;

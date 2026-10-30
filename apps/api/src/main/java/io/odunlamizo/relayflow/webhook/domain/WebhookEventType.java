@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook.domain;
 
+// Docs: docs/codebase-components.md#webhookeventtype
+
 import lombok.Getter;
 
 @Getter

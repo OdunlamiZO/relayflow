@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.common;
 
+// Docs: docs/codebase-components.md#maputils
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 

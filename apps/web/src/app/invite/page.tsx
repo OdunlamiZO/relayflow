@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#invite-pages
 import Link from "next/link";
 
 import { serverAuthenticationApi } from "@/lib/server-authentication";

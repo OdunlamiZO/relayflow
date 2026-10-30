@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#workflowsshell
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 

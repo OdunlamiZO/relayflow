@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.publicapi;
 
+// Docs: docs/codebase-components.md#publicapiproblemwriter
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.publicapi.dto.ProblemResponse;
 import jakarta.servlet.http.HttpServletRequest;

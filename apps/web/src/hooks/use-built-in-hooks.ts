@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#integration-hooks
 import { useQuery } from "@tanstack/react-query";
 
 import { type BuiltInHook, messagingApi } from "@/lib/messaging-api";

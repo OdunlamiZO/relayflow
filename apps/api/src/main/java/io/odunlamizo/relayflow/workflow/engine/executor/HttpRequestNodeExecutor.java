@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine.executor;
 
+// Docs: docs/codebase-components.md#httprequestnodeexecutor
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -112,6 +114,8 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
                 }
             }
 
+            clearOutputs(responseStatusVariable, responseMappings, context);
+
             HttpResponse<String> response =
                     httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
 
@@ -173,6 +177,28 @@ public class HttpRequestNodeExecutor implements NodeExecutor {
             output.put("error", errorMessage);
 
             return NodeExecutionResult.handle("error", output);
+        }
+    }
+
+    /**
+     * So a call with no response, or a field missing from it, never leaves an earlier call's value.
+     */
+    private void clearOutputs(
+            String responseStatusVariable,
+            List<Map<String, Object>> responseMappings,
+            ExecutionContext context) {
+        if (responseStatusVariable != null && !responseStatusVariable.isBlank()) {
+            context.removeVariable(responseStatusVariable);
+        }
+
+        if (responseMappings != null) {
+            for (Map<String, Object> mapping : responseMappings) {
+                String variable = (String) mapping.get("variable");
+
+                if (variable != null && !variable.isBlank()) {
+                    context.removeVariable(variable);
+                }
+            }
         }
     }
 

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact.dto;
 
+// Docs: docs/codebase-components.md#contact-dto-records
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 

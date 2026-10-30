@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook;
 
+// Docs: docs/codebase-components.md#webhookdispatchservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.databind.ObjectMapper;

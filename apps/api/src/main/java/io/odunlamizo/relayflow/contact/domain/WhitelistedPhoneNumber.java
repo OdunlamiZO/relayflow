@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact.domain;
 
+// Docs: docs/codebase-components.md#whitelistedphonenumber
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

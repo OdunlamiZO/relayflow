@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.hook;
 
+// Docs: docs/codebase-components.md#hookcontroller
+
 import io.odunlamizo.relayflow.hook.dto.BuiltInHookResponse;
 import io.odunlamizo.relayflow.hook.dto.HookResponse;
 import io.odunlamizo.relayflow.hook.dto.SaveHookRequest;

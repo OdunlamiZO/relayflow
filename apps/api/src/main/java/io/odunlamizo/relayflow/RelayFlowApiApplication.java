@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow;
 
+// Docs: docs/codebase-components.md#relayflowapiapplication
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;

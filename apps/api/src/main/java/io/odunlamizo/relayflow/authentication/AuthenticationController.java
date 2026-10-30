@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication;
 
+// Docs: docs/codebase-components.md#authenticationcontroller
+
 import io.odunlamizo.relayflow.authentication.dto.AuthenticatedUserResponse;
 import io.odunlamizo.relayflow.authentication.dto.BootstrapRequest;
 import io.odunlamizo.relayflow.authentication.dto.BootstrapResponse;

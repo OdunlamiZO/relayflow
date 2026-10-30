@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow;
 
+// Docs: docs/codebase-components.md#workflowgraphvalidator
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import java.util.ArrayList;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace;
 
+// Docs: docs/codebase-components.md#workspaceinviteservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.authentication.domain.User;

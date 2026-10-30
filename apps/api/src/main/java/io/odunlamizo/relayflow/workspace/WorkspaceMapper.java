@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace;
 
+// Docs: docs/codebase-components.md#workspacemapper
+
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import io.odunlamizo.relayflow.workspace.dto.WorkspaceResponse;
 import org.mapstruct.Mapper;

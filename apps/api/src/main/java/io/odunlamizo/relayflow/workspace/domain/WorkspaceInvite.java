@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.domain;
 
+// Docs: docs/codebase-components.md#workspaceinvite
+
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;

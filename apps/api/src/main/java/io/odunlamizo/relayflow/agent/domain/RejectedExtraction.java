@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.domain;
 
+// Docs: docs/codebase-components.md#ai-agent-domain-records
+
 import java.util.Map;
 
 public record RejectedExtraction(String key, String value, String reason) {

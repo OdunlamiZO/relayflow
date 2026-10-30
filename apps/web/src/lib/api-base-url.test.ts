@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#api-base-urltestts
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 

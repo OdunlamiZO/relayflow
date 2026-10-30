@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging;
 
+// Docs: docs/codebase-components.md#messagingmapper
+
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.Message;
 import io.odunlamizo.relayflow.messaging.dto.ConversationResponse;

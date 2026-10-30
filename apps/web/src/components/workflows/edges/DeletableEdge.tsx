@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#deletableedge
 import {
   BaseEdge,
   EdgeLabelRenderer,

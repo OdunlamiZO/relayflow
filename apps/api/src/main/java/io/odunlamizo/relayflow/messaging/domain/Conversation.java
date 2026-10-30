@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging.domain;
 
+// Docs: docs/codebase-components.md#conversation
+
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;

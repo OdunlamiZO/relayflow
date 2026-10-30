@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.channel;
 
+// Docs: docs/codebase-components.md#channelaccountservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;

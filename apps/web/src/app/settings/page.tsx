@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#settings-pages
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 

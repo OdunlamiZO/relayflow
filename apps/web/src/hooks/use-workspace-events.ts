@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#inbox-hooks
 import { useEffect, useRef } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";

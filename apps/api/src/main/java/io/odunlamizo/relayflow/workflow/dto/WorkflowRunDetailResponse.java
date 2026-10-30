@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.dto;
 
+// Docs: docs/codebase-components.md#workflow-dto-records
+
 import io.odunlamizo.relayflow.workflow.domain.WorkflowRunStatus;
 import java.time.Instant;
 import java.util.List;

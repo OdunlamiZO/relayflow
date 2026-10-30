@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.domain;
 
+// Docs: docs/codebase-components.md#workspaceapikey
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

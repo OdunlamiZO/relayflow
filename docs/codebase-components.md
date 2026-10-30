@@ -4,6 +4,8 @@ This document explains the main named parts in the codebase: classes, records, e
 
 It intentionally focuses on components that define behavior or shared contracts. Tiny local variables inside a function are not listed unless they carry architectural meaning.
 
+Every source file links to its section with a `// Docs: docs/codebase-components.md#<anchor>` line, and each section links back to its files with a `Source:` line. `hooks/check-codebase-components.mjs`, run by the pre-commit hook, fails when a link in either direction is missing or points at the wrong place, or when a class, record, enum, or exported function, component, or constant isn't described here.
+
 ## Table Of Contents
 
 - [Backend Application And Configuration](#backend-application-and-configuration)
@@ -11,6 +13,9 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`SecurityConfiguration`](#securityconfiguration)
   - [`WebConfiguration`](#webconfiguration)
   - [`CredentialEncryptionService`](#credentialencryptionservice)
+  - [`HibernateJsonConfiguration`](#hibernatejsonconfiguration)
+  - [`RateLimitFilter`](#ratelimitfilter)
+  - [`HealthController`](#healthcontroller)
 - [Authentication Backend](#authentication-backend)
   - [`AuthenticationController`](#authenticationcontroller)
   - [`AuthenticationService`](#authenticationservice)
@@ -68,6 +73,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WorkspacePermission`](#workspacepermission)
   - [`WorkspaceInvite`](#workspaceinvite)
   - [`WorkspaceApiKey`](#workspaceapikey)
+  - [`ContactAccess`](#contactaccess)
   - [`WorkspaceSecret`](#workspacesecret)
   - [`ReservedContactField`](#reservedcontactfield)
 - [Workspace DTO Records](#workspace-dto-records)
@@ -86,12 +92,17 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`ContactController`](#contactcontroller)
   - [`ContactService`](#contactservice)
   - [`ContactTagService`](#contacttagservice)
+  - [`ContactAccessService`](#contactaccessservice)
   - [`ContactMapper`](#contactmapper)
   - [`ReservedContactFieldResolver`](#reservedcontactfieldresolver)
   - [`ContactDisplayNameSync`](#contactdisplaynamesync)
+  - [`ContactAccessController`](#contactaccesscontroller)
+  - [`PhoneNumberNormalizer`](#phonenumbernormalizer)
+  - [Contact Exceptions](#contact-exceptions)
 - [Contact Domain Entities And Enums](#contact-domain-entities-and-enums)
   - [`Contact`](#contact)
   - [`ExternalIdentity`](#externalidentity)
+  - [`WhitelistedPhoneNumber`](#whitelistedphonenumber)
 - [Contact DTO Records](#contact-dto-records)
 - [Contact Repositories](#contact-repositories)
 - [Messaging Backend](#messaging-backend)
@@ -100,6 +111,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`MessagingMapper`](#messagingmapper)
   - [`MessagingExceptionHandler`](#messagingexceptionhandler)
   - [`ConversationLockedException`](#conversationlockedexception)
+  - [`ConversationNotFoundException`](#conversationnotfoundexception)
   - [`OutboundMessageEvent`](#outboundmessageevent)
 - [Messaging Domain Entities And Enums](#messaging-domain-entities-and-enums)
   - [`Conversation`](#conversation)
@@ -107,6 +119,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`Message`](#message)
   - [`MessageDirection`](#messagedirection)
   - [`MessageSenderType`](#messagesendertype)
+  - [`EscalationType` And `EscalationResolution`](#escalationtype-and-escalationresolution)
 - [Messaging DTO Records](#messaging-dto-records)
 - [Messaging Repositories](#messaging-repositories)
 - [Public API Backend](#public-api-backend)
@@ -119,11 +132,14 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WebhookService`](#webhookservice)
   - [`WebhookDispatchService`](#webhookdispatchservice)
   - [`WebhookController`](#webhookcontroller)
+  - [`WebhookUrlValidator`](#webhookurlvalidator)
+  - [Webhook DTO Records](#webhook-dto-records)
   - [`EmailService` And `SmtpEmailService`](#emailservice-and-smtpemailservice)
   - [`WorkspaceWebhook`](#workspacewebhook)
   - [`WebhookEventType`](#webhookeventtype)
   - [`ContactSnapshotBuilder`](#contactsnapshotbuilder)
   - [`ContactSnapshot`](#contactsnapshot)
+  - [`ContactMergedPayload`](#contactmergedpayload)
 - [SSE Backend](#sse-backend)
   - [`SseController`](#ssecontroller)
   - [`WorkspaceSseService`](#workspacesseservice)
@@ -133,8 +149,10 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`TelegramController`](#telegramcontroller)
   - [`TelegramAdapter`](#telegramadapter)
   - [`TelegramWebhookRegistrar`](#telegramwebhookregistrar)
+  - [`TelegramFormatter`](#telegramformatter)
   - [`TelegramSendException`](#telegramsendexception)
   - [`TelegramExceptionHandler`](#telegramexceptionhandler)
+  - [`TelegramFailures`](#telegramfailures)
   - [Telegram DTO Records](#telegram-dto-records)
 - [WhatsApp Backend](#whatsapp-backend)
   - [`WhatsAppController`](#whatsappcontroller)
@@ -148,6 +166,8 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`WorkflowGraphValidator`](#workflowgraphvalidator)
   - [`WorkflowValidationException`](#workflowvalidationexception)
   - [`WorkflowExceptionHandler`](#workflowexceptionhandler)
+  - [`WorkflowRunCleanupScheduler`](#workflowruncleanupscheduler)
+  - [`WorkflowStartupRecovery`](#workflowstartuprecovery)
 - [Workflow Domain Entities And Enums](#workflow-domain-entities-and-enums)
   - [`NodeType`](#nodetype)
   - [`WorkflowDefinition`](#workflowdefinition)
@@ -192,6 +212,7 @@ It intentionally focuses on components that define behavior or shared contracts.
 - [Frontend Route Components](#frontend-route-components)
   - [Root Layout Components](#root-layout-components)
   - [Root Route](#root-route)
+  - [Health Route](#health-route)
   - [Auth Pages](#auth-pages)
   - [Setup Page](#setup-page)
   - [Inbox Pages](#inbox-pages)
@@ -203,11 +224,14 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [Settings Pages](#settings-pages)
 - [Frontend Common Components](#frontend-common-components)
   - [`Spinner`](#spinner)
+  - [`LoadingButton`](#loadingbutton)
   - [`EmptyState`](#emptystate)
   - [`ConfirmModal`](#confirmmodal)
   - [`IconButton`](#iconbutton)
+  - [`FormattedText`](#formattedtext)
   - [`PopoverMenu`](#popovermenu)
   - [`DesktopOnly`](#desktoponly)
+  - [`InviteStatusMessage`](#invitestatusmessage)
   - [`GoogleIcon`](#googleicon)
   - [`CopyButton`](#copybutton)
   - [`Select`](#select)
@@ -246,11 +270,15 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`GeneralPanel`](#generalpanel)
   - [`CreateApiKeyModal`](#createapikeymodal)
   - [`WebhookConfigPanel`](#webhookconfigpanel)
+  - [`WebhookSecretModal`](#webhooksecretmodal)
 - [Frontend Workflow Builder Components](#frontend-workflow-builder-components)
   - [`WorkflowEditor`](#workfloweditor)
   - [`EditorCanvas`](#editorcanvas)
   - [`NodeConfigPanel`](#nodeconfigpanel)
   - [`VariablePicker`](#variablepicker)
+  - [`RunsShell`](#runsshell)
+  - [`RunsList`](#runslist)
+  - [`RunDetail`](#rundetail)
   - [`WorkflowsShell`](#workflowsshell)
   - [`WorkflowsList`](#workflowslist)
   - [`DeletableEdge`](#deletableedge)
@@ -262,6 +290,8 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`HttpRequestNode`](#httprequestnode)
   - [`SetVariableNode`](#setvariablenode)
   - [`SetContactFieldNode`](#setcontactfieldnode)
+  - [`SetContactTagNode`](#setcontacttagnode)
+  - [`OutputLabel`](#outputlabel)
   - [`WaitForReplyNode`](#waitforreplynode)
   - [`JumpToNode`](#jumptonode)
   - [`EndConversationNode`](#endconversationnode)
@@ -277,6 +307,7 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [Workflow Hooks](#workflow-hooks)
   - [Integration Hooks](#integration-hooks)
 - [Frontend API Libraries](#frontend-api-libraries)
+  - [`message-formatting.ts`](#message-formattingts)
   - [`authentication-api.ts`](#authentication-apits)
   - [`messaging-api.ts`](#messaging-apits)
   - [`server-authentication.ts`](#server-authenticationts)
@@ -284,11 +315,20 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`error-message.ts`](#error-messagets)
   - [`proxy.ts`](#proxyts)
   - [`api-base-url.ts`](#api-base-urlts)
+  - [`api-client.ts`](#api-clientts)
+  - [`countries.ts`](#countriests)
 - [Frontend Tests](#frontend-tests)
   - [`page.test.tsx`](#pagetesttsx)
   - [`ConversationList.test.tsx`](#conversationlisttesttsx)
   - [`WorkspaceSwitcher.test.tsx`](#workspaceswitchertesttsx)
   - [`messaging-api.test.ts`](#messaging-apitestts)
+  - [`server-messaging-api.test.ts`](#server-messaging-apitestts)
+  - [`api-base-url.test.ts`](#api-base-urltestts)
+  - [`message-formatting.test.ts`](#message-formattingtestts)
+  - [`proxy.test.ts`](#proxytestts)
+  - [`DesktopOnly.test.tsx`](#desktoponlytesttsx)
+  - [`test/setup.ts`](#testsetupts)
+- [Backend Tests](#backend-tests)
 - [Contracts And Schemas](#contracts-and-schemas)
   - [`openapi.yaml`](#openapiyaml)
   - [`message-event.schema.json`](#message-eventschemajson)
@@ -315,7 +355,9 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`ContactCustomFieldWriter`](#contactcustomfieldwriter)
   - [`AgentWorkflowContext`](#agentworkflowcontext)
   - [`AiAgentInvocationCleanupScheduler`](#aiagentinvocationcleanupscheduler)
+  - [`PublishedWorkflowMappings`](#publishedworkflowmappings)
   - [LLM Abstraction](#llm-abstraction)
+  - [AI Agent Domain Records](#ai-agent-domain-records)
   - [AI Agent DTO Records](#ai-agent-dto-records)
   - [AI Agent Repositories](#ai-agent-repositories)
 - [AI Agent Frontend Components](#ai-agent-frontend-components)
@@ -323,16 +365,22 @@ It intentionally focuses on components that define behavior or shared contracts.
   - [`AiDraftBanner`](#aidraftbanner)
 - [`apps/marketing`](#appsmarketing)
   - [`deployment-artifacts.ts` And The Self-Hosting Docs Page](#deployment-artifactsts-and-the-self-hosting-docs-page)
+  - [Changelog Page And `changelog.ts`](#changelog-page-and-changelogts)
+  - [Marketing Components](#marketing-components)
 
 ## Backend Application And Configuration
 
 ### `RelayFlowApiApplication`
+
+Source: [`RelayFlowApiApplication.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/RelayFlowApiApplication.java)
 
 The Spring Boot entry point. It starts the API process and enables Spring Boot component scanning for controllers, services, repositories, schedulers, and configuration.
 
 We need it because every backend capability hangs off the Spring application context.
 
 ### `SecurityConfiguration`
+
+Source: [`SecurityConfiguration.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/configuration/SecurityConfiguration.java)
 
 Defines authentication and request security behavior.
 
@@ -348,11 +396,15 @@ We need it to make browser sessions, Google OAuth, email login, and protected AP
 
 ### `WebConfiguration`
 
+Source: [`WebConfiguration.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/configuration/WebConfiguration.java)
+
 Defines web-level backend infrastructure, including the `RestTemplate` bean used by Telegram webhook registration and Telegram API calls.
 
 We need it so integrations can share a configured HTTP client instead of each service constructing its own.
 
 ### `CredentialEncryptionService`
+
+Source: [`CredentialEncryptionService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/security/CredentialEncryptionService.java)
 
 Encrypts and decrypts channel credentials such as Telegram bot tokens.
 
@@ -363,9 +415,40 @@ Important methods:
 
 We need it because channel credentials are product-critical secrets and should not be persisted as plaintext.
 
+### `HibernateJsonConfiguration`
+
+Source: [`HibernateJsonConfiguration.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/configuration/HibernateJsonConfiguration.java)
+
+Registers a `HibernatePropertiesCustomizer` that makes Hibernate read and write JSON columns with the application's own `ObjectMapper`.
+
+We need it because the FEEL engine's Scala Jackson module is registered on that mapper, and without this Hibernate's default mapper read JSONB arrays back as Scala lists instead of Java lists.
+
+### `RateLimitFilter`
+
+Source: [`RateLimitFilter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/security/RateLimitFilter.java)
+
+Redis-backed, fixed-window servlet filter in `io.odunlamizo.relayflow.security`, registered by `SecurityConfiguration` just after `RequestIdFilter`. Each private `RateLimitRule` pairs a path pattern with a bucket, limit, and window, and a `KeySource` decides whether requests are counted per client IP (`X-Forwarded-For`, else the remote address) or per API key (`X-Api-Key`, hashed). Rules cover login, 2FA and password reset; signup and bootstrap; `/public/v1/**`; and the Telegram and WhatsApp webhooks.
+
+A rejected request gets `429` with a `Retry-After` header. On `/public/v1` the body is a `RATE_LIMITED` problem written by `PublicApiProblemWriter`; everywhere else it's an `ErrorResponse`. Turned off with `RATE_LIMIT_ENABLED=false`.
+
+We need it to slow down credential stuffing, signup spam, API abuse, and webhook floods.
+
+### `HealthController`
+
+Source:
+
+- [`HealthController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/health/HealthController.java)
+- [`HealthResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/health/HealthResponse.java)
+
+`GET /health` returns `HealthResponse` (`{"status": "ok"}`). Unauthenticated; used by the API container's Docker `HEALTHCHECK` and the Compose `depends_on` health conditions.
+
+We need it so the deployment knows when the API is ready to take traffic.
+
 ## Authentication Backend
 
 ### `AuthenticationController`
+
+Source: [`AuthenticationController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/AuthenticationController.java)
 
 HTTP controller for auth routes.
 
@@ -384,6 +467,8 @@ We need it as the public API boundary for session state.
 
 ### `AuthenticationService`
 
+Source: [`AuthenticationService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/AuthenticationService.java)
+
 Business logic for authentication.
 
 Important methods:
@@ -401,17 +486,23 @@ We need it to keep controller code thin and centralize session/user lifecycle ru
 
 ### `EmailPasswordUserDetailsService`
 
+Source: [`EmailPasswordUserDetailsService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/EmailPasswordUserDetailsService.java)
+
 Loads RelayFlow users by email for Spring Security's DAO authentication provider.
 
 We need it so the Spring authentication manager can validate email/password login against the database.
 
 ### `OAuth2UserProvisioningService`
 
+Source: [`OAuth2UserProvisioningService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/OAuth2UserProvisioningService.java)
+
 Extends Spring's OAuth user service to provision or update users after Google login.
 
 We need it so Google login creates a local `User` record and returns consistent profile data.
 
 ### `PasswordResetService`
+
+Source: [`PasswordResetService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/PasswordResetService.java)
 
 `@Service` in `io.odunlamizo.relayflow.authentication`. There is no self-service "change password" form — this is the only way a password gets set after signup.
 
@@ -424,11 +515,15 @@ We need it as the single place password-setting logic lives, since it's reached 
 
 ### `PasswordResetToken`
 
+Source: [`PasswordResetToken.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/PasswordResetToken.java)
+
 JPA entity mapped to `password_reset_tokens`, in `io.odunlamizo.relayflow.authentication.domain`. Modeled on `WorkspaceInvite` — `token` is a random `UUID` (unique), `expires_at` is stamped 60 minutes past `created_at` in `@PrePersist`, and `used_at` (rather than a status enum or soft-delete column) tracks consumption. `isValid()` returns `usedAt == null && now < expiresAt`.
 
 We need it so a reset link is single-use and time-boxed without a separate session-tracking mechanism.
 
 ### `ProfileController`
+
+Source: [`ProfileController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/profile/ProfileController.java)
 
 HTTP controller for current-user profile and security routes.
 
@@ -445,6 +540,8 @@ We need it to keep account management separate from login/session endpoints.
 
 ### `ProfileService`
 
+Source: [`ProfileService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/profile/ProfileService.java)
+
 Business service for profile and MFA state.
 
 Important methods:
@@ -460,6 +557,8 @@ We need it to coordinate user, identity, and MFA tables in one account-managemen
 
 ### `TwoFactorService`
 
+Source: [`TwoFactorService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/profile/TwoFactorService.java)
+
 TOTP helper for generating secrets, building `otpauth://` URIs, and verifying authenticator codes.
 
 Important methods:
@@ -472,11 +571,15 @@ We need it to keep MFA cryptographic details out of controller/service workflow 
 
 ### `SecurityUtils`
 
+Source: [`SecurityUtils.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/SecurityUtils.java)
+
 Utility component for resolving the current RelayFlow user ID from Spring `Authentication`. Handles both email/password (`UserDetails`) and Google OAuth2 (`OAuth2User`) principals by resolving the principal's email and looking up the `User` row.
 
 We need it because controllers should not duplicate principal parsing logic.
 
 ### `User`
+
+Source: [`User.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/User.java)
 
 JPA entity mapped to `users`.
 
@@ -490,6 +593,8 @@ Important fields:
 We need it as the durable person/account anchor for workspaces and workspace membership. Login methods, preferences, and MFA are now satellite tables.
 
 ### `UserIdentity`
+
+Source: [`UserIdentity.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/UserIdentity.java)
 
 JPA entity representing one authentication identity for a user.
 
@@ -506,11 +611,15 @@ We need it so one user can have multiple login methods, such as email/password a
 
 ### `UserPreferences`
 
+Source: [`UserPreferences.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/UserPreferences.java)
+
 JPA entity for per-user preferences — currently just `userId`/`createdAt`/`updatedAt` with no preference fields of its own (the one it had, `receiveEmailUpdates`, was removed along with the marketing-email opt-in checkbox now that RelayFlow is self-hosted-only). Kept as the landing spot for any future per-user setting rather than deleted outright.
 
 We need it to keep preferences out of the core identity row.
 
 ### `UserMfaMethod`
+
+Source: [`UserMfaMethod.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/UserMfaMethod.java)
 
 JPA entity for second-factor methods.
 
@@ -526,6 +635,8 @@ We need it to support TOTP today and future MFA methods without changing the `us
 
 ### `TwoFactorChallenge`
 
+Source: [`TwoFactorChallenge.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/TwoFactorChallenge.java)
+
 JPA entity for short-lived login challenges issued after password verification when 2FA is enabled.
 
 Important fields:
@@ -538,17 +649,33 @@ We need it so password verification and OTP verification can happen as two separ
 
 ### `AuthenticationProvider`
 
+Source: [`AuthenticationProvider.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/AuthenticationProvider.java)
+
 Enum of supported identity providers: email and Google.
 
 We need it so user records can be interpreted correctly during login.
 
 ### `MfaMethodType`
 
+Source: [`MfaMethodType.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/domain/MfaMethodType.java)
+
 Enum of MFA method types: TOTP and SMS.
 
 We need it so MFA support can grow beyond TOTP without redesigning the table.
 
 ### Auth DTO Records
+
+Source:
+
+- [`AuthenticatedUserResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/AuthenticatedUserResponse.java)
+- [`BootstrapRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/BootstrapRequest.java)
+- [`BootstrapResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/BootstrapResponse.java)
+- [`InstanceStatusResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/InstanceStatusResponse.java)
+- [`Login2FARequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/Login2FARequest.java)
+- [`LoginRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/LoginRequest.java)
+- [`ResetPasswordRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/ResetPasswordRequest.java)
+- [`SignupRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/SignupRequest.java)
+- [`SignupResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/dto/SignupResponse.java)
 
 - `SignupRequest`: name, email, password, and the required `inviteToken` — signup cannot happen without an accepted invite.
 - `SignupResponse`: authenticated state, user ID, email, display name, and the workspace ID the invite granted access to.
@@ -564,6 +691,13 @@ We need these records as stable API contracts between backend and frontend.
 
 ### Profile DTO Records
 
+Source:
+
+- [`OtpRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/profile/dto/OtpRequest.java)
+- [`ProfileResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/profile/dto/ProfileResponse.java)
+- [`Setup2FAResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/profile/dto/Setup2FAResponse.java)
+- [`UpdateProfileRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/profile/dto/UpdateProfileRequest.java)
+
 - `ProfileResponse`: user profile, providers, and 2FA state.
 - `UpdateProfileRequest`: display name.
 - `Setup2FAResponse`: `otpauth://` URI for QR display.
@@ -573,6 +707,8 @@ We need these records for account-management UI/backend contracts.
 
 ### `UserRepository`
 
+Source: [`UserRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/repository/UserRepository.java)
+
 Spring Data repository for `User`. Also backs `AuthenticationService.getInstanceStatus`/`bootstrap` via `count()`.
 
 Important queries include lookup by email.
@@ -580,6 +716,14 @@ Important queries include lookup by email.
 We need it to keep persistence access declarative and testable.
 
 ### Authentication Satellite Repositories
+
+Source:
+
+- [`PasswordResetTokenRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/repository/PasswordResetTokenRepository.java)
+- [`TwoFactorChallengeRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/repository/TwoFactorChallengeRepository.java)
+- [`UserIdentityRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/repository/UserIdentityRepository.java)
+- [`UserMfaMethodRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/repository/UserMfaMethodRepository.java)
+- [`UserPreferencesRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/repository/UserPreferencesRepository.java)
 
 - `UserIdentityRepository`: looks up identities by provider subject or user/provider.
 - `UserPreferencesRepository`: stores per-user preferences.
@@ -591,6 +735,8 @@ We need these repositories because login methods, profile preferences, and MFA a
 
 ### `ApiKeyAuthentication`
 
+Source: [`ApiKeyAuthentication.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/ApiKeyAuthentication.java)
+
 Spring Security `Authentication` implementation representing a validated workspace API key.
 
 Important value:
@@ -600,6 +746,8 @@ Important value:
 We need it so public API controllers can resolve workspace scope without a browser session.
 
 ### `ApiKeyAuthenticationFilter`
+
+Source: [`ApiKeyAuthenticationFilter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/authentication/ApiKeyAuthenticationFilter.java)
 
 Security filter that reads `X-Api-Key`, hashes it, validates a non-revoked/non-expired workspace API key, and populates the security context.
 
@@ -612,6 +760,8 @@ We need it to authenticate external systems through API keys.
 
 ### `AsyncConfiguration`
 
+Source: [`AsyncConfiguration.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/configuration/AsyncConfiguration.java)
+
 Spring async executor configuration.
 
 Important executors:
@@ -623,11 +773,15 @@ We need it so workflow execution and webhook delivery do not block inbound HTTP/
 
 ### `LoggingConfiguration`
 
+Source: [`LoggingConfiguration.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/configuration/LoggingConfiguration.java)
+
 Registers `RequestIdFilter` ahead of every other servlet filter and fails startup when `LOG_FORMAT` is not `text`, `json`, `ecs`, `gelf`, or `logfmt`. `logback-spring.xml` defines one console appender per format: `text` uses the standard Spring Boot console pattern, `json` uses `LogstashEncoder` with Datadog field names, `ecs` uses `LoggingEventCompositeJsonEncoder` with Elastic Common Schema field names, `gelf` uses `GelfJsonProvider`, and `logfmt` uses `LogfmtLayout`.
 
 We need it so self-hosted deployments can ship structured logs to Datadog or any other log agent.
 
 ### `RequestIdFilter`
+
+Source: [`RequestIdFilter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/logging/RequestIdFilter.java)
 
 Puts a `requestId` into the logging MDC for the duration of each HTTP request and returns it in the `X-Request-Id` response header. Reuses a well-formed incoming `X-Request-Id` (letters, digits, `.`, `_`, `-`, up to 128 characters) and generates a UUID otherwise.
 
@@ -635,11 +789,15 @@ We need it to tie together every log line written while handling one request.
 
 ### `RequestIdTaskDecorator`
 
+Source: [`RequestIdTaskDecorator.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/logging/RequestIdTaskDecorator.java)
+
 Copies the submitting thread's `requestId` into tasks run on the async executor.
 
 We need it so logs from `@Async` listeners and webhook delivery carry the request that triggered them.
 
 ### `LogfmtLayout`
+
+Source: [`LogfmtLayout.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/logging/LogfmtLayout.java)
 
 Writes each log event as one line of `key=value` pairs: `timestamp`, `level`, `logger`, `thread`, `msg`, MDC entries, structured arguments, and `error.kind` / `error.message` / `error.stack` for exceptions. Values containing spaces, `=`, `"` or control characters are quoted and escaped.
 
@@ -647,11 +805,15 @@ We need it for `LOG_FORMAT=logfmt`.
 
 ### `GelfJsonProvider`
 
+Source: [`GelfJsonProvider.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/logging/GelfJsonProvider.java)
+
 Writes each log event as a GELF 1.1 object: `version`, `host`, `short_message`, `full_message` (stack trace), `timestamp` in epoch seconds, syslog `level`, and `_`-prefixed additional fields for the logger, thread, MDC entries, structured arguments and exception.
 
 We need it for `LOG_FORMAT=gelf`.
 
 ### `StructuredLogEvents`
+
+Source: [`StructuredLogEvents.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/logging/StructuredLogEvents.java)
 
 Extracts the `kv(...)` structured arguments from a log event and strips their placeholders from the message template.
 
@@ -663,11 +825,15 @@ We need it so `LogfmtLayout` and `GelfJsonProvider` can write key/value pairs as
 
 ### `ResourceNotFoundException`
 
+Source: [`ResourceNotFoundException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/common/ResourceNotFoundException.java)
+
 Runtime exception used when workspace-scoped data is missing or not accessible in that workspace.
 
 We need it to avoid leaking whether records exist outside the requested workspace.
 
 ### `PageResponse`
+
+Source: [`PageResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/common/dto/PageResponse.java)
 
 `record PageResponse<T>(List<T> items, boolean hasMore, String nextCursor)` — generic paginated API response, used by every list endpoint across `workspace`, `channel`, `contact`, and `messaging`.
 
@@ -675,11 +841,15 @@ We need it so pagination shape doesn't drift between domains.
 
 ### `ErrorResponse`
 
+Source: [`ErrorResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/common/dto/ErrorResponse.java)
+
 `record ErrorResponse(String message, Instant timestamp)` — normalized API error body.
 
 We need it so the frontend receives a consistent error shape regardless of which domain threw.
 
 ### `CommonExceptionHandler`
+
+Source: [`CommonExceptionHandler.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/common/CommonExceptionHandler.java)
 
 Global REST exception handler for exceptions that aren't specific to one domain — domain-specific exceptions (`ConversationLockedException` in `MessagingExceptionHandler`, `TelegramSendException` in `TelegramExceptionHandler`, `WorkflowValidationException` in `WorkflowExceptionHandler`) each have their own small `@RestControllerAdvice` in their own package instead.
 
@@ -700,6 +870,8 @@ We need it so the frontend receives consistent `{ message, timestamp }` error re
 
 ### `MapUtils`
 
+Source: [`MapUtils.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/common/MapUtils.java)
+
 `copyMap(source)`: returns a mutable `LinkedHashMap` copy of `source`, or an empty one if `source` is null. Used by `ChannelAccountService`, `ContactService`, and `MessagingService` to defensively copy an incoming request's JSONB-bound map field (`metadata`, `rawProfile`, `rawPayload`) before persisting it.
 
 We need it because that copy-or-empty logic was duplicated identically in all three services after the messaging domain split.
@@ -709,6 +881,8 @@ We need it because that copy-or-empty logic was duplicated identically in all th
 `io.odunlamizo.relayflow.workspace` — workspace CRUD, membership, invites, and API keys. Owns the tenant boundary the other domains (`channel`, `contact`, `messaging`) are scoped within.
 
 ### `WorkspaceController`
+
+Source: [`WorkspaceController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/WorkspaceController.java)
 
 HTTP controller for workspace and workspace-member routes.
 
@@ -722,6 +896,8 @@ Important methods:
 We need it as the REST boundary for workspace settings and team management.
 
 ### `WorkspaceService`
+
+Source: [`WorkspaceService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/WorkspaceService.java)
 
 Business service for workspace and membership persistence.
 
@@ -739,11 +915,15 @@ We need it because workspace/membership has cross-entity rules that should not l
 
 ### `WorkspaceMapper`
 
+Source: [`WorkspaceMapper.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/WorkspaceMapper.java)
+
 Maps the `Workspace` JPA entity to `WorkspaceResponse`.
 
 We need it to isolate the API response shape from the persistence entity shape.
 
 ### `WorkspaceAuthorizationService`
+
+Source: [`WorkspaceAuthorizationService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/WorkspaceAuthorizationService.java)
 
 Service that resolves the authenticated user's workspace membership and checks owner or granular permissions. Used by every controller across `workspace`, `channel`, `contact`, and `messaging` that needs to authorize a workspace-scoped request.
 
@@ -758,6 +938,8 @@ We need it so mutating workspace-scoped endpoints can enforce ownership and dele
 
 ### `ApiKeyService`
 
+Source: [`ApiKeyService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/ApiKeyService.java)
+
 Creates, lists, revokes, hashes, and validates workspace API keys.
 
 Important behaviors:
@@ -769,6 +951,8 @@ Important behaviors:
 We need it so external systems can call RelayFlow public endpoints without browser sessions.
 
 ### `ApiKeyController`
+
+Source: [`ApiKeyController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/ApiKeyController.java)
 
 REST controller for workspace API key management.
 
@@ -782,6 +966,8 @@ We need it to let authorized workspace users manage public API credentials.
 
 ### `SecretService`
 
+Source: [`SecretService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/SecretService.java)
+
 Creates, lists, updates, and deletes named workspace secrets — encrypted values (e.g. a third-party API key) a workflow's HTTP Request node can reference as `{{secrets.NAME}}` without the plaintext ever appearing in the workflow definition or a run log.
 
 Important behaviors:
@@ -794,11 +980,15 @@ We need it so a workflow can call an authenticated external API without the cred
 
 ### `SecretController`
 
+Source: [`SecretController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/SecretController.java)
+
 REST controller at `/workspaces/{workspaceId}/secrets`. All endpoints, including the list read, require `SECRETS_WRITE` — same Integrations-tier gating as API keys and webhooks.
 
 Endpoints: `GET` (`listSecrets`), `POST` (`createSecret`), `PUT /{secretId}` (`updateSecret` — replaces the value; the old one is not recoverable), `DELETE /{secretId}`.
 
 ### `WorkspaceInviteService`
+
+Source: [`WorkspaceInviteService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/WorkspaceInviteService.java)
 
 Creates, lists, revokes, previews, and accepts workspace invites.
 
@@ -813,6 +1003,8 @@ There is no open public signup endpoint — `AuthenticationController.signup` ca
 We need it for controlled onboarding of additional workspace users, and now for gating account creation entirely.
 
 ### `WorkspaceInviteController`
+
+Source: [`WorkspaceInviteController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/WorkspaceInviteController.java)
 
 REST controller for workspace invites.
 
@@ -830,6 +1022,8 @@ We need it for both owner invite management and the public invite acceptance flo
 
 ### `Workspace`
 
+Source: [`Workspace.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/Workspace.java)
+
 JPA entity for a company/team workspace.
 
 Important fields:
@@ -842,11 +1036,15 @@ We need it as the tenant boundary for conversations, channels, workflows, and me
 
 ### `ContactFieldDefinition`
 
+Source: [`ContactFieldDefinition.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/ContactFieldDefinition.java)
+
 `record ContactFieldDefinition(String key, String label, String description)` — one entry in `Workspace.contactFieldDefinitions`.
 
 We need it so operators can define custom fields the AI agent extracts and/or a workflow writes onto a contact, beyond the four reserved fields.
 
 ### `ContactTagDefinition`
+
+Source: [`ContactTagDefinition.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/ContactTagDefinition.java)
 
 `record ContactTagDefinition(String key, String label, List<String> values, Map<String, String> colors)` — one entry in `Workspace.contactTagDefinitions`. `values` is the fixed list a contact's tag can be set to; `colors` optionally maps a value to one of `ContactTagDefinition.COLORS` for display.
 
@@ -855,6 +1053,8 @@ We need it so operators can define custom fields the AI agent extracts and/or a 
 We need it so a workspace can label contacts with controlled values, such as a status, that integrations and workflows can rely on.
 
 ### `WorkspaceMember`
+
+Source: [`WorkspaceMember.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/WorkspaceMember.java)
 
 JPA entity linking users to workspaces with a role.
 
@@ -870,6 +1070,8 @@ We need it for ownership, ownership transfer, and granular workspace authorizati
 
 ### `WorkspaceRole`
 
+Source: [`WorkspaceRole.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/WorkspaceRole.java)
+
 Enum for workspace roles: owner and member.
 
 There is exactly one owner per workspace. Direct owner promotion/demotion is blocked in member updates; ownership moves through the transfer-ownership endpoint.
@@ -877,6 +1079,8 @@ There is exactly one owner per workspace. Direct owner promotion/demotion is blo
 We need it so membership can become permission-aware while preserving a single workspace owner.
 
 ### `WorkspacePermission`
+
+Source: [`WorkspacePermission.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/WorkspacePermission.java)
 
 Enum of granular permissions for non-owner workspace members.
 
@@ -898,6 +1102,8 @@ We need it to delegate specific capabilities without making every teammate an ow
 
 ### `WorkspaceInvite`
 
+Source: [`WorkspaceInvite.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/WorkspaceInvite.java)
+
 JPA entity for an expiring workspace invitation.
 
 Important fields:
@@ -912,9 +1118,13 @@ Important fields:
 - `acceptedAt`
 - `revokedAt`
 
+`InviteStatus` (nested enum: `PENDING`, `ACCEPTED`, `REVOKED`, `EXPIRED`) is derived from those timestamps by `status()`.
+
 We need it to invite users with a defined permission set and track invite state.
 
 ### `WorkspaceApiKey`
+
+Source: [`WorkspaceApiKey.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/WorkspaceApiKey.java)
 
 JPA entity for workspace public API credentials.
 
@@ -933,6 +1143,8 @@ We need it to authenticate external systems while storing no plaintext API key.
 
 ### `WorkspaceSecret`
 
+Source: [`WorkspaceSecret.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/WorkspaceSecret.java)
+
 JPA entity for one named, encrypted secret a workspace's workflows can reference.
 
 Important fields:
@@ -947,6 +1159,8 @@ We need it to let a workflow's HTTP Request node use a real credential without t
 
 ### `ReservedContactField`
 
+Source: [`ReservedContactField.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/ReservedContactField.java)
+
 Enum: `DISPLAY_NAME` (`"displayName"`), `FIRST_NAME` (`"firstName"`), `LAST_NAME` (`"lastName"`), `PHONE` (`"phone"`), `EMAIL` (`"email"`), `COUNTRY` (`"country"`). Contact fields RelayFlow already derives automatically — a workspace can't redefine any of these as a custom field. Lives in `workspace.domain` (validated against `Workspace.contactFieldDefinitions`), even though the resolver that uses it (`ReservedContactFieldResolver`) lives in `contact`.
 
 `isReserved(candidateKey)` does a case-insensitive comparison against each enum value's `key()` (`field.key.equalsIgnoreCase(trimmed)`) — both sides must be compared case-insensitively, not just the candidate, since a key like `displayName` isn't all-lowercase.
@@ -955,18 +1169,55 @@ Carries no label or description — those are presentation copy that live in the
 
 We need it as the single source of truth for which keys are reserved, used by `ReservedContactFieldResolver`, `ContactCustomFieldWriter`, `SetContactFieldNodeExecutor`, and `WorkspaceService.updateContactFieldDefinitions`'s validation.
 
+### `ContactAccess`
+
+Source: [`ContactAccess.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/ContactAccess.java)
+
+Enum stored on `Workspace.contactAccess`: `ALL` accepts messages from everyone, `WHITELIST` only from numbers in `whitelisted_phone_numbers`. See [`ContactAccessService`](#contactaccessservice).
+
+We need it to make the workspace's sender policy explicit.
+
 ## Workspace DTO Records
+
+Source:
+
+- [`ApiKeyResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/ApiKeyResponse.java)
+- [`CreateApiKeyRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/CreateApiKeyRequest.java)
+- [`CreateApiKeyResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/CreateApiKeyResponse.java)
+- [`CreateInviteRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/CreateInviteRequest.java)
+- [`CreateWorkspaceRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/CreateWorkspaceRequest.java)
+- [`InviteMemberRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/InviteMemberRequest.java)
+- [`InvitePreviewResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/InvitePreviewResponse.java)
+- [`SaveSecretRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/SaveSecretRequest.java)
+- [`SecretResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/SecretResponse.java)
+- [`UpdateContactAccessRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/UpdateContactAccessRequest.java)
+- [`UpdateContactFieldDefinitionsRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/UpdateContactFieldDefinitionsRequest.java)
+- [`UpdateContactTagDefinitionsRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/UpdateContactTagDefinitionsRequest.java)
+- [`UpdateMemberRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/UpdateMemberRequest.java)
+- [`UpdateWorkspaceRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/UpdateWorkspaceRequest.java)
+- [`WorkspaceInviteResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/WorkspaceInviteResponse.java)
+- [`WorkspaceMemberResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/WorkspaceMemberResponse.java)
+- [`WorkspaceResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/dto/WorkspaceResponse.java)
 
 - `CreateWorkspaceRequest`, `UpdateWorkspaceRequest`, `WorkspaceResponse`
 - `UpdateContactFieldDefinitionsRequest`
 - `InviteMemberRequest`, `UpdateMemberRequest`, `WorkspaceMemberResponse`
-- `CreateInviteRequest`, `WorkspaceInviteResponse`, `InvitePreviewResponse`
+- `CreateInviteRequest`, `WorkspaceInviteResponse`, `InvitePreviewResponse`, `InviteAcceptedResponse` (nested in `WorkspaceInviteController`: the joined `workspaceId`)
+- `UpdateContactAccessRequest` (`contactAccess` and an optional default `phoneRegion` for local numbers), `UpdateContactTagDefinitionsRequest` (the full list of tag definitions; null becomes empty)
 - `CreateApiKeyRequest`, `ApiKeyResponse`, `CreateApiKeyResponse`
 - `SaveSecretRequest` (create and update share this — `name`, `value`), `SecretResponse` (never includes the value)
 
 We need these records to keep frontend/backend data exchange explicit and stable.
 
 ## Workspace Repositories
+
+Source:
+
+- [`WorkspaceApiKeyRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/repository/WorkspaceApiKeyRepository.java)
+- [`WorkspaceInviteRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/repository/WorkspaceInviteRepository.java)
+- [`WorkspaceMemberRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/repository/WorkspaceMemberRepository.java)
+- [`WorkspaceRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/repository/WorkspaceRepository.java)
+- [`WorkspaceSecretRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/repository/WorkspaceSecretRepository.java)
 
 - `WorkspaceRepository`
 - `WorkspaceMemberRepository`
@@ -984,6 +1235,8 @@ We need them so services do not contain SQL or persistence boilerplate.
 
 ### `ChannelAccountController`
 
+Source: [`ChannelAccountController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/ChannelAccountController.java)
+
 HTTP controller for channel account routes.
 
 Important methods:
@@ -995,6 +1248,8 @@ Important methods:
 We need it as the REST boundary for channel connection management.
 
 ### `ChannelAccountService`
+
+Source: [`ChannelAccountService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/ChannelAccountService.java)
 
 Business service for channel account persistence.
 
@@ -1009,6 +1264,8 @@ We need it because channel account provisioning has credential-encryption and we
 
 ### `ChannelAccountMapper`
 
+Source: [`ChannelAccountMapper.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/ChannelAccountMapper.java)
+
 Maps the `ChannelAccount` JPA entity to `ChannelAccountResponse`, adding `webhookUrl` (`<relayflow.api.base-url>/telegram/webhook/<id>` or `/whatsapp/webhook/<id>`; `null` for providers without webhooks).
 
 We need it to isolate the API response shape from the persistence entity shape.
@@ -1016,6 +1273,8 @@ We need it to isolate the API response shape from the persistence entity shape.
 ## Channel Domain Entities And Enums
 
 ### `ChannelAccount`
+
+Source: [`ChannelAccount.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/domain/ChannelAccount.java)
 
 JPA entity for a connected channel. `@SQLDelete`/`@SQLRestriction` make every `repository.delete(...)` call a soft delete (`deleted_at = NOW()`) and every query exclude soft-deleted rows automatically — callers never need to filter `deletedAt` themselves.
 
@@ -1033,11 +1292,15 @@ We need it to route inbound/outbound messages through the correct adapter.
 
 ### `ChannelProvider`
 
+Source: [`ChannelProvider.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/domain/ChannelProvider.java)
+
 Enum of supported/planned channels: Telegram, WhatsApp, Instagram, Messenger, web chat, email, SMS.
 
 We need it to keep the data model channel-agnostic.
 
 ### `ChannelAccountStatus`
+
+Source: [`ChannelAccountStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/domain/ChannelAccountStatus.java)
 
 Enum for `ACTIVE` or `DISABLED`.
 
@@ -1045,11 +1308,18 @@ We need it to stop message flow without deleting account history.
 
 ## Channel DTO Records
 
+Source:
+
+- [`ChannelAccountResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/dto/ChannelAccountResponse.java)
+- [`CreateChannelAccountRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/dto/CreateChannelAccountRequest.java)
+
 - `CreateChannelAccountRequest`, `ChannelAccountResponse`
 
 We need these records to keep frontend/backend data exchange explicit and stable.
 
 ## Channel Repositories
+
+Source: [`ChannelAccountRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/channel/repository/ChannelAccountRepository.java)
 
 - `ChannelAccountRepository`
 
@@ -1063,6 +1333,8 @@ We need it so the service does not contain SQL or persistence boilerplate.
 
 ### `ContactController`
 
+Source: [`ContactController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactController.java)
+
 HTTP controller for contact and external identity routes.
 
 Important methods:
@@ -1075,11 +1347,15 @@ We need it as the REST boundary for the contacts UI and channel adapters creatin
 
 ### `ContactTagService`
 
+Source: [`ContactTagService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactTagService.java)
+
 `applyTags(contact, changes)` sets each given tag to its value, or clears it when the value is blank or null. An undefined tag throws `UnknownContactTagException` and a value outside its allowed list throws `InvalidContactTagValueException`. Both are 400 `ResponseStatusException`s, so the internal API's error body is unchanged, while the public API maps them to its own `UNKNOWN_TAG` and `INVALID_TAG_VALUE` codes. Saves and sends `contact.updated` only when the tags actually change. Used by the contact page (`PATCH /contacts/{id}/tags`), the public API (`PUT /public/v1/contacts/{id}/tags`), and `SetContactTagNodeExecutor`.
 
 We need it so every way of setting a tag enforces the same rules.
 
 ### `ContactAccessService`
+
+Source: [`ContactAccessService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactAccessService.java)
 
 Decides who can message a workspace (`Workspace.contactAccess`: `ALL` or `WHITELIST`) and manages its whitelist (`whitelisted_phone_numbers`).
 
@@ -1092,6 +1368,8 @@ Decides who can message a workspace (`Workspace.contactAccess`: `ALL` or `WHITEL
 We need it so a workspace can limit its channels to known people.
 
 ### `ContactService`
+
+Source: [`ContactService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactService.java)
 
 Business service for contact and external identity persistence.
 
@@ -1110,11 +1388,15 @@ We need it because contacts have cross-entity rules (merge reassignment, derived
 
 ### `ContactMapper`
 
+Source: [`ContactMapper.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactMapper.java)
+
 Maps `Contact` and `ExternalIdentity` JPA entities to their response DTOs.
 
 We need it to isolate the API response shape from the persistence entity shape.
 
 ### `ReservedContactFieldResolver`
+
+Source: [`ReservedContactFieldResolver.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ReservedContactFieldResolver.java)
 
 `@Component` in the `contact` package. `resolve(contact, identities)` returns the reserved contact field values ({@link ReservedContactField}) that can already be derived from existing data, without asking the AI agent or an operator: `displayName` from `Contact.displayName`, `firstName`/`lastName` from a Telegram `ExternalIdentity`'s `rawProfile` (populated by `TelegramAdapter.buildRawProfile` from the inbound update's `from` user), `phone` (and, via `libphonenumber`, `country`) from a WhatsApp or SMS `ExternalIdentity`, `email` from an EMAIL identity. A key is omitted (not included with an empty value) when nothing can be derived.
 
@@ -1124,13 +1406,46 @@ We need it so reserved fields are auto-filled wherever RelayFlow can already der
 
 ### `ContactDisplayNameSync`
 
+Source: [`ContactDisplayNameSync.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactDisplayNameSync.java)
+
 `apply(contact)` sets `Contact.displayName` to `"firstName lastName"` (trimmed) whenever either is present in `customFields`, leaving `displayName` untouched otherwise. Called by all three writers of `Contact.customFields`: `ContactCustomFieldWriter` (AI extraction), `SetContactFieldNodeExecutor` (a workflow's Set Contact Field node), and `ContactService.updateContactCustomFields` (a human manually editing a contact's fields).
 
 We need it because `displayName` is otherwise whatever the channel reported at contact-creation time — Telegram already concatenates firstName/lastName itself (`TelegramAdapter.buildDisplayName`), but WhatsApp's `displayName` is the contact's own freeform profile name (e.g. a nickname or emoji), which stays stuck on that value forever unless something reconciles it once a real name is collected.
 
+### `ContactAccessController`
+
+Source: [`ContactAccessController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactAccessController.java)
+
+Owner-only endpoints for a workspace's sender policy: `PUT /workspaces/{workspaceId}/contact-access` sets `ALL` or `WHITELIST` (with an optional default region), and `GET`/`POST`/`DELETE /workspaces/{workspaceId}/whitelist[/{entryId}]` list, add, and remove whitelisted numbers. Delegates to `ContactAccessService`.
+
+We need it so owners can manage who can message the workspace from settings.
+
+### `PhoneNumberNormalizer`
+
+Source: [`PhoneNumberNormalizer.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/PhoneNumberNormalizer.java)
+
+Wraps libphonenumber. `toE164(raw, defaultRegion)` returns the number in E.164: a `+` number, bare digits, or a `00` prefix is read as international; a local number needs `defaultRegion`; text is rejected. `isSupportedRegion(region)` checks a two-letter region code.
+
+We need it so whitelist entries and incoming WhatsApp and Telegram numbers compare in one format.
+
+### Contact Exceptions
+
+Source:
+
+- [`ContactNotFoundException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/ContactNotFoundException.java)
+- [`InvalidContactTagValueException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/InvalidContactTagValueException.java)
+- [`UnknownContactTagException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/UnknownContactTagException.java)
+
+- `ContactNotFoundException`: a `ResourceNotFoundException` ("Contact not found") thrown by `ContactService.getContact`. The public API reports it as `CONTACT_NOT_FOUND`.
+- `UnknownContactTagException` and `InvalidContactTagValueException`: thrown by `ContactTagService` for an undefined tag or a value outside its allowed list. Both are `400` `ResponseStatusException`s, so the internal API's body is unchanged; the public API reports them as `UNKNOWN_TAG` and `INVALID_TAG_VALUE`.
+
+We need them so the public API can give each failure its own code without matching on message text.
+
 ## Contact Domain Entities And Enums
 
 ### `Contact`
+
+Source: [`Contact.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/domain/Contact.java)
 
 JPA entity for a customer/contact inside a workspace.
 
@@ -1143,6 +1458,8 @@ Important fields:
 We need it to group identities and conversations around the human customer.
 
 ### `ExternalIdentity`
+
+Source: [`ExternalIdentity.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/domain/ExternalIdentity.java)
 
 JPA entity linking a contact to an external provider identity, such as a Telegram user/chat.
 
@@ -1158,15 +1475,44 @@ Important fields:
 
 We need it to map channel-specific sender IDs back to RelayFlow contacts.
 
+### `WhitelistedPhoneNumber`
+
+Source: [`WhitelistedPhoneNumber.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/domain/WhitelistedPhoneNumber.java)
+
+JPA entity for one number on a workspace's whitelist (`whitelisted_phone_numbers`): `workspaceId`, `phoneNumber` (E.164), and `createdAt`.
+
+We need it to store the numbers allowed to message a workspace in `WHITELIST` mode.
+
 ## Contact DTO Records
+
+Source:
+
+- [`AddWhitelistedPhoneNumbersRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/AddWhitelistedPhoneNumbersRequest.java)
+- [`ContactDetailResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/ContactDetailResponse.java)
+- [`ContactResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/ContactResponse.java)
+- [`CreateContactRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/CreateContactRequest.java)
+- [`CreateExternalIdentityRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/CreateExternalIdentityRequest.java)
+- [`ExternalIdentityResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/ExternalIdentityResponse.java)
+- [`MergeContactRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/MergeContactRequest.java)
+- [`UpdateContactCustomFieldsRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/UpdateContactCustomFieldsRequest.java)
+- [`UpdateContactTagsRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/UpdateContactTagsRequest.java)
+- [`WhitelistedPhoneNumberResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/dto/WhitelistedPhoneNumberResponse.java)
 
 - `CreateContactRequest`, `ContactResponse`, `ContactDetailResponse`, `MergeContactRequest`
 - `UpdateContactCustomFieldsRequest`
 - `CreateExternalIdentityRequest`, `ExternalIdentityResponse`
+- `UpdateContactTagsRequest`: tag key to value; a blank or null value clears the tag.
+- `AddWhitelistedPhoneNumbersRequest`, `WhitelistedPhoneNumberResponse`
 
 We need these records to keep frontend/backend data exchange explicit and stable.
 
 ## Contact Repositories
+
+Source:
+
+- [`ContactRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/repository/ContactRepository.java)
+- [`ExternalIdentityRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/repository/ExternalIdentityRepository.java)
+- [`WhitelistedPhoneNumberRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/contact/repository/WhitelistedPhoneNumberRepository.java)
 
 - `ContactRepository`
 - `ExternalIdentityRepository` — includes `softDeleteByContact`, used when a contact is deleted.
@@ -1182,6 +1528,8 @@ We need them so services do not contain SQL or persistence boilerplate.
 
 ### `MessagingController`
 
+Source: [`MessagingController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/MessagingController.java)
+
 HTTP controller for conversation and message routes.
 
 Important methods:
@@ -1192,6 +1540,8 @@ Important methods:
 We need it as the REST boundary for the inbox UI.
 
 ### `MessagingService`
+
+Source: [`MessagingService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/MessagingService.java)
 
 Business service for conversation and message persistence.
 
@@ -1205,11 +1555,15 @@ We need it because messaging has cross-entity rules that should not live in cont
 
 ### `MessagingMapper`
 
+Source: [`MessagingMapper.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/MessagingMapper.java)
+
 Maps `Conversation` and `Message` JPA entities to their response DTOs.
 
 We need it to isolate the API response shape from the persistence entity shape.
 
 ### `MessagingExceptionHandler`
+
+Source: [`MessagingExceptionHandler.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/MessagingExceptionHandler.java)
 
 `@RestControllerAdvice` scoped to this package's one domain-specific exception, `@Order(Ordered.HIGHEST_PRECEDENCE)` so it's always checked before `CommonExceptionHandler`'s catch-all. See [`CommonExceptionHandler`](#commonexceptionhandler) for the generic handlers shared across all domains, and why the order matters.
 
@@ -1221,13 +1575,23 @@ We need it so a locked-conversation write attempt gets a clear, specific respons
 
 ### `ConversationLockedException`
 
-Runtime exception thrown when an agent or public API client tries to send a message while an active workflow owns the conversation.
+Source: [`ConversationLockedException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/ConversationLockedException.java)
 
-`ConversationNotFoundException`, a `ResourceNotFoundException` thrown when a conversation isn't in the workspace, sits beside it so the public API can report `CONVERSATION_NOT_FOUND`.
+Runtime exception thrown when an agent or public API client tries to send a message while an active workflow owns the conversation.
 
 We need it to enforce workflow-driven conversations without silently dropping agent replies.
 
+### `ConversationNotFoundException`
+
+Source: [`ConversationNotFoundException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/ConversationNotFoundException.java)
+
+A `ResourceNotFoundException` ("Conversation not found") thrown when a conversation isn't in the workspace. The internal API answers `404` as before; the public API reports it as `CONVERSATION_NOT_FOUND`.
+
+We need it so the public API can tell a missing conversation from a missing contact.
+
 ### `OutboundMessageEvent`
+
+Source: [`OutboundMessageEvent.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/OutboundMessageEvent.java)
 
 Application event carrying a saved outbound message, its channel account, and optional button option labels.
 
@@ -1236,6 +1600,8 @@ We need it to decouple message persistence from provider delivery. The messaging
 ## Messaging Domain Entities And Enums
 
 ### `Conversation`
+
+Source: [`Conversation.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/Conversation.java)
 
 JPA entity for a customer thread.
 
@@ -1256,11 +1622,15 @@ We need it as the inbox unit users read, select, and reply to. `lockedByWorkflow
 
 ### `ConversationStatus`
 
+Source: [`ConversationStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/ConversationStatus.java)
+
 Enum for open, pending, and closed conversation states.
 
 We need it for inbox filtering and workflow behavior such as reopening closed conversations.
 
 ### `Message`
+
+Source: [`Message.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/Message.java)
 
 JPA entity for inbound/outbound messages.
 
@@ -1277,24 +1647,54 @@ We need it as a durable conversation timeline.
 
 ### `MessageDirection`
 
+Source: [`MessageDirection.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/MessageDirection.java)
+
 Enum for inbound versus outbound messages.
 
 We need it to render messages correctly and decide whether delivery is required.
 
 ### `MessageSenderType`
 
+Source: [`MessageSenderType.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/MessageSenderType.java)
+
 Enum for contact, agent, system, and workflow messages.
 
 We need it to distinguish human replies from workflow/system automation.
 
+### `EscalationType` And `EscalationResolution`
+
+Source:
+
+- [`EscalationResolution.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/EscalationResolution.java)
+- [`EscalationType.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/EscalationType.java)
+
+`EscalationType` records why a conversation was escalated: `KEYWORD_MATCHED`, `AI_REQUESTED`, `LLM_FAILED`, or `INTERNAL_ERROR`. Each carries an `EscalationResolution`: `HUMAN_REPLY` for the first two, `AI_RECOVERY` for the last two. A human reply clears any escalation; an `AI_RECOVERY` one is also cleared by the AI agent's next successful LLM call.
+
+We need them so temporary failures don't leave a conversation flagged once the agent works again.
+
 ## Messaging DTO Records
+
+Source:
+
+- [`ConversationResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/ConversationResponse.java)
+- [`CreateConversationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/CreateConversationRequest.java)
+- [`CreateMessageRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/CreateMessageRequest.java)
+- [`MessageResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/MessageResponse.java)
+- [`UpdateAssigneeRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/UpdateAssigneeRequest.java)
+- [`UpdateConversationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/UpdateConversationRequest.java)
 
 - `CreateConversationRequest`, `UpdateConversationRequest`, `ConversationResponse`
 - `CreateMessageRequest`, `MessageResponse`
+- `UpdateAssigneeRequest`: `assigneeId`; null unassigns the conversation.
 
 We need these records to keep frontend/backend data exchange explicit and stable.
 
 ## Messaging Repositories
+
+Source:
+
+- [`ConversationRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/repository/ConversationRepository.java)
+- [`MessageRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/repository/MessageRepository.java)
 
 - `ConversationRepository` — includes `findIdsByContact` and `softDeleteByContact`, used when a contact is deleted.
 - `MessageRepository` — includes `softDeleteByConversations`, used when a contact is deleted.
@@ -1306,6 +1706,8 @@ We need them so services do not contain SQL or persistence boilerplate.
 ## Public API Backend
 
 ### `PublicApiController`
+
+Source: [`PublicApiController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/publicapi/PublicApiController.java)
 
 API-key-authenticated controller under `/public/v1`, in `io.odunlamizo.relayflow.publicapi`.
 
@@ -1320,11 +1722,15 @@ We need it so third-party systems can inspect conversations and send outbound re
 
 ### `PublicApiProblem`
 
+Source: [`PublicApiProblem.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/publicapi/PublicApiProblem.java)
+
 Enum of every public API error. Each constant's name is the `code` clients branch on, and carries its HTTP status, a `title`, and a `type` URI derived from the name (`CONVERSATION_NOT_FOUND` → `/problems/conversation-not-found`).
 
 We need it so the codes, statuses, and titles are defined once and the OpenAPI contract's `Problem.code` enum has a single source.
 
 ### `PublicApiExceptionResolver`
+
+Source: [`PublicApiExceptionResolver.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/publicapi/PublicApiExceptionResolver.java)
 
 `HandlerExceptionResolver` that turns every exception on a `/public/v1` request into RFC 9457 problem details (`application/problem+json`), and returns `null` for every other path so the `@RestControllerAdvice` handlers keep the internal API's `ErrorResponse`. Ordered just after Spring Boot's error-attributes resolver, ahead of the advice beans. A resolver rather than an advice because it also sees errors raised before a controller is chosen — an unknown path (`ENDPOINT_NOT_FOUND`), a wrong method (`METHOD_NOT_ALLOWED`, with an `Allow` header), or a non-JSON body (`UNSUPPORTED_MEDIA_TYPE`). Unexpected exceptions become `INTERNAL_ERROR` with a generic `detail` and are logged at `ERROR`; channel delivery failures log at `WARN`; everything else logs at `INFO`.
 
@@ -1332,11 +1738,18 @@ We need it so a public API client gets one machine-readable error format for eve
 
 ### `PublicApiProblemWriter`
 
+Source:
+
+- [`PublicApiProblemWriter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/publicapi/PublicApiProblemWriter.java)
+- [`ProblemResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/publicapi/dto/ProblemResponse.java)
+
 Writes a `ProblemResponse` (`type`, `title`, `status`, `detail`, `instance`, `code`) straight to the servlet response, and decides whether a request is a public API request (`isPublicApiRequest`). Shared by `PublicApiExceptionResolver`, `PublicApiAuthenticationEntryPoint`, and `RateLimitFilter`.
 
 We need it so errors raised in filters, before Spring MVC runs, use the same format as errors raised in the controller.
 
 ### `PublicApiAuthenticationEntryPoint`
+
+Source: [`PublicApiAuthenticationEntryPoint.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/publicapi/PublicApiAuthenticationEntryPoint.java)
 
 The public API security chain's `AuthenticationEntryPoint`: answers a request without a valid key with a 401 problem — `MISSING_API_KEY` when there's no `X-Api-Key` header, `INVALID_API_KEY` when the key is unknown, revoked, or expired.
 
@@ -1345,6 +1758,8 @@ We need it because, without an entry point, Spring Security answered these reque
 ## Webhook And Email Backend
 
 ### `WebhookService`
+
+Source: [`WebhookService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/WebhookService.java)
 
 Creates, lists, updates, deletes, and rotates a workspace's webhooks, in `io.odunlamizo.relayflow.webhook`. A workspace can have any number of webhooks, each its own row (`WorkspaceWebhook`) with its own URL, enabled state, and event subscriptions.
 
@@ -1360,6 +1775,8 @@ We need it to centralize webhook URL, encrypted secret, enabled state, and subsc
 
 ### `WebhookDispatchService`
 
+Source: [`WebhookDispatchService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/WebhookDispatchService.java)
+
 Asynchronous webhook delivery service.
 
 Important behavior:
@@ -1373,6 +1790,8 @@ We need it to notify external systems when RelayFlow creates important records.
 
 ### `WebhookController`
 
+Source: [`WebhookController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/WebhookController.java)
+
 REST controller at `/workspaces/{workspaceId}/webhooks` for a workspace's webhooks. All endpoints require `WEBHOOKS_WRITE` permission or owner role, including the list read — webhook URLs are treated as sensitive, unlike most other list endpoints.
 
 Endpoints:
@@ -1385,7 +1804,34 @@ Endpoints:
 
 We need it so authorized users can manage outbound integration webhooks.
 
+### `WebhookUrlValidator`
+
+Source: [`WebhookUrlValidator.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/WebhookUrlValidator.java)
+
+`validate(url)` throws when a webhook URL resolves to a loopback, link-local, private, multicast, or wildcard address; `isSafe(url)` returns the same check as a boolean. Run when a URL is saved and again at delivery time, since DNS can change in between.
+
+We need it so webhooks can't be used to reach the server's internal network (SSRF).
+
+### Webhook DTO Records
+
+Source:
+
+- [`RotateWebhookSecretResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/dto/RotateWebhookSecretResponse.java)
+- [`SaveWebhookRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/dto/SaveWebhookRequest.java)
+- [`WebhookConfigResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/dto/WebhookConfigResponse.java)
+
+- `SaveWebhookRequest`: `url` (required, max 2048), `enabled`, and `events`; used for create and update.
+- `WebhookConfigResponse`: the webhook's settings; `generatedSecret` is set only on the create response.
+- `RotateWebhookSecretResponse`: the new `secret`, returned once.
+
+We need these as the webhook settings API contract.
+
 ### `EmailService` And `SmtpEmailService`
+
+Source:
+
+- [`EmailService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/email/EmailService.java)
+- [`SmtpEmailService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/email/SmtpEmailService.java)
 
 Email abstraction and its SMTP-backed implementation for transactional emails: `sendInvite`,
 `sendEmailVerification`, `sendPasswordReset`, `sendDowngradeNotice`. SMTP works with any provider
@@ -1396,6 +1842,11 @@ at `INFO` instead of sending, so these flows are testable locally with no mail s
 We need them so invite/verification/reset delivery can be swapped or disabled without changing the domain logic that calls them.
 
 ### `WorkspaceWebhook`
+
+Source:
+
+- [`WorkspaceWebhookRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/WorkspaceWebhookRepository.java)
+- [`WorkspaceWebhook.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/domain/WorkspaceWebhook.java)
 
 JPA entity for one of a workspace's outbound webhooks, in `io.odunlamizo.relayflow.webhook.domain`. A workspace can own any number of rows — `id` is its own primary key and `workspaceId` scopes it.
 
@@ -1416,6 +1867,8 @@ We need it to persist webhook delivery settings and encrypted signing secrets.
 
 ### `WebhookEventType`
 
+Source: [`WebhookEventType.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/domain/WebhookEventType.java)
+
 Enum of outbound webhook event types, in `io.odunlamizo.relayflow.webhook.domain` alongside `WorkspaceWebhook`.
 
 Values:
@@ -1429,17 +1882,23 @@ We need it so persisted webhook subscriptions and dispatched payload names stay 
 
 ### `ContactSnapshotBuilder`
 
+Source: [`ContactSnapshotBuilder.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/ContactSnapshotBuilder.java)
+
 Static builder in `io.odunlamizo.relayflow.webhook` (not `.domain` — it's a builder/utility, not a domain entity or enum, so it stays alongside `WebhookDispatchService`/`WebhookService`). `build(contact)` returns a `ContactSnapshot`, shared by every contact webhook (the write paths above, deletion, and both sides of a merge) so the shape can't drift between them. Custom field values are flattened directly onto the contact map (`{id, displayName, orderNumber: "123", ...}`), not nested under a `customFields` key. Tags are nested under `tags`.
 
 We need it because the same payload had to be built from three different packages (`contact`, `agent`, `workflow.engine.executor`), all of which already depend on `io.odunlamizo.relayflow.webhook` for `WebhookDispatchService`.
 
 ### `ContactSnapshot`
 
+Source: [`ContactSnapshot.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/dto/ContactSnapshot.java)
+
 `record ContactSnapshot(Map<String, Object> contact)` in `io.odunlamizo.relayflow.webhook.dto` — the `contact.updated` and `contact.deleted` webhook payload. Its one field is a dynamically-keyed map (arbitrary custom field keys) rather than a fixed set of record components, since a record can't declare fields unknown at compile time.
 
 We need it so the outer payload shape (`{"contact": {...}}`) is a typed DTO like the rest of `webhook.dto`, even though the inner contact map stays dynamic.
 
 ### `ContactMergedPayload`
+
+Source: [`ContactMergedPayload.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/webhook/dto/ContactMergedPayload.java)
 
 `record ContactMergedPayload(Map<String, Object> contact, Map<String, Object> mergedContact)` — the `contact.merged` payload: the kept contact and the one merged into it and deleted, both in the `ContactSnapshotBuilder` shape.
 
@@ -1449,11 +1908,15 @@ We need it so a consumer can tell a merge from a deletion and move the merged-aw
 
 ### `SseController`
 
+Source: [`SseController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/sse/SseController.java)
+
 Exposes `GET /sse/workspace/{workspaceId}` as a text/event-stream endpoint. Responds with `Cache-Control: no-cache, no-transform` and `X-Accel-Buffering: no` so the web app's `/backend` proxy doesn't gzip the stream and nginx doesn't buffer it — either would hold events back.
 
 We need it for real-time inbox updates without polling every second.
 
 ### `WorkspaceSseService`
+
+Source: [`WorkspaceSseService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/sse/WorkspaceSseService.java)
 
 Tracks workspace SSE emitters and broadcasts named events.
 
@@ -1469,11 +1932,15 @@ We need it so message and workspace changes can update open browser sessions imm
 
 ### `SseBroadcastEvent`
 
+Source: [`SseBroadcastEvent.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/sse/SseBroadcastEvent.java)
+
 Application event containing `workspaceId`, `eventType` (`SseEventType`), and `payload`.
 
 We need it to decouple domain transactions from SSE delivery.
 
 ### `SseEventType`
+
+Source: [`SseEventType.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/sse/SseEventType.java)
 
 Enum of SSE event names: `MESSAGE_CREATED`, `CONVERSATION_UPDATED`, `AI_DRAFT_CREATED`, `AI_ESCALATED`. `getEventName()` returns the dot-notation string (e.g. `"message.created"`) sent as the SSE event's `event:` field.
 
@@ -1482,6 +1949,8 @@ We need it so the ten-plus call sites that publish an `SseBroadcastEvent` share 
 ## Telegram Backend
 
 ### `TelegramController`
+
+Source: [`TelegramController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramController.java)
 
 HTTP controller for Telegram webhooks.
 
@@ -1492,6 +1961,8 @@ Endpoints:
 We need it as Telegram's inbound HTTP entry point.
 
 ### `TelegramAdapter`
+
+Source: [`TelegramAdapter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramAdapter.java)
 
 Telegram integration service.
 
@@ -1510,11 +1981,15 @@ We need it to keep Telegram-specific behavior out of the channel-agnostic messag
 
 ### `TelegramWebhookRegistrar`
 
+Source: [`TelegramWebhookRegistrar.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramWebhookRegistrar.java)
+
 Registers a Telegram webhook for a dedicated bot token.
 
 We need it so workspace-owned Telegram bots can receive inbound updates automatically.
 
 ### `TelegramFormatter`
+
+Source: [`TelegramFormatter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramFormatter.java)
 
 `toHtml(text)` converts WhatsApp-style formatting to Telegram HTML: `*bold*` → `<b>`, `_italic_` → `<i>`, `~strike~` → `<s>`, `` `code` `` → `<code>`, ```` ```block``` ```` → `<pre>`, and a line starting with `- ` or `* ` → `• `. Everything else is HTML-escaped. A marker only counts at a word boundary with no space just inside it, styles don't span lines, nothing inside code is formatted, and the earliest outermost match wins so tags never overlap. The same rules are in the web app's `message-formatting.ts`.
 
@@ -1522,11 +1997,15 @@ We need it so one message text formats the same on WhatsApp (which reads these m
 
 ### `TelegramSendException`
 
-Exception threw when Telegram delivery fails.
+Source: [`TelegramSendException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramSendException.java)
+
+Exception thrown when Telegram delivery fails.
 
 We need it so outbound message creation can roll back and surface a useful `502` to the frontend.
 
 ### `TelegramExceptionHandler`
+
+Source: [`TelegramExceptionHandler.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramExceptionHandler.java)
 
 `@RestControllerAdvice` scoped to `TelegramSendException`, `@Order(Ordered.HIGHEST_PRECEDENCE)` so it's always checked before `CommonExceptionHandler`'s catch-all. See [`CommonExceptionHandler`](#commonexceptionhandler) for why the order matters.
 
@@ -1534,7 +2013,23 @@ Handles:
 
 - `TelegramSendException` as `502`.
 
+### `TelegramFailures`
+
+Source: [`TelegramFailures.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramFailures.java)
+
+`describe(exception)` turns a Telegram API failure into `HTTP <status>: <body>`, or the exception's class name, for logs and `TelegramSendException` messages.
+
+We need it because the Telegram API URL contains the bot token, and the default exception message includes the URL.
+
 ### Telegram DTO Records
+
+Source:
+
+- [`TelegramChat.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramChat.java)
+- [`TelegramContact.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramContact.java)
+- [`TelegramMessage.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramMessage.java)
+- [`TelegramUser.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramUser.java)
+- [`TelegramWebhookPayload.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramWebhookPayload.java)
 
 - `TelegramWebhookPayload`
 - `TelegramMessage`
@@ -1548,6 +2043,8 @@ We need these records to deserialize Telegram's webhook JSON into typed Java dat
 
 ### `WhatsAppController`
 
+Source: [`WhatsAppController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/WhatsAppController.java)
+
 HTTP controller for WhatsApp Business Cloud API webhooks.
 
 Endpoints:
@@ -1558,6 +2055,8 @@ Endpoints:
 We need it as WhatsApp's inbound HTTP entry point.
 
 ### `WhatsAppAdapter`
+
+Source: [`WhatsAppAdapter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/WhatsAppAdapter.java)
 
 WhatsApp integration service.
 
@@ -1575,6 +2074,8 @@ We need it to keep WhatsApp-specific webhook, credential, and Graph API behavior
 
 ### `WhatsAppCredentials`
 
+Source: [`WhatsAppCredentials.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/WhatsAppCredentials.java)
+
 Plaintext credential record that is JSON-serialized and encrypted in `channel_accounts.encrypted_credentials`.
 
 Important fields:
@@ -1587,11 +2088,26 @@ We need it because WhatsApp requires both outbound Graph API credentials and a w
 
 ### `WhatsAppSendException`
 
+Source: [`WhatsAppSendException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/WhatsAppSendException.java)
+
 Exception thrown when outbound WhatsApp delivery fails after retry.
 
 We need it so failed WhatsApp delivery can be surfaced to callers and avoid pretending a message was delivered.
 
 ### WhatsApp DTO Records
+
+Source:
+
+- [`WhatsAppButtonReply.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppButtonReply.java)
+- [`WhatsAppChange.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppChange.java)
+- [`WhatsAppContactEntry.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppContactEntry.java)
+- [`WhatsAppContactProfile.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppContactProfile.java)
+- [`WhatsAppEntry.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppEntry.java)
+- [`WhatsAppInteractive.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppInteractive.java)
+- [`WhatsAppMessage.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppMessage.java)
+- [`WhatsAppTextBody.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppTextBody.java)
+- [`WhatsAppValue.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppValue.java)
+- [`WhatsAppWebhookPayload.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppWebhookPayload.java)
 
 - `WhatsAppWebhookPayload`
 - `WhatsAppEntry`
@@ -1610,6 +2126,8 @@ We need these records to deserialize Meta's webhook JSON into typed Java data.
 
 ### `WorkflowController`
 
+Source: [`WorkflowController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/WorkflowController.java)
+
 REST controller for workflow definition CRUD.
 
 Important methods:
@@ -1623,6 +2141,8 @@ Important methods:
 We need it so the workflow builder UI can create, edit, publish, and delete workflow definitions.
 
 ### `WorkflowService`
+
+Source: [`WorkflowService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/WorkflowService.java)
 
 Business service for workflow definitions.
 
@@ -1640,6 +2160,8 @@ Important methods:
 We need it to validate workspace ownership existence, apply partial updates, and validate graphs before enabling workflows.
 
 ### `WorkflowGraphValidator`
+
+Source: [`WorkflowGraphValidator.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/WorkflowGraphValidator.java)
 
 Validates workflow graph JSON before publish.
 
@@ -1665,11 +2187,15 @@ We need it because draft graphs can be incomplete, but published workflows must 
 
 ### `WorkflowValidationException`
 
+Source: [`WorkflowValidationException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/WorkflowValidationException.java)
+
 Runtime exception for publish-time workflow validation failures.
 
 We need it so frontend can display actionable validation errors.
 
 ### `WorkflowExceptionHandler`
+
+Source: [`WorkflowExceptionHandler.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/WorkflowExceptionHandler.java)
 
 `@RestControllerAdvice` scoped to `WorkflowValidationException`, `@Order(Ordered.HIGHEST_PRECEDENCE)` so it's always checked before `CommonExceptionHandler`'s catch-all. See [`CommonExceptionHandler`](#commonexceptionhandler) for why the order matters.
 
@@ -1677,9 +2203,30 @@ Handles:
 
 - `WorkflowValidationException` as `400`, with the exception's message as the response body.
 
+### `WorkflowRunCleanupScheduler`
+
+Source: [`WorkflowRunCleanupScheduler.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/WorkflowRunCleanupScheduler.java)
+
+Two scheduled jobs:
+
+- `cleanupExpiredRuns` (hourly): deletes runs and their steps older than `relayflow.workflow.run-retention-days`.
+- `expireWaitingRuns` (every minute): hands each `WAITING` run past its `expiresAt` to `WorkflowEngineService.expireWaitingRun`, which follows the Ask Question's "No reply" path.
+
+We need it so run history doesn't grow forever and unanswered questions don't wait forever.
+
+### `WorkflowStartupRecovery`
+
+Source: [`WorkflowStartupRecovery.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/WorkflowStartupRecovery.java)
+
+On `ApplicationReadyEvent`, fails every run still marked `RUNNING` through `WorkflowEngineService.failInterruptedRun`, and logs how many it found.
+
+We need it because a run that was executing when the API stopped can never finish, and would otherwise keep its conversation locked.
+
 ## Workflow Domain Entities And Enums
 
 ### `NodeType`
+
+Source: [`NodeType.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/NodeType.java)
 
 Enum of workflow node type identifiers understood by the backend.
 
@@ -1704,11 +2251,15 @@ We need it so the validator, engine, and executors share one source of truth for
 
 ### `WorkflowDefinition`
 
+Source: [`WorkflowDefinition.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/domain/WorkflowDefinition.java)
+
 JPA entity storing a workflow's name, enabled state, and `draftGraph` JSON.
 
 We need it as the saved graph edited by the builder and executed by the engine.
 
 ### `WorkflowRun`
+
+Source: [`WorkflowRun.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/domain/WorkflowRun.java)
 
 JPA entity for one workflow execution.
 
@@ -1728,6 +2279,8 @@ We need it for observability, retries/resume, and future run log UI.
 
 ### `WorkflowRunStep`
 
+Source: [`WorkflowRunStep.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/domain/WorkflowRunStep.java)
+
 JPA entity for one executed workflow node.
 
 Important fields:
@@ -1744,11 +2297,15 @@ We need it so every workflow run is inspectable step by step.
 
 ### `WorkflowRunStatus`
 
+Source: [`WorkflowRunStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/domain/WorkflowRunStatus.java)
+
 Enum for run lifecycle: running, completed, failed, waiting.
 
 We need it to distinguish active, done, broken, and paused workflow runs.
 
 ### `WorkflowRunStepStatus`
+
+Source: [`WorkflowRunStepStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/domain/WorkflowRunStepStatus.java)
 
 Enum for step lifecycle.
 
@@ -1756,15 +2313,29 @@ We need it for per-node execution logs.
 
 ## Workflow DTO Records
 
+Source:
+
+- [`CreateWorkflowDefinitionRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/dto/CreateWorkflowDefinitionRequest.java)
+- [`UpdateWorkflowDefinitionRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/dto/UpdateWorkflowDefinitionRequest.java)
+- [`WorkflowDefinitionResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/dto/WorkflowDefinitionResponse.java)
+- [`WorkflowRunDetailResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/dto/WorkflowRunDetailResponse.java)
+- [`WorkflowRunResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/dto/WorkflowRunResponse.java)
+- [`WorkflowRunStepResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/dto/WorkflowRunStepResponse.java)
+
 - `CreateWorkflowDefinitionRequest`: workspace ID and name.
 - `UpdateWorkflowDefinitionRequest`: optional name, enabled state, and draft graph.
 - `WorkflowDefinitionResponse`: API shape of a workflow definition.
+- `WorkflowRunResponse`: one run in the run history list (status, timing, error, and the node it's waiting at).
+- `WorkflowRunDetailResponse`: the same fields plus its `steps`.
+- `WorkflowRunStepResponse`: one step's node, status, input and output snapshots, error, and duration.
 
 We need these as the builder API contract.
 
 ## Workflow Engine Components
 
 ### `WorkflowEngineService`
+
+Source: [`WorkflowEngineService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/WorkflowEngineService.java)
 
 Core workflow runtime.
 
@@ -1788,17 +2359,22 @@ We need it to turn saved workflow graph definitions into real automation executi
 
 ### `ExecutionContext`
 
+Source: [`ExecutionContext.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/ExecutionContext.java)
+
 Mutable variable store for one workflow run.
 
 Important methods:
 
 - `setVariable`: creates or overwrites variables.
+- `removeVariable`: deletes a variable, so it reads as not set.
 - `interpolate`: resolves `{{variable}}` placeholders.
 - `snapshot`: captures variables for run logs.
 
 We need it because RelayFlow's core automation promise depends on explicit, overwritable variables.
 
 ### `VariableInterpolator`
+
+Source: [`VariableInterpolator.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/VariableInterpolator.java)
 
 Static utility for resolving placeholders in text.
 
@@ -1813,17 +2389,23 @@ We need it so messages, URLs, headers, bodies, and condition values can use work
 
 ### `GraphNode`
 
+Source: [`GraphNode.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/GraphNode.java)
+
 Runtime record for a parsed graph node: `id`, `type`, and `data`.
 
 We need it to avoid passing raw map structures into executors.
 
 ### `GraphEdge`
 
+Source: [`GraphEdge.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/GraphEdge.java)
+
 Runtime record for a parsed graph edge: `id`, `source`, `target`, and `sourceHandle`.
 
 We need it to choose the next node after conditions, HTTP branches, and Ask Question options.
 
 ### `NodeExecutor`
+
+Source: [`NodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/NodeExecutor.java)
 
 Interface implemented by each node type.
 
@@ -1838,6 +2420,8 @@ The backend now returns `NodeType` from `nodeType`, not a raw string, so node id
 
 ### `NodeExecutionResult`
 
+Source: [`NodeExecutionResult.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/NodeExecutionResult.java)
+
 Record returned from node execution.
 
 Important factory methods:
@@ -1851,11 +2435,18 @@ We need it to standardize how nodes communicate routing, output, wait state, and
 
 ### `NodeExecutionException`
 
+Source: [`NodeExecutionException.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/NodeExecutionException.java)
+
 Runtime exception for node-level failures.
 
 We need it so failed steps can be logged and runs can be marked failed.
 
 ### Workflow Trigger Events
+
+Source:
+
+- [`ConversationMessageReceivedEvent.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/ConversationMessageReceivedEvent.java)
+- [`ConversationOpenedEvent.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/ConversationOpenedEvent.java)
 
 - `ConversationOpenedEvent`: published when an inbound message opens or reopens a conversation.
 - `ConversationMessageReceivedEvent`: published when a message arrives in an already-open conversation.
@@ -1864,17 +2455,23 @@ We need these events to start workflows and resume waiting workflows after trans
 
 ### `WorkflowTriggerListener`
 
+Source: [`WorkflowTriggerListener.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/WorkflowTriggerListener.java)
+
 Listens for `ConversationOpenedEvent` and starts enabled workflows whose trigger is `conversation_opened`.
 
 We need it to connect inbound conversations to workflow automation without blocking the Telegram webhook transaction.
 
 ### `WorkflowResumeListener`
 
+Source: [`WorkflowResumeListener.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/WorkflowResumeListener.java)
+
 Listens for `ConversationMessageReceivedEvent` and resumes `WAITING` workflow runs for the conversation.
 
 We need it to implement Ask Question / wait-for-reply behavior.
 
 ### `ReplyRouter`
+
+Source: [`ReplyRouter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/ReplyRouter.java)
 
 Decides what a contact's reply to an Ask Question node does: which variables to set and which handle to follow, or that the question should be asked again.
 
@@ -1893,6 +2490,8 @@ We need it to route replies and validation retries for Ask Question nodes.
 
 ### `WorkflowMessageSender`
 
+Source: [`WorkflowMessageSender.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/WorkflowMessageSender.java)
+
 Persists a workflow-authored outbound message, broadcasts `message.created` over SSE, and publishes `OutboundMessageEvent` (with optional button options) for the channel adapter.
 
 Used by Send Message, Ask Question, and validation retries.
@@ -1901,17 +2500,23 @@ Used by Send Message, Ask Question, and validation retries.
 
 ### `TriggerNodeExecutor`
 
+Source: [`TriggerNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/TriggerNodeExecutor.java)
+
 No-op executor for the trigger node.
 
 We need it because the trigger is part of the graph and must be recorded/traversed, even though it does not perform an action.
 
 ### `SendMessageNodeExecutor`
 
+Source: [`SendMessageNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/SendMessageNodeExecutor.java)
+
 Interpolates the node's message and sends it through `WorkflowMessageSender`. The text may use WhatsApp-style formatting, which the Telegram adapter converts.
 
 We need it to let workflows respond to contacts through the active channel.
 
 ### `ConditionNodeExecutor`
+
+Source: [`ConditionNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/ConditionNodeExecutor.java)
 
 Evaluates configured branches, in order, against variables — returns the first branch whose conditions pass.
 
@@ -1922,6 +2527,8 @@ The **last** branch in the list is always the fallback: it's taken unconditional
 We need it for branching automation logic.
 
 ### `HttpRequestNodeExecutor`
+
+Source: [`HttpRequestNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/HttpRequestNodeExecutor.java)
 
 Executes configurable HTTP requests.
 
@@ -1938,11 +2545,15 @@ Important config fields:
 
 It routes to `success` on 2xx and `error` otherwise, storing `error.message` on failure.
 
+Just before sending, it removes `responseStatusVariable` and every `responseMappings` variable, after the request has been built so the request can still use their old values. A call that gets no response (timeout, connection failure) therefore leaves the status variable not set, and a mapped field missing from the response leaves its variable not set, instead of either keeping a value from an earlier call in the same run — which matters when a Jump To sends the run back through the same node.
+
 After the normal `context.interpolate(...)` pass, `url`, each header value, and `body` also go through a second `resolveSecrets` pass that resolves any `{{secrets.NAME}}` left untouched by `VariableInterpolator` — via `SecretService.resolveDecrypted`, fetched fresh per call, never cached or assigned to a variable. An unresolvable secret name throws `NodeExecutionException`, failing the step loudly rather than sending a request with a blank credential.
 
 We need it to integrate workflows with external APIs while giving users timeout and response mapping control.
 
 ### `SetVariableNodeExecutor`
+
+Source: [`SetVariableNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/SetVariableNodeExecutor.java)
 
 Sets or overwrites a workflow variable.
 
@@ -1954,6 +2565,8 @@ Important config fields:
 We need it to directly address the product goal that variables must be overridable.
 
 ### `SetContactFieldNodeExecutor`
+
+Source: [`SetContactFieldNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/SetContactFieldNodeExecutor.java)
 
 Writes a value to a contact's custom field — a reserved key or a workspace-defined `ContactFieldDefinition` key.
 
@@ -1972,11 +2585,15 @@ We need it as the third way (alongside manual edit and AI extraction) to set a c
 
 ### `SetContactTagNodeExecutor`
 
+Source: [`SetContactTagNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/SetContactTagNodeExecutor.java)
+
 Sets a contact tag (`tagKey`) to `value` (interpolated), or clears it when the value is blank, through `ContactTagService`, so an undefined tag or disallowed value fails the step with the same message the API gives. Updates `contact.tags.<key>` for later steps.
 
 We need it so a workflow can record a status, such as `kyc_status = verified`, on the contact.
 
 ### `WaitForReplyNodeExecutor`
+
+Source: [`WaitForReplyNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/WaitForReplyNodeExecutor.java)
 
 Sends a question to the contact and returns a waiting result.
 
@@ -1992,6 +2609,8 @@ It publishes option labels through `OutboundMessageEvent` so adapters can render
 We need it for interactive customer automations.
 
 ### `JumpToNodeExecutor`
+
+Source: [`JumpToNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/JumpToNodeExecutor.java)
 
 Redirects execution directly to another node by ID, bypassing normal edge traversal.
 
@@ -2009,6 +2628,8 @@ We need it to support controlled workflow loops without allowing unbounded execu
 
 ### `EndConversationNodeExecutor`
 
+Source: [`EndConversationNodeExecutor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/executor/EndConversationNodeExecutor.java)
+
 Optionally sends a closing message and marks the conversation closed.
 
 We need it for workflows that complete support flows or hand off after resolution.
@@ -2018,6 +2639,8 @@ We need it for workflows that complete support flows or hand off after resolutio
 Hooks (package `io.odunlamizo.relayflow.hook`) are FEEL (DMN's Friendly Enough Expression Language) expressions run against a value. There are two hook points: an open-ended Ask Question reply (`validationHook` on the node) and a value an AI agent extracts (`validationHook` on an `ExtractionField`, run by `ExtractedDataValidator`). Built-in and user-defined hooks are evaluated identically, via Camunda's `feel-engine` (`org.camunda.feel:feel-engine`).
 
 ### `FeelHookEvaluator`
+
+Source: [`FeelHookEvaluator.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/FeelHookEvaluator.java)
 
 Evaluates a hook expression. The expression sees `value` (the input) and `variables` (the run's variables, nested by their dotted names — `contact.name` becomes `variables.contact.name`; a name clashing with an existing value is skipped).
 
@@ -2038,6 +2661,8 @@ We need it so workspaces can validate and transform replies with their own rules
 
 ### `HookFunctionProvider`
 
+Source: [`HookFunctionProvider.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/HookFunctionProvider.java)
+
 Java-backed FEEL functions available to every hook, on top of FEEL's standard library:
 
 - `is email(text)`
@@ -2049,9 +2674,13 @@ A non-text argument yields `false` / `null`, so hooks built on these reject rath
 
 ### `BuiltInHook`
 
+Source: [`BuiltInHook.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/domain/BuiltInHook.java)
+
 Enum of hooks every workspace has: `EMAIL`, `PHONE_NUMBER`, `NUMBER`, `WHOLE_NUMBER`, `DATE`, `URL`. Each is a plain FEEL expression plus a display name, description, and default error message; referenced as `builtin:<lowercase name>` (e.g. `builtin:phone_number`). The settings UI lets users copy one into a custom hook to adapt it.
 
 ### `HookService`
+
+Source: [`HookService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/HookService.java)
 
 - `listBuiltInHooks`, `listHooks`.
 - `createHook` / `updateHook`: reject an expression FEEL can't parse (400) and a duplicate name (409).
@@ -2065,15 +2694,35 @@ Editing a custom hook applies immediately to every workflow and AI agent using i
 
 ### `HookController`
 
+Source: [`HookController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/HookController.java)
+
 REST controller at `/workspaces/{workspaceId}/hooks`. Reads (`GET`, `GET /built-in`) need workspace membership; `POST`, `PUT /{hookId}`, `DELETE /{hookId}`, and `POST /test` need `WORKFLOWS_WRITE`.
 
 ### `Hook`
+
+Source:
+
+- [`Hook.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/domain/Hook.java)
+- [`HookOutcome.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/domain/HookOutcome.java)
+- [`HookOutcomeStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/domain/HookOutcomeStatus.java)
+- [`BuiltInHookResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/dto/BuiltInHookResponse.java)
+- [`HookResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/dto/HookResponse.java)
+- [`SaveHookRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/dto/SaveHookRequest.java)
+- [`TestHookRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/dto/TestHookRequest.java)
+- [`TestHookResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/dto/TestHookResponse.java)
 
 JPA entity (`hooks`, migration `V6__hooks_and_escalation_types.sql`) for a user-defined hook: `name` (unique per workspace), optional `description`, `expression`, `errorMessage`. `key()` returns the node reference, `custom:<id>`.
 
 DTOs: `SaveHookRequest`, `HookResponse`, `BuiltInHookResponse`, `TestHookRequest`, `TestHookResponse`. Outcome types: `HookOutcome`, `HookOutcomeStatus` (`ACCEPTED`, `REJECTED`, `ERROR`).
 
 ## Workflow Repositories
+
+Source:
+
+- [`HookRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/hook/repository/HookRepository.java)
+- [`WorkflowDefinitionRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/repository/WorkflowDefinitionRepository.java)
+- [`WorkflowRunRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/repository/WorkflowRunRepository.java)
+- [`WorkflowRunStepRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/repository/WorkflowRunStepRepository.java)
 
 - `WorkflowDefinitionRepository`
 - `WorkflowRunRepository` — includes `failActiveForConversations`, which fails `RUNNING`/`WAITING` runs when their contact is deleted.
@@ -2088,6 +2737,11 @@ We need them for builder state, runtime lookup, waiting-run resume, and the run 
 
 ### Root Layout Components
 
+Source:
+
+- [`apps/web/src/app/authentication-panel.tsx`](../apps/web/src/app/authentication-panel.tsx)
+- [`apps/web/src/app/layout.tsx`](../apps/web/src/app/layout.tsx)
+
 - `RootLayout`: global HTML/body wrapper, fonts, Material Symbols stylesheet, `QueryProvider`, and `ToastProvider`.
 - `metadata`: global title/description.
 - `viewport`: responsive viewport settings.
@@ -2098,21 +2752,46 @@ We need these to make every page share providers, typography, and icon font setu
 
 ### Root Route
 
-- `page.tsx` (`Home`): the root route renders no page of its own; the marketing site is the separate [`apps/marketing`](#appsmarketing) app. `Home` is a server component that checks `getInstanceStatus()` and `getServerAuthenticationStatus()` and redirects to `/setup` (instance not yet bootstrapped), `/login` (unauthenticated), or `/inbox` (authenticated).
+Source: [`apps/web/src/app/page.tsx`](../apps/web/src/app/page.tsx)
+
+- `page.tsx` (`Home`): the root route renders no page of its own; the marketing site is the separate [`apps/marketing`](#appsmarketing) app. `Home` is a server component that checks `serverAuthenticationApi.getInstanceStatus()` and `getAuthenticationStatus()` and redirects to `/setup` (instance not yet bootstrapped), `/login` (unauthenticated), or `/inbox` (authenticated).
 
 We need it as a pure traffic-router now that apps/web is a self-hosted-only app with no public marketing surface of its own.
 
+### Health Route
+
+Source: [`apps/web/src/app/api/health/route.ts`](../apps/web/src/app/api/health/route.ts)
+
+- `api/health/route.ts`: `GET /api/health` returns `{"status": "ok"}` (`dynamic = "force-dynamic"`, so it's never cached). Used by the web container's Docker health check.
+
+We need it so the deployment knows when the web app is serving.
+
 ### Auth Pages
+
+Source:
+
+- [`apps/web/src/app/(authentication)/layout.tsx`](../apps/web/src/app/(authentication)/layout.tsx)
+- [`apps/web/src/app/(authentication)/login/layout.tsx`](../apps/web/src/app/(authentication)/login/layout.tsx)
+- [`apps/web/src/app/(authentication)/login/page.tsx`](../apps/web/src/app/(authentication)/login/page.tsx)
+- [`apps/web/src/app/(authentication)/signup/layout.tsx`](../apps/web/src/app/(authentication)/signup/layout.tsx)
+- [`apps/web/src/app/(authentication)/signup/page.tsx`](../apps/web/src/app/(authentication)/signup/page.tsx)
+- [`apps/web/src/app/workflows/(list)/layout.tsx`](../apps/web/src/app/workflows/(list)/layout.tsx)
+- [`apps/web/src/app/workflows/[id]/layout.tsx`](../apps/web/src/app/workflows/[id]/layout.tsx)
 
 - `(authentication)/layout.tsx`: auth page shell.
 - `login/page.tsx`: login form and Google login entry point.
 - `signup/page.tsx`: signup form; requires a `?token=` invite token in the URL. Loads the invite preview via `useInvitePreview`, pre-fills the invite's email (read-only), and shows an "You need an invite" state with a link back to `/login` when no token is present. There is no self-serve signup — see [`WorkspaceInviteService`](#workspaceinviteservice).
-- login/signup `metadata`: route-specific page metadata.
+- `login/layout.tsx`, `signup/layout.tsx`: set the page title (`metadata`) and render the page unchanged.
 - login/signup `apiBaseUrl`: backend OAuth base URL used by Google buttons.
 
 We need them for invite-gated account creation and login.
 
 ### Setup Page
+
+Source:
+
+- [`apps/web/src/app/setup/layout.tsx`](../apps/web/src/app/setup/layout.tsx)
+- [`apps/web/src/app/setup/page.tsx`](../apps/web/src/app/setup/page.tsx)
 
 - `setup/layout.tsx`: calls `redirectIfBootstrapped()` (redirects to `/login` if the instance already has an admin account), then renders the RelayFlow-branded card shell.
 - `setup/page.tsx`: first-run instance bootstrap form — admin name, email, password, and initial workspace name — submitted via `useBootstrap`. On success, routes to `/inbox`. This screen can only ever run once per instance; see [Instance Bootstrap](#authenticationcontroller).
@@ -2120,6 +2799,11 @@ We need them for invite-gated account creation and login.
 We need it so a freshly deployed self-hosted instance can create its first admin account without any pre-seeded credentials or an email round-trip.
 
 ### Inbox Pages
+
+Source:
+
+- [`apps/web/src/app/inbox/layout.tsx`](../apps/web/src/app/inbox/layout.tsx)
+- [`apps/web/src/app/inbox/page.tsx`](../apps/web/src/app/inbox/page.tsx)
 
 - `inbox/layout.tsx`: inbox route shell.
 - `inbox/page.tsx`: server component that resolves workspace ID and renders `InboxShell`. With no `workspaceId`, it redirects to the first workspace from `serverMessagingApi.listWorkspaces()`, or renders `CreateWorkspaceForm` when there are none.
@@ -2129,14 +2813,26 @@ We need these to protect and bootstrap the inbox view.
 
 ### Workflow Pages
 
+Source:
+
+- [`apps/web/src/app/workflows/(list)/page.tsx`](../apps/web/src/app/workflows/(list)/page.tsx)
+- [`apps/web/src/app/workflows/[id]/page.tsx`](../apps/web/src/app/workflows/[id]/page.tsx)
+- [`apps/web/src/app/workflows/[id]/runs/page.tsx`](../apps/web/src/app/workflows/[id]/runs/page.tsx)
+
 - `workflows/(list)/page.tsx`: resolves workspace and renders `WorkflowsShell`.
 - `workflows/[id]/page.tsx`: renders `WorkflowEditor` inside `DesktopOnly`, so phones get a message and a link back to the workflow list.
-- workflow route `layout.tsx` files: page layout wrappers.
+- `workflows/[id]/runs/page.tsx`: renders `RunsShell` for the workflow's run history; redirects to `/workflows` without a `workspaceId`.
+- workflow route `layout.tsx` files: call `requireAuthentication()` and render `AppHeader` above the page.
 - workflow `metadata`: route title/description.
 
 We need them for workflow list and builder routes.
 
 ### Contacts Pages
+
+Source:
+
+- [`apps/web/src/app/contacts/(list)/layout.tsx`](../apps/web/src/app/contacts/(list)/layout.tsx)
+- [`apps/web/src/app/contacts/(list)/page.tsx`](../apps/web/src/app/contacts/(list)/page.tsx)
 
 - `contacts/(list)/page.tsx`: resolves workspace and renders `ContactsShell`.
 - `contacts/(list)/layout.tsx`: contacts route wrapper.
@@ -2145,11 +2841,21 @@ We need them for the workspace contact-management surface.
 
 ### Invite Pages
 
+Source:
+
+- [`apps/web/src/app/invite/InviteAcceptCard.tsx`](../apps/web/src/app/invite/InviteAcceptCard.tsx)
+- [`apps/web/src/app/invite/page.tsx`](../apps/web/src/app/invite/page.tsx)
+
 - `invite/page.tsx`: reads `?token=` from the query string, loads the invite preview server-side, and renders `InviteAcceptCard`. An accepted, expired, or revoked invite shows `InviteStatusMessage` instead (also used by the signup page).
 
 We need it so invited users can inspect and accept workspace invitations.
 
 ### Reset Password Page
+
+Source:
+
+- [`apps/web/src/app/reset-password/[token]/ResetPasswordForm.tsx`](../apps/web/src/app/reset-password/[token]/ResetPasswordForm.tsx)
+- [`apps/web/src/app/reset-password/[token]/page.tsx`](../apps/web/src/app/reset-password/[token]/page.tsx)
 
 - `reset-password/[token]/page.tsx`: server component; renders the RelayFlow-branded card shell (same layout as `/setup`/`/login`) around `ResetPasswordForm`. Unlike `/setup`/`/login`, this route has no auth-state redirect — it must stay reachable whether the visitor is logged out, or logged into a different account than the one being reset.
 - `reset-password/[token]/ResetPasswordForm.tsx`: client component. New/confirm password fields with client-side match validation (mirrors the removed self-service change-password form), submits via `useResetPassword`. No preview/validation step before rendering the form — an invalid or expired token only surfaces as an inline error on submit, from the `400`/`404` `PasswordResetService.resetPassword` returns. On success, replaces the form with a confirmation and a link to `/login`.
@@ -2158,12 +2864,22 @@ We need it as the one place a password is ever actually set after signup — rea
 
 ### Profile Pages
 
+Source:
+
+- [`apps/web/src/app/profile/layout.tsx`](../apps/web/src/app/profile/layout.tsx)
+- [`apps/web/src/app/profile/page.tsx`](../apps/web/src/app/profile/page.tsx)
+
 - `profile/layout.tsx`: protected profile shell; redirects unauthenticated visitors away.
 - `profile/page.tsx`: renders `ProfileShell` behind a suspense boundary.
 
 We need them for current-user account and security settings.
 
 ### Settings Pages
+
+Source:
+
+- [`apps/web/src/app/settings/layout.tsx`](../apps/web/src/app/settings/layout.tsx)
+- [`apps/web/src/app/settings/page.tsx`](../apps/web/src/app/settings/page.tsx)
 
 - `settings/page.tsx`: resolves workspace and renders `SettingsShell`.
 - `settings/layout.tsx`: settings route wrapper.
@@ -2174,6 +2890,8 @@ We need them to separate workspace configuration from inbox conversation work.
 ## Frontend Common Components
 
 ### `Spinner`
+
+Source: [`apps/web/src/components/common/Spinner.tsx`](../apps/web/src/components/common/Spinner.tsx)
 
 Reusable loading indicator.
 
@@ -2186,11 +2904,15 @@ We need it for consistent loading states.
 
 ### `LoadingButton`
 
+Source: [`apps/web/src/components/common/LoadingButton.tsx`](../apps/web/src/components/common/LoadingButton.tsx)
+
 A `<button>` that shows a spinner and disables itself while `isLoading`, passing every other button prop through. Used for save, submit, and confirm actions.
 
 We need it so pending actions look the same everywhere and can't be submitted twice.
 
 ### `EmptyState`
+
+Source: [`apps/web/src/components/common/EmptyState.tsx`](../apps/web/src/components/common/EmptyState.tsx)
 
 Reusable empty-state component with icon, title, description, and optional action.
 
@@ -2198,11 +2920,15 @@ We need it for inbox/workflow/settings states where there is no data yet.
 
 ### `ConfirmModal`
 
+Source: [`apps/web/src/components/common/ConfirmModal.tsx`](../apps/web/src/components/common/ConfirmModal.tsx)
+
 Reusable confirmation dialog, including destructive action support and pending state.
 
 We need it before operations like channel disconnect.
 
 ### `IconButton`
+
+Source: [`apps/web/src/components/common/IconButton.tsx`](../apps/web/src/components/common/IconButton.tsx)
 
 Icon-only button (`icon`, `label`, `onClick`, optional `destructive` and `disabled`). Grey icon with no background; on hover it darkens, or turns red when `destructive`. `label` is both the tooltip and the accessible name.
 
@@ -2210,9 +2936,13 @@ We need it so every edit, delete, and similar icon action looks and behaves the 
 
 ### `FormattedText`
 
+Source: [`apps/web/src/components/common/FormattedText.tsx`](../apps/web/src/components/common/FormattedText.tsx)
+
 Renders message text with WhatsApp-style formatting (bold, italic, strikethrough, code, code block) as React elements, using `parseFormattedText` from `lib/message-formatting.ts`. Used by `MessageBubble`, `AiDraftBanner`, and the Send Message node preview.
 
 ### `DesktopOnly`
+
+Source: [`apps/web/src/components/common/DesktopOnly.tsx`](../apps/web/src/components/common/DesktopOnly.tsx)
 
 Wraps a screen that needs a computer. Below 768px wide (`matchMedia('(min-width: 768px)')`, Tailwind's `md`) it renders a message (`title`, `message`, optional `back` link) instead of its children, which aren't mounted. The server and first render assume a wide screen, so desktop never flashes the message. Used for the workflow editor and the AI Agent, Integrations, and Hooks settings sections.
 
@@ -2220,11 +2950,15 @@ We need it so screens that aren't usable on a phone say so instead of rendering 
 
 ### `PopoverMenu`
 
+Source: [`apps/web/src/components/common/PopoverMenu.tsx`](../apps/web/src/components/common/PopoverMenu.tsx)
+
 Small dropdown menu: `trigger(toggle)` renders the button, `items` are `{ key, content, onSelect, selected? }`. Closes on selection, an outside click, or Escape; a selected item shows a check.
 
 We need it for compact pick-one menus, such as changing a contact's tag.
 
 ### `GoogleIcon`
+
+Source: [`apps/web/src/components/common/GoogleIcon.tsx`](../apps/web/src/components/common/GoogleIcon.tsx)
 
 Small SVG Google brand icon component.
 
@@ -2232,11 +2966,15 @@ We need it for Google login/signup buttons without importing a large icon librar
 
 ### `CopyButton`
 
+Source: [`apps/web/src/components/common/CopyButton.tsx`](../apps/web/src/components/common/CopyButton.tsx)
+
 Small button that copies a given `text` prop to the clipboard via `navigator.clipboard`, showing a checkmark for 2 seconds after copying.
 
 We need it for webhook URLs shown in `ChannelsList`.
 
 ### `Select`
+
+Source: [`apps/web/src/components/common/Select.tsx`](../apps/web/src/components/common/Select.tsx)
 
 Reusable styled select control. Long option lists scroll within a fixed height.
 
@@ -2246,9 +2984,19 @@ Important type:
 
 We need it because workflow configuration panels use many controlled select inputs.
 
+### `InviteStatusMessage`
+
+Source: [`apps/web/src/components/invite/InviteStatusMessage.tsx`](../apps/web/src/components/invite/InviteStatusMessage.tsx)
+
+Card shown instead of the accept or signup form when an invite is `ACCEPTED` (with a link to the inbox), `EXPIRED`, or `REVOKED` (both ask the owner for a new invite). Used by `invite/page.tsx` and the signup page.
+
+We need it so both entry points explain a dead invite the same way.
+
 ## Frontend Providers
 
 ### `QueryProvider`
+
+Source: [`apps/web/src/components/providers/QueryProvider.tsx`](../apps/web/src/components/providers/QueryProvider.tsx)
 
 Wraps the app in a TanStack Query `QueryClientProvider`.
 
@@ -2260,6 +3008,8 @@ Important behavior:
 We need it for API caching and mutation invalidation across the app.
 
 ### `ToastProvider`
+
+Source: [`apps/web/src/components/providers/ToastProvider.tsx`](../apps/web/src/components/providers/ToastProvider.tsx)
 
 Provides app-wide toast notifications.
 
@@ -2280,19 +3030,28 @@ We need it so API errors appear consistently without adding a third-party toast 
 
 ### `WorkspaceNav`
 
+Source: [`apps/web/src/components/workspace/WorkspaceNav.tsx`](../apps/web/src/components/workspace/WorkspaceNav.tsx)
+
 Icon sidebar linking to inbox, contacts, workflows, and settings for a workspace. Links are built with `workspaceUrl`, shared with `WorkspaceSwitcher`.
 
 Important helper:
 
-- `NavItem`: renders a sidebar icon link with tooltip and active state.
+- `DesktopNavItem`: renders a sidebar icon link with tooltip and active state.
 
 We need it as the persistent app navigation.
 
 ### `AppHeader`
 
+Source:
+
+- [`apps/web/src/components/workspace/AppHeader.tsx`](../apps/web/src/components/workspace/AppHeader.tsx)
+- [`apps/web/src/components/workspace/HeaderWorkspaceSwitcher.tsx`](../apps/web/src/components/workspace/HeaderWorkspaceSwitcher.tsx)
+
 Top bar shared by every protected route layout: the RelayFlow logo, then `HeaderWorkspaceSwitcher`, with `AuthenticationPanel` on the right. `HeaderWorkspaceSwitcher` reads `workspaceId` from the URL and renders `/ <WorkspaceSwitcher>`, or nothing on pages with no workspace (profile).
 
 ### `WorkspaceSwitcher`
+
+Source: [`apps/web/src/components/workspace/WorkspaceSwitcher.tsx`](../apps/web/src/components/workspace/WorkspaceSwitcher.tsx)
 
 Dropdown in `AppHeader` for switching workspaces and creating a new workspace inline. Switching keeps the current section via `workspaceUrl(pathname, workspaceId, hash)`: inbox, contacts, workflows, and settings (with its `#section`) stay put; a specific workflow goes to the workflow list; anything else goes to the inbox. A newly created workspace opens in its inbox.
 
@@ -2315,6 +3074,8 @@ We need it because users may belong to or create multiple workspaces.
 
 ### `CreateWorkspaceForm`
 
+Source: [`apps/web/src/components/workspace/CreateWorkspaceForm.tsx`](../apps/web/src/components/workspace/CreateWorkspaceForm.tsx)
+
 Standalone workspace creation form.
 
 We need it for first-run states where authenticated users have no workspace yet.
@@ -2322,6 +3083,8 @@ We need it for first-run states where authenticated users have no workspace yet.
 ## Frontend Inbox Components
 
 ### `InboxShell`
+
+Source: [`apps/web/src/components/inbox/InboxShell.tsx`](../apps/web/src/components/inbox/InboxShell.tsx)
 
 Top-level inbox layout.
 
@@ -2336,11 +3099,15 @@ We need it to coordinate sidebar selection, mobile layout behavior, and real-tim
 
 ### `ConversationList`
 
+Source: [`apps/web/src/components/inbox/ConversationList.tsx`](../apps/web/src/components/inbox/ConversationList.tsx)
+
 Displays the conversation list, paginated with infinite scroll. Two distinct empty states based on `useChannelAccounts`: if the workspace has no `ACTIVE` channel, the empty state links to `/settings` to connect one; if a channel is already connected but there are simply no conversations yet, it shows a plain "No conversations yet" message instead.
 
 We need it as the inbox conversation selector.
 
 ### `ConversationItem`
+
+Source: [`apps/web/src/components/inbox/ConversationItem.tsx`](../apps/web/src/components/inbox/ConversationItem.tsx)
 
 Renders one conversation row.
 
@@ -2355,6 +3122,8 @@ Shows a red "error" icon next to the contact name when `conversation.escalatedAt
 We need it to make the conversation list scannable.
 
 ### `MessageThread`
+
+Source: [`apps/web/src/components/inbox/MessageThread.tsx`](../apps/web/src/components/inbox/MessageThread.tsx)
 
 Displays selected conversation messages and composer.
 
@@ -2375,6 +3144,8 @@ We need it as the main reading/reply surface.
 
 ### `MessageBubble`
 
+Source: [`apps/web/src/components/inbox/MessageBubble.tsx`](../apps/web/src/components/inbox/MessageBubble.tsx)
+
 Renders one message bubble, with its text formatted by `FormattedText`.
 
 Important function:
@@ -2384,6 +3155,8 @@ Important function:
 We need it for readable inbound/outbound timeline rendering.
 
 ### `MessageComposer`
+
+Source: [`apps/web/src/components/inbox/MessageComposer.tsx`](../apps/web/src/components/inbox/MessageComposer.tsx)
 
 Form for sending outbound agent messages.
 
@@ -2399,6 +3172,8 @@ We need it to let agents reply from the inbox without interrupting active workfl
 
 ### `ContactsShell`
 
+Source: [`apps/web/src/components/contacts/ContactsShell.tsx`](../apps/web/src/components/contacts/ContactsShell.tsx)
+
 Top-level contacts layout with table, selected contact state, detail panel, delete confirmation, and merge modal.
 
 Important helpers:
@@ -2411,6 +3186,8 @@ Important helpers:
 We need it for browsing, selecting, deleting, and merging contacts.
 
 ### `ContactDetailPanel`
+
+Source: [`apps/web/src/components/contacts/ContactDetailPanel.tsx`](../apps/web/src/components/contacts/ContactDetailPanel.tsx)
 
 Side panel for one contact.
 
@@ -2428,17 +3205,23 @@ We need it to show linked channel identities and jump to the contact's inbox con
 
 ### `ContactTagPill`
 
+Source: [`apps/web/src/components/contacts/ContactTagPill.tsx`](../apps/web/src/components/contacts/ContactTagPill.tsx)
+
 `ContactTagPill` renders one tag value as a rounded pill tinted with its colour (`CONTACT_TAG_COLORS`: neutral, blue, green, yellow, orange, red, purple, teal), optionally prefixed with the tag label, in a `default` or `small` size, and as a button when given `onClick`. `tagColor(definition, value)` reads the value's colour from `ContactTagDefinition.colors`, defaulting to neutral. `ContactTagPills` lists a contact's set tags read-only (used in the inbox header); `CONTACT_TAG_SWATCH_CLASS` gives the solid swatch for each colour in settings.
 
 We need it so tags look the same everywhere they appear.
 
 ### `ContactTagEditor`
 
+Source: [`apps/web/src/components/contacts/ContactTagEditor.tsx`](../apps/web/src/components/contacts/ContactTagEditor.tsx)
+
 A contact's tags as pills. With `CONTACT_FIELDS_WRITE`, clicking a pill opens a `PopoverMenu` of that tag's values plus "Clear", and "Add tag" lists the values of tags the contact doesn't have; each choice saves immediately through `useUpdateContactTags`. Without it, the pills are read-only.
 
 We need it so tags can be changed in one click from the contact panel.
 
 ### `MergeContactModal`
+
+Source: [`apps/web/src/components/contacts/MergeContactModal.tsx`](../apps/web/src/components/contacts/MergeContactModal.tsx)
 
 Modal that lets a user choose a target contact and merge the selected source contact into it.
 
@@ -2453,6 +3236,8 @@ We need it to clean up duplicate contacts while preserving identities and conver
 ## Frontend Profile Components
 
 ### `ProfileShell`
+
+Source: [`apps/web/src/components/profile/ProfileShell.tsx`](../apps/web/src/components/profile/ProfileShell.tsx)
 
 Client-side profile management screen.
 
@@ -2470,11 +3255,15 @@ We need it so users can manage account details and security without leaving Rela
 
 ### `ConnectTelegramForm`
 
+Source: [`apps/web/src/components/inbox/ConnectTelegramForm.tsx`](../apps/web/src/components/inbox/ConnectTelegramForm.tsx)
+
 Form for adding a Telegram bot token to a workspace.
 
 We need it for channel setup in settings.
 
 ### `ConnectWhatsAppForm`
+
+Source: [`apps/web/src/components/inbox/ConnectWhatsAppForm.tsx`](../apps/web/src/components/inbox/ConnectWhatsAppForm.tsx)
 
 Form for adding a WhatsApp Business Cloud API channel to a workspace.
 
@@ -2491,6 +3280,8 @@ We need it for WhatsApp channel setup in settings.
 
 ### `SettingsShell`
 
+Source: [`apps/web/src/components/settings/SettingsShell.tsx`](../apps/web/src/components/settings/SettingsShell.tsx)
+
 Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, integration, and hooks sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
 
 Section visibility is permission-gated: `General` (workspace name, contact fields and tags, contact access) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Members` is always shown.
@@ -2500,6 +3291,8 @@ The AI Agent, Integrations, and Hooks sections are wrapped in `DesktopOnly`, so 
 We need it to create a stable place for general, channel, member, invite, AI agent, API key, and webhook settings.
 
 ### `ChannelsList`
+
+Source: [`apps/web/src/components/settings/ChannelsList.tsx`](../apps/web/src/components/settings/ChannelsList.tsx)
 
 Lists connected channel accounts and provides the connect/disconnect/delete/reconnect UI, plus each channel's AI agent assignment. Active channels show their `webhookUrl`, which the API builds from `RELAYFLOW_API_BASE_URL`.
 
@@ -2518,6 +3311,8 @@ We need it because channel setup should live in workspace settings rather than t
 
 ### `MembersList`
 
+Source: [`apps/web/src/components/settings/MembersList.tsx`](../apps/web/src/components/settings/MembersList.tsx)
+
 Workspace member and invite management UI.
 
 Important capabilities:
@@ -2535,11 +3330,15 @@ We need it so owners can control who can operate the workspace.
 
 ### `IntegrationsPanel`
 
+Source: [`apps/web/src/components/settings/IntegrationsPanel.tsx`](../apps/web/src/components/settings/IntegrationsPanel.tsx)
+
 Settings panel that groups API keys, workflow secrets, and webhook configuration — each its own subsection, gated independently by `canManageApiKeys`/`canManageSecrets`/`canManageWebhook`.
 
 We need it so external integration setup lives in one settings area.
 
 ### `SecretsPanel`
+
+Source: [`apps/web/src/components/settings/SecretsPanel.tsx`](../apps/web/src/components/settings/SecretsPanel.tsx)
 
 Settings subsection for a workspace's named secrets (`useSecrets`). List with a "New secret" create modal and, per row, Edit and Delete.
 
@@ -2553,6 +3352,8 @@ We need it so a workspace can manage the credentials its workflows call external
 
 ### `HooksPanel`
 
+Source: [`apps/web/src/components/settings/HooksPanel.tsx`](../apps/web/src/components/settings/HooksPanel.tsx)
+
 Settings section (`#hooks`, shown to owners and members with `WORKFLOWS_WRITE`) for hooks.
 
 Important behavior:
@@ -2562,6 +3363,12 @@ Important behavior:
 - The editor modal (`HookEditorModal`) takes a name, optional description, FEEL expression, and error message, and embeds `HookTester` — a sample-reply box that calls the test endpoint and shows accepted (with the stored value and extra variables), rejected (with the message the contact would see), or error, plus any FEEL warnings. Enter in the sample box runs the test instead of submitting the form.
 
 ### `GeneralPanel`
+
+Source:
+
+- [`apps/web/src/components/settings/ContactAccessSection.tsx`](../apps/web/src/components/settings/ContactAccessSection.tsx)
+- [`apps/web/src/components/settings/ContactTagsSection.tsx`](../apps/web/src/components/settings/ContactTagsSection.tsx)
+- [`apps/web/src/components/settings/GeneralPanel.tsx`](../apps/web/src/components/settings/GeneralPanel.tsx)
 
 Settings home for basic workspace-level configuration.
 
@@ -2574,11 +3381,15 @@ We need it as the settings home for basic workspace-level configuration that doe
 
 ### `CreateApiKeyModal`
 
+Source: [`apps/web/src/components/settings/CreateApiKeyModal.tsx`](../apps/web/src/components/settings/CreateApiKeyModal.tsx)
+
 Modal for naming an API key, optionally setting expiry, and showing the plaintext key once after creation.
 
 We need it to make one-time secret handling explicit in the UI.
 
 ### `WebhookConfigPanel`
+
+Source: [`apps/web/src/components/settings/WebhookConfigPanel.tsx`](../apps/web/src/components/settings/WebhookConfigPanel.tsx)
 
 Settings panel for a workspace's webhooks (`useWebhooks` — any number of them), tab-structured the same way as `AiAgentPanel`: a row of `WebhookTab`s (one per webhook, labeled by URL hostname with an enabled/disabled dot, truncated at `max-w-[9rem]` since hostnames can run long) plus a dashed "New webhook" tab. Selecting a tab shows that webhook's form below.
 
@@ -2593,13 +3404,17 @@ We need it to configure outbound workspace webhooks safely.
 
 ### `WebhookSecretModal`
 
-Modal that reveals a webhook secret in plaintext exactly once, with a copy button — used for both webhook creation (`generatedSecret` from the save response) and secret rotation (`secret` from `useRotateWebhookSecret`). Replaces the earlier `RotateWebhookSecretModal`, unified since both flows show the identical one-time-reveal UI.
+Source: [`apps/web/src/components/settings/WebhookSecretModal.tsx`](../apps/web/src/components/settings/WebhookSecretModal.tsx)
+
+Modal that reveals a webhook secret in plaintext exactly once, with a copy button — used for both webhook creation (`generatedSecret` from the save response) and secret rotation (`secret` from `useRotateWebhookSecret`).
 
 We need it so a workspace owner can retrieve a webhook secret exactly once, at the moment it's generated or rotated — RelayFlow never stores or displays it again afterward.
 
 ## Frontend Workflow Builder Components
 
 ### `WorkflowEditor`
+
+Source: [`apps/web/src/components/workflows/WorkflowEditor.tsx`](../apps/web/src/components/workflows/WorkflowEditor.tsx)
 
 React Flow provider wrapper for the workflow editor.
 
@@ -2636,6 +3451,8 @@ Important constants:
 We need it as the central no-code workflow editing surface.
 
 ### `NodeConfigPanel`
+
+Source: [`apps/web/src/components/workflows/NodeConfigPanel.tsx`](../apps/web/src/components/workflows/NodeConfigPanel.tsx)
 
 Side panel for editing selected node data.
 
@@ -2687,11 +3504,16 @@ We need it to turn graph nodes into user-editable automation configuration.
 
 ### `VariablePicker`
 
+Source: [`apps/web/src/components/workflows/VariablePicker.tsx`](../apps/web/src/components/workflows/VariablePicker.tsx)
+
 Dropdown for inserting variables into text fields.
 
 Important values/components:
 
 - `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow" | "secrets"`.
+- `VARIABLE_FILTERS`: the `upper`, `lower`, and `title` filters, mirroring `VariableInterpolator` on the backend.
+- `findUnknownFilters(text)`: the filter names in `{{name|filter}}` placeholders that aren't in `VARIABLE_FILTERS`.
+- `FilterWarning`: shows those unknown filters under a text field, since the backend leaves them unapplied.
 - `BUILT_IN_VARIABLES`: `contact.id`, `contact.name`, `contact.username`, `contact.message` (group `"contact"`); `conversation.channel` (group `"conversation"`); `agent.reply`, `agent.confidence` (group `"ai"`). `conversation.id` and `workspace.id` are populated at runtime (`WorkflowEngineService`) but deliberately excluded from this list — internal IDs not meant for the common case. `contact.id` is included despite being an internal ID too, since it has a real, common use: referencing the contact by RelayFlow's own ID in an HTTP Request header/body to an external system.
 - `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs), then Secrets — instead of one flat "Built-in" bucket.
 - `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter). The `allowFilters` prop turns off the `AA`/`aa`/`Aa` buttons for a section — used for Secrets, since a case transform on a credential value doesn't make sense.
@@ -2700,13 +3522,19 @@ We need it so users can discover and insert valid `{{variable}}` placeholders wi
 
 ### `RunsShell`
 
+Source: [`apps/web/src/components/workflows/runs/RunsShell.tsx`](../apps/web/src/components/workflows/runs/RunsShell.tsx)
+
 Run logs page for one workflow (`/workflows/{id}/runs`): a header linking back to the editor, `RunsList` on the left, and `RunDetail` for the selected run.
 
 ### `RunsList`
 
+Source: [`apps/web/src/components/workflows/runs/RunsList.tsx`](../apps/web/src/components/workflows/runs/RunsList.tsx)
+
 Paginated run history (`useWorkflowRuns`), newest first, with a status badge per run. Selecting a run shows it in `RunDetail`.
 
 ### `RunDetail`
+
+Source: [`apps/web/src/components/workflows/runs/RunDetail.tsx`](../apps/web/src/components/workflows/runs/RunDetail.tsx)
 
 One run's status, timing, and error, plus each step's input and output snapshots (`useWorkflowRun`). Each step's variables are shown as changes from the previous step.
 
@@ -2714,17 +3542,23 @@ We need these so operators can see exactly what a workflow did and why.
 
 ### `WorkflowsShell`
 
+Source: [`apps/web/src/components/workflows/WorkflowsShell.tsx`](../apps/web/src/components/workflows/WorkflowsShell.tsx)
+
 Workflow list layout using `WorkspaceNav`, workspace switcher/create controls, and `WorkflowsList`.
 
 We need it as the workflow home screen.
 
 ### `WorkflowsList`
 
+Source: [`apps/web/src/components/workflows/WorkflowsList.tsx`](../apps/web/src/components/workflows/WorkflowsList.tsx)
+
 Lists workflow definitions and links to the editor.
 
 We need it so users can choose which workflow to edit.
 
 ### `DeletableEdge`
+
+Source: [`apps/web/src/components/workflows/edges/DeletableEdge.tsx`](../apps/web/src/components/workflows/edges/DeletableEdge.tsx)
 
 Custom React Flow edge component with a delete affordance.
 
@@ -2734,6 +3568,8 @@ We need it so users can remove graph connections without complex keyboard intera
 
 ### `WorkflowNode`
 
+Source: [`apps/web/src/components/workflows/nodes/WorkflowNode.tsx`](../apps/web/src/components/workflows/nodes/WorkflowNode.tsx)
+
 Base visual node wrapper shared by all workflow nodes.
 
 Important props include icon, label, selected state, source/target handle flags, footer, and children.
@@ -2741,6 +3577,8 @@ Important props include icon, label, selected state, source/target handle flags,
 We need it for consistent node appearance and connection handles.
 
 ### `TriggerNode`
+
+Source: [`apps/web/src/components/workflows/nodes/TriggerNode.tsx`](../apps/web/src/components/workflows/nodes/TriggerNode.tsx)
 
 Visual node for workflow trigger configuration.
 
@@ -2753,6 +3591,8 @@ We need it as the graph start point.
 
 ### `SendMessageNode`
 
+Source: [`apps/web/src/components/workflows/nodes/SendMessageNode.tsx`](../apps/web/src/components/workflows/nodes/SendMessageNode.tsx)
+
 Visual node for outbound message actions.
 
 Important type:
@@ -2762,6 +3602,8 @@ Important type:
 We need it to represent automated replies in the graph.
 
 ### `ConditionNode`
+
+Source: [`apps/web/src/components/workflows/nodes/ConditionNode.tsx`](../apps/web/src/components/workflows/nodes/ConditionNode.tsx)
 
 Visual branching node.
 
@@ -2776,6 +3618,8 @@ We need it to support multi-branch logic.
 
 ### `HttpRequestNode`
 
+Source: [`apps/web/src/components/workflows/nodes/HttpRequestNode.tsx`](../apps/web/src/components/workflows/nodes/HttpRequestNode.tsx)
+
 Visual HTTP integration node.
 
 Important types:
@@ -2788,6 +3632,8 @@ We need it to show external API calls and configured mappings on the canvas.
 
 ### `SetVariableNode`
 
+Source: [`apps/web/src/components/workflows/nodes/SetVariableNode.tsx`](../apps/web/src/components/workflows/nodes/SetVariableNode.tsx)
+
 Visual variable assignment node.
 
 Important type:
@@ -2797,6 +3643,8 @@ Important type:
 We need it to represent variable creation/override steps.
 
 ### `SetContactFieldNode`
+
+Source: [`apps/web/src/components/workflows/nodes/SetContactFieldNode.tsx`](../apps/web/src/components/workflows/nodes/SetContactFieldNode.tsx)
 
 Visual contact-field-write node.
 
@@ -2808,6 +3656,8 @@ We need it to represent a workflow deliberately writing a contact field, distinc
 
 ### `SetContactTagNode`
 
+Source: [`apps/web/src/components/workflows/nodes/SetContactTagNode.tsx`](../apps/web/src/components/workflows/nodes/SetContactTagNode.tsx)
+
 Visual node for setting or clearing a contact tag (`tagKey`, `value`; a blank value clears the tag).
 
 Important type:
@@ -2818,9 +3668,13 @@ We need it so workflows can label contacts with controlled values.
 
 ### `OutputLabel`
 
+Source: [`apps/web/src/components/workflows/nodes/OutputLabel.tsx`](../apps/web/src/components/workflows/nodes/OutputLabel.tsx)
+
 Label drawn under a node's output handle (`left` position, colour class, optional `title`). Every branching node (Condition, HTTP Request, Ask Question) uses it, so labels share one size, line height, and baseline.
 
 ### `WaitForReplyNode`
+
+Source: [`apps/web/src/components/workflows/nodes/WaitForReplyNode.tsx`](../apps/web/src/components/workflows/nodes/WaitForReplyNode.tsx)
 
 Visual Ask Question node. Open-ended mode has a reply output (no handle id); with a `validationHook` it has `valid` / `invalid` instead; defined mode has one handle per option plus `default` ("Other"). Every mode also has a `noReply` handle, labelled "No reply", followed when the question times out.
 
@@ -2828,10 +3682,13 @@ Important types:
 
 - `WaitForReplyOption`
 - `WaitForReplyNodeData`
+- `DEFAULT_TIMEOUT_MINUTES`: 24 hours, the reply timeout when none is set.
 
 We need it for workflows that pause and continue based on a customer's reply.
 
 ### `JumpToNode`
+
+Source: [`apps/web/src/components/workflows/nodes/JumpToNode.tsx`](../apps/web/src/components/workflows/nodes/JumpToNode.tsx)
 
 Visual node for redirecting execution to another node.
 
@@ -2849,6 +3706,8 @@ We need it to let workflow builders create bounded loops or return to an earlier
 
 ### `EndConversationNode`
 
+Source: [`apps/web/src/components/workflows/nodes/EndConversationNode.tsx`](../apps/web/src/components/workflows/nodes/EndConversationNode.tsx)
+
 Visual conversation-close node.
 
 Important type:
@@ -2859,6 +3718,8 @@ We need it to represent automation termination that closes a conversation.
 
 ### `nodes/index.ts`
 
+Source: [`apps/web/src/components/workflows/nodes/index.ts`](../apps/web/src/components/workflows/nodes/index.ts)
+
 Barrel export for workflow node components and shared node types.
 
 We need it to simplify imports in `WorkflowEditor`.
@@ -2866,6 +3727,16 @@ We need it to simplify imports in `WorkflowEditor`.
 ## Frontend Hooks
 
 ### Auth Hooks
+
+Source:
+
+- [`apps/web/src/hooks/use-authentication.ts`](../apps/web/src/hooks/use-authentication.ts)
+- [`apps/web/src/hooks/use-bootstrap.ts`](../apps/web/src/hooks/use-bootstrap.ts)
+- [`apps/web/src/hooks/use-login-2fa.ts`](../apps/web/src/hooks/use-login-2fa.ts)
+- [`apps/web/src/hooks/use-login.ts`](../apps/web/src/hooks/use-login.ts)
+- [`apps/web/src/hooks/use-logout.ts`](../apps/web/src/hooks/use-logout.ts)
+- [`apps/web/src/hooks/use-reset-password.ts`](../apps/web/src/hooks/use-reset-password.ts)
+- [`apps/web/src/hooks/use-signup.ts`](../apps/web/src/hooks/use-signup.ts)
 
 - `useAuthentication`: fetches current session user.
 - `useLogin`: login mutation with error toast support and 2FA challenge handling.
@@ -2879,6 +3750,15 @@ We need them to keep auth forms/components declarative.
 
 ### Profile Hooks
 
+Source:
+
+- [`apps/web/src/hooks/use-disable-2fa.ts`](../apps/web/src/hooks/use-disable-2fa.ts)
+- [`apps/web/src/hooks/use-enable-2fa.ts`](../apps/web/src/hooks/use-enable-2fa.ts)
+- [`apps/web/src/hooks/use-profile.ts`](../apps/web/src/hooks/use-profile.ts)
+- [`apps/web/src/hooks/use-request-password-reset.ts`](../apps/web/src/hooks/use-request-password-reset.ts)
+- [`apps/web/src/hooks/use-setup-2fa.ts`](../apps/web/src/hooks/use-setup-2fa.ts)
+- [`apps/web/src/hooks/use-update-profile.ts`](../apps/web/src/hooks/use-update-profile.ts)
+
 - `useProfile`: fetches current profile state.
 - `useUpdateProfile`: updates display name.
 - `useRequestPasswordReset`: emails the current user a password reset link; success/error surfaced via toast.
@@ -2889,6 +3769,29 @@ We need them to keep auth forms/components declarative.
 We need them to keep profile/security mutations outside the profile component.
 
 ### Workspace Hooks
+
+Source:
+
+- [`apps/web/src/hooks/use-accept-invite.ts`](../apps/web/src/hooks/use-accept-invite.ts)
+- [`apps/web/src/hooks/use-add-to-whitelist.ts`](../apps/web/src/hooks/use-add-to-whitelist.ts)
+- [`apps/web/src/hooks/use-create-invite.ts`](../apps/web/src/hooks/use-create-invite.ts)
+- [`apps/web/src/hooks/use-create-workspace.ts`](../apps/web/src/hooks/use-create-workspace.ts)
+- [`apps/web/src/hooks/use-current-member.ts`](../apps/web/src/hooks/use-current-member.ts)
+- [`apps/web/src/hooks/use-generate-member-password-reset.ts`](../apps/web/src/hooks/use-generate-member-password-reset.ts)
+- [`apps/web/src/hooks/use-invite-member.ts`](../apps/web/src/hooks/use-invite-member.ts)
+- [`apps/web/src/hooks/use-invite-preview.ts`](../apps/web/src/hooks/use-invite-preview.ts)
+- [`apps/web/src/hooks/use-remove-from-whitelist.ts`](../apps/web/src/hooks/use-remove-from-whitelist.ts)
+- [`apps/web/src/hooks/use-remove-member.ts`](../apps/web/src/hooks/use-remove-member.ts)
+- [`apps/web/src/hooks/use-revoke-invite.ts`](../apps/web/src/hooks/use-revoke-invite.ts)
+- [`apps/web/src/hooks/use-update-contact-access.ts`](../apps/web/src/hooks/use-update-contact-access.ts)
+- [`apps/web/src/hooks/use-update-contact-field-definitions.ts`](../apps/web/src/hooks/use-update-contact-field-definitions.ts)
+- [`apps/web/src/hooks/use-update-contact-tag-definitions.ts`](../apps/web/src/hooks/use-update-contact-tag-definitions.ts)
+- [`apps/web/src/hooks/use-update-member.ts`](../apps/web/src/hooks/use-update-member.ts)
+- [`apps/web/src/hooks/use-update-workspace.ts`](../apps/web/src/hooks/use-update-workspace.ts)
+- [`apps/web/src/hooks/use-whitelist.ts`](../apps/web/src/hooks/use-whitelist.ts)
+- [`apps/web/src/hooks/use-workspace-invites.ts`](../apps/web/src/hooks/use-workspace-invites.ts)
+- [`apps/web/src/hooks/use-workspace-members.ts`](../apps/web/src/hooks/use-workspace-members.ts)
+- [`apps/web/src/hooks/use-workspaces.ts`](../apps/web/src/hooks/use-workspaces.ts)
 
 - `useWorkspaces`: fetches workspaces.
 - `useWorkspace`: selects one workspace from the cached list.
@@ -2913,6 +3816,17 @@ We need them for workspace-first navigation.
 
 ### Channel Hooks
 
+Source:
+
+- [`apps/web/src/hooks/use-channel-accounts.ts`](../apps/web/src/hooks/use-channel-accounts.ts)
+- [`apps/web/src/hooks/use-channel-ai-agent-assignment.ts`](../apps/web/src/hooks/use-channel-ai-agent-assignment.ts)
+- [`apps/web/src/hooks/use-connect-telegram.ts`](../apps/web/src/hooks/use-connect-telegram.ts)
+- [`apps/web/src/hooks/use-connect-whatsapp.ts`](../apps/web/src/hooks/use-connect-whatsapp.ts)
+- [`apps/web/src/hooks/use-delete-channel-account.ts`](../apps/web/src/hooks/use-delete-channel-account.ts)
+- [`apps/web/src/hooks/use-disconnect-channel-account.ts`](../apps/web/src/hooks/use-disconnect-channel-account.ts)
+- [`apps/web/src/hooks/use-reconnect-channel-account.ts`](../apps/web/src/hooks/use-reconnect-channel-account.ts)
+- [`apps/web/src/hooks/use-set-channel-ai-agent-assignment.ts`](../apps/web/src/hooks/use-set-channel-ai-agent-assignment.ts)
+
 - `useChannelAccounts`: fetches connected channels.
 - `useConnectTelegram`: connects a Telegram bot token.
 - `useConnectWhatsApp`: connects WhatsApp Business Cloud API credentials.
@@ -2925,6 +3839,15 @@ We need them for settings/channel management.
 
 ### Contact Hooks
 
+Source:
+
+- [`apps/web/src/hooks/use-contact.ts`](../apps/web/src/hooks/use-contact.ts)
+- [`apps/web/src/hooks/use-contacts.ts`](../apps/web/src/hooks/use-contacts.ts)
+- [`apps/web/src/hooks/use-delete-contact.ts`](../apps/web/src/hooks/use-delete-contact.ts)
+- [`apps/web/src/hooks/use-merge-contact.ts`](../apps/web/src/hooks/use-merge-contact.ts)
+- [`apps/web/src/hooks/use-update-contact-custom-fields.ts`](../apps/web/src/hooks/use-update-contact-custom-fields.ts)
+- [`apps/web/src/hooks/use-update-contact-tags.ts`](../apps/web/src/hooks/use-update-contact-tags.ts)
+
 - `useContacts`: infinite query for contact pages.
 - `useContact`: fetches one contact detail.
 - `useDeleteContact`: deletes a contact and invalidates contact caches.
@@ -2935,6 +3858,15 @@ We need them for settings/channel management.
 We need them for contact-management screens.
 
 ### Inbox Hooks
+
+Source:
+
+- [`apps/web/src/hooks/use-conversations.ts`](../apps/web/src/hooks/use-conversations.ts)
+- [`apps/web/src/hooks/use-messages.ts`](../apps/web/src/hooks/use-messages.ts)
+- [`apps/web/src/hooks/use-send-message.ts`](../apps/web/src/hooks/use-send-message.ts)
+- [`apps/web/src/hooks/use-update-conversation-assignee.ts`](../apps/web/src/hooks/use-update-conversation-assignee.ts)
+- [`apps/web/src/hooks/use-update-conversation.ts`](../apps/web/src/hooks/use-update-conversation.ts)
+- [`apps/web/src/hooks/use-workspace-events.ts`](../apps/web/src/hooks/use-workspace-events.ts)
 
 - `useConversations`: infinite query for conversations.
 - `useUpdateConversationAssignee`: assigns or unassigns a conversation.
@@ -2953,6 +3885,19 @@ We need them for real-time inbox state.
 
 ### AI Agent Hooks
 
+Source:
+
+- [`apps/web/src/hooks/use-ai-agent-configurations.ts`](../apps/web/src/hooks/use-ai-agent-configurations.ts)
+- [`apps/web/src/hooks/use-conversation-ai-draft.ts`](../apps/web/src/hooks/use-conversation-ai-draft.ts)
+- [`apps/web/src/hooks/use-create-ai-agent-configuration.ts`](../apps/web/src/hooks/use-create-ai-agent-configuration.ts)
+- [`apps/web/src/hooks/use-delete-ai-agent-configuration.ts`](../apps/web/src/hooks/use-delete-ai-agent-configuration.ts)
+- [`apps/web/src/hooks/use-discard-ai-draft.ts`](../apps/web/src/hooks/use-discard-ai-draft.ts)
+- [`apps/web/src/hooks/use-platform-llm-provider.ts`](../apps/web/src/hooks/use-platform-llm-provider.ts)
+- [`apps/web/src/hooks/use-send-ai-draft.ts`](../apps/web/src/hooks/use-send-ai-draft.ts)
+- [`apps/web/src/hooks/use-set-default-ai-agent-configuration.ts`](../apps/web/src/hooks/use-set-default-ai-agent-configuration.ts)
+- [`apps/web/src/hooks/use-trigger-workflow-from-draft.ts`](../apps/web/src/hooks/use-trigger-workflow-from-draft.ts)
+- [`apps/web/src/hooks/use-update-ai-agent-configuration.ts`](../apps/web/src/hooks/use-update-ai-agent-configuration.ts)
+
 - `useAiAgentConfigurations(workspaceId)`: fetches every named AI agent config in the workspace; query key `["ai-agent-configurations", workspaceId]`.
 - `useCreateAiAgentConfiguration(workspaceId)`: creates a new named config.
 - `useUpdateAiAgentConfiguration(workspaceId, configurationId)`: PUTs a config and updates the cache via `setQueryData` on success.
@@ -2968,6 +3913,17 @@ We need them to keep AI agent API access outside UI components and consistent wi
 
 ### Workflow Hooks
 
+Source:
+
+- [`apps/web/src/hooks/use-create-workflow.ts`](../apps/web/src/hooks/use-create-workflow.ts)
+- [`apps/web/src/hooks/use-delete-workflow.ts`](../apps/web/src/hooks/use-delete-workflow.ts)
+- [`apps/web/src/hooks/use-rename-workflow.ts`](../apps/web/src/hooks/use-rename-workflow.ts)
+- [`apps/web/src/hooks/use-save-workflow.ts`](../apps/web/src/hooks/use-save-workflow.ts)
+- [`apps/web/src/hooks/use-workflow-run.ts`](../apps/web/src/hooks/use-workflow-run.ts)
+- [`apps/web/src/hooks/use-workflow-runs.ts`](../apps/web/src/hooks/use-workflow-runs.ts)
+- [`apps/web/src/hooks/use-workflow.ts`](../apps/web/src/hooks/use-workflow.ts)
+- [`apps/web/src/hooks/use-workflows.ts`](../apps/web/src/hooks/use-workflows.ts)
+
 - `useWorkflows`: fetches workflow definitions.
 - `useWorkflow`: fetches one workflow.
 - `useCreateWorkflow`: creates a workflow and updates workflow caches.
@@ -2979,6 +3935,27 @@ We need them to keep AI agent API access outside UI components and consistent wi
 We need them to keep workflow builder API access outside UI components.
 
 ### Integration Hooks
+
+Source:
+
+- [`apps/web/src/hooks/use-api-keys.ts`](../apps/web/src/hooks/use-api-keys.ts)
+- [`apps/web/src/hooks/use-built-in-hooks.ts`](../apps/web/src/hooks/use-built-in-hooks.ts)
+- [`apps/web/src/hooks/use-create-api-key.ts`](../apps/web/src/hooks/use-create-api-key.ts)
+- [`apps/web/src/hooks/use-create-hook.ts`](../apps/web/src/hooks/use-create-hook.ts)
+- [`apps/web/src/hooks/use-create-secret.ts`](../apps/web/src/hooks/use-create-secret.ts)
+- [`apps/web/src/hooks/use-create-webhook.ts`](../apps/web/src/hooks/use-create-webhook.ts)
+- [`apps/web/src/hooks/use-delete-hook.ts`](../apps/web/src/hooks/use-delete-hook.ts)
+- [`apps/web/src/hooks/use-delete-secret.ts`](../apps/web/src/hooks/use-delete-secret.ts)
+- [`apps/web/src/hooks/use-delete-webhook.ts`](../apps/web/src/hooks/use-delete-webhook.ts)
+- [`apps/web/src/hooks/use-hooks.ts`](../apps/web/src/hooks/use-hooks.ts)
+- [`apps/web/src/hooks/use-revoke-api-key.ts`](../apps/web/src/hooks/use-revoke-api-key.ts)
+- [`apps/web/src/hooks/use-rotate-webhook-secret.ts`](../apps/web/src/hooks/use-rotate-webhook-secret.ts)
+- [`apps/web/src/hooks/use-secrets.ts`](../apps/web/src/hooks/use-secrets.ts)
+- [`apps/web/src/hooks/use-test-hook.ts`](../apps/web/src/hooks/use-test-hook.ts)
+- [`apps/web/src/hooks/use-update-hook.ts`](../apps/web/src/hooks/use-update-hook.ts)
+- [`apps/web/src/hooks/use-update-secret.ts`](../apps/web/src/hooks/use-update-secret.ts)
+- [`apps/web/src/hooks/use-update-webhook.ts`](../apps/web/src/hooks/use-update-webhook.ts)
+- [`apps/web/src/hooks/use-webhooks.ts`](../apps/web/src/hooks/use-webhooks.ts)
 
 - `useApiKeys`: fetches workspace API keys.
 - `useCreateApiKey`: creates a key and exposes the one-time plaintext secret.
@@ -3001,11 +3978,15 @@ We need them for API key and webhook settings without embedding fetch logic in c
 
 ### `message-formatting.ts`
 
+Source: [`apps/web/src/lib/message-formatting.ts`](../apps/web/src/lib/message-formatting.ts)
+
 - `parseFormattedText(text)`: parses WhatsApp-style markers into a tree of text, bold, italic, strike, code, and code block nodes (with `- ` / `* ` line starts shown as `• `), with the same rules as the API's `TelegramFormatter`.
 - `bulletLines(value, start, end)`: adds `- ` to each selected line (or the current line) that isn't already a bullet.
 - `wrapSelection(value, start, end, marker)`: wraps the selected text in a marker (a code block goes on its own lines) and returns the new value and selection.
 
 ### `authentication-api.ts`
+
+Source: [`apps/web/src/lib/authentication-api.ts`](../apps/web/src/lib/authentication-api.ts)
 
 Frontend auth API wrapper.
 
@@ -3025,13 +4006,17 @@ Important types:
 - `Setup2FAResponse`
 - `OtpPayload`
 
-Important functions:
+`AuthenticationApiClient` wraps the calls, exported as the `authenticationApi` singleton (base URL from `apiBaseUrl()`). It re-exports `ApiError`.
+
+Methods:
 
 - `signup`
 - `bootstrap`
 - `getInstanceStatus`
+- `getCurrentUser`
 - `login`
 - `login2FA`
+- `logout`
 - `resetPassword`
 - `getProfile`
 - `updateProfile`
@@ -3040,13 +4025,11 @@ Important functions:
 - `enable2FA`
 - `disable2FA`
 
-Important constant:
-
-- `apiBaseUrl`
-
 We need it so auth-related network calls are centralized.
 
 ### `messaging-api.ts`
+
+Source: [`apps/web/src/lib/messaging-api.ts`](../apps/web/src/lib/messaging-api.ts)
 
 Main typed API client for messaging, channels, workspaces, contacts, members, invites, integrations, and workflows.
 
@@ -3058,32 +4041,33 @@ Important exported types:
 
 Important classes/constants/functions:
 
-- `ApiError`: typed fetch error with HTTP status and details.
-- `MessagingApiClient`: wraps all API calls.
-- `apiBaseUrl()` (from `api-base-url.ts`): the API base URL — `/backend` in the browser, `RELAYFLOW_API_INTERNAL_URL` (default `http://localhost:8080`) on the server.
-- `messagingApi`: shared client instance.
-- `readResponseBody`: parses error responses.
-- `errorMessage`: normalizes a backend error message.
+- `MessagingApiClient`: wraps all API calls through one private `request()`; failures throw `ApiError` from `api-client.ts`.
+- `messagingApi`: shared client instance, using `apiBaseUrl()`.
+- `RESERVED_CONTACT_FIELD_KEYS`, `isReservedContactFieldKey(key)`, `RESERVED_CONTACT_FIELDS`: the six reserved contact field keys and their labels and descriptions — presentation copy the backend's `ReservedContactField` deliberately doesn't carry.
 
 We need it so hooks/components do not hand-roll fetch calls.
 
 ### `server-authentication.ts`
 
+Source: [`apps/web/src/lib/server-authentication.ts`](../apps/web/src/lib/server-authentication.ts)
+
 Server-side auth and instance-status helpers used by Next routes/layouts.
 
 Important pieces:
 
-- `AuthenticationStatus`, `getServerAuthenticationStatus`: fetches `/auth/me` forwarding the request's session cookie so Server Components can check auth without a client round-trip.
+- `ServerAuthenticationClient`, exported as the `serverAuthenticationApi` singleton (base URL from `serverApiBaseUrl()`):
+  - `getAuthenticationStatus()`: fetches `/auth/me` forwarding the request's session cookie, so Server Components can check auth without a client round-trip.
+  - `getInstanceStatus()`: fetches `/auth/bootstrap-status`; fails safe by treating the instance as already bootstrapped on any error, so a transient API outage never traps every visitor on `/setup`.
 - `requireAuthentication`: redirects to `/login` if unauthenticated.
 - `redirectIfAuthenticated`: redirects to `/inbox` (or a given destination) if already authenticated.
-- `InstanceStatus`, `getInstanceStatus`: fetches `/auth/bootstrap-status`; fails safe by treating the instance as already bootstrapped on any error, so a transient API outage never traps every visitor on `/setup`.
 - `redirectIfNotBootstrapped`: redirects to `/setup` if the instance hasn't completed first-run setup.
 - `redirectIfBootstrapped`: redirects to `/login` if the instance has already completed first-run setup — used by `setup/layout.tsx` so `/setup` can't be revisited after the fact.
-- `apiBaseUrl`
 
 We need it to protect server-rendered app routes, prevent logged-in users from staying on auth pages, and gate the one-time `/setup` route.
 
 ### `server-messaging-api.ts`
+
+Source: [`apps/web/src/lib/server-messaging-api.ts`](../apps/web/src/lib/server-messaging-api.ts)
 
 Server-only `ServerMessagingApiClient` for Server Components, exported as the `serverMessagingApi` singleton. Its private `request()` forwards the request's cookies, and non-2xx responses throw the shared `ApiError`.
 
@@ -3094,11 +4078,15 @@ We need it so server-rendered pages read workspace and invite data through one A
 
 ### `error-message.ts`
 
+Source: [`apps/web/src/lib/error-message.ts`](../apps/web/src/lib/error-message.ts)
+
 Normalizes unknown errors into user-displayable strings.
 
 We need it so mutation hooks can show clean toast messages.
 
 ### `proxy.ts`
+
+Source: [`apps/web/src/proxy.ts`](../apps/web/src/proxy.ts)
 
 Next middleware for the API proxy and route-level cookie checks.
 
@@ -3113,19 +4101,46 @@ We need it so the browser only ever talks to the web app's domain: the API's ses
 
 ### `api-base-url.ts`
 
+Source: [`apps/web/src/lib/api-base-url.ts`](../apps/web/src/lib/api-base-url.ts)
+
 - `BROWSER_API_BASE_URL`: `/backend`, used for links and the SSE connection so server and browser render the same value.
 - `serverApiBaseUrl()`: `RELAYFLOW_API_INTERNAL_URL` (default `http://localhost:8080`), used by server-rendered pages.
 - `apiBaseUrl()`: picks between the two depending on where it runs; the default for the API clients.
 
+### `api-client.ts`
+
+Source: [`apps/web/src/lib/api-client.ts`](../apps/web/src/lib/api-client.ts)
+
+Shared by every API client, so `error instanceof ApiError` works across them.
+
+- `ApiError`: fetch error with the HTTP `status` and the parsed response `details`.
+- `readResponseBody(response)`: reads JSON or text depending on the content type.
+- `apiErrorMessage(status, details)`: the backend's `message`, or `Request failed with status <status>`.
+- `RequestOptions`: `method` and `body` for a request.
+
+We need it so error handling is the same for every client.
+
+### `countries.ts`
+
+Source: [`apps/web/src/lib/countries.ts`](../apps/web/src/lib/countries.ts)
+
+`countryOptions(locale)`: every two-letter region `Intl.DisplayNames` can name, as `SelectOption`s sorted by name, skipping non-country codes such as `EU` and `UN`. Used for the default region in contact access settings.
+
+We need it so the region list comes from the browser instead of a hand-maintained table.
+
 ## Frontend Tests
 
 ### `page.test.tsx`
+
+Source: [`apps/web/src/app/page.test.tsx`](../apps/web/src/app/page.test.tsx)
 
 Tests the root route (`Home`)'s redirect logic: `/setup` when not bootstrapped, `/inbox` when authenticated, `/login` otherwise. Mocks `next/navigation`'s `redirect` (a throw-based API) as a plain spy, and mocks `getInstanceStatus`/`getServerAuthenticationStatus` from `server-authentication.ts`.
 
 We need it to protect the instance-bootstrap/auth routing decision that gates every visitor before they reach a real page.
 
 ### `ConversationList.test.tsx`
+
+Source: [`apps/web/src/components/inbox/ConversationList.test.tsx`](../apps/web/src/components/inbox/ConversationList.test.tsx)
 
 Tests inbox conversation list states.
 
@@ -3139,6 +4154,8 @@ We need it to protect the empty/loading/populated conversation list behavior.
 
 ### `WorkspaceSwitcher.test.tsx`
 
+Source: [`apps/web/src/components/workspace/WorkspaceSwitcher.test.tsx`](../apps/web/src/components/workspace/WorkspaceSwitcher.test.tsx)
+
 Tests workspace dropdown behavior and `workspaceUrl`'s section mapping.
 
 Important values/helpers:
@@ -3151,9 +4168,116 @@ We need it because workspace switching affects navigation across the app.
 
 ### `messaging-api.test.ts`
 
-Tests API client behavior.
+Source: [`apps/web/src/lib/messaging-api.test.ts`](../apps/web/src/lib/messaging-api.test.ts)
+
+Tests API client behavior: workspace creation with session credentials, contact tag changes (null clears a tag), tag definitions, message list query parameters, the hook test endpoint, and `ApiError` details.
 
 We need it to protect fetch URL construction and error handling.
+
+### `server-messaging-api.test.ts`
+
+Source: [`apps/web/src/lib/server-messaging-api.test.ts`](../apps/web/src/lib/server-messaging-api.test.ts)
+
+Tests that `listWorkspaces` forwards the request's cookies, and that `listWorkspaces` and `getInvitePreview` return an empty list and `null` when the request fails.
+
+### `api-base-url.test.ts`
+
+Source: [`apps/web/src/lib/api-base-url.test.ts`](../apps/web/src/lib/api-base-url.test.ts)
+
+Tests that the server uses `RELAYFLOW_API_INTERNAL_URL` without a trailing slash (falling back to `http://localhost:8080`), and the browser uses `/backend`.
+
+### `message-formatting.test.ts`
+
+Source: [`apps/web/src/lib/message-formatting.test.ts`](../apps/web/src/lib/message-formatting.test.ts)
+
+Tests `parseFormattedText` (each style, code blocks, nesting, markers inside words or next to spaces, no overlaps, bullets, no spanning lines), `bulletLines`, and `wrapSelection`.
+
+### `proxy.test.ts`
+
+Source: [`apps/web/src/proxy.test.ts`](../apps/web/src/proxy.test.ts)
+
+Tests that `/backend` paths map to the internal API with the query string kept, that they're rewritten rather than redirected, and that visitors without a session still go to the login page.
+
+### `DesktopOnly.test.tsx`
+
+Source: [`apps/web/src/components/common/DesktopOnly.test.tsx`](../apps/web/src/components/common/DesktopOnly.test.tsx)
+
+Tests that wide screens see the content and narrow screens see the message and back link.
+
+### `test/setup.ts`
+
+Source: [`apps/web/src/test/setup.ts`](../apps/web/src/test/setup.ts)
+
+Vitest setup file (`setupFiles` in `vitest.config`): loads the `@testing-library/jest-dom` matchers for every web test.
+
+## Backend Tests
+
+Source:
+
+- [`RelayFlowApiApplicationIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/RelayFlowApiApplicationIT.java)
+- [`RelayFlowApiApplicationSmokeTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/RelayFlowApiApplicationSmokeTest.java)
+- [`AgentWorkflowContextTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AgentWorkflowContextTest.java)
+- [`AiAgentConfigurationServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AiAgentConfigurationServiceTest.java)
+- [`AiAgentContextAssemblerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AiAgentContextAssemblerTest.java)
+- [`AiAgentInvocationServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AiAgentInvocationServiceTest.java)
+- [`ContactCustomFieldWriterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/ContactCustomFieldWriterTest.java)
+- [`PublishedWorkflowMappingsTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/PublishedWorkflowMappingsTest.java)
+- [`AgentLlmResponseParserTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/AgentLlmResponseParserTest.java)
+- [`LlmClientFactoryTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmClientFactoryTest.java)
+- [`LlmPromptsTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmPromptsTest.java)
+- [`ChannelAccountControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountControllerTest.java)
+- [`ChannelAccountMapperTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountMapperTest.java)
+- [`HibernateJsonConfigurationTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/configuration/HibernateJsonConfigurationTest.java)
+- [`ContactAccessServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/contact/ContactAccessServiceTest.java)
+- [`ContactServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/contact/ContactServiceTest.java)
+- [`ContactTagServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/contact/ContactTagServiceTest.java)
+- [`PhoneNumberNormalizerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/contact/PhoneNumberNormalizerTest.java)
+- [`ReservedContactFieldResolverTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/contact/ReservedContactFieldResolverTest.java)
+- [`BuiltInHookTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/hook/BuiltInHookTest.java)
+- [`FeelHookEvaluatorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/hook/FeelHookEvaluatorTest.java)
+- [`HookControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/hook/HookControllerTest.java)
+- [`HookServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/hook/HookServiceTest.java)
+- [`GelfJsonProviderTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/logging/GelfJsonProviderTest.java)
+- [`LogfmtLayoutTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/logging/LogfmtLayoutTest.java)
+- [`RequestIdFilterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/logging/RequestIdFilterTest.java)
+- [`MessagingControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/messaging/MessagingControllerTest.java)
+- [`MessagingServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/messaging/MessagingServiceTest.java)
+- [`PublicApiAuthenticationEntryPointTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/publicapi/PublicApiAuthenticationEntryPointTest.java)
+- [`PublicApiAuthenticationIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/publicapi/PublicApiAuthenticationIT.java)
+- [`PublicApiControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/publicapi/PublicApiControllerTest.java)
+- [`RateLimitFilterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/security/RateLimitFilterTest.java)
+- [`SseControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/sse/SseControllerTest.java)
+- [`WorkspaceSseServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/sse/WorkspaceSseServiceTest.java)
+- [`TelegramFormatterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/telegram/TelegramFormatterTest.java)
+- [`ReplyRouterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/ReplyRouterTest.java)
+- [`WorkflowEngineServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/WorkflowEngineServiceTest.java)
+- [`ConditionNodeExecutorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/executor/ConditionNodeExecutorTest.java)
+- [`HttpRequestNodeExecutorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/executor/HttpRequestNodeExecutorTest.java)
+- [`SetContactFieldNodeExecutorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/executor/SetContactFieldNodeExecutorTest.java)
+- [`SecretServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workspace/SecretServiceTest.java)
+- [`WorkspaceControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workspace/WorkspaceControllerTest.java)
+- [`WorkspaceServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workspace/WorkspaceServiceTest.java)
+
+Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest` with MockMvc. `*IT` classes start the whole app against a Postgres Testcontainer, with the Flyway migrations run by the `test` profile, and only run with `mvn -Pintegration-test verify`.
+
+- `RelayFlowApiApplicationIT`: the application context starts against a real database. `RelayFlowApiApplicationSmokeTest`: the main class exists.
+- `HibernateJsonConfigurationTest`: JSON columns read arrays as Java lists.
+- `RequestIdFilterTest`, `LogfmtLayoutTest`, `GelfJsonProviderTest`: request ID reuse and replacement, and the logfmt and GELF output formats.
+- `RateLimitFilterTest`: a public API rejection is a `RATE_LIMITED` problem; an internal one keeps `ErrorResponse`.
+- `PublicApiControllerTest`: every public API error code and its status. `PublicApiAuthenticationEntryPointTest`: missing and rejected keys. `PublicApiAuthenticationIT`: the same through the real security chain.
+- `WorkspaceControllerTest`, `WorkspaceServiceTest`, `SecretServiceTest`: workspace creation rules, contact tag definition rules, and secret encryption, lookup, and conflicts.
+- `ChannelAccountControllerTest`, `ChannelAccountMapperTest`: channel account endpoints, and the webhook URL each provider gets.
+- `ContactServiceTest`, `ContactTagServiceTest`, `ContactAccessServiceTest`, `PhoneNumberNormalizerTest`, `ReservedContactFieldResolverTest`: contact delete and merge webhooks and cleanup, tag rules, whitelist checks, number normalization, and derived reserved fields.
+- `MessagingControllerTest`, `MessagingServiceTest`: conversation and message endpoints, and when a reply reopens a closed conversation.
+- `SseControllerTest`, `WorkspaceSseServiceTest`: the stream's no-transform headers and its retry hint.
+- `TelegramFormatterTest`: Markdown-style markers to Telegram HTML.
+- `FeelHookEvaluatorTest`, `BuiltInHookTest`, `HookServiceTest`, `HookControllerTest`: FEEL evaluation results, the built-in hooks, hook CRUD rules, and the test endpoint.
+- `WorkflowEngineServiceTest`, `ReplyRouterTest`: "No reply" handling, unpublished workflows, and reply routing with and without hooks.
+- `ConditionNodeExecutorTest`, `HttpRequestNodeExecutorTest`, `SetContactFieldNodeExecutorTest`: the default operator, secret resolution without leaking into output, and contact field writes.
+- `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, and published-only workflow mappings.
+- `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPromptsTest`: LLM response parsing, provider selection, and the extraction prompt.
+
+We need them to protect the behavior each describes; the pre-commit hook runs the unit tests.
 
 ## Contracts And Schemas
 
@@ -3241,6 +4365,8 @@ We need them to keep local development, linting, tests, and builds predictable.
 
 ### `AiAgentConfiguration`
 
+Source: [`AiAgentConfiguration.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/AiAgentConfiguration.java)
+
 JPA entity mapped to `ai_agent_configs`. A workspace can have any number of named, reusable agent configs; exactly one is flagged as the workspace's default at a time (`is_default`, enforced by the partial unique index `uq_ai_agent_config_default` on `(workspace_id) WHERE is_default IS TRUE`). A `ChannelAccount` optionally references one via its own nullable `ai_agent_configuration_id` FK — the entity itself has no back-reference to any channel, since the relationship is now channel-owns-the-pointer rather than one-config-per-channel.
 
 Important fields:
@@ -3261,6 +4387,8 @@ We need it to let a workspace define multiple agent personas (e.g. a sales agent
 
 ### `AiAgentInvocationLog`
 
+Source: [`AiAgentInvocationLog.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/AiAgentInvocationLog.java)
+
 JPA entity mapped to `ai_agent_invocation_logs`. One row per agent pipeline run.
 
 Important fields:
@@ -3277,6 +4405,8 @@ We need it for observability and to prevent concurrent agent invocations on the 
 
 ### `ConversationAiDraft`
 
+Source: [`ConversationAiDraft.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/ConversationAiDraft.java)
+
 JPA entity mapped to `conversation_ai_drafts`. One row per conversation (unique constraint).
 
 Important fields:
@@ -3290,6 +4420,8 @@ Important fields:
 We need it to hold the AI-proposed reply — and what it has extracted so far — until an agent sends, edits, discards, or approves a workflow from it.
 
 ### `AiAgentConfigurationService`
+
+Source: [`AiAgentConfigurationService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentConfigurationService.java)
 
 Business service for AI agent configuration CRUD and draft actions.
 
@@ -3311,6 +4443,8 @@ We need it to keep controller code thin.
 
 ### `AiAgentConfigurationsController`
 
+Source: [`AiAgentConfigurationsController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentConfigurationsController.java)
+
 REST controller at `/workspaces/{workspaceId}/ai-agent-configs`.
 
 - `GET`: any workspace member (`assertMember`) — lists every named config in the workspace.
@@ -3318,6 +4452,8 @@ REST controller at `/workspaces/{workspaceId}/ai-agent-configs`.
 - `GET /platform-llm-provider`: any workspace member — the platform-wide active `LlmProvider` (not scoped to this workspace; reads straight from `LlmPlatformConfigService`).
 
 ### `AiAgentConfigurationDetailController`
+
+Source: [`AiAgentConfigurationDetailController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentConfigurationDetailController.java)
 
 REST controller at `/workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — one config.
 
@@ -3327,12 +4463,16 @@ REST controller at `/workspaces/{workspaceId}/ai-agent-configs/{configurationId}
 
 ### `ChannelAiAgentConfigurationController`
 
+Source: [`ChannelAiAgentConfigurationController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/ChannelAiAgentConfigurationController.java)
+
 REST controller at `/workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — one channel's assignment.
 
 - `GET`: any workspace member (`assertMember`) — `{ configurationId }`, null when the channel has no explicit assignment (it uses the workspace default).
 - `PUT`: requires `AI_AGENT_WRITE` permission or owner role — sets or clears (`configurationId: null`) the channel's assignment.
 
 ### `ConversationAiDraftController`
+
+Source: [`ConversationAiDraftController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/ConversationAiDraftController.java)
 
 REST controller at `/workspaces/{workspaceId}/conversations/{conversationId}/ai-draft`.
 
@@ -3344,6 +4484,8 @@ All endpoints require `INBOX` permission. Endpoints: `GET`, `POST /send` (option
 
 ### `AiAgentInvocationSlotClaimer`
 
+Source: [`AiAgentInvocationSlotClaimer.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentInvocationSlotClaimer.java)
+
 Package-private `@Component` with a `@Transactional(REQUIRES_NEW)` method `tryClaim(conversation, triggeringMessage)`.
 
 Inserts an `AiAgentInvocationLog(RUNNING)` via `saveAndFlush()`. Returns `Optional.empty()` on `DataIntegrityViolationException` (unique slot already held). The inner transaction is isolated so a constraint failure only rolls back the claim attempt, not the outer pipeline transaction.
@@ -3351,6 +4493,8 @@ Inserts an `AiAgentInvocationLog(RUNNING)` via `saveAndFlush()`. Returns `Option
 We need it because catching a constraint violation inside the same `@Transactional` method marks the outer transaction rollback-only; the separate bean with `REQUIRES_NEW` cleanly isolates the failure.
 
 ### `AiAgentInvocationService`
+
+Source: [`AiAgentInvocationService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentInvocationService.java)
 
 Core agent pipeline service. Runs `@Async` after the inbound message transaction commits, in its own `@Transactional(REQUIRES_NEW)`.
 
@@ -3381,6 +4525,8 @@ We need it to handle the full agent decision loop safely with an isolated slot-c
 
 ### `AiAgentTriggerListener`
 
+Source: [`AiAgentTriggerListener.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentTriggerListener.java)
+
 Spring event listener with `@Async @TransactionalEventListener(phase = AFTER_COMMIT)`.
 
 Listens for `ConversationOpenedEvent` and `ConversationMessageReceivedEvent`. On each event, checks that the conversation's channel account (or, absent an override, the workspace) has an enabled config, and that no `WorkflowRun` is active, before calling `AiAgentInvocationService.invoke()`.
@@ -3388,6 +4534,8 @@ Listens for `ConversationOpenedEvent` and `ConversationMessageReceivedEvent`. On
 We need it to run the agent asynchronously after the inbound message transaction commits.
 
 ### `AiAgentContextAssembler`
+
+Source: [`AiAgentContextAssembler.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentContextAssembler.java)
 
 Builds the `AgentLlmRequest` from config and conversation history.
 
@@ -3401,6 +4549,8 @@ We need it to keep LLM prompt construction separate from the invocation pipeline
 
 ### `ExtractedDataValidator`
 
+Source: [`ExtractedDataValidator.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/ExtractedDataValidator.java)
+
 `@Service` in the `agent` package. `validate(workspaceId, extractedData, extractionFields)` runs each extracted value through its `ExtractionField.validationHook` via `HookService.runHook`, with no variables — a hook sees only that one value. Returns an `ExtractionValidation`: `acceptedData` and `rejections` (`RejectedExtraction`: key, value, contact-facing reason).
 
 - No hook, or a blank value → passed through unchanged.
@@ -3413,6 +4563,8 @@ We need it to keep LLM prompt construction separate from the invocation pipeline
 We need it so the agent never stores or acts on an extracted value the workspace's own rules reject, and asks the contact to correct it instead.
 
 ### `ContactCustomFieldWriter`
+
+Source: [`ContactCustomFieldWriter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/ContactCustomFieldWriter.java)
 
 `@Service` in the `agent` package. `apply(conversation, extractedData, extractionFields)` persists LLM-extracted data onto the contact's `customFields`. Called unconditionally, immediately after every LLM response.
 
@@ -3430,6 +4582,8 @@ We need it so AI-extracted data flows onto the contact record the moment the AI 
 
 ### `AgentWorkflowContext`
 
+Source: [`AgentWorkflowContext.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AgentWorkflowContext.java)
+
 Package-private static builder in the `agent` package. `build(reply, confidence, extractedData, extractionFields)` returns the workflow variable map seeded when the AI agent triggers a workflow run — called with `accumulatedExtractedData` (merged across turns while a draft sits un-actioned; see `AiAgentInvocationService.mergeWithPendingDraft`), not just the triggering turn's own extraction.
 
 Always includes `agent.reply` (empty string if null) and `agent.confidence` (omitted if null). For `extractedData`, only a key matching a configured `extractionFields` key becomes an `agent.data.<key>` variable — same "known keys only" filter as `ContactCustomFieldWriter`, applied independently since a workflow variable and a persisted contact field are separate concerns.
@@ -3438,29 +4592,49 @@ We need it to stop the LLM's free-form `extractedData` output from leaking an un
 
 ### `AiAgentInvocationCleanupScheduler`
 
+Source: [`AiAgentInvocationCleanupScheduler.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentInvocationCleanupScheduler.java)
+
 Hourly `@Scheduled` job that deletes invocation logs older than `relayflow.agent.invocation-log-retention-days` (default 90, configured via `AGENT_INVOCATION_LOG_RETENTION_DAYS`).
 
 We need it to prevent the invocation log table from growing without bound.
+
+### `PublishedWorkflowMappings`
+
+Source: [`PublishedWorkflowMappings.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/PublishedWorkflowMappings.java)
+
+`filter(workspaceId, workflowMappings)` keeps only the mappings whose workflow is published, with one query for the workspace's published workflow IDs and none when there are no mappings. Used by `AiAgentContextAssembler` (the routing block in the system prompt) and `AiAgentInvocationService` (checking suggested `trigger_workflow` actions).
+
+We need it so the agent is never offered, and can never start, a workflow that isn't published.
 
 ### LLM Abstraction
 
 #### `LlmClient`
 
+Source: [`LlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmClient.java)
+
 Interface: `provider()` returns `LlmProvider`; `complete(AgentLlmRequest)` returns `AgentLlmResponse`.
 
 #### `LlmProvider`
+
+Source: [`LlmProvider.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmProvider.java)
 
 Enum: `ANTHROPIC`, `OPENAI`, `OLLAMA`, `GROQ`.
 
 #### `AgentLlmRequest`
 
+Source: [`AgentLlmRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AgentLlmRequest.java)
+
 Record: `systemPrompt`, `messages: List<LlmMessage>`, `model` (nullable — overrides Redis default when set).
 
 #### `LlmMessage`
 
+Source: [`LlmMessage.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmMessage.java)
+
 Record: `role` (`"user"` / `"assistant"`), `content`. Factory methods: `LlmMessage.user(content)`, `LlmMessage.assistant(content)`.
 
 #### `AgentLlmResponse`
+
+Source: [`AgentLlmResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AgentLlmResponse.java)
 
 Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`, `escalate`, `needsClarification`, `extractedData` (`Map<String, String>`, may be empty), `failed`.
 
@@ -3468,37 +4642,88 @@ Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`
 
 #### `LlmPrompts`
 
+Source: [`LlmPrompts.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmPrompts.java)
+
 Package-private class holding `buildFormatInstruction(extractionFields)`, appended by each LLM client to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model always includes the customer's answer — converted to the expected format when the meaning is clear, such as words to digits, otherwise exactly as sent — and the hook decides whether it's valid) and two directives: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved.
 
 #### `AnthropicLlmClient`
+
+Source: [`AnthropicLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AnthropicLlmClient.java)
 
 Implements `LlmClient` via the Anthropic Java SDK (`anthropic-java:0.8.2`). Built in `@PostConstruct` using `ANTHROPIC_API_KEY`. Model read from Redis `platform:llm:anthropic:model`, default `claude-haiku-4-5`.
 
 #### `AbstractOpenAiCompatibleLlmClient`
 
+Source: [`AbstractOpenAiCompatibleLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AbstractOpenAiCompatibleLlmClient.java)
+
 Package-private abstract base for `OpenAiLlmClient`, `OllamaLlmClient`, and `GroqLlmClient`. Implements the OpenAI-compatible chat completions contract: builds the JSON payload, POSTs to `/v1/chat/completions` via Spring `RestClient`, extracts `choices[0].message.content`, and parses it into `AgentLlmResponse`.
 
 #### `OpenAiLlmClient`
+
+Source: [`OpenAiLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/OpenAiLlmClient.java)
 
 Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built once in `@PostConstruct` with `Authorization: Bearer {OPENAI_API_KEY}`. Model from Redis `platform:llm:openai:model`, default `gpt-4o-mini`.
 
 #### `OllamaLlmClient`
 
+Source: [`OllamaLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/OllamaLlmClient.java)
+
 Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built per call with URL from Redis `platform:llm:ollama:url` (default `http://localhost:11434`). Model from Redis `platform:llm:ollama:model`, default `llama3.2`.
 
 #### `GroqLlmClient`
+
+Source: [`GroqLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/GroqLlmClient.java)
 
 Extends `AbstractOpenAiCompatibleLlmClient`. `RestClient` built in `@PostConstruct` using `GROQ_API_KEY`, base URL `https://api.groq.com/openai`. Model from Redis `platform:llm:groq:model`.
 
 #### `LlmPlatformConfigService`
 
+Source: [`LlmPlatformConfigService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmPlatformConfigService.java)
+
 Reads the active `LlmProvider` from Redis key `platform:llm:provider`. Falls back to `ANTHROPIC` on missing/invalid values. Also exposes `getConfigValue(key, default)` — a generic Redis read with a fallback — used by all three clients for per-provider model and URL config.
 
 #### `LlmClientFactory`
 
+Source: [`LlmClientFactory.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmClientFactory.java)
+
 Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getClient(providerOverride)` returns the client for `providerOverride` when non-null (an `AiAgentConfiguration`'s own `llmProvider`), otherwise resolves `LlmPlatformConfigService.getActiveProvider()` — so a Redis update to the platform default takes effect immediately without restart, for any agent left on "Platform default". `getActiveClient()` is `getClient(null)`, kept as a convenience for always wanting the platform default.
 
+### AI Agent Domain Records
+
+Source:
+
+- [`AiAgentInvocationStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/AiAgentInvocationStatus.java)
+- [`AutonomyCeiling.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/AutonomyCeiling.java)
+- [`ExtractionField.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/ExtractionField.java)
+- [`ExtractionValidation.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/ExtractionValidation.java)
+- [`KnowledgeEntry.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/KnowledgeEntry.java)
+- [`RejectedExtraction.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/RejectedExtraction.java)
+- [`WorkflowMapping.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/domain/WorkflowMapping.java)
+- [`AgentLlmResponseParser.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AgentLlmResponseParser.java)
+
+- `AutonomyCeiling`: `DRAFT_ONLY` or `AUTO_SEND` — the most an agent may do on its own.
+- `AiAgentInvocationStatus`: `RUNNING`, `CLARIFYING`, `ESCALATED`, `DRAFTED`, `SENT`, `FAILED` — the outcome stored on `AiAgentInvocationLog`.
+- `KnowledgeEntry`: one `question`/`answer` pair in an agent's knowledge base.
+- `WorkflowMapping`: `workflowId`, `name`, and the `triggerDescription` the LLM sees.
+- `ExtractionField`: `key`, `description`, and an optional `validationHook`.
+- `ExtractionValidation`: the result of `ExtractedDataValidator` — `acceptedData` plus `rejections`; `correctionInstruction(draftReply)` builds the prompt for the correction rewrite.
+- `RejectedExtraction`: one rejected value (`key`, `value`, `reason`); `conversionRequest()` builds the prompt that asks the LLM to convert it, and `toSnapshot()` its invocation-log form.
+
+`AgentLlmResponseParser` (package-private, in `agent.llm`) turns the LLM's raw JSON into an `AgentLlmResponse`: it strips Markdown code fences, reads `extractedData` as a string map (empty when absent or not an object), and returns a failed response on malformed JSON.
+
+We need these as the typed shapes behind the agent's JSONB configuration and decision pipeline.
+
 ### AI Agent DTO Records
+
+Source:
+
+- [`AiAgentConfigurationResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/AiAgentConfigurationResponse.java)
+- [`ChannelAiAgentAssignmentResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/ChannelAiAgentAssignmentResponse.java)
+- [`ConversationAiDraftResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/ConversationAiDraftResponse.java)
+- [`PlatformLlmProviderResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/PlatformLlmProviderResponse.java)
+- [`SendAiDraftRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/SendAiDraftRequest.java)
+- [`SetChannelAiAgentConfigurationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/SetChannelAiAgentConfigurationRequest.java)
+- [`UpdateAiAgentConfigurationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/UpdateAiAgentConfigurationRequest.java)
 
 - `AiAgentConfigurationResponse`: full config including `isDefault`, `llmProvider`, `name`, and all JSONB fields. No `channelAccountId` — that relationship now lives on `ChannelAccount`, not the config.
 - `UpdateAiAgentConfigurationRequest`: partial update record (`name`, `enabled`, `autonomyCeiling`, `llmProvider`, `instructions`, and the JSONB list fields); compact constructor normalizes null lists to empty.
@@ -3506,8 +4731,15 @@ Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getClient(
 - `ChannelAiAgentAssignmentResponse`: `{ configurationId }` — null means the channel has no explicit assignment.
 - `ConversationAiDraftResponse`: draft fields including `proposedReply`, `suggestedActions`, and `extractedData`.
 - `SendAiDraftRequest`: optional `{ text }` body for `POST /send` — when set, replaces the draft's `proposedReply` as the sent message text.
+- `PlatformLlmProviderResponse`: `{ provider }` — the instance's default LLM provider, marked as the default in the AI agent settings' provider picker.
 
 ### AI Agent Repositories
+
+Source:
+
+- [`AiAgentConfigurationRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/repository/AiAgentConfigurationRepository.java)
+- [`AiAgentInvocationLogRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/repository/AiAgentInvocationLogRepository.java)
+- [`ConversationAiDraftRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/repository/ConversationAiDraftRepository.java)
 
 - `AiAgentConfigurationRepository`: `findByWorkspace` (oldest first), `findInWorkspace`, `findDefault`, `clearDefault(workspaceId)` (`@Modifying` — unsets `is_default` for every config in the workspace, called before flagging a new default), `deleteByWorkspace`.
 - `AiAgentInvocationLogRepository`: `findForConversationWithStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query), `deleteByWorkspace`.
@@ -3517,6 +4749,8 @@ Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getClient(
 ## AI Agent Frontend Components
 
 ### `AiAgentPanel`
+
+Source: [`apps/web/src/components/settings/AiAgentPanel.tsx`](../apps/web/src/components/settings/AiAgentPanel.tsx)
 
 Settings panel under `#ai-agent` in `SettingsShell`. Manages a flat list of named, reusable AI agent configs for the workspace (`useAiAgentConfigurations`) — not scoped to any one channel; a channel's *assignment* to one of these configs is configured separately, in `ChannelsList`.
 
@@ -3542,6 +4776,8 @@ We need it so workspace owners can define multiple agent personas (e.g. a sales 
 
 ### `AiDraftBanner`
 
+Source: [`apps/web/src/components/inbox/AiDraftBanner.tsx`](../apps/web/src/components/inbox/AiDraftBanner.tsx)
+
 Banner rendered above the `MessageComposer` in `MessageThread` when `useConversationAiDraft` returns data.
 
 It detects whether the draft carries a `trigger_workflow:<id>` entry in `suggestedActions` and renders one of two modes:
@@ -3554,7 +4790,7 @@ It detects whether the draft carries a `trigger_workflow:<id>` entry in `suggest
 **Workflow suggestion mode** (`trigger_workflow:` present):
 - Header reads "AI workflow suggestion".
 - Body names the actual workflow(s) via `useWorkflows(workspaceId)`, resolving each `workflowId` to its `WorkflowDefinition.name` (falls back to "a workflow" if not found yet), e.g. "The AI suggests running Loan Workflow to handle this conversation."
-- One **Run `<workflow name>`** button per suggested workflow ID — calls `useTriggerWorkflowFromDraft(workflowId)`.
+- One **Run `<workflow name>`** button per suggested workflow ID — calls `useTriggerWorkflowFromDraft(workspaceId, conversationId)`'s mutation with the workflow ID.
 - **Discard** — calls `useDiscardAiDraft`.
 
 Button row uses `flex-wrap` for mobile responsiveness. All buttons disabled while any mutation is pending.
@@ -3563,17 +4799,28 @@ We need it so agents can send AI replies, trigger AI-suggested workflows, or dis
 
 ## `apps/marketing`
 
+Source:
+
+- [`apps/marketing/src/app/layout.tsx`](../apps/marketing/src/app/layout.tsx)
+- [`apps/marketing/src/app/page.tsx`](../apps/marketing/src/app/page.tsx)
+
 A static marketing site — no server, no database, no backend of any kind. Built with Next.js's
 static export (`output: "export"` in `next.config.mjs`) and deployed to GitHub Pages by
 `.github/workflows/deploy-pages.yml` on every push to `main` that touches this app.
 
-Two pages: `page.tsx` (the landing page, linking to the GitHub repo and to the self-hosting
-docs) and `app/docs/self-hosting/page.tsx` (the public setup guide).
+Three pages: `page.tsx` (the landing page, linking to the GitHub repo and to the self-hosting
+docs), `app/docs/self-hosting/page.tsx` (the public setup guide), and `app/changelog/page.tsx`
+(release notes).
 
 We need it so RelayFlow has a public-facing site describing the product and pointing visitors at
 the repo and the self-hosting docs, with zero infrastructure of its own to operate.
 
 ### `deployment-artifacts.ts` And The Self-Hosting Docs Page
+
+Source:
+
+- [`apps/marketing/src/app/docs/self-hosting/page.tsx`](../apps/marketing/src/app/docs/self-hosting/page.tsx)
+- [`apps/marketing/src/lib/deployment-artifacts.ts`](../apps/marketing/src/lib/deployment-artifacts.ts)
 
 `app/docs/self-hosting/page.tsx` embeds the real `docker-compose.yml`, `.env.example`, and
 Caddyfile from the repo root, read by `deployment-artifacts.ts` **at build time** (`readFileSync`
@@ -3584,3 +4831,37 @@ local-dev-only services that aren't relevant to a self-hosted operator.
 
 We need this because a setup guide that quietly drifts from the files it tells you to copy is
 worse than no guide at all.
+
+Exports: `dockerComposeYml` (prod-profile services only), `environmentExample`, and `caddyfile`.
+
+### Changelog Page And `changelog.ts`
+
+Source:
+
+- [`apps/marketing/src/app/changelog/page.tsx`](../apps/marketing/src/app/changelog/page.tsx)
+- [`apps/marketing/src/lib/changelog.test.ts`](../apps/marketing/src/lib/changelog.test.ts)
+- [`apps/marketing/src/lib/changelog.ts`](../apps/marketing/src/lib/changelog.ts)
+
+`app/changelog/page.tsx` (`ChangelogPage`) renders every release from `changelog.ts`, newest first.
+
+- `CHANGELOG_RELEASES`: one entry per release — `version` (must match a git tag), `date` (the day the tag was cut), and `changes` grouped as `added`, `changed`, `fixed`, `removed`.
+- `CHANGE_CATEGORY_ORDER`, `CHANGE_CATEGORY_LABELS`: the order and headings of those groups.
+- `formatReleaseDate(date)`: formats an ISO date in UTC, so it never shifts a day.
+
+`changelog.test.ts` checks semantic versions and ISO dates, newest-first order with no duplicates, at least one change per release, and the date formatting.
+
+We need it so users can see what changed in each release they upgrade to.
+
+### Marketing Components
+
+Source:
+
+- [`apps/marketing/src/components/CopyableCodeBlock.tsx`](../apps/marketing/src/components/CopyableCodeBlock.tsx)
+- [`apps/marketing/src/components/CtaButton.tsx`](../apps/marketing/src/components/CtaButton.tsx)
+- [`apps/marketing/src/components/Footer.tsx`](../apps/marketing/src/components/Footer.tsx)
+
+- `CtaButton`: a link styled as one of three button variants (`nav`, `hero`, `cta`).
+- `CopyableCodeBlock`: a filename header, a copy button, and the file's contents; used for the embedded deployment files.
+- `Footer`: links to the self-hosting docs, the changelog, and the GitHub repo.
+
+We need them so the three pages share their buttons, code blocks, and footer.

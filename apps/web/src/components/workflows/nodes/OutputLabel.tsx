@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#outputlabel
+
 type Props = {
   left: string;
   className: string;

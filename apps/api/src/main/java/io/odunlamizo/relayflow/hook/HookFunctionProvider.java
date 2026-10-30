@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.hook;
 
+// Docs: docs/codebase-components.md#hookfunctionprovider
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDate;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact.domain;
 
+// Docs: docs/codebase-components.md#externalidentity
+
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.channel.domain.ChannelProvider;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;

@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#conversationlisttesttsx
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

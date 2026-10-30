@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#messaging-apitestts
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, MessagingApiClient } from "./messaging-api";

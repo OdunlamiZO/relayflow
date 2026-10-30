@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#iconbutton
+
 type Props = {
   icon: string;
   label: string;

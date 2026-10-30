@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow;
 
+// Docs: docs/codebase-components.md#nodetype
+
 import java.util.Arrays;
 import java.util.Optional;
 

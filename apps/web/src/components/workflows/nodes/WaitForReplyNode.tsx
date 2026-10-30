@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#waitforreplynode
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 
 import { OutputLabel } from "./OutputLabel";

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact.dto;
 
+// Docs: docs/codebase-components.md#contact-dto-records
+
 import io.odunlamizo.relayflow.channel.domain.ChannelProvider;
 import java.time.Instant;
 import java.util.Map;

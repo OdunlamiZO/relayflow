@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#server-authenticationts
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 

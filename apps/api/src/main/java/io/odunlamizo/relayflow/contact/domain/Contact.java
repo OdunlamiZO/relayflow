@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact.domain;
 
+// Docs: docs/codebase-components.md#contact
+
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

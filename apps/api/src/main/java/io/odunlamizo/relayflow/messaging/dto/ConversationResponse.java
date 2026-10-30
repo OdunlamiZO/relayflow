@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging.dto;
 
+// Docs: docs/codebase-components.md#messaging-dto-records
+
 import io.odunlamizo.relayflow.channel.domain.ChannelProvider;
 import io.odunlamizo.relayflow.messaging.domain.ConversationStatus;
 import java.time.Instant;

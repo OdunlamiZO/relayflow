@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#ai-agent-hooks
 import { useQuery } from "@tanstack/react-query";
 
 import { type LlmProvider, messagingApi } from "@/lib/messaging-api";

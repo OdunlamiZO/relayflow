@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#queryprovider
 import { useState } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

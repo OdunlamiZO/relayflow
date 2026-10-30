@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#aiagentinvocationslotclaimer
+
 import io.odunlamizo.relayflow.agent.domain.AiAgentInvocationLog;
 import io.odunlamizo.relayflow.agent.domain.AiAgentInvocationStatus;
 import io.odunlamizo.relayflow.agent.repository.AiAgentInvocationLogRepository;

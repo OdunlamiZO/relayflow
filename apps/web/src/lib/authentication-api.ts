@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#authentication-apits
 import { apiBaseUrl } from "@/lib/api-base-url";
 import {
   ApiError,

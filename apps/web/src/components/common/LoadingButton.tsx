@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#loadingbutton
 import { Spinner } from "@/components/common/Spinner";
 
 type Props = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "disabled"> & {

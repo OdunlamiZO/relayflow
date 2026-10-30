@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging.domain;
 
+// Docs: docs/codebase-components.md#escalationtype-and-escalationresolution
+
 public enum EscalationType {
     KEYWORD_MATCHED(EscalationResolution.HUMAN_REPLY),
     AI_REQUESTED(EscalationResolution.HUMAN_REPLY),

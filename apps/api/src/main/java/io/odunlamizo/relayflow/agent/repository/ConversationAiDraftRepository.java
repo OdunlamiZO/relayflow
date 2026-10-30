@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.repository;
 
+// Docs: docs/codebase-components.md#ai-agent-repositories
+
 import io.odunlamizo.relayflow.agent.domain.ConversationAiDraft;
 import java.util.Collection;
 import java.util.Optional;

@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#marketing-components
 import Link from "next/link";
 
 type Variant = "nav" | "hero" | "cta";

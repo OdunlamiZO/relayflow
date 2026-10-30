@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#inbox-hooks
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { messagingApi } from "@/lib/messaging-api";

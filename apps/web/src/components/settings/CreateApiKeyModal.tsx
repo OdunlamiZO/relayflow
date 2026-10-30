@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#createapikeymodal
 import { useEffect, useRef, useState } from "react";
 
 import { LoadingButton } from "@/components/common/LoadingButton";

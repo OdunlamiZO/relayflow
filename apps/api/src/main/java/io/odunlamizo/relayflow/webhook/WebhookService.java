@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.webhook;
 
+// Docs: docs/codebase-components.md#webhookservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.security.CredentialEncryptionService;

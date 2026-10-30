@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#contactaccesscontroller
+
 import io.odunlamizo.relayflow.contact.dto.AddWhitelistedPhoneNumbersRequest;
 import io.odunlamizo.relayflow.contact.dto.WhitelistedPhoneNumberResponse;
 import io.odunlamizo.relayflow.workspace.WorkspaceAuthorizationService;

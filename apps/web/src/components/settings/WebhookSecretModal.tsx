@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#webhooksecretmodal
 import { useEffect, useState } from "react";
 
 type Props = {

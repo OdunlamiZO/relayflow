@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.sse;
 
+// Docs: docs/codebase-components.md#ssebroadcastevent
+
 import java.util.Map;
 import java.util.UUID;
 

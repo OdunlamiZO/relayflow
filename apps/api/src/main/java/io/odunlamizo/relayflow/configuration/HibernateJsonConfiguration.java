@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.configuration;
 
+// Docs: docs/codebase-components.md#hibernatejsonconfiguration
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hibernate.cfg.MappingSettings;
 import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;

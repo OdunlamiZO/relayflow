@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#conversationitem
 import type { Conversation } from "@/lib/messaging-api";
 
 type Props = {

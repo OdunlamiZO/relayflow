@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.hook.domain;
 
+// Docs: docs/codebase-components.md#hook
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

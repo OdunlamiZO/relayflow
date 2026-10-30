@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.profile;
 
+// Docs: docs/codebase-components.md#twofactorservice
+
 import dev.samstevens.totp.code.DefaultCodeGenerator;
 import dev.samstevens.totp.code.DefaultCodeVerifier;
 import dev.samstevens.totp.code.HashingAlgorithm;

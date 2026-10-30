@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#conversationaidraftcontroller
+
 import io.odunlamizo.relayflow.agent.dto.ConversationAiDraftResponse;
 import io.odunlamizo.relayflow.agent.dto.SendAiDraftRequest;
 import io.odunlamizo.relayflow.messaging.dto.MessageResponse;

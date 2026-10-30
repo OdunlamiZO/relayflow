@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#inbox-hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { messagingApi } from "@/lib/messaging-api";

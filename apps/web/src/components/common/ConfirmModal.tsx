@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#confirmmodal
 import { useEffect } from "react";
 
 import { LoadingButton } from "@/components/common/LoadingButton";

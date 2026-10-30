@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.email;
 
+// Docs: docs/codebase-components.md#emailservice-and-smtpemailservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import jakarta.mail.internet.MimeMessage;

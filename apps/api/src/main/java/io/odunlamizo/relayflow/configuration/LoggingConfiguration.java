@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.configuration;
 
+// Docs: docs/codebase-components.md#loggingconfiguration
+
 import io.odunlamizo.relayflow.logging.RequestIdFilter;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;

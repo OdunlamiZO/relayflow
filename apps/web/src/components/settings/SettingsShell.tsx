@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#settingsshell
 import { useEffect, useRef, useState } from "react";
 
 import { DesktopOnly } from "@/components/common/DesktopOnly";

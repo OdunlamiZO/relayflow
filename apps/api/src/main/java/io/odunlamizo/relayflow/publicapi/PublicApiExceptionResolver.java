@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.publicapi;
 
+// Docs: docs/codebase-components.md#publicapiexceptionresolver
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.common.ResourceNotFoundException;

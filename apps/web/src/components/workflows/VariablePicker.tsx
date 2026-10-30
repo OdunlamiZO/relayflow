@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#variablepicker
 import { useEffect, useRef, useState } from "react";
 
 export type WorkflowVariable = {

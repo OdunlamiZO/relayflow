@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#integration-hooks
 import { useMutation } from "@tanstack/react-query";
 
 import {

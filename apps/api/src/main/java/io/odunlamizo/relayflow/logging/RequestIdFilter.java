@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.logging;
 
+// Docs: docs/codebase-components.md#requestidfilter
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

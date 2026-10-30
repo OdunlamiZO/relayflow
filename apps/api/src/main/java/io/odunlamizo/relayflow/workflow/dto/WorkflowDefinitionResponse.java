@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.dto;
 
+// Docs: docs/codebase-components.md#workflow-dto-records
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;

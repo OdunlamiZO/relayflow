@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#select
 import { useEffect, useRef, useState } from "react";
 
 export type SelectOption = {

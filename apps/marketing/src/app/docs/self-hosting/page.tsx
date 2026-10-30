@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#deployment-artifactsts-and-the-self-hosting-docs-page
 import Link from "next/link";
 
 import { CopyableCodeBlock } from "@/components/CopyableCodeBlock";

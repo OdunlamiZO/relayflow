@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#googleicon
+
 type Props = {
   className?: string;
 };

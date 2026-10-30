@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#deployment-artifactsts-and-the-self-hosting-docs-page
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";

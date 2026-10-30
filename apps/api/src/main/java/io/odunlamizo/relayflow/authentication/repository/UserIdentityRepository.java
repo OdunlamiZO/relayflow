@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication.repository;
 
+// Docs: docs/codebase-components.md#authentication-satellite-repositories
+
 import io.odunlamizo.relayflow.authentication.domain.AuthenticationProvider;
 import io.odunlamizo.relayflow.authentication.domain.User;
 import io.odunlamizo.relayflow.authentication.domain.UserIdentity;

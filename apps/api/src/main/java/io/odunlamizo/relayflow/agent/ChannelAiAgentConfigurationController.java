@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent;
 
+// Docs: docs/codebase-components.md#channelaiagentconfigurationcontroller
+
 import io.odunlamizo.relayflow.agent.dto.ChannelAiAgentAssignmentResponse;
 import io.odunlamizo.relayflow.agent.dto.SetChannelAiAgentConfigurationRequest;
 import io.odunlamizo.relayflow.workspace.WorkspaceAuthorizationService;

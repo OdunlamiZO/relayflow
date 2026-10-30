@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.domain;
 
+// Docs: docs/codebase-components.md#aiagentconfiguration
+
 import io.odunlamizo.relayflow.agent.llm.LlmProvider;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import jakarta.persistence.Column;

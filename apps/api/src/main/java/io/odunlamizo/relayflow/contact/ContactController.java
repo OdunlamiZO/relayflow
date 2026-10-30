@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.contact;
 
+// Docs: docs/codebase-components.md#contactcontroller
+
 import io.odunlamizo.relayflow.common.dto.PageResponse;
 import io.odunlamizo.relayflow.contact.dto.ContactDetailResponse;
 import io.odunlamizo.relayflow.contact.dto.ContactResponse;

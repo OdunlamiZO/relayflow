@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#auth-pages
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";

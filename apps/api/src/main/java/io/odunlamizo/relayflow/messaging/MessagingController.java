@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging;
 
+// Docs: docs/codebase-components.md#messagingcontroller
+
 import io.odunlamizo.relayflow.common.dto.PageResponse;
 import io.odunlamizo.relayflow.messaging.dto.ConversationResponse;
 import io.odunlamizo.relayflow.messaging.dto.CreateConversationRequest;

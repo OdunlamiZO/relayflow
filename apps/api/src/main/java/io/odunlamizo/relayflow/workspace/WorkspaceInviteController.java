@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace;
 
+// Docs: docs/codebase-components.md#workspaceinvitecontroller
+
 import io.odunlamizo.relayflow.authentication.SecurityUtils;
 import io.odunlamizo.relayflow.workspace.dto.CreateInviteRequest;
 import io.odunlamizo.relayflow.workspace.dto.InvitePreviewResponse;

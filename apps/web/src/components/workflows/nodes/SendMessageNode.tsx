@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#sendmessagenode
 import { type Node, type NodeProps } from "@xyflow/react";
 
 import { WorkflowNode } from "./WorkflowNode";

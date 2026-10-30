@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#secretspanel
 import { useEffect, useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";

@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#conversationlist
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 

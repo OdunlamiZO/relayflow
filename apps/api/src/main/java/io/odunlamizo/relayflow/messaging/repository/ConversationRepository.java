@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.messaging.repository;
 
+// Docs: docs/codebase-components.md#messaging-repositories
+
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import java.time.Instant;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow.engine.executor;
 
+// Docs: docs/codebase-components.md#endconversationnodeexecutor
+
 import io.odunlamizo.relayflow.messaging.OutboundMessageEvent;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.ConversationStatus;

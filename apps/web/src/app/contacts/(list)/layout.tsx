@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#contacts-pages
 import { AppHeader } from "@/components/workspace/AppHeader";
 import { requireAuthentication } from "@/lib/server-authentication";
 

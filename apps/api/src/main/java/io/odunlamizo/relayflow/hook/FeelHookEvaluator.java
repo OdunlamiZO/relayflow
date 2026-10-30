@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.hook;
 
+// Docs: docs/codebase-components.md#feelhookevaluator
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.hook.domain.HookOutcome;

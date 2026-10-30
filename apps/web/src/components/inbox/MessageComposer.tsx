@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#messagecomposer
 import { useEffect, useRef, useState } from "react";
 
 import { Spinner } from "@/components/common/Spinner";

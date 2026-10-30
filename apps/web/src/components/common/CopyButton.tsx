@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#copybutton
 import { useState } from "react";
 
 type Props = {

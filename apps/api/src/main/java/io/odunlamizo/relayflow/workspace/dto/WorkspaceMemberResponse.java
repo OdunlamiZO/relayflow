@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace.dto;
 
+// Docs: docs/codebase-components.md#workspace-dto-records
+
 import io.odunlamizo.relayflow.workspace.domain.WorkspacePermission;
 import io.odunlamizo.relayflow.workspace.domain.WorkspaceRole;
 import java.time.Instant;

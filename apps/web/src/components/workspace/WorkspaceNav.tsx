@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#workspacenav
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 

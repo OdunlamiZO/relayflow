@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.profile;
 
+// Docs: docs/codebase-components.md#profileservice
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.authentication.PasswordResetService;

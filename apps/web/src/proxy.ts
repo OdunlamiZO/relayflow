@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#proxyts
 import { type NextRequest, NextResponse } from "next/server";
 
 import { BROWSER_API_BASE_URL, serverApiBaseUrl } from "@/lib/api-base-url";

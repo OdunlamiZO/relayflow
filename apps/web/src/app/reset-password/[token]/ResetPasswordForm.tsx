@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#reset-password-page
 import Link from "next/link";
 import { useState } from "react";
 

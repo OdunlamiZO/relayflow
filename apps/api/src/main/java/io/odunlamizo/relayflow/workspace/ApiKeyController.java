@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace;
 
+// Docs: docs/codebase-components.md#apikeycontroller
+
 import io.odunlamizo.relayflow.authentication.SecurityUtils;
 import io.odunlamizo.relayflow.workspace.domain.WorkspacePermission;
 import io.odunlamizo.relayflow.workspace.dto.ApiKeyResponse;

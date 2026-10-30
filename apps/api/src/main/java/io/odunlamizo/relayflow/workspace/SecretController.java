@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workspace;
 
+// Docs: docs/codebase-components.md#secretcontroller
+
 import io.odunlamizo.relayflow.workspace.domain.WorkspacePermission;
 import io.odunlamizo.relayflow.workspace.dto.SaveSecretRequest;
 import io.odunlamizo.relayflow.workspace.dto.SecretResponse;

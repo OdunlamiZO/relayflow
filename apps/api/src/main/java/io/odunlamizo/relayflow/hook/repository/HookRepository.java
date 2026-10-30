@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.hook.repository;
 
+// Docs: docs/codebase-components.md#workflow-repositories
+
 import io.odunlamizo.relayflow.hook.domain.Hook;
 import java.util.List;
 import java.util.Optional;

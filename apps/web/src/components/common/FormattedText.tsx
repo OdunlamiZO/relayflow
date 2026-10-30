@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#formattedtext
 import {
   type FormattedNode,
   parseFormattedText,

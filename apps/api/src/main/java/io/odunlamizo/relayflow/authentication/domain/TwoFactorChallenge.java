@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication.domain;
 
+// Docs: docs/codebase-components.md#twofactorchallenge
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

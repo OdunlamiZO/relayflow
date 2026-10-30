@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#emptystate
+
 type Props = {
   icon: string;
   title: string;

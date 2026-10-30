@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#countriests
 import type { SelectOption } from "@/components/common/Select";
 
 const NON_COUNTRY_CODES = new Set(["EU", "EZ", "QO", "UN", "XA", "XB", "ZZ"]);

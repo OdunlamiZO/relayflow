@@ -1,3 +1,5 @@
+// Docs: docs/codebase-components.md#api-base-urlts
+
 export const BROWSER_API_BASE_URL = "/backend";
 
 export function serverApiBaseUrl(): string {

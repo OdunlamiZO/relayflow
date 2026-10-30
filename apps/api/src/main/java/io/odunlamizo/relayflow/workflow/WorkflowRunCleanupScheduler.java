@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.workflow;
 
+// Docs: docs/codebase-components.md#workflowruncleanupscheduler
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.odunlamizo.relayflow.workflow.domain.WorkflowRunStatus;

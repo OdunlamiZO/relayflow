@@ -1,5 +1,6 @@
 "use client";
 
+// Docs: docs/codebase-components.md#mergecontactmodal
 import { useState } from "react";
 
 import { LoadingButton } from "@/components/common/LoadingButton";

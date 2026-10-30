@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.authentication;
 
+// Docs: docs/codebase-components.md#securityutils
+
 import io.odunlamizo.relayflow.authentication.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;

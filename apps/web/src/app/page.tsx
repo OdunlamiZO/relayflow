@@ -1,3 +1,4 @@
+// Docs: docs/codebase-components.md#root-route
 import { redirect } from "next/navigation";
 
 import { serverAuthenticationApi } from "@/lib/server-authentication";

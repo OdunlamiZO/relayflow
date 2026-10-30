@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.agent.dto;
 
+// Docs: docs/codebase-components.md#ai-agent-dto-records
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;

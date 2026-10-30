@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.channel.repository;
 
+// Docs: docs/codebase-components.md#channel-repositories
+
 import io.odunlamizo.relayflow.agent.domain.AiAgentConfiguration;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import java.time.Instant;

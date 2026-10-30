@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.channel;
 
+// Docs: docs/codebase-components.md#backend-tests
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;

@@ -1,5 +1,7 @@
 package io.odunlamizo.relayflow.logging;
 
+// Docs: docs/codebase-components.md#requestidtaskdecorator
+
 import org.slf4j.MDC;
 import org.springframework.core.task.TaskDecorator;
 
