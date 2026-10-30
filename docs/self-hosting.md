@@ -42,7 +42,8 @@ docker compose --profile prod up -d
 | `RELAYFLOW_WEB_DOMAIN` / `RELAYFLOW_API_DOMAIN` | Yes | Used by Caddy for automatic TLS |
 | `RELAYFLOW_WEB_BASE_URL` / `RELAYFLOW_API_BASE_URL` | Yes | Must match the domains above exactly — see [Troubleshooting](#troubleshooting) |
 | `GOOGLE_AUTH_ENABLED` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | Off by default. In Google Cloud, add the redirect URI `<RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google` |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GROQ_API_KEY` | No | At least one needed for AI agent features |
+| `ANTHROPIC_API_KEY` | No | For Anthropic models. AI agent features need this or the OpenAI-compatible provider below |
+| `OPENAI_COMPATIBLE_BASE_URL` / `OPENAI_COMPATIBLE_API_KEY` | No | Any OpenAI-compatible API — OpenAI, Groq, OpenRouter, Ollama, vLLM, and more. The model is set in Redis (`platform:llm:openai-compatible:model`), with no default. The base URL includes `/v1` (e.g. `https://api.groq.com/openai/v1`); the key can be empty for local servers. See `.env.example` for common URLs |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | No | Works with any SMTP provider (Resend, SES, Mailgun, Postmark, Gmail, self-hosted, etc.). Blank host runs email in no-op/log mode |
 | `LOG_FORMAT` / `LOG_LEVEL` | No | `json` (default in the prod stack), `ecs`, `gelf`, `logfmt` or `text`; `INFO` by default — see [Logging](#logging) |
 | `JAVA_OPTS` | No | Extra JVM flags for the API. Defaults to `-XX:MaxRAMPercentage=75`, so the heap can use 75% of the API container's 1 GB memory limit; raise the limit in `docker-compose.yml` for heavier workloads |
@@ -166,8 +167,9 @@ and point your existing proxy at `web:3000` and `api:8080` on the compose networ
 - **Browser console shows CORS errors**: `RELAYFLOW_WEB_BASE_URL` must exactly match the public
   origin the browser is loading the web app from (scheme + host, no trailing slash) — the API
   uses it as the allowed CORS origin.
-- **AI agent features return errors or do nothing**: no LLM provider key is configured — set at
-  least one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY`.
+- **AI agent features return errors or do nothing**: no LLM provider is configured — set
+  `ANTHROPIC_API_KEY`, or `OPENAI_COMPATIBLE_BASE_URL` and the `platform:llm:openai-compatible:model` Redis key (plus `OPENAI_COMPATIBLE_API_KEY` if
+  the API needs one), and set `platform:llm:provider` in Redis to `ANTHROPIC` or `OPENAI_COMPATIBLE` to match.
 - **API container exits immediately on a fresh install**: check `docker compose --profile prod
   logs api` — this is almost always a missing `RELAYFLOW_ENCRYPTION_KEY`, which fails fast with
   a clear message.

@@ -34,11 +34,13 @@ To pull a different model after startup:
 docker compose exec ollama ollama pull qwen2.5:3b
 ```
 
-To switch the model RelayFlow uses, update the Redis key (no restart required):
+RelayFlow reaches Ollama through the OpenAI-compatible LLM provider. Set
+`OPENAI_COMPATIBLE_BASE_URL=http://localhost:11434/v1` for the API, then choose the model (no restart
+needed to change it):
 
 ```bash
-redis-cli SET 'platform:llm:ollama:model' 'qwen2.5:3b'
-redis-cli SET  platform:llm:provider       'OLLAMA'
+redis-cli SET 'platform:llm:openai-compatible:model' 'qwen2.5:3b'
+redis-cli SET  platform:llm:provider      'OPENAI_COMPATIBLE'
 ```
 
 NVIDIA GPU passthrough on Linux is supported — uncomment the `deploy.resources` block in `docker-compose.yml`.

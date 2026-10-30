@@ -490,7 +490,7 @@ export type WorkflowRunDetail = WorkflowRun & {
 
 export type AutonomyCeiling = "DRAFT_ONLY" | "AUTO_SEND";
 
-export type LlmProvider = "ANTHROPIC" | "OPENAI" | "GROQ" | "OLLAMA";
+export type LlmProvider = "ANTHROPIC" | "OPENAI_COMPATIBLE";
 
 export type KnowledgeEntry = {
   question: string;

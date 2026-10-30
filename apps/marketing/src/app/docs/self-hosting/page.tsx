@@ -42,10 +42,16 @@ const ENVIRONMENT_VARIABLE_ROWS: Array<{
       "Off by default. In Google Cloud, add the redirect URI <RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google",
   },
   {
-    name: "ANTHROPIC_API_KEY / OPENAI_API_KEY / GROQ_API_KEY",
+    name: "ANTHROPIC_API_KEY",
     required: false,
     notes:
-      "At least one needed for AI agent features. You also need to pick the active provider in Redis — see the first-run walkthrough below.",
+      "For Anthropic models. AI agent features need this or the OpenAI-compatible provider below. You also need to pick the active provider in Redis — see the first-run walkthrough below.",
+  },
+  {
+    name: "OPENAI_COMPATIBLE_BASE_URL / OPENAI_COMPATIBLE_API_KEY",
+    required: false,
+    notes:
+      "Any OpenAI-compatible API — OpenAI, Groq, OpenRouter, Ollama, vLLM, and more. The base URL includes /v1 (e.g. https://api.groq.com/openai/v1); the key can be empty for local servers. The model is set in Redis — see the first-run walkthrough below. Common URLs are listed in .env.example below.",
   },
   {
     name: "SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD / SMTP_FROM",
@@ -255,7 +261,7 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
               restarting:
               <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
                 <code>{`docker compose --profile prod exec redis \\
-  redis-cli SET platform:llm:provider GROQ   # or ANTHROPIC / OPENAI / OLLAMA`}</code>
+  redis-cli SET platform:llm:provider OPENAI_COMPATIBLE   # or ANTHROPIC`}</code>
               </pre>
               Defaults to <code>ANTHROPIC</code>
               {
@@ -263,19 +269,20 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
               }
             </li>
             <li>
-              Each provider has a default model. Only set these if you want a
-              different one:
+              Choose the model in Redis — changes take effect without a restart.
+              Anthropic defaults to <code>claude-haiku-4-5</code>; the
+              OpenAI-compatible provider has no default, so set it before using
+              it:
               <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
-                <code>{`docker compose --profile prod exec redis redis-cli SET platform:llm:groq:model      llama-3.1-8b-instant  # default
-docker compose --profile prod exec redis redis-cli SET platform:llm:anthropic:model claude-haiku-4-5       # default
-docker compose --profile prod exec redis redis-cli SET platform:llm:openai:model    gpt-4o-mini            # default`}</code>
+                <code>{`docker compose --profile prod exec redis redis-cli SET platform:llm:anthropic:model claude-haiku-4-5
+docker compose --profile prod exec redis redis-cli SET platform:llm:openai-compatible:model    openai/gpt-4o-mini`}</code>
               </pre>
-              Ollama isn&apos;t bundled here — run it separately and point
-              RelayFlow at its address:
-              <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
-                <code>{`docker compose --profile prod exec redis redis-cli SET platform:llm:ollama:url   http://<ollama-host>:11434
-docker compose --profile prod exec redis redis-cli SET platform:llm:ollama:model llama3.2   # or whatever you've pulled`}</code>
-              </pre>
+              Ollama isn&apos;t bundled here — run it separately and use the
+              OpenAI-compatible provider with{" "}
+              <code>
+                OPENAI_COMPATIBLE_BASE_URL=http://&lt;ollama-host&gt;:11434/v1
+              </code>{" "}
+              and no key.
             </li>
           </ol>
         </section>
@@ -359,8 +366,9 @@ docker compose --profile prod up -d`}</code>
             </li>
             <li>
               <strong>AI agent features return errors or do nothing</strong> —
-              you need both an API key env var (<code>ANTHROPIC_API_KEY</code>,{" "}
-              <code>OPENAI_API_KEY</code>, or <code>GROQ_API_KEY</code>) and the{" "}
+              you need both a provider configured (
+              <code>ANTHROPIC_API_KEY</code>, or the{" "}
+              <code>OPENAI_COMPATIBLE_*</code> variables) and the{" "}
               <code>platform:llm:provider</code> Redis key set to match
               (defaults to <code>ANTHROPIC</code>, see the first-run walkthrough
               above). Forgetting the second one is the usual cause.

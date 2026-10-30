@@ -367,7 +367,7 @@ Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `a
 - [x] Data extraction — the LLM is prompted to populate configured extraction fields from the conversation, and extraction is written to the contact immediately, every turn. Only keys matching a configured extraction field are exposed as `agent.data.<key>` variables to a triggered workflow or persisted to the contact (via `ContactCustomFieldWriter`; a hallucinated or unconfigured key never leaks through either path). Contact persistence additionally requires the key to be a reserved or workspace-defined contact field, and checks only the *explicitly-stored* value (not anything auto-derivable) before writing — so an AI-confirmed reserved field is always recorded and fires `contact.updated`, even for a value RelayFlow could also derive on its own.
 - [x] Session-scoped extraction while a draft sits un-actioned — a `DRAFT_ONLY`/low-confidence turn's extraction accumulates into the pending draft across turns (used for both the eventual workflow trigger and the draft itself), but is discarded rather than merged if the draft predates the conversation's current session (`Conversation.sessionStartedAt`), so extracted data never leaks from a previous session into a new one.
 - [x] Hallucinated workflow suggestions filtered — a `trigger_workflow:<id>` the LLM suggests is dropped unless `<id>` matches a workspace-configured `WorkflowMapping`; the raw, unfiltered suggestion is still kept in the invocation log for debugging.
-- [x] Multi-provider LLM layer — Anthropic, OpenAI, Groq (free tier), and Ollama (self-hosted). The model for each provider is platform-level Redis config, set by the administrator; switching takes effect without restart. Each named AI agent config can pin itself to a specific provider, or leave it as "Platform default" to always follow the platform's currently active provider. See [AI Agent Configuration](#ai-agent-configuration) below.
+- [x] Multi-provider LLM layer — Anthropic, plus an OpenAI-compatible provider for any API that speaks OpenAI's format (OpenAI, Groq, OpenRouter, Ollama, vLLM, and more). The provider and model are platform-level config, set by the administrator; switching the provider or model in Redis takes effect without restart. Each named AI agent config can pin itself to a specific provider, or leave it as "Platform default" to always follow the platform's currently active provider. See [AI Agent Configuration](#ai-agent-configuration) below.
 - [x] Decision pipeline — deterministic keyword escalation → LLM call → escalate → workflow action (auto-trigger unless `DRAFT_ONLY`, draft for approval on `DRAFT_ONLY`) → low-confidence / `DRAFT_ONLY` / `needsClarification` → draft → else auto-send.
 - [x] Race-condition prevention — `AiAgentInvocationSlotClaimer` (`REQUIRES_NEW`) uses a unique partial index on active invocation logs to serialize concurrent invocations; symmetric guard in `WorkflowTriggerListener`.
 - [x] Session-scoped LLM history — `conversation.sessionStartedAt` is reset on reopen; `AiAgentContextAssembler` scopes message history to the current session to prevent past closed-conversation messages from polluting the context. The per-message contact context is wrapped in a `<context>...</context>` block, with an explicit instruction telling the LLM never to repeat it verbatim in a reply.
@@ -387,81 +387,64 @@ The AI agent is off by default. Enable it per workspace in **Settings → AI Age
 
 ### LLM provider
 
+There are two providers: **Anthropic** and **OpenAI-compatible** — any API that speaks OpenAI's chat completions format (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio, …).
+
 The platform's default provider is a Redis key, not a per-workspace setting. Any named agent config left on "Platform default" (the default for a new agent) follows this value; an agent can also be pinned to a specific provider from its settings, overriding this default just for that agent. Switch the platform default at any time without restarting:
 
 ```bash
-redis-cli SET platform:llm:provider 'GROQ'        # free tier — recommended default
-redis-cli SET platform:llm:provider 'ANTHROPIC'
-redis-cli SET platform:llm:provider 'OPENAI'
-redis-cli SET platform:llm:provider 'OLLAMA'
+redis-cli SET platform:llm:provider 'OPENAI_COMPATIBLE'
+redis-cli SET platform:llm:provider 'ANTHROPIC'   # the default when unset
 ```
 
-Set the model per provider (optional — sensible defaults apply):
-
-```bash
-redis-cli SET 'platform:llm:groq:model'      'llama-3.1-8b-instant'  # default
-redis-cli SET 'platform:llm:anthropic:model' 'claude-haiku-4-5'      # default
-redis-cli SET 'platform:llm:openai:model'    'gpt-4o-mini'           # default
-redis-cli SET 'platform:llm:ollama:model'    'llama3.2'              # default
-```
-
-### Groq (free tier — recommended)
-
-Sign up at [console.groq.com](https://console.groq.com), create an API key, then:
-
-```bash
-export GROQ_API_KEY=gsk_...
-redis-cli SET platform:llm:provider 'GROQ'
-```
-
-Groq's free tier supports several open-weight models with generous daily limits — no credit card required. To use a different model:
-
-```bash
-redis-cli SET 'platform:llm:groq:model' 'openai/gpt-oss-120b'
-```
-
-See [console.groq.com/docs/models](https://console.groq.com/docs/models) for the current catalog. Pick a general-purpose chat model — Groq also hosts TTS, speech-to-text, and safety-classifier models that won't work here.
+The former values `OPENAI`, `GROQ`, `OLLAMA` and `OPENROUTER` are still accepted and mean `OPENAI_COMPATIBLE`.
 
 ### Anthropic
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
+redis-cli SET 'platform:llm:anthropic:model' 'claude-haiku-4-5'   # optional — this is the default
 ```
 
-### OpenAI
+### OpenAI-compatible
+
+Set the API's base URL (including `/v1`) and key as env vars, then choose the model in Redis — there's no default, so the provider fails until it's set:
 
 ```bash
-export OPENAI_API_KEY=sk-...
+export OPENAI_COMPATIBLE_BASE_URL=https://api.groq.com/openai/v1
+export OPENAI_COMPATIBLE_API_KEY=gsk_...
+redis-cli SET 'platform:llm:openai-compatible:model' 'llama-3.3-70b-versatile'
+redis-cli SET platform:llm:provider 'OPENAI_COMPATIBLE'
 ```
+
+| Provider | `OPENAI_COMPATIBLE_BASE_URL` | Example model | Notes |
+|---|---|---|---|
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Free tier with daily limits, very fast. Keys at [console.groq.com](https://console.groq.com) |
+| OpenRouter | `https://openrouter.ai/api/v1` | `openai/gpt-4o-mini` | One key for hundreds of models — see [openrouter.ai/models](https://openrouter.ai/models). `:free` models are heavily rate-limited |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` | |
+| Ollama | `http://localhost:11434/v1` | `llama3.2` | Self-hosted, no key — leave `OPENAI_COMPATIBLE_API_KEY` empty |
+
+The model must support JSON output (`response_format: json_object`). On OpenRouter, RelayFlow asks to be routed only to hosts that support it, so a model with no such host fails (and the conversation is escalated) instead of replying in a format the agent can't read. Pick a general-purpose chat model — speech, embedding, and safety-classifier models won't work.
+
+Changing the URL or key needs a restart; changing the model in Redis takes effect on the next message.
 
 ### Ollama (self-hosted, free)
 
-The easiest way is Docker — Ollama is included in `docker-compose.yml` as an opt-in profile:
+Ollama is included in `docker-compose.yml` as an opt-in profile:
 
 ```bash
 # Starts postgres + redis + ollama; pulls llama3.2 automatically (~2 GB on first run)
 docker compose --profile dev --profile ollama up -d
-
-# Switch RelayFlow to use it
-redis-cli SET platform:llm:provider 'OLLAMA'
 ```
 
-Alternatively, install the Ollama binary directly:
+Or install it directly (`brew install ollama`, then `ollama serve` and `ollama pull llama3.2`). Either way, point the OpenAI-compatible provider at it:
 
 ```bash
-# macOS
-brew install ollama
-ollama serve          # terminal 1 — starts server at http://localhost:11434
-ollama pull llama3.2  # terminal 2
-
-redis-cli SET platform:llm:provider 'OLLAMA'
+export OPENAI_COMPATIBLE_BASE_URL=http://localhost:11434/v1
+redis-cli SET 'platform:llm:openai-compatible:model' 'llama3.2'
+redis-cli SET platform:llm:provider 'OPENAI_COMPATIBLE'
 ```
 
-Ollama exposes an OpenAI-compatible `/v1/chat/completions` endpoint. Any model that supports `response_format: json_object` works with RelayFlow. The default `llama3.2` pull is a small (~3B) model; larger local models or a hosted provider follow the LLM instructions more reliably. To change the model (no restart required):
-
-```bash
-redis-cli SET 'platform:llm:ollama:model' 'qwen2.5:3b'
-```
+The default `llama3.2` pull is a small (~3B) model; larger local models or a hosted provider follow the agent's instructions more reliably.
 
 ## Git Hooks
 

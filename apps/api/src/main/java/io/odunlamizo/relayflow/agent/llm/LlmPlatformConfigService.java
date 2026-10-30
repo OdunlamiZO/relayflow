@@ -4,6 +4,7 @@ package io.odunlamizo.relayflow.agent.llm;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -15,6 +16,9 @@ public class LlmPlatformConfigService {
     private static final Logger log = LoggerFactory.getLogger(LlmPlatformConfigService.class);
 
     private static final String PROVIDER_KEY = "platform:llm:provider";
+
+    private static final Set<String> FORMER_OPENAI_COMPATIBLE_PROVIDERS =
+            Set.of("OPENAI", "GROQ", "OLLAMA", "OPENROUTER");
 
     private final StringRedisTemplate redis;
 
@@ -44,7 +48,13 @@ public class LlmPlatformConfigService {
             String value = redis.opsForValue().get(PROVIDER_KEY);
 
             if (value != null && !value.isBlank()) {
-                return LlmProvider.valueOf(value.strip().toUpperCase());
+                String provider = value.strip().toUpperCase().replace('-', '_');
+
+                if (FORMER_OPENAI_COMPATIBLE_PROVIDERS.contains(provider)) {
+                    return LlmProvider.OPENAI_COMPATIBLE;
+                }
+
+                return LlmProvider.valueOf(provider);
             }
         } catch (IllegalArgumentException exception) {
             log.warn(

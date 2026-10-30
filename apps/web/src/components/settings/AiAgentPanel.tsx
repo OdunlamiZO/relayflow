@@ -31,9 +31,7 @@ import type {
 
 const LLM_PROVIDER_OPTIONS: { value: LlmProvider; label: string }[] = [
   { value: "ANTHROPIC", label: "Anthropic" },
-  { value: "OPENAI", label: "OpenAI" },
-  { value: "GROQ", label: "Groq" },
-  { value: "OLLAMA", label: "Ollama" },
+  { value: "OPENAI_COMPATIBLE", label: "OpenAI-compatible" },
 ];
 
 const INSTRUCTIONS_SAMPLE = `# ABOUT YOUR BUSINESS
