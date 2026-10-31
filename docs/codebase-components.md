@@ -4214,6 +4214,10 @@ Vitest setup file (`setupFiles` in `vitest.config`): loads the `@testing-library
 
 Source:
 
+- [`AuthenticationIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/authentication/AuthenticationIT.java)
+- [`ContactLifecycleIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/contact/ContactLifecycleIT.java)
+- [`ApplicationIntegrationTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/support/ApplicationIntegrationTest.java)
+
 - [`RelayFlowApiApplicationIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/RelayFlowApiApplicationIT.java)
 - [`RelayFlowApiApplicationSmokeTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/RelayFlowApiApplicationSmokeTest.java)
 - [`AgentWorkflowContextTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AgentWorkflowContextTest.java)
@@ -4262,6 +4266,9 @@ Source:
 
 Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest` with MockMvc. `*IT` classes start the whole app against a Postgres Testcontainer, with the Flyway migrations run by the `test` profile, and only run with `mvn -Pintegration-test verify`.
 
+- `ApplicationIntegrationTest`: shared integration test base with a Spring-managed PostgreSQL container, the real application context and security filters, transactional rollback, and database fixture helpers.
+- `AuthenticationIT`: bootstrap creates the owner and session and rejects a second setup; login sessions persist across requests; logout invalidates the session; password reset changes the stored hash and rejects expired or reused tokens.
+- `ContactLifecycleIT`: merging reassigns identities and conversations and hides the source contact; deletion soft-deletes related data; merging two identities on the same channel is rejected.
 - `RelayFlowApiApplicationIT`: the application context starts against a real database. `RelayFlowApiApplicationSmokeTest`: the main class exists.
 - `HibernateJsonConfigurationTest`: JSON columns read arrays as Java lists.
 - `RequestIdFilterTest`, `LogfmtLayoutTest`, `GelfJsonProviderTest`: request ID reuse and replacement, and the logfmt and GELF output formats.
