@@ -40,14 +40,19 @@ final class LlmPrompts {
                                     + " meaning is clear, otherwise copy exactly what they sent,"
                                     + " even if it looks wrong or incomplete)");
                 }
+
+                if (!field.askIfMissing()) {
+                    sb.append(" (include it only if the customer mentions it — never ask for it)");
+                }
             }
             sb.append(
                     "\n\nBefore finalizing your reply, check the customer's latest message against"
                             + " the \"Still missing\" fields inside the <context> block — if this"
                             + " message answers one of those fields, you must include it in"
                             + " extractedData, even if your reply already treats it as done. When"
-                            + " you need to ask for a missing field, ask for exactly one at a time,"
-                            + " phrased plainly using its description above.");
+                            + " you need to ask for a field, ask only for one listed as \"Still"
+                            + " missing\", exactly one at a time, phrased plainly using its"
+                            + " description above.");
         }
 
         return sb.toString();

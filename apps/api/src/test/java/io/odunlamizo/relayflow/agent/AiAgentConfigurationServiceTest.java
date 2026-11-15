@@ -165,4 +165,35 @@ class AiAgentConfigurationServiceTest {
 
         verify(configurationRepository, never()).save(any());
     }
+
+    @Test
+    void updateKeepsAskIfMissingOnFieldsWithoutAHook() {
+        Workspace workspace = new Workspace();
+        workspace.setId(workspaceId);
+        AiAgentConfiguration configuration = configuration(true);
+        configuration.setWorkspace(workspace);
+        UUID configurationId = UUID.randomUUID();
+
+        when(configurationRepository.findInWorkspace(configurationId, workspaceId))
+                .thenReturn(Optional.of(configuration));
+        when(configurationRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateAiAgentConfigurationRequest request =
+                new UpdateAiAgentConfigurationRequest(
+                        "Support",
+                        true,
+                        AutonomyCeiling.DRAFT_ONLY,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(new ExtractionField("amount", "Amount", "", false)));
+
+        service().updateConfiguration(workspaceId, configurationId, request);
+
+        assertThat(configuration.getExtractionFields())
+                .containsExactly(new ExtractionField("amount", "Amount", null, false));
+    }
 }

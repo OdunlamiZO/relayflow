@@ -507,6 +507,7 @@ export type ExtractionField = {
   key: string;
   description: string;
   validationHook?: string | null;
+  askIfMissing?: boolean;
 };
 
 export type AiAgentConfiguration = {

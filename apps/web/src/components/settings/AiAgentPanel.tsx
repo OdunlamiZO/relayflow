@@ -539,14 +539,17 @@ function AiAgentForm({
 
   function addExtractionField() {
     patch({
-      extractionFields: [...extractionFields, { key: "", description: "" }],
+      extractionFields: [
+        ...extractionFields,
+        { key: "", description: "", askIfMissing: true },
+      ],
     });
   }
 
   function updateExtractionField(
     index: number,
     field: keyof ExtractionField,
-    value: string
+    value: string | boolean
   ) {
     patch({
       extractionFields: extractionFields.map((entry, fieldIndex) =>
@@ -1014,6 +1017,28 @@ function AiAgentForm({
               />
               <p className="mt-1 text-xs text-neutral-400">
                 {hookDescription(field.validationHook ?? "")}
+              </p>
+              <label className="mt-3 flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={field.askIfMissing ?? true}
+                  onChange={(event) =>
+                    updateExtractionField(
+                      index,
+                      "askIfMissing",
+                      event.target.checked
+                    )
+                  }
+                  className="h-4 w-4 rounded border-neutral-300 accent-secondary"
+                />
+                <span className="text-sm font-medium text-neutral-800">
+                  Ask if missing
+                </span>
+              </label>
+              <p className="mt-1 pl-7 text-xs text-neutral-400">
+                {(field.askIfMissing ?? true)
+                  ? "The agent asks the customer for this when it isn't known yet."
+                  : "The agent records this only if the customer mentions it, and never asks for it."}
               </p>
             </div>
           ))}

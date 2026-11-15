@@ -51,4 +51,28 @@ class LlmPromptsTest {
                 .contains("\"urgency\": How urgent the request is\n")
                 .doesNotContain("How urgent the request is (checked");
     }
+
+    @Test
+    void tellsTheAgentNeverToAskForFieldsThatAreNotAskedIfMissing() {
+        List<ExtractionField> fields =
+                List.of(
+                        new ExtractionField("email", "Email address"),
+                        new ExtractionField("amount", "Amount to borrow", null, false));
+
+        String instruction = LlmPrompts.buildFormatInstruction(fields);
+
+        assertThat(instruction)
+                .contains(
+                        "\"amount\": Amount to borrow (include it only if the customer mentions"
+                                + " it — never ask for it)");
+        assertThat(instruction)
+                .contains("\"email\": Email address\n")
+                .doesNotContain("Email address (include it only");
+    }
+
+    @Test
+    void treatsAFieldWithoutTheFlagAsAskedIfMissing() {
+        assertThat(new ExtractionField("email", "Email address", null, null).askIfMissing())
+                .isTrue();
+    }
 }
