@@ -85,4 +85,28 @@ class AgentLlmResponseParserTest {
     void failureFactoryProducesAFailedResponse() {
         assertThat(AgentLlmResponseParser.failure().failed()).isTrue();
     }
+
+    @Test
+    void turnsDoubleEscapedLineBreaksInTheReplyIntoRealOnes() {
+        String json =
+                """
+                {"reply":"Hi! 👋\\\\n1️⃣ Apply for a loan\\\\n2️⃣ Repay a loan","confidence":"high"}
+                """;
+
+        AgentLlmResponse response = AgentLlmResponseParser.parse(objectMapper, json);
+
+        assertThat(response.reply()).isEqualTo("Hi! 👋\n1️⃣ Apply for a loan\n2️⃣ Repay a loan");
+    }
+
+    @Test
+    void keepsRealLineBreaksInTheReply() {
+        String json =
+                """
+                {"reply":"Hi! 👋\\n1️⃣ Apply for a loan","confidence":"high"}
+                """;
+
+        AgentLlmResponse response = AgentLlmResponseParser.parse(objectMapper, json);
+
+        assertThat(response.reply()).isEqualTo("Hi! 👋\n1️⃣ Apply for a loan");
+    }
 }
