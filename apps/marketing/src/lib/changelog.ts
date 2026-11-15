@@ -25,6 +25,15 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.3.0",
+    date: "2026-11-15",
+    changes: {
+      added: [
+        'AI agent extraction fields have an "Ask if missing" option. Turn it off and the agent records the value when the customer mentions it, but never asks for it. Existing fields keep being asked for.',
+      ],
+    },
+  },
+  {
     version: "1.2.0",
     date: "2026-10-30",
     changes: {
