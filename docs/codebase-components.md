@@ -389,7 +389,7 @@ Important beans:
 - `PasswordEncoder`: BCrypt password hashing for email/password users.
 - `AuthenticationManager`: authenticates email/password credentials through `EmailPasswordUserDetailsService`.
 - `HttpSessionSecurityContextRepository`: stores authenticated sessions in the servlet session.
-- `SecurityFilterChain`: permits public auth, health, and Telegram/WhatsApp webhook paths; protects the rest.
+- `SecurityFilterChain`: permits public auth, health, and Telegram/WhatsApp webhook paths; protects the rest. A request without a valid session gets `401` (not Spring's default `403`, or a redirect to Google when Google login is on), which the web app's API clients answer by sending the browser to `/login`.
 - `CorsConfigurationSource`: allows credentialed frontend requests from `relayflow.web.base-url`.
 
 We need it to make browser sessions, Google OAuth, email login, and protected API routes work consistently.
