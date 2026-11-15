@@ -93,6 +93,16 @@ class AuthenticationIT extends ApplicationIntegrationTest {
     }
 
     @Test
+    void requestWithoutAValidSessionIsUnauthorized() throws Exception {
+        mvc.perform(get("/workspaces")).andExpect(status().isUnauthorized());
+
+        MockHttpSession sessionWithoutLogin = new MockHttpSession();
+
+        mvc.perform(get("/workspaces").session(sessionWithoutLogin))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void passwordResetChangesCredentialAndTokenCannotBeReused() throws Exception {
         UUID id = passwordUser();
         UUID token = resetToken(id, false);
