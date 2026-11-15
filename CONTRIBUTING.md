@@ -20,6 +20,8 @@ For anything beyond a small fix, open an issue first describing what you want to
 This avoids duplicated work and lets us agree on the approach before you invest time in an
 implementation.
 
+Planned work that's open for contributions is listed in [`ROADMAP.md`](ROADMAP.md).
+
 ## Code style
 
 These rules are enforced by formatters/linters where possible, and checked in review otherwise.

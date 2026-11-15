@@ -2,7 +2,7 @@
 
 RelayFlow is an omnichannel customer messaging platform with developer-grade workflow automation. Telegram is the first adapter, WhatsApp Business Cloud API support has started, and Instagram is planned. The core model is channel-agnostic.
 
-Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md), and [`ROADMAP.md`](ROADMAP.md) for planned work.
 
 ## Repository Layout
 
@@ -290,96 +290,6 @@ The `GET` path handles Meta webhook verification using the channel account's sto
 - `GET /sse/workspace/{workspaceId}` — real-time event stream for the inbox
 
 Events pushed: `message.created`, `conversation.updated`, `ai.draft.created`, `ai.escalated`.
-
-## Implementation Status
-
-### Messaging core
-- [x] Channel-agnostic persistence model — workspaces, channel accounts, contacts, external identities, conversations, messages.
-- [x] REST endpoints for creating and reading core messaging records.
-- [x] Telegram adapter — inbound webhook ingestion, outbound relay, and webhook authenticity verification via `X-Telegram-Bot-Api-Secret-Token`.
-- [x] WhatsApp Business Cloud API adapter — channel connection form, webhook verification, inbound text ingestion, outbound text relay, and per-channel webhook URL display.
-- [x] Outbound message delivery guarantee — Telegram and WhatsApp sends are retried once; final failure rolls back the transaction so the message is never saved and the caller receives a descriptive error.
-- [x] Channel account disconnect and delete — disconnect sets status to `DISABLED` (inbound/outbound gated on `ACTIVE`, so messages stop immediately) and is reversible via reconnect; delete permanently removes the channel account and can't be undone. Both preserve conversation and message history. Disconnect requires `CHANNELS_WRITE`, delete requires `CHANNELS_DELETE`.
-- [x] Closed conversation reopening — when a contact messages a closed conversation it is set back to `OPEN` and workflow automation fires again.
-- [x] Contact management — paginated contacts list, detail panel, delete, and guarded contact merge that moves identities/conversations to the target contact. Deleting a contact also deletes their channel identities, conversations, and messages, discards pending AI drafts, and fails their running or waiting workflow runs; if they message again they start as a new contact.
-- [x] Contact custom fields — per-workspace field schema (key/label/description) plus six reserved fields (`displayName`, `firstName`, `lastName`, `phone`, `email`, `country`) that can't be redefined. Reserved values auto-derive from existing data (e.g. phone from a WhatsApp identity, first/last name from Telegram) when not explicitly set, editable manually, by the AI agent (gap-filling — never overwrites an already explicitly-stored value, but a reserved field the resolver could derive but hasn't yet stored is still written and fires `contact.updated`), or by a workflow's **Set Contact Field** node (always overwrites, like a manual edit). Writing `firstName`/`lastName` through either the AI agent or the Set Contact Field node keeps `displayName` in sync (`"firstName lastName"`), which matters for channels like WhatsApp where the display name otherwise stays stuck on the contact's own freeform profile name. Gated by the `CONTACT_FIELDS_WRITE` permission.
-- [x] Contact access — a workspace accepts messages from everyone or only from whitelisted phone numbers, managed in Settings → General. In whitelist mode, other senders are ignored and nothing is stored. WhatsApp senders are checked by their number; a Telegram user is asked once to share their phone number with Telegram's share button, and only a number shared that way counts. Existing contacts are kept; ones that aren't whitelisted are ignored from then on. Numbers without a country code use the workspace's default country.
-- [x] Contact tags — per-workspace tags with a fixed list of allowed values, such as `kyc_status: pending | verified`, each value with an optional colour. Shown as coloured pills on the contact panel and the inbox conversation header. Set on the contact page, by the Set Contact Tag workflow node, or through the public API; readable in workflows as `contact.tags.<key>` and included in `contact.updated` webhooks.
-- [x] Per-channel-account identities — external identities are scoped to a channel account/bot so the same Telegram user can appear in separate connected bots without collision.
-- [x] Conversation workflow lock — active workflows own the conversation and agent replies return `409 Conflict` until the workflow finishes, fails, or closes the conversation.
-- [x] Conversation assignment — conversations can be assigned to (or unassigned from) a workspace member via a dropdown in the message thread.
-- [x] Workspace member permissions — owners manage members, transfer ownership, grant granular access for inbox, contacts (including contact field schema/values), workflows, channels, API keys, secrets, and webhooks, and generate a password reset link for a member.
-- [x] Workspace invites — owners create/revoke expiring email invites; authenticated users can preview and accept matching invites.
-- [x] API keys and public API — workspace API keys can list conversations/messages and send outbound agent messages through `/public/v1`.
-- [x] Workspace webhooks — a workspace can configure any number of signed webhooks, each with its own URL and event subscriptions. Events currently emitted: `contact.created`, `contact.updated`, `contact.deleted` (the contact as it was before deletion), and `contact.merged` (`contact` is the kept contact, `mergedContact` the one merged into it and deleted; a merge doesn't also send `contact.deleted`), with retry/backoff delivery. SSRF protection rejects webhook URLs that resolve to loopback, link-local, private, multicast, or wildcard addresses, both when saving the URL and at delivery time.
-- [x] Hooks — FEEL expressions that validate and transform a contact's reply to an open-ended Ask Question node, or a value an AI agent extracts. Built-in hooks cover email, phone number, number, whole number, date, and web address; workspaces can write their own and test them against a sample reply before saving. Rejected replies are asked again up to a configurable number of attempts, then follow an `invalid` branch. A rejected extracted value is never stored; the agent rewrites its reply to ask the contact to correct it.
-- [x] Workspace secrets — named, encrypted credentials a workflow's HTTP Request node can reference (in the URL, headers, or body) as `{{secrets.NAME}}`, without the value ever appearing in the workflow definition, a run log, or an API response. Write-only: a secret's value is never returned after creation, and an unresolvable reference fails the step rather than sending a blank credential.
-
-### Authentication
-- [x] Instance bootstrap — the first account on a fresh instance is a one-time `POST /auth/bootstrap` call (guarded by `userRepository.count() == 0`) that creates the first admin and their workspace with no email round-trip. Every subsequent account requires a valid workspace invite token (`POST /auth/signup` takes `inviteToken`); there is no open public signup.
-- [x] Google OAuth2 login with user provisioning.
-- [x] Profile management — display name and profile page.
-- [x] Password reset — no self-service "change password" form; a single-use, 1-hour link (`PasswordResetToken`) is requested from the profile page or generated by a workspace owner for a member, then consumed at `/reset-password/{token}` to set a new password.
-- [x] TOTP two-factor authentication — setup QR code, enable/disable, and 2FA login challenge.
-- [x] Split user model — identities, preferences, and MFA methods live outside the core `users` table.
-- [x] Credential encryption — bot tokens, MFA secrets, webhook secrets, and workspace secrets are encrypted at rest with AES-256-GCM (`RELAYFLOW_ENCRYPTION_KEY`, required at startup).
-- [x] Session cookie hardening — configurable cookie name, `HttpOnly`, `Secure`, `SameSite`, and idle timeout (`SESSION_COOKIE_NAME`, `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_SAME_SITE`, `SESSION_TIMEOUT`); logout expires the cookie with matching attributes.
-- [x] Swagger UI / OpenAPI docs are disabled unconditionally, with no env var to re-enable them — self-hosted clients only need the public API, documented separately in `apps/marketing`.
-- [x] Rate limiting — Redis-backed, fixed-window, returns `429` with a `Retry-After` header. Covers auth endpoints (`/auth/login`, `/login/2fa`, `/reset-password/{token}`, `/signup`, keyed by client IP), the public API (`/public/v1/**`, keyed by API key), and inbound webhooks (Telegram, WhatsApp, keyed by client IP). Configurable via `RATE_LIMIT_ENABLED`, `RATE_LIMIT_LOGIN_LIMIT`/`RATE_LIMIT_LOGIN_WINDOW_SECONDS`, `RATE_LIMIT_SIGNUP_LIMIT`/`RATE_LIMIT_SIGNUP_WINDOW_SECONDS`, `RATE_LIMIT_PUBLIC_API_LIMIT`/`RATE_LIMIT_PUBLIC_API_WINDOW_SECONDS`, and `RATE_LIMIT_WEBHOOK_LIMIT`/`RATE_LIMIT_WEBHOOK_WINDOW_SECONDS`.
-
-### Inbox UI
-- [x] Conversation list, message thread, and outbound composer.
-- [x] Contacts page with channel badges, contact detail panel, inbox deep link, delete confirmation, and merge modal.
-- [x] Settings UI for member permissions, invites, API keys, and webhook configuration.
-- [x] Channel settings can connect Telegram or WhatsApp and display provider-specific webhook URLs, each with a copy button. "Telegram"/"WhatsApp" brand colors are defined as `telegram`/`whatsapp` design tokens.
-- [x] Real-time updates via SSE — `message.created`, `conversation.updated`, `ai.draft.created`, and `ai.escalated` events pushed after commit .
-- [x] Google login entry point and session status panel.
-- [x] `/setup` — first-run instance bootstrap flow (creates the first admin account + workspace on a fresh instance).
-- [x] Invite-gated signup — `/signup` requires a `token` query param, prefills and locks the invited email, and rejects with a clear message when no token is present.
-
-### Workflow engine
-- [x] Workflow definition data model — `workflow_definitions`, `workflow_runs`, `workflow_run_steps`.
-- [x] Node graph executor — walks the graph step by step, records per-step input/output snapshots, duration, and status.
-- [x] Variable interpolation — `{{variable}}` placeholders resolved at execution time in all text fields.
-- [x] **Trigger node** — fires on `conversation_opened`; multiple concurrent workflows supported per conversation.
-- [x] **Send Message node** — sends an outbound message through the active channel adapter. Supports WhatsApp-style formatting (`*bold*`, `_italic_`, `~strikethrough~`, `` `code` ``, ```` ```code block``` ````, and `- ` or `* ` bullets) with a toolbar and preview, as do Ask Question and End Conversation messages; Telegram messages are converted to Telegram's formatting. The inbox shows formatting too.
-- [x] **Condition node** — multi-branch with configurable variable, operator, and value per branch; `is_set` / `is_not_set` operators need no value. The last branch is always the implicit "else" — taken once every earlier branch fails, with its own conditions (if any) ignored — so it's the only branch exempt from the graph validator's "must have at least one condition" rule.
-- [x] **HTTP Request node** — method, URL, headers, body, content-type, timeout; response status and JSON path mappings saved to workflow variables.
-- [x] **Set Variable node** — creates or overwrites a named workflow variable.
-- [x] **Set Contact Field node** — writes a value to a reserved or workspace-defined contact field; always overwrites (unlike the AI agent's gap-filling extraction writes).
-- [x] **Ask Question node** — sends a question and pauses the run (`WAITING`); resumes when the contact replies. Two modes: open-ended (saves reply to a variable) or defined options (routes by exact match or option number, can save the selected value, falls back to "Other"). With no reply before its timeout, the step fails and the run follows the node's "No reply" output (a validated question falls back to "Invalid"; with neither connected, the run fails). Telegram renders options as reply keyboards; WhatsApp uses native buttons for up to three options.
-- [x] **Jump To node** — redirects execution to another node by ID with a configurable max-jump limit to prevent loops.
-- [x] **End Conversation node** — sends an optional closing message and sets the conversation to `CLOSED`.
-- [x] Workflow graph validator — enforces structural rules at publish time (one trigger, no orphaned nodes, all condition and option branches connected, valid Jump To targets, HTTP Request has URL, Set Variable has name, Set Contact Field has a field selected, condition branch rows have variable and operator).
-- [x] Workflow run logs — every run and every step persisted with full observability data, exposed via `GET /workflows/{id}/runs` and `GET /workflows/{id}/runs/{runId}`. Runs older than `relayflow.workflow.run-retention-days` (default 90, configurable via `WORKFLOW_RUN_RETENTION_DAYS`) are purged hourly.
-- [x] Workspace membership authorization and permission checks on mutating workspace-scoped endpoints.
-
-### Workflow builder UI
-- [x] React Flow drag-and-drop canvas.
-- [x] On screens narrower than 768px, the workflow editor and the AI agent, integrations, and hooks settings show a message to use a computer instead.
-- [x] Per-node config panel with variable picker (`{{…}}` button) supporting both built-in and user-defined variables.
-- [x] Save draft and Publish / Unpublish toggle with validation error banner.
-- [x] Node palette: Trigger, Send Message, Condition, HTTP Request, Set Variable, Set Contact Field, Set Contact Tag, Ask Question, Jump To, End Conversation.
-- [x] Run logs UI — `/workflows/{id}/runs` lists run history with status, error preview, and a step-by-step breakdown of input/output snapshots and durations.
-
-### AI Agent
-- [x] Named, reusable AI agent configs — a workspace can define any number of named agents, each with its own enabled toggle, autonomy ceiling (`DRAFT_ONLY` / `AUTO_SEND`), LLM provider (see [AI Agent Configuration](#ai-agent-configuration) below), free-text instructions, knowledge base Q&A pairs, escalation keywords, workflow mappings, and data extraction fields (key + description). Exactly one config is flagged as the workspace's default at a time. Manage agents in **Settings → AI Agent**; each channel gets a dropdown in **Settings → Channels** to assign it a specific agent, or leave it unassigned to use whichever config is currently the default. An explicit channel assignment is authoritative — it does not fall back to the default even if the assigned agent is disabled.
-- [x] Data extraction — the LLM is prompted to populate configured extraction fields from the conversation, and extraction is written to the contact immediately, every turn. Only keys matching a configured extraction field are exposed as `agent.data.<key>` variables to a triggered workflow or persisted to the contact (via `ContactCustomFieldWriter`; a hallucinated or unconfigured key never leaks through either path). Contact persistence additionally requires the key to be a reserved or workspace-defined contact field, and checks only the *explicitly-stored* value (not anything auto-derivable) before writing — so an AI-confirmed reserved field is always recorded and fires `contact.updated`, even for a value RelayFlow could also derive on its own.
-- [x] Session-scoped extraction while a draft sits un-actioned — a `DRAFT_ONLY`/low-confidence turn's extraction accumulates into the pending draft across turns (used for both the eventual workflow trigger and the draft itself), but is discarded rather than merged if the draft predates the conversation's current session (`Conversation.sessionStartedAt`), so extracted data never leaks from a previous session into a new one.
-- [x] Hallucinated workflow suggestions filtered — a `trigger_workflow:<id>` the LLM suggests is dropped unless `<id>` matches a workspace-configured `WorkflowMapping`; the raw, unfiltered suggestion is still kept in the invocation log for debugging.
-- [x] Multi-provider LLM layer — Anthropic, plus an OpenAI-compatible provider for any API that speaks OpenAI's format (OpenAI, Groq, OpenRouter, Ollama, vLLM, and more). The provider and model are platform-level config, set by the administrator; switching the provider or model in Redis takes effect without restart. Each named AI agent config can pin itself to a specific provider, or leave it as "Platform default" to always follow the platform's currently active provider. See [AI Agent Configuration](#ai-agent-configuration) below.
-- [x] Decision pipeline — deterministic keyword escalation → LLM call → escalate → workflow action (auto-trigger unless `DRAFT_ONLY`, draft for approval on `DRAFT_ONLY`) → low-confidence / `DRAFT_ONLY` / `needsClarification` → draft → else auto-send.
-- [x] Race-condition prevention — `AiAgentInvocationSlotClaimer` (`REQUIRES_NEW`) uses a unique partial index on active invocation logs to serialize concurrent invocations; symmetric guard in `WorkflowTriggerListener`.
-- [x] Session-scoped LLM history — `conversation.sessionStartedAt` is reset on reopen; `AiAgentContextAssembler` scopes message history to the current session to prevent past closed-conversation messages from polluting the context. The per-message contact context is wrapped in a `<context>...</context>` block, with an explicit instruction telling the LLM never to repeat it verbatim in a reply.
-- [x] AI draft inbox banner — `DRAFT_ONLY` ceiling or low-confidence replies create a draft; inbox shows **Send / Edit / Discard** for text replies (naming the actual workflow, e.g. "Run Loan Workflow") and **Run Workflow / Discard** for AI-suggested workflows. Editing a draft's wording before sending still records it as the AI's own message — it doesn't reassign the conversation to whoever clicked send or release the AI agent's hold on it, the way a normal human-composed reply would. SSE pushes `ai.draft.created` for instant updates.
-- [x] Escalation indicator — a keyword match, LLM-requested escalation, failed LLM call, or pipeline error stamps `Conversation.escalatedAt`/`escalationReason`/`escalationType` and pushes `ai.escalated`; the inbox shows a red badge on the conversation row and header. A human agent's next reply clears any escalation; the temporary ones (failed LLM call, pipeline error) also clear on the AI agent's next successful LLM call.
-- [x] Invocation log retention — hourly cleanup, configurable via `AGENT_INVOCATION_LOG_RETENTION_DAYS` (default 90 days).
-
-### Planned
-- [ ] Backend integration tests (Testcontainers, existing IT profile).
-- [ ] Frontend component tests for inbox states and composer.
-- [ ] Playwright end-to-end tests (CI only, not pre-commit).
-- [ ] Structured request/run ID logging and Sentry integration.
 
 ## AI Agent Configuration
 
