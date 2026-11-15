@@ -60,13 +60,13 @@ final class AgentLlmResponseParser {
         }
     }
 
+    static AgentLlmResponse failure() {
+        return new AgentLlmResponse("", null, List.of(), false, false, Map.of(), true);
+    }
+
     // Some models escape their line breaks twice, which would reach the customer as "\n".
     private static String unescapeWhitespace(String reply) {
         return reply.replace("\\n", "\n").replace("\\t", "\t");
-    }
-
-    static AgentLlmResponse failure() {
-        return new AgentLlmResponse("", null, List.of(), false, false, Map.of(), true);
     }
 
     private AgentLlmResponseParser() {}
