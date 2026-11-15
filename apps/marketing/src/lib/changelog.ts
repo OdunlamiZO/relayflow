@@ -25,6 +25,15 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.3.2",
+    date: "2026-11-15",
+    changes: {
+      fixed: [
+        "When a login session expires, the web app now sends you to the login page instead of showing load errors.",
+      ],
+    },
+  },
+  {
     version: "1.3.1",
     date: "2026-11-15",
     changes: {
