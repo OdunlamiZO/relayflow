@@ -307,7 +307,11 @@ public class AiAgentConfigurationService {
                             String hookKey = field.validationHook();
 
                             if (hookKey == null || hookKey.isBlank()) {
-                                return new ExtractionField(field.key(), field.description());
+                                return new ExtractionField(
+                                        field.key(),
+                                        field.description(),
+                                        null,
+                                        field.askIfMissing());
                             }
 
                             if (!hookService.hookExists(workspaceId, hookKey)) {

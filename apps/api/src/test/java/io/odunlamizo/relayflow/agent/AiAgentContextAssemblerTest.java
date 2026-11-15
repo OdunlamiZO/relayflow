@@ -169,6 +169,33 @@ class AiAgentContextAssemblerTest {
     }
 
     @Test
+    void footerLeavesFieldsThatAreNotAskedIfMissingOutOfTheMissingSection() {
+        Conversation conversation = conversation();
+        stubInboundMessage(conversation, "Hi there");
+        conversation.getContact().getCustomFields().put("amount", "5000");
+
+        when(externalIdentityRepository.findByContact(conversation.getContact().getId()))
+                .thenReturn(List.of());
+        when(reservedContactFieldResolver.resolve(conversation.getContact(), List.of()))
+                .thenReturn(Map.of());
+
+        AiAgentConfiguration configuration = new AiAgentConfiguration();
+        configuration.setExtractionFields(
+                List.of(
+                        new ExtractionField("email", ""),
+                        new ExtractionField("amount", "", null, false),
+                        new ExtractionField("purpose", "", null, false)));
+
+        AgentLlmRequest request = assembler().assemble(configuration, conversation);
+
+        assertThat(lastMessageContent(request))
+                .endsWith(
+                        "<context>Contact: Jane Doe | Channel: WHATSAPP"
+                                + " | Already known: amount=5000"
+                                + " | Still missing: email</context>");
+    }
+
+    @Test
     void treatsAResolverDerivedValueAsKnown() {
         Conversation conversation = conversation();
         stubInboundMessage(conversation, "Hi there");

@@ -156,6 +156,7 @@ public class AiAgentContextAssembler {
 
             String missing =
                     extractionFields.stream()
+                            .filter(ExtractionField::askIfMissing)
                             .filter(field -> !hasEffectiveValue(effectiveValues, field.key()))
                             .map(ExtractionField::key)
                             .collect(Collectors.joining(", "));
