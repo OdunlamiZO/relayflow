@@ -25,6 +25,15 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.3.1",
+    date: "2026-11-15",
+    changes: {
+      fixed: [
+        "AI agent replies no longer show a literal \\n to the customer when the model escapes its line breaks.",
+      ],
+    },
+  },
+  {
     version: "1.3.0",
     date: "2026-11-15",
     changes: {
