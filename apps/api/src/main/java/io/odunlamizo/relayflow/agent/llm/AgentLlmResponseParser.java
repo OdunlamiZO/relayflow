@@ -25,7 +25,7 @@ final class AgentLlmResponseParser {
             }
 
             JsonNode node = objectMapper.readTree(json);
-            String reply = node.path("reply").asText("");
+            String reply = unescapeWhitespace(node.path("reply").asText(""));
             JsonNode confidenceNode = node.path("confidence");
             String confidence = confidenceNode.isNull() ? null : confidenceNode.asText(null);
             boolean escalate = node.path("escalate").asBoolean(false);
@@ -58,6 +58,11 @@ final class AgentLlmResponseParser {
         } catch (Exception exception) {
             return failure();
         }
+    }
+
+    // Some models escape their line breaks twice, which would reach the customer as "\n".
+    private static String unescapeWhitespace(String reply) {
+        return reply.replace("\\n", "\n").replace("\\t", "\t");
     }
 
     static AgentLlmResponse failure() {
