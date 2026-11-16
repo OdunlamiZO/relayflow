@@ -5,8 +5,6 @@ approach (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ## Channels
 
-- Live-test the WhatsApp adapter against a real WhatsApp Business account: connecting, the
-  webhook, inbound and outbound messages, and Ask Question buttons.
 - Instagram adapter.
 
 ## Testing
