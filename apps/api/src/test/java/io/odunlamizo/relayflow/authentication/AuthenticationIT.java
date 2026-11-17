@@ -93,6 +93,21 @@ class AuthenticationIT extends ApplicationIntegrationTest {
     }
 
     @Test
+    void loginWithAWrongPasswordIsUnauthorized() throws Exception {
+        UUID id = passwordUser();
+
+        mvc.perform(
+                        post("/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"email\":\""
+                                                + id
+                                                + "@example.com\",\"password\":\"Wrong-password-123!\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid email or password."));
+    }
+
+    @Test
     void requestWithoutAValidSessionIsUnauthorized() throws Exception {
         mvc.perform(get("/workspaces")).andExpect(status().isUnauthorized());
 
