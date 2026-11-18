@@ -25,6 +25,15 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.3.4",
+    date: "2026-11-18",
+    changes: {
+      fixed: [
+        "Conversations, messages, contacts and workflows can only be read or created by members of their workspace.",
+      ],
+    },
+  },
+  {
     version: "1.3.3",
     date: "2026-11-17",
     changes: {
