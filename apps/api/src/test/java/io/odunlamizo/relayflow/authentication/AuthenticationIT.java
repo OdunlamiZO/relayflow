@@ -118,6 +118,38 @@ class AuthenticationIT extends ApplicationIntegrationTest {
     }
 
     @Test
+    void workspaceDataIsForbiddenToNonMembers() throws Exception {
+        UUID userId = passwordUser();
+        MockHttpSession session = login(userId);
+        UUID workspaceId = workspace();
+        UUID conversationId = conversation(workspaceId, contact(workspaceId), channel(workspaceId));
+        String workspace = workspaceId.toString();
+
+        mvc.perform(get("/conversations").param("workspaceId", workspace).session(session))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        get("/conversations/" + conversationId + "/messages")
+                                .param("workspaceId", workspace)
+                                .session(session))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/contacts").param("workspaceId", workspace).session(session))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/workflows").param("workspaceId", workspace).session(session))
+                .andExpect(status().isForbidden());
+
+        jdbc.update(
+                "insert into workspace_members (workspace_id, user_id, role) values (?, ?, 'MEMBER')",
+                workspaceId,
+                userId);
+
+        mvc.perform(
+                        get("/conversations/" + conversationId + "/messages")
+                                .param("workspaceId", workspace)
+                                .session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void passwordResetChangesCredentialAndTokenCannotBeReused() throws Exception {
         UUID id = passwordUser();
         UUID token = resetToken(id, false);
@@ -157,6 +189,21 @@ class AuthenticationIT extends ApplicationIntegrationTest {
                                 Boolean.class,
                                 token))
                 .isTrue();
+    }
+
+    private MockHttpSession login(UUID userId) throws Exception {
+        var result =
+                mvc.perform(
+                                post("/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"email\":\""
+                                                        + userId
+                                                        + "@example.com\",\"password\":\"Old-password-123!\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn();
+
+        return (MockHttpSession) result.getRequest().getSession(false);
     }
 
     private UUID passwordUser() {

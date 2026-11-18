@@ -47,19 +47,29 @@ public class ContactController {
     PageResponse<ContactResponse> listContacts(
             @RequestParam @NotNull UUID workspaceId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return contactService.listContacts(workspaceId, page, size);
     }
 
     @PostMapping("/contacts")
     @ResponseStatus(HttpStatus.CREATED)
-    ContactResponse createContact(@Valid @RequestBody CreateContactRequest request) {
+    ContactResponse createContact(
+            @Valid @RequestBody CreateContactRequest request, Authentication authentication) {
+        authorizationService.assertMember(request.workspaceId(), authentication);
+
         return contactService.createContact(request);
     }
 
     @GetMapping("/contacts/{id}")
     ContactDetailResponse getContact(
-            @PathVariable UUID id, @RequestParam @NotNull UUID workspaceId) {
+            @PathVariable UUID id,
+            @RequestParam @NotNull UUID workspaceId,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return contactService.getContactDetail(id, workspaceId);
     }
 
@@ -114,7 +124,10 @@ public class ContactController {
     @PostMapping("/external-identities")
     @ResponseStatus(HttpStatus.CREATED)
     ExternalIdentityResponse createExternalIdentity(
-            @Valid @RequestBody CreateExternalIdentityRequest request) {
+            @Valid @RequestBody CreateExternalIdentityRequest request,
+            Authentication authentication) {
+        authorizationService.assertMember(request.workspaceId(), authentication);
+
         return contactService.createExternalIdentity(request);
     }
 }

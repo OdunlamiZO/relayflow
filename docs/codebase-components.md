@@ -1343,6 +1343,8 @@ Important methods:
 - `updateContactCustomFields` — requires `CONTACT_FIELDS_WRITE` permission or owner role
 - `createExternalIdentity`
 
+`listContacts`, `createContact`, `getContact`, and `createExternalIdentity` require workspace membership (`assertMember`).
+
 We need it as the REST boundary for the contacts UI and channel adapters creating identities.
 
 ### `ContactTagService`
@@ -1536,6 +1538,8 @@ Important methods:
 
 - `createConversation`, `listConversations`, `getConversation`, `updateConversation`
 - `listMessages`, `createMessage`
+
+`createConversation`, `listConversations`, `getConversation`, and `listMessages` require workspace membership (`assertMember`).
 
 We need it as the REST boundary for the inbox UI.
 
@@ -2137,6 +2141,8 @@ Important methods:
 - `getWorkflow`
 - `updateWorkflow`
 - `deleteWorkflow`
+
+`listWorkflows` and `getWorkflow` require workspace membership (`assertMember`).
 
 We need it so the workflow builder UI can create, edit, publish, and delete workflow definitions.
 

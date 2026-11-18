@@ -44,7 +44,10 @@ public class WorkflowController {
     }
 
     @GetMapping
-    List<WorkflowDefinitionResponse> listWorkflows(@RequestParam @NotNull UUID workspaceId) {
+    List<WorkflowDefinitionResponse> listWorkflows(
+            @RequestParam @NotNull UUID workspaceId, Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return workflowService.listWorkflows(workspaceId);
     }
 
@@ -61,7 +64,11 @@ public class WorkflowController {
 
     @GetMapping("/{id}")
     WorkflowDefinitionResponse getWorkflow(
-            @PathVariable UUID id, @RequestParam @NotNull UUID workspaceId) {
+            @PathVariable UUID id,
+            @RequestParam @NotNull UUID workspaceId,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return workflowService.getWorkflow(id, workspaceId);
     }
 

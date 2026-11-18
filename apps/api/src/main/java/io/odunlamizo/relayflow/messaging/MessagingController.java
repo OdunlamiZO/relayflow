@@ -43,7 +43,10 @@ public class MessagingController {
 
     @PostMapping("/conversations")
     @ResponseStatus(HttpStatus.CREATED)
-    ConversationResponse createConversation(@Valid @RequestBody CreateConversationRequest request) {
+    ConversationResponse createConversation(
+            @Valid @RequestBody CreateConversationRequest request, Authentication authentication) {
+        authorizationService.assertMember(request.workspaceId(), authentication);
+
         return messagingService.createConversation(request);
     }
 
@@ -52,13 +55,20 @@ public class MessagingController {
             @RequestParam @NotNull UUID workspaceId,
             @RequestParam(required = false) UUID contactId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "30") int size) {
+            @RequestParam(defaultValue = "30") int size,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return messagingService.listConversations(workspaceId, contactId, null, page, size);
     }
 
     @GetMapping("/conversations/{conversationId}")
     ConversationResponse getConversation(
-            @RequestParam @NotNull UUID workspaceId, @PathVariable UUID conversationId) {
+            @RequestParam @NotNull UUID workspaceId,
+            @PathVariable UUID conversationId,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return messagingService.getConversation(workspaceId, conversationId);
     }
 
@@ -93,7 +103,10 @@ public class MessagingController {
             @RequestParam @NotNull UUID workspaceId,
             @PathVariable UUID conversationId,
             @RequestParam(required = false) Instant before,
-            @RequestParam(defaultValue = "50") int limit) {
+            @RequestParam(defaultValue = "50") int limit,
+            Authentication authentication) {
+        authorizationService.assertMember(workspaceId, authentication);
+
         return messagingService.listMessages(workspaceId, conversationId, before, limit);
     }
 
