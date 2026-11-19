@@ -15,11 +15,10 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public class OpenAiCompatibleTranscriptionProvider implements TranscriptionProvider {
-
-    private static final String DEFAULT_MODEL = "whisper-1";
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(120);
 
@@ -72,17 +71,29 @@ public class OpenAiCompatibleTranscriptionProvider implements TranscriptionProvi
     }
 
     @Override
+    public Optional<String> configurationProblem() {
+        return baseUrl.isEmpty()
+                ? Optional.of(
+                        "Set OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL or OPENAI_COMPATIBLE_BASE_URL"
+                                + " to use the OpenAI-compatible transcription provider")
+                : Optional.empty();
+    }
+
+    @Override
     public String transcribe(TranscriptionRequest request) {
-        if (baseUrl.isEmpty()) {
-            throw new ProviderException(
-                    "Set OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL or OPENAI_COMPATIBLE_BASE_URL"
-                            + " to use the OpenAI-compatible transcription provider");
+        Optional<String> problem = configurationProblem();
+
+        if (problem.isPresent()) {
+            throw new ProviderException(problem.get());
         }
 
-        String model =
-                request.model() != null && !request.model().isBlank()
-                        ? request.model()
-                        : DEFAULT_MODEL;
+        if (request.model() == null || request.model().isBlank()) {
+            throw new ProviderException(
+                    "Choose a transcription model in Settings → Providers, or set the"
+                            + " platform:transcription:openai-compatible:model Redis key");
+        }
+
+        String model = request.model();
         String boundary = "relayflow-" + UUID.randomUUID();
 
         HttpRequest.Builder builder =

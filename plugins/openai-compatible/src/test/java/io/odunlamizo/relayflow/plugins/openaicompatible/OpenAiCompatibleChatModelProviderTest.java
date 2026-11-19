@@ -90,6 +90,17 @@ class OpenAiCompatibleChatModelProviderTest {
                 .hasMessageContaining("platform:llm:openai-compatible:model");
     }
 
+    @Test
+    void reportsAMissingBaseUrlAsAConfigurationProblem() {
+        OpenAiCompatibleChatModelProvider withoutBaseUrl = new OpenAiCompatibleChatModelProvider();
+        withoutBaseUrl.initialize(name -> Optional.empty());
+
+        assertThat(withoutBaseUrl.configurationProblem())
+                .hasValueSatisfying(
+                        problem -> assertThat(problem).contains("OPENAI_COMPATIBLE_BASE_URL"));
+        assertThat(provider("").configurationProblem()).isEmpty();
+    }
+
     private OpenAiCompatibleChatModelProvider provider(String apiKey) {
         Map<String, String> settings =
                 Map.of(

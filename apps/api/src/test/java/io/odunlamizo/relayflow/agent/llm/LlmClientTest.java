@@ -27,7 +27,7 @@ class LlmClientTest {
     private final AtomicReference<ChatRequest> sentRequest = new AtomicReference<>();
 
     private final LlmClient client =
-            new LlmClient(chatModelProvider, configService, new ObjectMapper());
+            new LlmClient(chatModelProvider, null, configService, new ObjectMapper());
 
     @BeforeEach
     void setUp() {
@@ -70,6 +70,18 @@ class LlmClientTest {
     }
 
     @Test
+    void theWorkspaceModelWinsOverRedis() {
+        when(configService.getConfigValue("platform:llm:openai-compatible:model", null))
+                .thenReturn("qwen-2.5");
+        LlmClient withWorkspaceModel =
+                new LlmClient(chatModelProvider, "llama-3.1-8b", configService, new ObjectMapper());
+
+        withWorkspaceModel.complete(new AgentLlmRequest("", List.of(), null, List.of()));
+
+        assertThat(sentRequest.get().model()).isEqualTo("llama-3.1-8b");
+    }
+
+    @Test
     void aProviderErrorIsAFailedResponse() {
         when(chatModelProvider.complete(any())).thenThrow(new ProviderException("down"));
 
@@ -79,7 +91,7 @@ class LlmClientTest {
 
     @Test
     void withoutAProviderEveryCallFails() {
-        LlmClient withoutProvider = new LlmClient(null, configService, new ObjectMapper());
+        LlmClient withoutProvider = new LlmClient(null, null, configService, new ObjectMapper());
 
         assertThat(withoutProvider.provider()).isNull();
         assertThat(

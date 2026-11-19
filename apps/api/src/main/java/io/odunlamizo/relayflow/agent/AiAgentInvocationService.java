@@ -15,6 +15,7 @@ import io.odunlamizo.relayflow.agent.domain.RejectedExtraction;
 import io.odunlamizo.relayflow.agent.domain.WorkflowMapping;
 import io.odunlamizo.relayflow.agent.llm.AgentLlmRequest;
 import io.odunlamizo.relayflow.agent.llm.AgentLlmResponse;
+import io.odunlamizo.relayflow.agent.llm.LlmClient;
 import io.odunlamizo.relayflow.agent.llm.LlmClientFactory;
 import io.odunlamizo.relayflow.agent.llm.LlmMessage;
 import io.odunlamizo.relayflow.agent.repository.AiAgentInvocationLogRepository;
@@ -228,9 +229,12 @@ public class AiAgentInvocationService {
             }
         }
 
+        LlmClient llmClient =
+                llmClientFactory.getClient(
+                        conversation.getWorkspace().getProviderSettings(),
+                        configuration.getLlmProvider());
         AgentLlmRequest request = contextAssembler.assemble(configuration, conversation);
-        AgentLlmResponse response =
-                llmClientFactory.getClient(configuration.getLlmProvider()).complete(request);
+        AgentLlmResponse response = llmClient.complete(request);
 
         if (response.failed()) {
             String reason = "LLM call failed";
@@ -242,6 +246,7 @@ public class AiAgentInvocationService {
 
         ExtractionValidation validation =
                 convertRejectedValues(
+                        llmClient,
                         configuration,
                         request,
                         workspaceId,
@@ -297,9 +302,7 @@ public class AiAgentInvocationService {
 
         if (validation.hasRejections()) {
             response =
-                    withReply(
-                            response,
-                            correctionReply(configuration, request, response, validation));
+                    withReply(response, correctionReply(llmClient, request, response, validation));
         }
 
         Optional<String> workflowAction =
@@ -343,6 +346,7 @@ public class AiAgentInvocationService {
     }
 
     private ExtractionValidation convertRejectedValues(
+            LlmClient llmClient,
             AiAgentConfiguration configuration,
             AgentLlmRequest request,
             UUID workspaceId,
@@ -351,14 +355,12 @@ public class AiAgentInvocationService {
 
         for (RejectedExtraction rejection : validation.rejections()) {
             AgentLlmResponse conversion =
-                    llmClientFactory
-                            .getClient(configuration.getLlmProvider())
-                            .complete(
-                                    new AgentLlmRequest(
-                                            CONVERSION_PROMPT,
-                                            List.of(LlmMessage.user(rejection.conversionRequest())),
-                                            request.model(),
-                                            List.of()));
+                    llmClient.complete(
+                            new AgentLlmRequest(
+                                    CONVERSION_PROMPT,
+                                    List.of(LlmMessage.user(rejection.conversionRequest())),
+                                    request.model(),
+                                    List.of()));
             String value = conversion.reply().trim();
 
             if (!conversion.failed() && !value.isEmpty() && !value.equals(rejection.value())) {
@@ -386,7 +388,7 @@ public class AiAgentInvocationService {
     }
 
     private String correctionReply(
-            AiAgentConfiguration configuration,
+            LlmClient llmClient,
             AgentLlmRequest request,
             AgentLlmResponse response,
             ExtractionValidation validation) {
@@ -397,10 +399,7 @@ public class AiAgentInvocationService {
                         request.messages(),
                         request.model(),
                         List.of());
-        AgentLlmResponse correction =
-                llmClientFactory
-                        .getClient(configuration.getLlmProvider())
-                        .complete(correctionRequest);
+        AgentLlmResponse correction = llmClient.complete(correctionRequest);
 
         if (correction.failed() || correction.reply().isBlank()) {
             return validation.fallbackReply();

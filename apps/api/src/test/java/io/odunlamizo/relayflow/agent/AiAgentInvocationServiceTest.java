@@ -37,6 +37,7 @@ import io.odunlamizo.relayflow.workflow.engine.WorkflowEngineService;
 import io.odunlamizo.relayflow.workflow.repository.WorkflowDefinitionRepository;
 import io.odunlamizo.relayflow.workflow.repository.WorkflowRunRepository;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
+import io.odunlamizo.relayflow.workspace.domain.WorkspaceProviderSettings;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -140,7 +141,9 @@ class AiAgentInvocationServiceTest {
     }
 
     private void stubLlmResponse(boolean failed) {
-        when(llmClientFactory.getClient(configuration.getLlmProvider())).thenReturn(llmClient);
+        when(llmClientFactory.getClient(
+                        WorkspaceProviderSettings.NONE, configuration.getLlmProvider()))
+                .thenReturn(llmClient);
         when(llmClient.complete(any()))
                 .thenReturn(
                         new AgentLlmResponse(
@@ -236,7 +239,9 @@ class AiAgentInvocationServiceTest {
                                 List.of(LlmMessage.user("My email is john@gmail")),
                                 null,
                                 configuration.getExtractionFields()));
-        when(llmClientFactory.getClient(configuration.getLlmProvider())).thenReturn(llmClient);
+        when(llmClientFactory.getClient(
+                        WorkspaceProviderSettings.NONE, configuration.getLlmProvider()))
+                .thenReturn(llmClient);
     }
 
     private ConversationAiDraft savedDraft() {
@@ -319,7 +324,9 @@ class AiAgentInvocationServiceTest {
                                                 "I want to contribute fifty thousand naira")),
                                 null,
                                 configuration.getExtractionFields()));
-        when(llmClientFactory.getClient(configuration.getLlmProvider())).thenReturn(llmClient);
+        when(llmClientFactory.getClient(
+                        WorkspaceProviderSettings.NONE, configuration.getLlmProvider()))
+                .thenReturn(llmClient);
         when(llmClient.complete(any()))
                 .thenReturn(
                         reply(

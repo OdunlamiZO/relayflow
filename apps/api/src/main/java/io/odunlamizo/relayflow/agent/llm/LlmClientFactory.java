@@ -7,7 +7,8 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.plugin.ChatModelProvider;
 import io.odunlamizo.relayflow.pluginregistry.PluginRegistry;
-import java.util.List;
+import io.odunlamizo.relayflow.workspace.domain.WorkspaceProviderSettings;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,37 +33,37 @@ public class LlmClientFactory {
         this.objectMapper = objectMapper;
     }
 
-    public LlmClient getActiveClient() {
-        return getClient(null);
+    public LlmClient getClient(WorkspaceProviderSettings settings, String agentProvider) {
+        ChatModelProvider provider =
+                installed(agentProvider, "agent")
+                        .or(() -> installed(settings.llmProvider(), "workspace"))
+                        .or(this::instanceProvider)
+                        .orElse(null);
+        String model = provider != null ? settings.llmModel(provider.id()).orElse(null) : null;
+
+        return new LlmClient(provider, model, configService, objectMapper);
     }
 
-    /**
-     * Uses the override when its plugin is installed, then the platform's active provider, then the
-     * first installed chat model plugin.
-     */
-    public LlmClient getClient(String providerOverride) {
-        if (providerOverride != null) {
-            var override = pluginRegistry.findChatModelProvider(providerOverride);
+    public Optional<ChatModelProvider> instanceProvider() {
+        return configService
+                .getActiveProvider()
+                .flatMap(providerId -> installed(providerId, "instance"));
+    }
 
-            if (override.isPresent()) {
-                return new LlmClient(override.get(), configService, objectMapper);
-            }
+    private Optional<ChatModelProvider> installed(String providerId, String chosenBy) {
+        if (providerId == null) {
+            return Optional.empty();
+        }
 
+        Optional<ChatModelProvider> provider = pluginRegistry.findChatModelProvider(providerId);
+
+        if (provider.isEmpty()) {
             log.warn(
-                    "Agent's LLM provider plugin isn't installed, using the platform provider {}",
-                    kv("provider", providerOverride));
+                    "LLM provider plugin isn't installed, falling back {} {}",
+                    kv("chosenBy", chosenBy),
+                    kv("provider", providerId));
         }
 
-        var active =
-                configService.getActiveProvider().flatMap(pluginRegistry::findChatModelProvider);
-
-        if (active.isPresent()) {
-            return new LlmClient(active.get(), configService, objectMapper);
-        }
-
-        List<ChatModelProvider> installed = pluginRegistry.chatModelProviders();
-
-        return new LlmClient(
-                installed.isEmpty() ? null : installed.getFirst(), configService, objectMapper);
+        return provider;
     }
 }

@@ -75,6 +75,14 @@ public class PluginRegistry {
         return Optional.ofNullable(id).map(storageProviders::get);
     }
 
+    public static Optional<String> configurationProblem(PluginProvider provider) {
+        try {
+            return provider.configurationProblem();
+        } catch (RuntimeException exception) {
+            return Optional.of("Couldn't check its configuration: " + exception.getMessage());
+        }
+    }
+
     private static ClassLoader pluginClassLoader(Path directory) {
         ClassLoader parent = PluginRegistry.class.getClassLoader();
 
@@ -156,6 +164,15 @@ public class PluginRegistry {
                     kv("type", type.getSimpleName()),
                     kv("id", provider.id()),
                     kv("class", provider.getClass().getName()));
+
+            configurationProblem(provider)
+                    .ifPresent(
+                            problem ->
+                                    log.warn(
+                                            "Plugin provider isn't configured {} {} {}",
+                                            kv("type", type.getSimpleName()),
+                                            kv("id", provider.id()),
+                                            kv("problem", problem)));
         }
 
         return providers;

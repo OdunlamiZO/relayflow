@@ -14,8 +14,7 @@ import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
 import { useCreateAiAgentConfiguration } from "@/hooks/use-create-ai-agent-configuration";
 import { useDeleteAiAgentConfiguration } from "@/hooks/use-delete-ai-agent-configuration";
 import { useHooks } from "@/hooks/use-hooks";
-import { useLlmProviders } from "@/hooks/use-llm-providers";
-import { usePlatformLlmProvider } from "@/hooks/use-platform-llm-provider";
+import { useProviderSettings } from "@/hooks/use-provider-settings";
 import { useSetDefaultAiAgentConfiguration } from "@/hooks/use-set-default-ai-agent-configuration";
 import { useUpdateAiAgentConfiguration } from "@/hooks/use-update-ai-agent-configuration";
 import { useWorkflows } from "@/hooks/use-workflows";
@@ -376,9 +375,12 @@ function AiAgentForm({
   extraAction,
 }: AiAgentFormProps) {
   const { data: workflows = [] } = useWorkflows(workspaceId);
-  const { data: platformDefaultProvider } = usePlatformLlmProvider(workspaceId);
-  const { data: llmProviders = [], isSuccess: llmProvidersLoaded } =
-    useLlmProviders(workspaceId);
+  const { data: providerSettings, isSuccess: llmProvidersLoaded } =
+    useProviderSettings(workspaceId);
+  const llmProviders = providerSettings?.chatModel.providers ?? [];
+  const workspaceDefaultProvider =
+    providerSettings?.chatModel.selected ??
+    providerSettings?.chatModel.instanceDefault;
   const { data: builtInHooks = [], isSuccess: builtInHooksLoaded } =
     useBuiltInHooks(workspaceId);
   const { data: customHooks = [], isSuccess: customHooksLoaded } =
@@ -690,21 +692,34 @@ function AiAgentForm({
           LLM Provider
         </h2>
         <p className="mb-2.5 text-xs text-neutral-500">
-          Which LLM this agent uses. The platform default is marked below — pick
-          it to follow your global setting, or pick another to override it just
-          for this agent.
+          Which LLM this agent uses. The workspace default is marked below —
+          pick it to follow the workspace&apos;s Providers setting, or pick
+          another to override it just for this agent.
         </p>
         {llmProvidersLoaded && llmProviders.length === 0 && (
           <p className="mb-2.5 text-xs text-yellow-text">
             No LLM provider plugin is installed, so this agent can&apos;t reply.
           </p>
         )}
+        {llmProvidersLoaded &&
+          llmProviders.length > 0 &&
+          !workspaceDefaultProvider &&
+          llmProvider === null && (
+            <p className="mb-2.5 text-xs text-yellow-text">
+              No LLM provider is chosen for this workspace, so this agent
+              can&apos;t reply. Pick one below, or in Settings → Providers.
+            </p>
+          )}
         <div className="flex flex-wrap gap-2">
           {[
-            ...llmProviders.map(({ id, displayName }) => ({
-              value: id,
-              label: displayName,
-            })),
+            ...llmProviders.map(
+              ({ id, displayName, configurationProblem }) => ({
+                value: id,
+                label: configurationProblem
+                  ? `${displayName} (not configured)`
+                  : displayName,
+              })
+            ),
             ...(llmProvidersLoaded &&
             llmProvider !== null &&
             !llmProviders.some(({ id }) => id === llmProvider)
@@ -716,8 +731,8 @@ function AiAgentForm({
                 ]
               : []),
           ].map(({ value, label }) => {
-            const isPlatformDefault = value === platformDefaultProvider;
-            const active = isPlatformDefault
+            const isWorkspaceDefault = value === workspaceDefaultProvider;
+            const active = isWorkspaceDefault
               ? llmProvider === null || llmProvider === value
               : llmProvider === value;
 
@@ -726,7 +741,7 @@ function AiAgentForm({
                 key={value}
                 type="button"
                 onClick={() =>
-                  patch({ llmProvider: isPlatformDefault ? null : value })
+                  patch({ llmProvider: isWorkspaceDefault ? null : value })
                 }
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
@@ -735,7 +750,7 @@ function AiAgentForm({
                 }`}
               >
                 {label}
-                {isPlatformDefault && " · Platform default"}
+                {isWorkspaceDefault && " · Workspace default"}
               </button>
             );
           })}

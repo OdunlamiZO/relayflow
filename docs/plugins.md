@@ -4,9 +4,12 @@ A plugin is a JAR that adds a provider to RelayFlow:
 
 | Interface | What it does | Selected with |
 |---|---|---|
-| `ChatModelProvider` | Runs the AI agent's LLM calls | An agent's own LLM provider setting, then Redis `platform:llm:provider`, then the first installed one |
-| `TranscriptionProvider` | Turns voice messages into text | Redis `platform:transcription:provider`, or the only one installed |
-| `StorageProvider` | Saves and loads voice message recordings | Redis `platform:storage:provider`, or the only one installed |
+| `ChatModelProvider` | Runs the AI agent's LLM calls | An agent's own LLM provider setting, then the workspace's, then Redis `platform:llm:provider` |
+| `TranscriptionProvider` | Turns voice messages into text | The workspace's, then Redis `platform:transcription:provider` |
+| `StorageProvider` | Saves and loads voice message recordings | The workspace's, then Redis `platform:storage:provider` |
+
+Workspace owners choose a workspace's plugins and models in **Settings → Providers**. Nothing is
+chosen for them: an installed plugin isn't used until someone picks it.
 
 The official plugins in [`plugins/`](../plugins) are complete examples: Anthropic and
 OpenAI-compatible chat models, OpenAI-compatible transcription, and local disk storage.
@@ -48,6 +51,7 @@ import io.odunlamizo.relayflow.plugin.ChatModelProvider;
 import io.odunlamizo.relayflow.plugin.ChatRequest;
 import io.odunlamizo.relayflow.plugin.ProviderException;
 import io.odunlamizo.relayflow.plugin.ProviderSettings;
+import java.util.Optional;
 
 public class ExampleChatModelProvider implements ChatModelProvider {
 
@@ -69,6 +73,13 @@ public class ExampleChatModelProvider implements ChatModelProvider {
     }
 
     @Override
+    public Optional<String> configurationProblem() {
+        return apiKey.isEmpty()
+                ? Optional.of("Set EXAMPLE_API_KEY to use the Example provider")
+                : Optional.empty();
+    }
+
+    @Override
     public String complete(ChatRequest request) {
         if (apiKey.isEmpty()) {
             throw new ProviderException("Set EXAMPLE_API_KEY to use the Example provider");
@@ -86,6 +97,9 @@ public class ExampleChatModelProvider implements ChatModelProvider {
   API from starting.
 - `initialize` runs once at startup. `ProviderSettings.get(name)` reads environment variables, so
   document the ones your plugin needs.
+- Override `configurationProblem()` to return what's missing, such as
+  `Optional.of("Set EXAMPLE_API_KEY to use the Example provider")`. RelayFlow logs it at startup
+  and shows the plugin as "not configured" in Settings → Providers. It's empty by default.
 - Throw `ProviderException`, or any runtime exception, when a call fails. RelayFlow logs it and
   carries on: a failed LLM call escalates the conversation to a human, and a failed transcription
   leaves the voice message for a human.
@@ -97,15 +111,15 @@ public class ExampleChatModelProvider implements ChatModelProvider {
 `assistant`), and the model. RelayFlow has already added its JSON response instructions to the
 system prompt, so return the model's reply text as is. Turn on your API's JSON mode if it has one.
 
-The model is the agent's own when set, otherwise the Redis key
+The model is the workspace's for your plugin when set, otherwise the Redis key
 `platform:llm:<id>:model`, with the ID lowercased and `_` as `-` (`EXAMPLE` reads
-`platform:llm:example:model`). It's null when neither is set, so fall back to a default model or
-throw.
+`platform:llm:example:model`). It's null when neither is set, so throw a `ProviderException`
+that asks for one rather than picking a model yourself.
 
 ### Transcription
 
-`TranscriptionRequest` holds the audio bytes, its MIME type (often `audio/ogg`), and the model from
-`platform:transcription:<id>:model`, or null. Return the transcript; return an empty string when
+`TranscriptionRequest` holds the audio bytes, its MIME type (often `audio/ogg`), and the model: the
+workspace's when set, otherwise `platform:transcription:<id>:model`, or null, in which case throw. Return the transcript; return an empty string when
 there's no speech.
 
 ### Storage
@@ -141,7 +155,8 @@ cp target/relayflow-plugin-example.jar plugins/
 docker compose --profile prod restart api
 ```
 
-The API logs `Plugin provider loaded` with your provider's ID. Then select it, for a chat model:
+The API logs `Plugin provider loaded` with your provider's ID. Then select it in a workspace's
+**Settings → Providers**, or for the whole instance, for a chat model:
 
 ```bash
 docker compose --profile prod exec redis redis-cli SET platform:llm:provider EXAMPLE

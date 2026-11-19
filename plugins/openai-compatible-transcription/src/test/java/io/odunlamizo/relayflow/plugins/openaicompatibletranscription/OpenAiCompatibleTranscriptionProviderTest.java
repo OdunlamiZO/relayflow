@@ -79,7 +79,7 @@ class OpenAiCompatibleTranscriptionProviderTest {
     }
 
     @Test
-    void fallsBackToTheChatProviderSettingsAndDefaultModel() {
+    void fallsBackToTheChatProviderSettings() {
         Map<String, String> settings =
                 Map.of(
                         "OPENAI_COMPATIBLE_BASE_URL",
@@ -87,12 +87,27 @@ class OpenAiCompatibleTranscriptionProviderTest {
                         "OPENAI_COMPATIBLE_API_KEY",
                         "shared-key");
 
-        provider(settings).transcribe(new TranscriptionRequest(new byte[0], "audio/mpeg", null));
+        provider(settings)
+                .transcribe(new TranscriptionRequest(new byte[0], "audio/mpeg", "whisper-1"));
 
         assertThat(receivedAuthorization.get()).isEqualTo("Bearer shared-key");
         assertThat(receivedBody.get())
                 .contains("name=\"model\"\r\n\r\nwhisper-1")
                 .contains("filename=\"audio.mp3\"");
+    }
+
+    @Test
+    void aMissingModelThrows() {
+        Map<String, String> settings = Map.of("OPENAI_COMPATIBLE_BASE_URL", serverUrl());
+
+        assertThatThrownBy(
+                        () ->
+                                provider(settings)
+                                        .transcribe(
+                                                new TranscriptionRequest(
+                                                        new byte[0], "audio/ogg", null)))
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("platform:transcription:openai-compatible:model");
     }
 
     @Test
@@ -105,6 +120,19 @@ class OpenAiCompatibleTranscriptionProviderTest {
                                                         new byte[0], "audio/ogg", null)))
                 .isInstanceOf(ProviderException.class)
                 .hasMessageContaining("OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL");
+    }
+
+    @Test
+    void reportsAMissingBaseUrlAsAConfigurationProblem() {
+        assertThat(provider(Map.of()).configurationProblem())
+                .hasValueSatisfying(
+                        problem ->
+                                assertThat(problem)
+                                        .contains("OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL"));
+        assertThat(
+                        provider(Map.of("OPENAI_COMPATIBLE_BASE_URL", serverUrl()))
+                                .configurationProblem())
+                .isEmpty();
     }
 
     @Test

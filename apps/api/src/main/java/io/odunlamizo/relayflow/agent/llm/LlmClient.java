@@ -18,15 +18,19 @@ public class LlmClient {
 
     private final ChatModelProvider chatModelProvider;
 
+    private final String workspaceModel;
+
     private final LlmPlatformConfigService configService;
 
     private final ObjectMapper objectMapper;
 
     public LlmClient(
             ChatModelProvider chatModelProvider,
+            String workspaceModel,
             LlmPlatformConfigService configService,
             ObjectMapper objectMapper) {
         this.chatModelProvider = chatModelProvider;
+        this.workspaceModel = workspaceModel;
         this.configService = configService;
         this.objectMapper = objectMapper;
     }
@@ -35,22 +39,21 @@ public class LlmClient {
         return "platform:llm:" + providerId.toLowerCase().replace('_', '-') + ":model";
     }
 
-    /** Null when no chat model plugin is installed. */
+    /** Null when no installed chat model plugin is chosen. */
     public String provider() {
         return chatModelProvider != null ? chatModelProvider.id() : null;
     }
 
     public AgentLlmResponse complete(AgentLlmRequest request) {
         if (chatModelProvider == null) {
-            log.error("LLM call skipped, no chat model plugin is installed");
+            log.error(
+                    "LLM call skipped, no chat model provider is chosen. Choose one in Settings →"
+                            + " Providers or set platform:llm:provider in Redis");
 
             return AgentLlmResponseParser.failure();
         }
 
-        String model =
-                request.model() != null && !request.model().isBlank()
-                        ? request.model()
-                        : configService.getConfigValue(modelKey(chatModelProvider.id()), null);
+        String model = model(request);
         String systemPrompt =
                 request.systemPrompt()
                         + LlmPrompts.buildFormatInstruction(request.extractionFields());
@@ -73,5 +76,17 @@ public class LlmClient {
 
             return AgentLlmResponseParser.failure();
         }
+    }
+
+    private String model(AgentLlmRequest request) {
+        if (request.model() != null && !request.model().isBlank()) {
+            return request.model();
+        }
+
+        if (workspaceModel != null && !workspaceModel.isBlank()) {
+            return workspaceModel;
+        }
+
+        return configService.getConfigValue(modelKey(chatModelProvider.id()), null);
     }
 }
