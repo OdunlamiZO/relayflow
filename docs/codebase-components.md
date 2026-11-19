@@ -253,6 +253,8 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`ConversationItem`](#conversationitem)
   - [`MessageThread`](#messagethread)
   - [`MessageBubble`](#messagebubble)
+  - [`VoicePlayer`](#voiceplayer)
+  - [`VoicePlayer.test.tsx`](#voiceplayertesttsx)
   - [`MessageComposer`](#messagecomposer)
 - [Frontend Contacts Components](#frontend-contacts-components)
   - [`ContactsShell`](#contactsshell)
@@ -3213,7 +3215,7 @@ Source: [`apps/web/src/components/inbox/MessageBubble.tsx`](../apps/web/src/comp
 
 Source: [`apps/web/src/hooks/use-message-audio-url.ts`](../apps/web/src/hooks/use-message-audio-url.ts)
 
-Renders one message bubble, with its text formatted by `FormattedText`. A message with `audio` gets a "Voice message" label, an `<audio>` player when the recording is stored, and a note for `PENDING`, `FAILED`, or `NO_PROVIDER` transcriptions. Its `text` is the transcript.
+Renders one message bubble, with its text formatted by `FormattedText`. A message with `audio` gets a `VoicePlayer` when the recording is stored, or a "Recording not kept" line, and a `StatusLine` with an icon for `PENDING` (a spinner), `FAILED`, or `NO_PROVIDER` transcriptions; `NO_PROVIDER` links to Settings → Providers. Its `text` is the transcript, shown under a divider. Voice message bubbles get more padding and space around them.
 
 Important functions:
 
@@ -3222,11 +3224,25 @@ Important functions:
 
 We need it for readable inbound/outbound timeline rendering.
 
+### `VoicePlayer`
+
+Source: [`apps/web/src/components/inbox/VoicePlayer.tsx`](../apps/web/src/components/inbox/VoicePlayer.tsx)
+
+Plays a voice message recording with a round play/pause button, a seek bar, and elapsed / total time. The total starts from the message's `durationSeconds` and is replaced by the recording's own length once it loads. The `<audio>` element is hidden and loads nothing until played. A recording that can't be played shows "Couldn't play this recording" in place of the time.
+
+We need it so voice messages look the same in every browser and follow the app's colours.
+
+### `VoicePlayer.test.tsx`
+
+Source: [`apps/web/src/components/inbox/VoicePlayer.test.tsx`](../apps/web/src/components/inbox/VoicePlayer.test.tsx)
+
+Covers playing and pausing a recording with its total time shown, and the message when playback fails.
+
 ### `MessageBubble.test.tsx`
 
 Source: [`apps/web/src/components/inbox/MessageBubble.test.tsx`](../apps/web/src/components/inbox/MessageBubble.test.tsx)
 
-Covers a stored, transcribed voice message (player, label, transcript) and one with no recording or transcription plugin.
+Covers a stored, transcribed voice message (player, total time, transcript), one with no recording or transcription provider (with the link to Settings → Providers), and one still being transcribed.
 
 ### `MessageComposer`
 

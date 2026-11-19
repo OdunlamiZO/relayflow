@@ -37,7 +37,10 @@ describe("MessageBubble", () => {
       />
     );
 
-    expect(screen.getByText("🎤 Voice message")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Play voice message" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("0:00 / 0:03")).toBeInTheDocument();
     expect(screen.getByText("I want to borrow 50,000")).toBeInTheDocument();
     expect(container.querySelector("audio")?.getAttribute("src")).toContain(
       "/conversations/conversation-1/messages/message-1/audio?workspaceId=workspace-1"
@@ -59,11 +62,28 @@ describe("MessageBubble", () => {
       />
     );
 
+    expect(screen.getByText("Recording not kept")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Not transcribed: choose a transcription provider in Settings → Providers"
-      )
-    ).toBeInTheDocument();
+      screen.getByRole("link", { name: "Choose a transcription provider" })
+    ).toHaveAttribute("href", "/settings?workspaceId=workspace-1#providers");
     expect(container.querySelector("audio")).toBeNull();
+  });
+
+  it("shows a voice message that's still being transcribed", () => {
+    render(
+      <MessageBubble
+        message={voiceMessage(
+          {
+            mimeType: "audio/ogg",
+            durationSeconds: 3,
+            stored: true,
+            transcriptionStatus: "PENDING",
+          },
+          null
+        )}
+      />
+    );
+
+    expect(screen.getByText("Transcribing…")).toBeInTheDocument();
   });
 });
