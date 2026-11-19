@@ -313,8 +313,10 @@ The platform's default provider is a Redis key, not a per-workspace setting. Any
 
 ```bash
 redis-cli SET platform:llm:provider 'OPENAI_COMPATIBLE'
-redis-cli SET platform:llm:provider 'ANTHROPIC'   # the default when unset
+redis-cli SET platform:llm:provider 'ANTHROPIC'
 ```
+
+When the key isn't set, the API uses the first installed chat model plugin by display name, which is Anthropic in the official image.
 
 The former values `OPENAI`, `GROQ`, `OLLAMA` and `OPENROUTER` are still accepted and mean `OPENAI_COMPATIBLE`.
 

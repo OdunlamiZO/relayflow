@@ -53,7 +53,8 @@ public class LlmClientFactory {
                     kv("provider", providerOverride));
         }
 
-        var active = pluginRegistry.findChatModelProvider(configService.getActiveProvider());
+        var active =
+                configService.getActiveProvider().flatMap(pluginRegistry::findChatModelProvider);
 
         if (active.isPresent()) {
             return new LlmClient(active.get(), configService, objectMapper);

@@ -32,7 +32,7 @@ class LlmPlatformConfigServiceTest {
     void formerOpenAiCompatibleProvidersMeanCustom(String provider) {
         when(values.get("platform:llm:provider")).thenReturn(provider);
 
-        assertThat(service.getActiveProvider()).isEqualTo("OPENAI_COMPATIBLE");
+        assertThat(service.getActiveProvider()).contains("OPENAI_COMPATIBLE");
     }
 
     @ParameterizedTest
@@ -41,20 +41,20 @@ class LlmPlatformConfigServiceTest {
         when(values.get("platform:llm:provider")).thenReturn(provider);
 
         assertThat(service.getActiveProvider())
-                .isEqualTo(provider.contains("anthropic") ? "ANTHROPIC" : "OPENAI_COMPATIBLE");
+                .contains(provider.contains("anthropic") ? "ANTHROPIC" : "OPENAI_COMPATIBLE");
     }
 
     @Test
-    void defaultsToAnthropicWhenUnset() {
+    void hasNoActiveProviderWhenUnset() {
         when(values.get("platform:llm:provider")).thenReturn(null);
 
-        assertThat(service.getActiveProvider()).isEqualTo("ANTHROPIC");
+        assertThat(service.getActiveProvider()).isEmpty();
     }
 
     @Test
     void anyOtherIdIsAPluginProvider() {
         when(values.get("platform:llm:provider")).thenReturn("gemini");
 
-        assertThat(service.getActiveProvider()).isEqualTo("GEMINI");
+        assertThat(service.getActiveProvider()).contains("GEMINI");
     }
 }

@@ -4,6 +4,7 @@ package io.odunlamizo.relayflow.agent.llm;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,8 +17,6 @@ public class LlmPlatformConfigService {
     private static final Logger log = LoggerFactory.getLogger(LlmPlatformConfigService.class);
 
     private static final String PROVIDER_KEY = "platform:llm:provider";
-
-    private static final String DEFAULT_PROVIDER = "ANTHROPIC";
 
     private static final Set<String> FORMER_OPENAI_COMPATIBLE_PROVIDERS =
             Set.of("OPENAI", "GROQ", "OLLAMA", "OPENROUTER");
@@ -45,12 +44,13 @@ public class LlmPlatformConfigService {
         return defaultValue;
     }
 
-    public String getActiveProvider() {
-        String provider =
-                getConfigValue(PROVIDER_KEY, DEFAULT_PROVIDER).toUpperCase().replace('-', '_');
-
-        return FORMER_OPENAI_COMPATIBLE_PROVIDERS.contains(provider)
-                ? "OPENAI_COMPATIBLE"
-                : provider;
+    public Optional<String> getActiveProvider() {
+        return Optional.ofNullable(getConfigValue(PROVIDER_KEY, null))
+                .map(provider -> provider.toUpperCase().replace('-', '_'))
+                .map(
+                        provider ->
+                                FORMER_OPENAI_COMPATIBLE_PROVIDERS.contains(provider)
+                                        ? "OPENAI_COMPATIBLE"
+                                        : provider);
     }
 }

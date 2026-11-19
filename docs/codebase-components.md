@@ -4720,13 +4720,13 @@ Package-private class holding `buildFormatInstruction(extractionFields)`, which 
 
 Source: [`LlmPlatformConfigService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmPlatformConfigService.java)
 
-`getActiveProvider()` reads the platform's chat model plugin ID from Redis `platform:llm:provider`, uppercased with `-` read as `_`, defaulting to `ANTHROPIC`. `OPENAI`, `GROQ`, `OLLAMA`, and `OPENROUTER` are read as `OPENAI_COMPATIBLE`. `getConfigValue(key, default)` is a Redis read with a fallback, also used by `LlmClient` for model keys.
+`getActiveProvider()` reads the platform's chat model plugin ID from Redis `platform:llm:provider`, uppercased with `-` read as `_`, or empty when the key isn't set. `OPENAI`, `GROQ`, `OLLAMA`, and `OPENROUTER` are read as `OPENAI_COMPATIBLE`. `getConfigValue(key, default)` is a Redis read with a fallback, also used by `LlmClient` for model keys.
 
 #### `LlmClientFactory`
 
 Source: [`LlmClientFactory.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmClientFactory.java)
 
-`getClient(providerOverride)` returns an `LlmClient` for the first installed plugin of: the override (an `AiAgentConfiguration`'s own `llmProvider`), the platform's active provider, then the first installed chat model plugin by display name. An override whose plugin isn't installed logs a warning and falls through. `getActiveClient()` is `getClient(null)`. Redis changes take effect on the next call.
+`getClient(providerOverride)` returns an `LlmClient` for the first installed plugin of: the override (an `AiAgentConfiguration`'s own `llmProvider`), the platform's active provider, then the first installed chat model plugin by display name, which also covers a platform with no provider set. An override whose plugin isn't installed logs a warning and falls through. `getActiveClient()` is `getClient(null)`. Redis changes take effect on the next call.
 
 ### AI Agent Domain Records
 

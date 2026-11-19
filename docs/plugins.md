@@ -4,7 +4,7 @@ A plugin is a JAR that adds a provider to RelayFlow:
 
 | Interface | What it does | Selected with |
 |---|---|---|
-| `ChatModelProvider` | Runs the AI agent's LLM calls | Redis `platform:llm:provider`, or an agent's own LLM provider setting |
+| `ChatModelProvider` | Runs the AI agent's LLM calls | An agent's own LLM provider setting, then Redis `platform:llm:provider`, then the first installed one |
 | `TranscriptionProvider` | Turns voice messages into text | Redis `platform:transcription:provider`, or the only one installed |
 | `StorageProvider` | Saves and loads voice message recordings | Redis `platform:storage:provider`, or the only one installed |
 

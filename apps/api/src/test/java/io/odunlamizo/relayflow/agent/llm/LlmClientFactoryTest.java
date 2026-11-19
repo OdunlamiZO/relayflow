@@ -38,7 +38,7 @@ class LlmClientFactoryTest {
 
     @Test
     void anInstalledOverrideWinsOverThePlatformProvider() {
-        when(configService.getActiveProvider()).thenReturn("ANTHROPIC");
+        when(configService.getActiveProvider()).thenReturn(Optional.of("ANTHROPIC"));
 
         assertThat(factory.getClient("OPENAI_COMPATIBLE").provider())
                 .isEqualTo("OPENAI_COMPATIBLE");
@@ -46,28 +46,35 @@ class LlmClientFactoryTest {
 
     @Test
     void usesThePlatformProviderWithoutAnOverride() {
-        when(configService.getActiveProvider()).thenReturn("OPENAI_COMPATIBLE");
+        when(configService.getActiveProvider()).thenReturn(Optional.of("OPENAI_COMPATIBLE"));
 
         assertThat(factory.getActiveClient().provider()).isEqualTo("OPENAI_COMPATIBLE");
     }
 
     @Test
     void anOverrideThatIsNotInstalledFallsBackToThePlatformProvider() {
-        when(configService.getActiveProvider()).thenReturn("ANTHROPIC");
+        when(configService.getActiveProvider()).thenReturn(Optional.of("ANTHROPIC"));
 
         assertThat(factory.getClient("GEMINI").provider()).isEqualTo("ANTHROPIC");
     }
 
     @Test
     void aPlatformProviderThatIsNotInstalledFallsBackToTheFirstInstalledOne() {
-        when(configService.getActiveProvider()).thenReturn("GEMINI");
+        when(configService.getActiveProvider()).thenReturn(Optional.of("GEMINI"));
+
+        assertThat(factory.getActiveClient().provider()).isEqualTo("ANTHROPIC");
+    }
+
+    @Test
+    void withNoPlatformProviderSetUsesTheFirstInstalledOne() {
+        when(configService.getActiveProvider()).thenReturn(Optional.empty());
 
         assertThat(factory.getActiveClient().provider()).isEqualTo("ANTHROPIC");
     }
 
     @Test
     void withNoPluginsInstalledTheClientHasNoProvider() {
-        when(configService.getActiveProvider()).thenReturn("ANTHROPIC");
+        when(configService.getActiveProvider()).thenReturn(Optional.of("ANTHROPIC"));
         when(pluginRegistry.findChatModelProvider("ANTHROPIC")).thenReturn(Optional.empty());
         when(pluginRegistry.chatModelProviders()).thenReturn(List.of());
 
