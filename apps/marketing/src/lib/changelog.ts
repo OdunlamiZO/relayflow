@@ -25,6 +25,19 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.5.0",
+    date: "2026-11-19",
+    changes: {
+      added: [
+        "Each workspace chooses its chat model, transcription and storage providers and their models in Settings → Providers. Anything left on the instance default uses the Redis keys.",
+        "A plugin whose environment variables are missing shows as not configured in Settings → Providers and in the API's startup logs.",
+      ],
+      changed: [
+        "Breaking: nothing is chosen for you. With no chat model provider set for the agent, the workspace or the instance, the AI agent doesn't reply and conversations go to a person. Voice messages aren't transcribed or stored until a provider is chosen, even when only one is installed. Anthropic no longer defaults to claude-haiku-4-5, and transcription no longer defaults to whisper-1, so set a model for each provider.",
+      ],
+    },
+  },
+  {
     version: "1.4.0",
     date: "2026-11-19",
     changes: {
