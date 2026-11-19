@@ -193,6 +193,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`WorkflowTriggerListener`](#workflowtriggerlistener)
   - [`WorkflowResumeListener`](#workflowresumelistener)
   - [`ReplyRouter`](#replyrouter)
+  - [`VoiceReplyConverter`](#voicereplyconverter)
   - [`WorkflowMessageSender`](#workflowmessagesender)
 - [Workflow Node Executors](#workflow-node-executors)
   - [`TriggerNodeExecutor`](#triggernodeexecutor)
@@ -2551,9 +2552,24 @@ Important behavior:
   - rejected with attempts left (`maxAttempts`, default 3, clamped to 1–10) → returns a retry carrying the error message; nothing is saved.
   - rejected on the last attempt → follows `invalid`.
   - hook error (unknown hook, FEEL failure, timeout) → throws `NodeExecutionException`, failing the run.
-- returns an `output` map (reply, hook, outcome, value/attempt) that the engine records as a run step whenever a hook ran.
+  - a rejected voice reply (the engine passes `voiceReply` when the message has a `transcriptionStatus`) goes through `VoiceReplyConverter` first. When it returns a value, the hook runs again on it, and an accepted result replaces the rejection. Typed replies are never converted.
+- returns an `output` map (reply, convertedReply, hook, outcome, value/attempt) that the engine records as a run step whenever a hook ran.
 
 We need it to route replies and validation retries for Ask Question nodes.
+
+### `VoiceReplyConverter`
+
+Source: [`VoiceReplyConverter.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/engine/VoiceReplyConverter.java)
+
+Asks the chat model to turn a rejected voice reply into the value its hook expects, such as "Five thousand naira." into `5000`.
+
+Important behavior:
+
+- uses the workspace's chat model provider and model, then the instance's, through `LlmClientFactory.getClient(settings, null)`; there's no agent provider.
+- sends the interpolated question, the transcript, and the hook's error message.
+- returns nothing when no provider is chosen, the call fails, the reply is empty, or it matches the transcript, so the reply stays rejected.
+
+We need it because transcripts are written as sentences, with punctuation and numbers as words, which strict hooks reject.
 
 ### `WorkflowMessageSender`
 
@@ -4377,6 +4393,7 @@ Source:
 - [`WorkspaceSseServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/sse/WorkspaceSseServiceTest.java)
 - [`TelegramFormatterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/telegram/TelegramFormatterTest.java)
 - [`ReplyRouterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/ReplyRouterTest.java)
+- [`VoiceReplyConverterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/VoiceReplyConverterTest.java)
 - [`WorkflowEngineServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/WorkflowEngineServiceTest.java)
 - [`ConditionNodeExecutorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/executor/ConditionNodeExecutorTest.java)
 - [`HttpRequestNodeExecutorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/workflow/engine/executor/HttpRequestNodeExecutorTest.java)
@@ -4402,7 +4419,7 @@ Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest`
 - `SseControllerTest`, `WorkspaceSseServiceTest`: the stream's no-transform headers and its retry hint.
 - `TelegramFormatterTest`: Markdown-style markers to Telegram HTML.
 - `FeelHookEvaluatorTest`, `BuiltInHookTest`, `HookServiceTest`, `HookControllerTest`: FEEL evaluation results, the built-in hooks, hook CRUD rules, and the test endpoint.
-- `WorkflowEngineServiceTest`, `ReplyRouterTest`: "No reply" handling, unpublished workflows, and reply routing with and without hooks.
+- `WorkflowEngineServiceTest`, `ReplyRouterTest`, `VoiceReplyConverterTest`: "No reply" handling, unpublished workflows, reply routing with and without hooks, and converting rejected voice replies.
 - `ConditionNodeExecutorTest`, `HttpRequestNodeExecutorTest`, `SetContactFieldNodeExecutorTest`: the default operator, secret resolution without leaking into output, and contact field writes.
 - `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, and published-only workflow mappings.
 - `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `LlmClientTest`: LLM response parsing, provider and model selection across the agent, workspace, and instance, with fallbacks when a plugin isn't installed, the extraction prompt, and how `LlmClient` builds the request, picks the model, and handles plugin errors.
@@ -4962,7 +4979,7 @@ Source:
 
 ## Voice Messages
 
-Voice notes and audio files from Telegram and WhatsApp. The adapter saves the message right away; `VoiceMessageProcessor` then downloads, stores, and transcribes it in the background. A transcribed voice note reaches workflows and AI agents as a text message. One without a transcript stays in the inbox for a human, with no automatic reply.
+Voice notes and audio files from Telegram and WhatsApp. The adapter saves the message right away; `VoiceMessageProcessor` then downloads, stores, and transcribes it in the background. A transcribed voice note reaches workflows and AI agents as a text message; when an Ask Question hook rejects it, `VoiceReplyConverter` tries to turn it into the expected value. One without a transcript stays in the inbox for a human, with no automatic reply.
 
 ### `InboundAudio` And `InboundAudioReceivedEvent`
 
