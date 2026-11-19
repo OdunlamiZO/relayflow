@@ -25,6 +25,16 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.4.0",
+    date: "2026-11-19",
+    changes: {
+      added: [
+        "Voice messages from Telegram and WhatsApp are transcribed and handled like text. The inbox plays the recording next to its transcript, and a voice message that isn't transcribed waits for a person.",
+        "LLM, transcription and storage providers are plugins. The official ones ship with the API image, and you can add your own by putting a JAR in the plugins folder.",
+      ],
+    },
+  },
+  {
     version: "1.3.4",
     date: "2026-11-18",
     changes: {
