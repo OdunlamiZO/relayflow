@@ -9,6 +9,8 @@ a local environment running, and the conventions pull requests are expected to f
 - `apps/web` — Next.js frontend (inbox, settings, workflow builder)
 - `apps/marketing` — static marketing site (GitHub Pages)
 - `packages/contracts` — shared OpenAPI spec and JSON schemas
+- `packages/plugin-api` — interfaces that plugins implement (see [`docs/plugins.md`](docs/plugins.md))
+- `plugins/` — the official plugins
 - `docs/` — product/technical planning docs and the self-hosting guide
 
 See the root [`README.md`](README.md) for local development setup (prerequisites, running
@@ -49,10 +51,9 @@ These rules are enforced by formatters/linters where possible, and checked in re
 
 ## Before opening a pull request
 
-Install the pre-commit hook once:
+Install the pre-commit hook once, from the repository root:
 
 ```bash
-cd apps/api
 mvn install -Pdevelopment
 ```
 
@@ -60,8 +61,8 @@ It checks the codebase components doc, then runs backend formatting/tests and fr
 lint, typecheck, format, and unit tests on every commit. A PR won't be merged if any of these fail in CI:
 
 ```bash
-# Backend
-cd apps/api && mvn spotless:check -Pdevelopment && mvn test
+# Backend, plugin API, and official plugins (from the repository root)
+mvn spotless:check -Pdevelopment && mvn test
 
 # Frontend
 cd apps/web && npm run lint && npm run typecheck && npm run format:check && npm run test

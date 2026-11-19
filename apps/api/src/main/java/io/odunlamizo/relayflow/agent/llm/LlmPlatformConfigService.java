@@ -4,6 +4,7 @@ package io.odunlamizo.relayflow.agent.llm;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,31 +44,13 @@ public class LlmPlatformConfigService {
         return defaultValue;
     }
 
-    public LlmProvider getActiveProvider() {
-        try {
-            String value = redis.opsForValue().get(PROVIDER_KEY);
-
-            if (value != null && !value.isBlank()) {
-                String provider = value.strip().toUpperCase().replace('-', '_');
-
-                if (FORMER_OPENAI_COMPATIBLE_PROVIDERS.contains(provider)) {
-                    return LlmProvider.OPENAI_COMPATIBLE;
-                }
-
-                return LlmProvider.valueOf(provider);
-            }
-        } catch (IllegalArgumentException exception) {
-            log.warn(
-                    "Unknown LLM provider in Redis, defaulting to ANTHROPIC {} {}",
-                    kv("key", PROVIDER_KEY),
-                    kv("error", exception.getMessage()));
-        } catch (Exception exception) {
-            log.warn(
-                    "Redis read failed, defaulting LLM provider to ANTHROPIC {} {}",
-                    kv("key", PROVIDER_KEY),
-                    kv("error", exception.getMessage()));
-        }
-
-        return LlmProvider.ANTHROPIC;
+    public Optional<String> getActiveProvider() {
+        return Optional.ofNullable(getConfigValue(PROVIDER_KEY, null))
+                .map(provider -> provider.toUpperCase().replace('-', '_'))
+                .map(
+                        provider ->
+                                FORMER_OPENAI_COMPATIBLE_PROVIDERS.contains(provider)
+                                        ? "OPENAI_COMPATIBLE"
+                                        : provider);
     }
 }

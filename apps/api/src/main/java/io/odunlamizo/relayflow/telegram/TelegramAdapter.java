@@ -6,6 +6,8 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.odunlamizo.relayflow.audio.InboundAudio;
+import io.odunlamizo.relayflow.audio.InboundAudioReceivedEvent;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccountStatus;
 import io.odunlamizo.relayflow.channel.domain.ChannelProvider;
@@ -22,11 +24,13 @@ import io.odunlamizo.relayflow.messaging.domain.ConversationStatus;
 import io.odunlamizo.relayflow.messaging.domain.Message;
 import io.odunlamizo.relayflow.messaging.domain.MessageDirection;
 import io.odunlamizo.relayflow.messaging.domain.MessageSenderType;
+import io.odunlamizo.relayflow.messaging.domain.TranscriptionStatus;
 import io.odunlamizo.relayflow.messaging.repository.ConversationRepository;
 import io.odunlamizo.relayflow.messaging.repository.MessageRepository;
 import io.odunlamizo.relayflow.security.CredentialEncryptionService;
 import io.odunlamizo.relayflow.sse.SseBroadcastEvent;
 import io.odunlamizo.relayflow.sse.SseEventType;
+import io.odunlamizo.relayflow.telegram.dto.TelegramAudio;
 import io.odunlamizo.relayflow.telegram.dto.TelegramContact;
 import io.odunlamizo.relayflow.telegram.dto.TelegramMessage;
 import io.odunlamizo.relayflow.telegram.dto.TelegramUser;
@@ -131,7 +135,9 @@ public class TelegramAdapter {
     public void handleWebhook(
             UUID channelAccountId, String secretToken, TelegramWebhookPayload payload) {
         if (payload.message() == null
-                || (payload.message().text() == null && payload.message().contact() == null)) {
+                || (payload.message().text() == null
+                        && payload.message().contact() == null
+                        && resolveAudio(payload.message()) == null)) {
             return;
         }
 
@@ -235,7 +241,9 @@ public class TelegramAdapter {
             return;
         }
 
-        if (telegramMessage.text() == null) {
+        InboundAudio audio = resolveAudio(telegramMessage);
+
+        if (telegramMessage.text() == null && audio == null) {
             return;
         }
 
@@ -280,6 +288,13 @@ public class TelegramAdapter {
         inboundMessage.setDirection(MessageDirection.INBOUND);
         inboundMessage.setSenderType(MessageSenderType.CONTACT);
         inboundMessage.setText(telegramMessage.text());
+
+        if (audio != null) {
+            inboundMessage.setAudioMimeType(audio.mimeType());
+            inboundMessage.setAudioDurationSeconds(audio.durationSeconds());
+            inboundMessage.setTranscriptionStatus(TranscriptionStatus.PENDING);
+        }
+
         inboundMessage.setProviderMessageId(String.valueOf(telegramMessage.messageId()));
         inboundMessage.setRawPayload(
                 objectMapper.convertValue(
@@ -299,7 +314,11 @@ public class TelegramAdapter {
                 kv("contactId", contact.getId()),
                 kv("provider", ChannelProvider.TELEGRAM));
 
-        if (triggersWorkflow) {
+        if (audio != null) {
+            eventPublisher.publishEvent(
+                    new InboundAudioReceivedEvent(
+                            inboundMessage.getId(), audio.mediaReference(), triggersWorkflow));
+        } else if (triggersWorkflow) {
             eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, inboundMessage));
         } else {
             eventPublisher.publishEvent(
@@ -504,6 +523,20 @@ public class TelegramAdapter {
         }
 
         return from.username() != null ? "@" + from.username() : "Telegram User";
+    }
+
+    private InboundAudio resolveAudio(TelegramMessage telegramMessage) {
+        TelegramAudio audio =
+                telegramMessage.voice() != null ? telegramMessage.voice() : telegramMessage.audio();
+
+        if (audio == null || audio.fileId() == null) {
+            return null;
+        }
+
+        return new InboundAudio(
+                audio.fileId(),
+                audio.mimeType() != null ? audio.mimeType() : "audio/ogg",
+                audio.duration());
     }
 
     private Map<String, Object> buildRawProfile(TelegramUser from) {

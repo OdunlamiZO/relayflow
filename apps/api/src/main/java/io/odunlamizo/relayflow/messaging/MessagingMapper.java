@@ -5,6 +5,7 @@ package io.odunlamizo.relayflow.messaging;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.Message;
 import io.odunlamizo.relayflow.messaging.dto.ConversationResponse;
+import io.odunlamizo.relayflow.messaging.dto.MessageAudioResponse;
 import io.odunlamizo.relayflow.messaging.dto.MessageResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -24,5 +25,18 @@ public interface MessagingMapper {
 
     @Mapping(source = "workspace.id", target = "workspaceId")
     @Mapping(source = "conversation.id", target = "conversationId")
+    @Mapping(target = "audio", expression = "java(toAudioResponse(message))")
     MessageResponse toDto(Message message);
+
+    default MessageAudioResponse toAudioResponse(Message message) {
+        if (message.getTranscriptionStatus() == null) {
+            return null;
+        }
+
+        return new MessageAudioResponse(
+                message.getAudioMimeType(),
+                message.getAudioDurationSeconds(),
+                message.getAudioStorageKey() != null,
+                message.getTranscriptionStatus());
+    }
 }

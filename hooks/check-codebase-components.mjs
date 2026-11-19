@@ -13,15 +13,23 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = join(fileURLToPath(import.meta.url), "..", "..");
 const documentPath = "docs/codebase-components.md";
 const linkPattern = /^\/\/ Docs: docs\/codebase-components\.md#([\w-]+)$/gm;
-// A markdown link to ../apps/...; route groups like (authentication) put parentheses in the path.
-const sourceLinkPattern = /\]\(\.\.\/(apps\/(?:[^()\s]|\([^()\s]*\))+)\)/g;
+// A markdown link to ../apps/, ../packages/, or ../plugins/...; route groups like
+// (authentication) put parentheses in the path.
+const sourceLinkPattern =
+  /\]\(\.\.\/((?:apps|packages|plugins)\/(?:[^()\s]|\([^()\s]*\))+)\)/g;
+
+const pluginRoots = readdirSync(join(repositoryRoot, "plugins")).flatMap(
+  (plugin) => [`plugins/${plugin}/src/main/java`, `plugins/${plugin}/src/test/java`]
+);
 
 const sourceRoots = [
   "apps/api/src/main/java",
   "apps/api/src/test/java",
   "apps/web/src",
   "apps/marketing/src",
-];
+  "packages/plugin-api/src/main/java",
+  ...pluginRoots,
+].filter((root) => existsSync(join(repositoryRoot, root)));
 
 const skippedDirectories = new Set(["node_modules", ".next", "out"]);
 

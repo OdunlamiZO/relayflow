@@ -13,6 +13,8 @@ apps/
   marketing/  Next.js marketing site (static export, GitHub Pages)
 packages/
   contracts/  Shared OpenAPI spec and JSON schemas
+  plugin-api/ Interfaces that plugins implement
+plugins/      Official plugins: Anthropic, OpenAI-compatible, transcription, local disk storage
 docs/
   codebase-components.md  Living architecture reference
 infra/
@@ -38,6 +40,12 @@ docker compose up -d dev-postgres dev-redis
 
 # Core + Ollama (self-hosted LLM, pulls llama3.2 on first run)
 docker compose --profile dev --profile ollama up -d
+```
+
+Build the plugin API and the official plugins once, and again after changing them. `make plugins` installs the modules into your local Maven repository and copies the plugin JARs to `apps/api/plugins`, where the API loads them:
+
+```bash
+make plugins
 ```
 
 Flyway is disabled at runtime, so migrations do not run automatically when the API starts. Run migrations manually before starting the API against a fresh or changed database:
@@ -177,8 +185,9 @@ There is no self-service "change password" form — a password only ever changes
 - `GET    /conversations/{id}?workspaceId={workspaceId}`
 - `PATCH  /conversations/{id}?workspaceId={workspaceId}`
 - `PATCH  /conversations/{id}/assignee?workspaceId={workspaceId}` — assign or unassign (`assigneeId: null`) a conversation to a workspace member.
-- `GET    /conversations/{id}/messages?workspaceId={workspaceId}`
+- `GET    /conversations/{id}/messages?workspaceId={workspaceId}` — a voice message has an `audio` object (`mimeType`, `durationSeconds`, `stored`, `transcriptionStatus`) and its transcript as `text`
 - `POST   /conversations/{id}/messages?workspaceId={workspaceId}`
+- `GET    /conversations/{id}/messages/{messageId}/audio?workspaceId={workspaceId}` — the stored recording of a voice message
 
 ### Integrations
 
@@ -278,6 +287,7 @@ The `GET` path handles Meta webhook verification using the channel account's sto
 - `DELETE /workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — requires `AI_AGENT_WRITE`. Deleting the current default promotes another remaining config to default, if any exist.
 - `POST   /workspaces/{workspaceId}/ai-agent-configs/{configurationId}/set-default` — mark this config as the workspace's default; requires `AI_AGENT_WRITE`
 - `GET    /workspaces/{workspaceId}/ai-agent-configs/platform-llm-provider` — the platform's currently active LLM provider (not scoped to this workspace — see [LLM provider](#llm-provider) below)
+- `GET    /workspaces/{workspaceId}/ai-agent-configs/llm-providers` — the installed chat model plugins (`id`, `displayName`)
 - `GET    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — which config a channel is assigned to (`configurationId: null` means it uses the workspace default)
 - `PUT    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — assign a config to a channel, or `null` to revert it to the workspace default; requires `AI_AGENT_WRITE`
 - `GET    /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — get active AI draft for a conversation
@@ -297,14 +307,16 @@ The AI agent is off by default. Enable it per workspace in **Settings → AI Age
 
 ### LLM provider
 
-There are two providers: **Anthropic** and **OpenAI-compatible** — any API that speaks OpenAI's chat completions format (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio, …).
+LLM providers are [plugins](docs/plugins.md). The API image ships two official ones: **Anthropic** (`ANTHROPIC`) and **OpenAI-compatible** (`OPENAI_COMPATIBLE`) — any API that speaks OpenAI's chat completions format (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio, …). Install another plugin to use a different provider; its ID goes in the Redis keys below.
 
 The platform's default provider is a Redis key, not a per-workspace setting. Any named agent config left on "Platform default" (the default for a new agent) follows this value; an agent can also be pinned to a specific provider from its settings, overriding this default just for that agent. Switch the platform default at any time without restarting:
 
 ```bash
 redis-cli SET platform:llm:provider 'OPENAI_COMPATIBLE'
-redis-cli SET platform:llm:provider 'ANTHROPIC'   # the default when unset
+redis-cli SET platform:llm:provider 'ANTHROPIC'
 ```
+
+When the key isn't set, the API uses the first installed chat model plugin by display name, which is Anthropic in the official image.
 
 The former values `OPENAI`, `GROQ`, `OLLAMA` and `OPENROUTER` are still accepted and mean `OPENAI_COMPATIBLE`.
 
@@ -356,6 +368,27 @@ redis-cli SET platform:llm:provider 'OPENAI_COMPATIBLE'
 
 The default `llama3.2` pull is a small (~3B) model; larger local models or a hosted provider follow the agent's instructions more reliably.
 
+### Voice messages
+
+Voice notes and audio files from Telegram and WhatsApp are downloaded, stored, and transcribed by plugins. The API image ships a transcription plugin for any OpenAI-format speech-to-text API (`OPENAI_COMPATIBLE`) and a storage plugin that writes to a folder (`LOCAL_DISK`). A transcribed voice note reaches workflows and the AI agent like a text message, and the inbox plays the recording next to its transcript. Without a transcript, the voice note waits in the inbox for a person to reply.
+
+Point the transcription plugin at a speech-to-text API. It uses the OpenAI-compatible LLM settings when these are unset:
+
+```bash
+export OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL=https://api.groq.com/openai/v1
+export OPENAI_COMPATIBLE_TRANSCRIPTION_API_KEY=gsk_...
+redis-cli SET 'platform:transcription:openai-compatible:model' 'whisper-large-v3-turbo'   # default whisper-1
+```
+
+Recordings are saved under `RELAYFLOW_STORAGE_DIRECTORY` (the API image uses `/app/data/storage`, a Docker volume). When several transcription or storage plugins are installed, choose one in Redis:
+
+```bash
+redis-cli SET platform:transcription:provider 'OPENAI_COMPATIBLE'
+redis-cli SET platform:storage:provider 'LOCAL_DISK'
+```
+
+Recordings over 25 MB are not downloaded.
+
 ## Git Hooks
 
 The repository includes `hooks/pre-commit`. It runs:
@@ -371,7 +404,6 @@ The repository includes `hooks/pre-commit`. It runs:
 Install with:
 
 ```bash
-cd apps/api
 mvn install -Pdevelopment
 ```
 
@@ -389,8 +421,9 @@ Playwright end-to-end tests should be added later for the inbox and workflow bui
 
 ### Backend
 
+Run from the repository root; this builds the plugin API and the official plugins too.
+
 ```bash
-cd apps/api
 mvn install -Pdevelopment          # lightweight tests, no Docker needed
 mvn verify -Pintegration-test      # full integration tests against PostgreSQL (requires Docker)
 ```

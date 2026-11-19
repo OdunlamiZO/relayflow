@@ -14,6 +14,7 @@ import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
 import { useCreateAiAgentConfiguration } from "@/hooks/use-create-ai-agent-configuration";
 import { useDeleteAiAgentConfiguration } from "@/hooks/use-delete-ai-agent-configuration";
 import { useHooks } from "@/hooks/use-hooks";
+import { useLlmProviders } from "@/hooks/use-llm-providers";
 import { usePlatformLlmProvider } from "@/hooks/use-platform-llm-provider";
 import { useSetDefaultAiAgentConfiguration } from "@/hooks/use-set-default-ai-agent-configuration";
 import { useUpdateAiAgentConfiguration } from "@/hooks/use-update-ai-agent-configuration";
@@ -28,11 +29,6 @@ import type {
   UpdateAiAgentConfigurationRequest,
   WorkflowMapping,
 } from "@/lib/messaging-api";
-
-const LLM_PROVIDER_OPTIONS: { value: LlmProvider; label: string }[] = [
-  { value: "ANTHROPIC", label: "Anthropic" },
-  { value: "OPENAI_COMPATIBLE", label: "OpenAI-compatible" },
-];
 
 const INSTRUCTIONS_SAMPLE = `# ABOUT YOUR BUSINESS
 We're a small online store selling handmade crafts.
@@ -381,6 +377,8 @@ function AiAgentForm({
 }: AiAgentFormProps) {
   const { data: workflows = [] } = useWorkflows(workspaceId);
   const { data: platformDefaultProvider } = usePlatformLlmProvider(workspaceId);
+  const { data: llmProviders = [], isSuccess: llmProvidersLoaded } =
+    useLlmProviders(workspaceId);
   const { data: builtInHooks = [], isSuccess: builtInHooksLoaded } =
     useBuiltInHooks(workspaceId);
   const { data: customHooks = [], isSuccess: customHooksLoaded } =
@@ -696,8 +694,28 @@ function AiAgentForm({
           it to follow your global setting, or pick another to override it just
           for this agent.
         </p>
+        {llmProvidersLoaded && llmProviders.length === 0 && (
+          <p className="mb-2.5 text-xs text-yellow-text">
+            No LLM provider plugin is installed, so this agent can&apos;t reply.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
-          {LLM_PROVIDER_OPTIONS.map(({ value, label }) => {
+          {[
+            ...llmProviders.map(({ id, displayName }) => ({
+              value: id,
+              label: displayName,
+            })),
+            ...(llmProvidersLoaded &&
+            llmProvider !== null &&
+            !llmProviders.some(({ id }) => id === llmProvider)
+              ? [
+                  {
+                    value: llmProvider,
+                    label: `${llmProvider} (not installed)`,
+                  },
+                ]
+              : []),
+          ].map(({ value, label }) => {
             const isPlatformDefault = value === platformDefaultProvider;
             const active = isPlatformDefault
               ? llmProvider === null || llmProvider === value

@@ -60,6 +60,24 @@ public class Message {
     @Column(name = "provider_message_id", length = 200)
     private String providerMessageId;
 
+    @Column(name = "audio_mime_type", length = 100)
+    private String audioMimeType;
+
+    @Column(name = "audio_duration_seconds")
+    private Integer audioDurationSeconds;
+
+    /** The storage plugin that holds the audio; null when it wasn't stored. */
+    @Column(name = "audio_storage_provider", length = 40)
+    private String audioStorageProvider;
+
+    @Column(name = "audio_storage_key", columnDefinition = "text")
+    private String audioStorageKey;
+
+    /** Null for messages without audio. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transcription_status", length = 20)
+    private TranscriptionStatus transcriptionStatus;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "raw_payload", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> rawPayload = new LinkedHashMap<>();

@@ -6,7 +6,6 @@ import io.odunlamizo.relayflow.agent.domain.AutonomyCeiling;
 import io.odunlamizo.relayflow.agent.domain.ExtractionField;
 import io.odunlamizo.relayflow.agent.domain.KnowledgeEntry;
 import io.odunlamizo.relayflow.agent.domain.WorkflowMapping;
-import io.odunlamizo.relayflow.agent.llm.LlmProvider;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -18,7 +17,7 @@ public record AiAgentConfigurationResponse(
         boolean isDefault,
         boolean enabled,
         AutonomyCeiling autonomyCeiling,
-        LlmProvider llmProvider,
+        String llmProvider,
         String instructions,
         List<KnowledgeEntry> knowledgeBase,
         List<String> escalationKeywords,

@@ -154,7 +154,8 @@ class MessagingControllerTest {
                                                 "Hello",
                                                 null,
                                                 Map.of(),
-                                                Instant.parse("2026-05-26T10:00:00Z"))),
+                                                Instant.parse("2026-05-26T10:00:00Z"),
+                                                null)),
                                 false,
                                 null));
 
@@ -195,7 +196,8 @@ class MessagingControllerTest {
                                 "Hello",
                                 "telegram-1",
                                 Map.of("source", "test"),
-                                Instant.parse("2026-05-26T10:00:00Z")));
+                                Instant.parse("2026-05-26T10:00:00Z"),
+                                null));
 
         mockMvc.perform(
                         post("/conversations/{conversationId}/messages", conversationId)

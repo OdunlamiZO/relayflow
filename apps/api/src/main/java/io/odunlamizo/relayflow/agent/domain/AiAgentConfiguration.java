@@ -2,7 +2,6 @@ package io.odunlamizo.relayflow.agent.domain;
 
 // Docs: docs/codebase-components.md#aiagentconfiguration
 
-import io.odunlamizo.relayflow.agent.llm.LlmProvider;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,10 +52,9 @@ public class AiAgentConfiguration {
     @Column(name = "autonomy_ceiling", nullable = false, length = 40)
     private AutonomyCeiling autonomyCeiling = AutonomyCeiling.DRAFT_ONLY;
 
-    /** Null means this agent uses the platform's active LLM provider. */
-    @Enumerated(EnumType.STRING)
+    /** A chat model plugin ID; null means this agent uses the platform's active provider. */
     @Column(name = "llm_provider", length = 40)
-    private LlmProvider llmProvider;
+    private String llmProvider;
 
     @Column(columnDefinition = "text")
     private String instructions;

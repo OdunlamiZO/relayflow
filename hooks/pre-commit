@@ -7,7 +7,7 @@ printf "Checking codebase components doc...\n"
 node "$repo_root/hooks/check-codebase-components.mjs"
 
 printf "Running backend format check...\n"
-cd "$repo_root/apps/api"
+cd "$repo_root"
 mvn spotless:check -Pdevelopment
 
 printf "Running backend tests...\n"

@@ -17,4 +17,6 @@ public record MessageResponse(
         String text,
         String providerMessageId,
         Map<String, Object> rawPayload,
-        Instant createdAt) {}
+        Instant createdAt,
+        /** Null for messages without audio. */
+        MessageAudioResponse audio) {}

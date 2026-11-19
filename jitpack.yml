@@ -1,0 +1,4 @@
+jdk:
+  - openjdk21
+install:
+  - mvn -B -DskipTests install -pl packages/plugin-api,plugins/anthropic,plugins/openai-compatible,plugins/openai-compatible-transcription,plugins/local-disk-storage -am
