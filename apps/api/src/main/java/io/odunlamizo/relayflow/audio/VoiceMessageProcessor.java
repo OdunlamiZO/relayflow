@@ -18,6 +18,7 @@ import io.odunlamizo.relayflow.sse.SseBroadcastEvent;
 import io.odunlamizo.relayflow.sse.SseEventType;
 import io.odunlamizo.relayflow.workflow.engine.ConversationMessageReceivedEvent;
 import io.odunlamizo.relayflow.workflow.engine.ConversationOpenedEvent;
+import io.odunlamizo.relayflow.workspace.domain.WorkspaceProviderSettings;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,7 +93,8 @@ public class VoiceMessageProcessor {
         if (audio == null) {
             status = TranscriptionStatus.FAILED;
         } else {
-            Optional<StorageProvider> storage = audioProviderResolver.activeStorageProvider();
+            Optional<StorageProvider> storage =
+                    audioProviderResolver.activeStorageProvider(source.get().providerSettings());
 
             if (storage.isPresent()) {
                 storageKey = store(storage.get(), source.get(), audio);
@@ -100,7 +102,8 @@ public class VoiceMessageProcessor {
             }
 
             Optional<TranscriptionProvider> transcription =
-                    audioProviderResolver.activeTranscriptionProvider();
+                    audioProviderResolver.activeTranscriptionProvider(
+                            source.get().providerSettings());
 
             if (transcription.isEmpty()) {
                 status = TranscriptionStatus.NO_PROVIDER;
@@ -144,6 +147,7 @@ public class VoiceMessageProcessor {
                 new Source(
                         channelAccount,
                         conversation.getWorkspace().getId(),
+                        conversation.getWorkspace().getProviderSettings(),
                         message.get().getAudioMimeType()));
     }
 
@@ -202,7 +206,8 @@ public class VoiceMessageProcessor {
                             new TranscriptionRequest(
                                     audio,
                                     source.mimeType(),
-                                    audioProviderResolver.transcriptionModel(transcription.id())));
+                                    audioProviderResolver.transcriptionModel(
+                                            source.providerSettings(), transcription.id())));
 
             return transcript != null && !transcript.isBlank() ? transcript.strip() : null;
         } catch (Exception exception) {
@@ -261,5 +266,9 @@ public class VoiceMessageProcessor {
                                 "conversationId", conversation.getId().toString())));
     }
 
-    private record Source(ChannelAccount channelAccount, UUID workspaceId, String mimeType) {}
+    private record Source(
+            ChannelAccount channelAccount,
+            UUID workspaceId,
+            WorkspaceProviderSettings providerSettings,
+            String mimeType) {}
 }

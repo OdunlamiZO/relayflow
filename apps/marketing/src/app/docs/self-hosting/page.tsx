@@ -256,28 +256,17 @@ openssl rand -base64 32   # → RELAYFLOW_ENCRYPTION_KEY`}</code>
               complete the first admin signup.
             </li>
             <li>
-              If you set an LLM API key, also tell RelayFlow which provider to
-              use. This lives in Redis, so you can change it later without
-              restarting:
+              Choose the LLM provider and model for each workspace in{" "}
+              <strong>Settings → Providers</strong> (workspace owners). To set a
+              default for every workspace instead, use Redis — changes take
+              effect without a restart:
               <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
-                <code>{`docker compose --profile prod exec redis \\
-  redis-cli SET platform:llm:provider OPENAI_COMPATIBLE   # or ANTHROPIC`}</code>
+                <code>{`docker compose --profile prod exec redis redis-cli SET platform:llm:provider OPENAI_COMPATIBLE   # or ANTHROPIC
+docker compose --profile prod exec redis redis-cli SET platform:llm:openai-compatible:model openai/gpt-4o-mini`}</code>
               </pre>
-              Defaults to <code>ANTHROPIC</code>
-              {
-                " if unset. If that's not the provider you configured a key for, AI agent features will fail until you set this."
-              }
-            </li>
-            <li>
-              Choose the model in Redis — changes take effect without a restart.
-              Anthropic defaults to <code>claude-haiku-4-5</code>; the
-              OpenAI-compatible provider has no default, so set it before using
-              it:
-              <pre className="mt-2 overflow-auto rounded-lg bg-neutral-100 p-4 text-xs leading-5 text-neutral-700">
-                <code>{`docker compose --profile prod exec redis redis-cli SET platform:llm:anthropic:model claude-haiku-4-5
-docker compose --profile prod exec redis redis-cli SET platform:llm:openai-compatible:model    openai/gpt-4o-mini`}</code>
-              </pre>
-              Ollama isn&apos;t bundled here — run it separately and use the
+              Nothing is chosen for you: without a provider and a model, the AI
+              agent doesn&apos;t reply and conversations go to a person. Ollama
+              isn&apos;t bundled here — run it separately and use the
               OpenAI-compatible provider with{" "}
               <code>
                 OPENAI_COMPATIBLE_BASE_URL=http://&lt;ollama-host&gt;:11434/v1
@@ -368,10 +357,10 @@ docker compose --profile prod up -d`}</code>
               <strong>AI agent features return errors or do nothing</strong> —
               you need both a provider configured (
               <code>ANTHROPIC_API_KEY</code>, or the{" "}
-              <code>OPENAI_COMPATIBLE_*</code> variables) and the{" "}
-              <code>platform:llm:provider</code> Redis key set to match
-              (defaults to <code>ANTHROPIC</code>, see the first-run walkthrough
-              above). Forgetting the second one is the usual cause.
+              <code>OPENAI_COMPATIBLE_*</code> variables) and that provider
+              chosen, in <strong>Settings → Providers</strong> or with the{" "}
+              <code>platform:llm:provider</code> Redis key (see the first-run
+              walkthrough above). Forgetting the second one is the usual cause.
             </li>
             <li>
               <strong>

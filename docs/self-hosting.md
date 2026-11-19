@@ -43,8 +43,8 @@ docker compose --profile prod up -d
 | `RELAYFLOW_WEB_BASE_URL` / `RELAYFLOW_API_BASE_URL` | Yes | Must match the domains above exactly — see [Troubleshooting](#troubleshooting) |
 | `GOOGLE_AUTH_ENABLED` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | Off by default. In Google Cloud, add the redirect URI `<RELAYFLOW_WEB_BASE_URL>/backend/login/oauth2/code/google` |
 | `ANTHROPIC_API_KEY` | No | For Anthropic models. AI agent features need this or the OpenAI-compatible provider below |
-| `OPENAI_COMPATIBLE_BASE_URL` / `OPENAI_COMPATIBLE_API_KEY` | No | Any OpenAI-compatible API — OpenAI, Groq, OpenRouter, Ollama, vLLM, and more. The model is set in Redis (`platform:llm:openai-compatible:model`), with no default. The base URL includes `/v1` (e.g. `https://api.groq.com/openai/v1`); the key can be empty for local servers. See `.env.example` for common URLs |
-| `OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL` / `OPENAI_COMPATIBLE_TRANSCRIPTION_API_KEY` | No | Transcribes voice messages with any OpenAI-format speech-to-text API (Groq, OpenAI, a self-hosted Whisper server). Blank means the OpenAI-compatible LLM settings above. The model is set in Redis (`platform:transcription:openai-compatible:model`, default `whisper-1`). See [Voice messages](#voice-messages) |
+| `OPENAI_COMPATIBLE_BASE_URL` / `OPENAI_COMPATIBLE_API_KEY` | No | Any OpenAI-compatible API — OpenAI, Groq, OpenRouter, Ollama, vLLM, and more. The model is chosen per workspace in **Settings → Providers**, or for the instance in Redis (`platform:llm:openai-compatible:model`), with no default. The base URL includes `/v1` (e.g. `https://api.groq.com/openai/v1`); the key can be empty for local servers. See `.env.example` for common URLs |
+| `OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL` / `OPENAI_COMPATIBLE_TRANSCRIPTION_API_KEY` | No | Transcribes voice messages with any OpenAI-format speech-to-text API (Groq, OpenAI, a self-hosted Whisper server). Blank means the OpenAI-compatible LLM settings above. The model is chosen per workspace in **Settings → Providers**, or for the instance in Redis (`platform:transcription:openai-compatible:model`), with no default. See [Voice messages](#voice-messages) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | No | Works with any SMTP provider (Resend, SES, Mailgun, Postmark, Gmail, self-hosted, etc.). Blank host runs email in no-op/log mode |
 | `LOG_FORMAT` / `LOG_LEVEL` | No | `json` (default in the prod stack), `ecs`, `gelf`, `logfmt` or `text`; `INFO` by default — see [Logging](#logging) |
 | `JAVA_OPTS` | No | Extra JVM flags for the API. Defaults to `-XX:MaxRAMPercentage=75`, so the heap can use 75% of the API container's 1 GB memory limit; raise the limit in `docker-compose.yml` for heavier workloads |
@@ -75,9 +75,14 @@ cp relayflow-plugin-example.jar plugins/
 docker compose --profile prod restart api
 ```
 
-The API logs each plugin it loads (`Plugin provider loaded`). A plugin runs inside the API with
+The API logs each plugin it loads (`Plugin provider loaded`), and warns about one whose environment variables are missing (`Plugin provider isn't configured`). A plugin runs inside the API with
 full access to its database and secrets, so install only plugins you trust. See
 [`plugins.md`](plugins.md) to write one.
+
+Workspace owners choose their workspace's chat model, transcription, and storage plugins and
+models in **Settings → Providers**. Anything a workspace leaves on the instance default uses the
+Redis keys below. Nothing is chosen for you: with no provider or no model, that feature doesn't
+run, and conversations and voice notes wait for a person.
 
 ## Voice messages
 
@@ -91,9 +96,14 @@ docker compose --profile prod exec redis \
 ```
 
 A transcribed voice note reaches workflows and the AI agent like a text message. Without a
-transcript, it waits in the inbox for a person. With several transcription or storage plugins
-installed, choose one with `platform:transcription:provider` or `platform:storage:provider` in
-Redis.
+transcript, it waits in the inbox for a person. Nothing is transcribed or stored until you choose
+a provider, per workspace in **Settings → Providers**, or for the whole instance with
+`platform:transcription:provider` and `platform:storage:provider` in Redis:
+
+```bash
+docker compose --profile prod exec redis redis-cli SET platform:transcription:provider OPENAI_COMPATIBLE
+docker compose --profile prod exec redis redis-cli SET platform:storage:provider LOCAL_DISK
+```
 
 ## Backups
 
@@ -204,12 +214,14 @@ and point your existing proxy at `web:3000` and `api:8080` on the compose networ
   uses it as the allowed CORS origin.
 - **AI agent features return errors or do nothing**: no LLM provider is configured — set
   `ANTHROPIC_API_KEY`, or `OPENAI_COMPATIBLE_BASE_URL` and the `platform:llm:openai-compatible:model` Redis key (plus `OPENAI_COMPATIBLE_API_KEY` if
-  the API needs one), and set `platform:llm:provider` in Redis to `ANTHROPIC` or `OPENAI_COMPATIBLE` to match.
-  If the API logs `no chat model plugin is installed`, check its startup logs for
+  the API needs one), and choose that provider in **Settings → Providers** or set
+  `platform:llm:provider` in Redis to `ANTHROPIC` or `OPENAI_COMPATIBLE` to match.
+  If the API logs `no chat model provider is chosen`, choose one. Check its startup logs for
   `Plugin provider loaded` lines.
-- **Voice messages say "no transcription plugin is installed"**: several transcription plugins
-  are installed and none is chosen, or `platform:transcription:provider` names one that isn't
-  installed. A failed transcription logs `Voice message transcription failed` with the reason.
+- **Settings → Providers shows a plugin as "not configured"**: its environment variables are
+  missing. Set the ones it names in `.env` and run `docker compose --profile prod up -d api`.
+- **Voice messages say "choose a transcription provider"**: neither the workspace nor
+  `platform:transcription:provider` chooses an installed one. A failed transcription logs `Voice message transcription failed` with the reason.
 - **API container exits immediately on a fresh install**: check `docker compose --profile prod
   logs api` — this is almost always a missing `RELAYFLOW_ENCRYPTION_KEY`, which fails fast with
   a clear message.

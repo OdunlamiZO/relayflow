@@ -153,6 +153,8 @@ There is no self-service "change password" form — a password only ever changes
 - `PUT    /workspaces/{workspaceId}/contact-field-definitions` — define the workspace's custom contact field schema; requires `CONTACT_FIELDS_WRITE` permission or owner role
 - `PUT    /workspaces/{workspaceId}/contact-tag-definitions` — define the workspace's contact tags and their allowed values; removing a value contacts still have returns `409`; requires `CONTACT_FIELDS_WRITE` permission or owner role
 - `PUT    /workspaces/{workspaceId}/contact-access` — `{"contactAccess": "ALL" | "WHITELIST", "phoneRegion": "US"}`; owner only
+- `GET    /workspaces/{workspaceId}/provider-settings` — the workspace's chat model, transcription, and storage plugins and models, next to the instance defaults and the installed plugins
+- `PUT    /workspaces/{workspaceId}/provider-settings` — `{"llmProvider", "llmModels", "transcriptionProvider", "transcriptionModels", "storageProvider"}`, where null means the instance default; owner only
 - `GET    /workspaces/{workspaceId}/whitelist` — whitelisted phone numbers; owner only
 - `POST   /workspaces/{workspaceId}/whitelist` — `{"phoneNumbers": [...]}`; numbers are stored in international format, already-listed ones are skipped, and any invalid number fails the request with `400`; owner only
 - `DELETE /workspaces/{workspaceId}/whitelist/{entryId}` — owner only
@@ -286,8 +288,6 @@ The `GET` path handles Meta webhook verification using the channel account's sto
 - `PUT    /workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — update a config; requires `AI_AGENT_WRITE`
 - `DELETE /workspaces/{workspaceId}/ai-agent-configs/{configurationId}` — requires `AI_AGENT_WRITE`. Deleting the current default promotes another remaining config to default, if any exist.
 - `POST   /workspaces/{workspaceId}/ai-agent-configs/{configurationId}/set-default` — mark this config as the workspace's default; requires `AI_AGENT_WRITE`
-- `GET    /workspaces/{workspaceId}/ai-agent-configs/platform-llm-provider` — the platform's currently active LLM provider (not scoped to this workspace — see [LLM provider](#llm-provider) below)
-- `GET    /workspaces/{workspaceId}/ai-agent-configs/llm-providers` — the installed chat model plugins (`id`, `displayName`)
 - `GET    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — which config a channel is assigned to (`configurationId: null` means it uses the workspace default)
 - `PUT    /workspaces/{workspaceId}/channel-accounts/{channelAccountId}/ai-agent-config` — assign a config to a channel, or `null` to revert it to the workspace default; requires `AI_AGENT_WRITE`
 - `GET    /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — get active AI draft for a conversation
@@ -309,14 +309,16 @@ The AI agent is off by default. Enable it per workspace in **Settings → AI Age
 
 LLM providers are [plugins](docs/plugins.md). The API image ships two official ones: **Anthropic** (`ANTHROPIC`) and **OpenAI-compatible** (`OPENAI_COMPATIBLE`) — any API that speaks OpenAI's chat completions format (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio, …). Install another plugin to use a different provider; its ID goes in the Redis keys below.
 
-The platform's default provider is a Redis key, not a per-workspace setting. Any named agent config left on "Platform default" (the default for a new agent) follows this value; an agent can also be pinned to a specific provider from its settings, overriding this default just for that agent. Switch the platform default at any time without restarting:
+Each workspace chooses its provider and model in **Settings → Providers** (owners only). An agent left on "Workspace default" (the default for a new agent) follows that choice; an agent can also be pinned to a specific provider from its settings.
+
+A workspace that hasn't chosen a provider uses the instance default, a Redis key. Switch it at any time without restarting:
 
 ```bash
 redis-cli SET platform:llm:provider 'OPENAI_COMPATIBLE'
 redis-cli SET platform:llm:provider 'ANTHROPIC'
 ```
 
-When the key isn't set, the API uses the first installed chat model plugin by display name, which is Anthropic in the official image.
+Nothing is chosen for you. With no provider from the agent, the workspace, or this key, the AI agent doesn't reply and hands conversations to a person. Every provider also needs a model, from **Settings → Providers** or the model keys below (a workspace's own model wins). A plugin whose environment variables are missing shows as "not configured" there, and the API logs `Plugin provider isn't configured` at startup.
 
 The former values `OPENAI`, `GROQ`, `OLLAMA` and `OPENROUTER` are still accepted and mean `OPENAI_COMPATIBLE`.
 
@@ -324,7 +326,7 @@ The former values `OPENAI`, `GROQ`, `OLLAMA` and `OPENROUTER` are still accepted
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-redis-cli SET 'platform:llm:anthropic:model' 'claude-haiku-4-5'   # optional — this is the default
+redis-cli SET 'platform:llm:anthropic:model' 'claude-haiku-4-5'
 ```
 
 ### OpenAI-compatible
@@ -377,10 +379,10 @@ Point the transcription plugin at a speech-to-text API. It uses the OpenAI-compa
 ```bash
 export OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL=https://api.groq.com/openai/v1
 export OPENAI_COMPATIBLE_TRANSCRIPTION_API_KEY=gsk_...
-redis-cli SET 'platform:transcription:openai-compatible:model' 'whisper-large-v3-turbo'   # default whisper-1
+redis-cli SET 'platform:transcription:openai-compatible:model' 'whisper-large-v3-turbo'
 ```
 
-Recordings are saved under `RELAYFLOW_STORAGE_DIRECTORY` (the API image uses `/app/data/storage`, a Docker volume). When several transcription or storage plugins are installed, choose one in Redis:
+Recordings are saved under `RELAYFLOW_STORAGE_DIRECTORY` (the API image uses `/app/data/storage`, a Docker volume). Nothing is transcribed or stored until a provider is chosen, in **Settings → Providers** or for every workspace in Redis:
 
 ```bash
 redis-cli SET platform:transcription:provider 'OPENAI_COMPATIBLE'

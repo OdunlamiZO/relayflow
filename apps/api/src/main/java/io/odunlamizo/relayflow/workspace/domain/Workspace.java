@@ -52,6 +52,10 @@ public class Workspace {
     @Column(name = "phone_region", length = 2)
     private String phoneRegion;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "provider_settings", nullable = false, columnDefinition = "jsonb")
+    private WorkspaceProviderSettings providerSettings = WorkspaceProviderSettings.NONE;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

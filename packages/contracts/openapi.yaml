@@ -428,6 +428,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /workspaces/{workspaceId}/provider-settings:
+    get:
+      operationId: getProviderSettings
+      summary: Get the workspace's chat model, transcription and storage plugins
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: The workspace's choices next to the instance's, and the installed plugins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderSettingsResponse"
+    put:
+      operationId: updateProviderSettings
+      summary: Choose the workspace's chat model, transcription and storage plugins
+      description: >-
+        Owner-only. Replaces all of the workspace's provider settings. A plugin that isn't
+        installed is rejected, unless it's the one already saved.
+      tags: [Workspaces]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProviderSettingsRequest"
+      responses:
+        "200":
+          description: Settings saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderSettingsResponse"
+        "400":
+          description: A chosen plugin isn't installed
+        "403":
+          description: Not a workspace owner
+
   /workspaces/{workspaceId}/contact-access:
     put:
       operationId: updateContactAccess
@@ -1937,39 +1978,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/AiAgentConfigurationResponse"
 
-  /workspaces/{workspaceId}/ai-agent-configs/platform-llm-provider:
-    get:
-      operationId: getPlatformLlmProvider
-      summary: Get the instance's default LLM provider
-      description: Used when an AI agent doesn't set its own `llmProvider`.
-      tags: [AiAgent]
-      parameters:
-        - $ref: "#/components/parameters/workspaceIdPath"
-      responses:
-        "200":
-          description: Default LLM provider
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PlatformLlmProviderResponse"
-
-  /workspaces/{workspaceId}/ai-agent-configs/llm-providers:
-    get:
-      operationId: listLlmProviders
-      summary: List the installed LLM provider plugins
-      tags: [AiAgent]
-      parameters:
-        - $ref: "#/components/parameters/workspaceIdPath"
-      responses:
-        "200":
-          description: Installed chat model plugins, sorted by display name
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LlmProviderResponse"
-
   /workspaces/{workspaceId}/ai-agent-configs/{configurationId}:
     put:
       operationId: updateAiAgentConfiguration
@@ -2680,14 +2688,85 @@ components:
       description: A chat model plugin ID. The official plugins are `ANTHROPIC` and `OPENAI_COMPATIBLE`.
       example: ANTHROPIC
 
-    LlmProviderResponse:
+    ProviderOptionResponse:
       type: object
-      required: [id, displayName]
+      required: [id, displayName, configurationProblem, model, instanceModel]
       properties:
         id:
-          $ref: "#/components/schemas/LlmProvider"
+          type: string
+          description: The plugin's provider ID.
         displayName:
           type: string
+        configurationProblem:
+          type: string
+          nullable: true
+          description: What the plugin is missing, such as an unset environment variable. Null when it's ready.
+        model:
+          type: string
+          nullable: true
+          description: The workspace's model for this plugin. Null uses the instance's. Always null for storage.
+        instanceModel:
+          type: string
+          nullable: true
+          description: The instance's model for this plugin, from Redis. Null when unset.
+
+    ProviderTypeSettingsResponse:
+      type: object
+      required: [selected, instanceDefault, providers]
+      properties:
+        selected:
+          type: string
+          nullable: true
+          description: The workspace's plugin. Null uses the instance's.
+        instanceDefault:
+          type: string
+          nullable: true
+          description: The plugin chosen in Redis for the whole instance, when it's installed. Null otherwise.
+        providers:
+          type: array
+          description: The installed plugins of this type, sorted by display name.
+          items:
+            $ref: "#/components/schemas/ProviderOptionResponse"
+
+    ProviderSettingsResponse:
+      type: object
+      required: [chatModel, transcription, storage]
+      properties:
+        chatModel:
+          $ref: "#/components/schemas/ProviderTypeSettingsResponse"
+        transcription:
+          $ref: "#/components/schemas/ProviderTypeSettingsResponse"
+        storage:
+          $ref: "#/components/schemas/ProviderTypeSettingsResponse"
+
+    UpdateProviderSettingsRequest:
+      type: object
+      description: A null or blank provider, or a missing model, uses the instance's.
+      properties:
+        llmProvider:
+          type: string
+          nullable: true
+          maxLength: 40
+        llmModels:
+          type: object
+          description: Plugin ID to model, at most 20 entries.
+          additionalProperties:
+            type: string
+            maxLength: 200
+        transcriptionProvider:
+          type: string
+          nullable: true
+          maxLength: 40
+        transcriptionModels:
+          type: object
+          description: Plugin ID to model, at most 20 entries.
+          additionalProperties:
+            type: string
+            maxLength: 200
+        storageProvider:
+          type: string
+          nullable: true
+          maxLength: 40
 
     TranscriptionStatus:
       type: string
@@ -4050,7 +4129,7 @@ components:
           allOf:
             - $ref: "#/components/schemas/LlmProvider"
           nullable: true
-          description: Null uses the instance default.
+          description: Null uses the workspace's chat model provider.
         instructions:
           type: string
           nullable: true
@@ -4121,16 +4200,6 @@ components:
         updatedAt:
           type: string
           format: date-time
-
-    PlatformLlmProviderResponse:
-      type: object
-      required: [provider]
-      properties:
-        provider:
-          allOf:
-            - $ref: "#/components/schemas/LlmProvider"
-          nullable: true
-          description: Null when no chat model plugin is installed.
 
     ChannelAiAgentAssignmentResponse:
       type: object

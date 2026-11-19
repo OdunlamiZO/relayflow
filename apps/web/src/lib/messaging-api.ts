@@ -509,9 +509,32 @@ export type AutonomyCeiling = "DRAFT_ONLY" | "AUTO_SEND";
 /** A chat model plugin ID, such as "ANTHROPIC" or "OPENAI_COMPATIBLE". */
 export type LlmProvider = string;
 
-export type LlmProviderOption = {
-  id: LlmProvider;
+export type ProviderOption = {
+  id: string;
   displayName: string;
+  configurationProblem: string | null;
+  model: string | null;
+  instanceModel: string | null;
+};
+
+export type ProviderTypeSettings = {
+  selected: string | null;
+  instanceDefault: string | null;
+  providers: ProviderOption[];
+};
+
+export type ProviderSettings = {
+  chatModel: ProviderTypeSettings;
+  transcription: ProviderTypeSettings;
+  storage: ProviderTypeSettings;
+};
+
+export type UpdateProviderSettingsRequest = {
+  llmProvider: string | null;
+  llmModels: Record<string, string>;
+  transcriptionProvider: string | null;
+  transcriptionModels: Record<string, string>;
+  storageProvider: string | null;
 };
 
 export type KnowledgeEntry = {
@@ -1120,19 +1143,23 @@ export class MessagingApiClient {
     );
   }
 
-  getPlatformLlmProvider(workspaceId: string) {
-    return this.request<{ provider: LlmProvider | null }>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/platform-llm-provider`
-    );
-  }
-
   messageAudioUrl(message: Message) {
     return `${this.baseUrl}/conversations/${encodeURIComponent(message.conversationId)}/messages/${encodeURIComponent(message.id)}/audio?workspaceId=${encodeURIComponent(message.workspaceId)}`;
   }
 
-  listLlmProviders(workspaceId: string) {
-    return this.request<LlmProviderOption[]>(
-      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/llm-providers`
+  getProviderSettings(workspaceId: string) {
+    return this.request<ProviderSettings>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/provider-settings`
+    );
+  }
+
+  updateProviderSettings(
+    workspaceId: string,
+    request: UpdateProviderSettingsRequest
+  ) {
+    return this.request<ProviderSettings>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/provider-settings`,
+      { method: "PUT", body: request }
     );
   }
 

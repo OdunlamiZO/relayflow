@@ -21,6 +21,7 @@ import io.odunlamizo.relayflow.sse.SseBroadcastEvent;
 import io.odunlamizo.relayflow.workflow.engine.ConversationMessageReceivedEvent;
 import io.odunlamizo.relayflow.workflow.engine.ConversationOpenedEvent;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
+import io.odunlamizo.relayflow.workspace.domain.WorkspaceProviderSettings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -73,10 +74,12 @@ class VoiceMessageProcessorTest {
         when(storage.id()).thenReturn("LOCAL_DISK");
         when(storage.store(any())).thenReturn("workspace/key");
         when(transcription.id()).thenReturn("OPENAI_COMPATIBLE");
-        when(audioProviderResolver.activeStorageProvider()).thenReturn(Optional.of(storage));
-        when(audioProviderResolver.activeTranscriptionProvider())
+        when(audioProviderResolver.activeStorageProvider(WorkspaceProviderSettings.NONE))
+                .thenReturn(Optional.of(storage));
+        when(audioProviderResolver.activeTranscriptionProvider(WorkspaceProviderSettings.NONE))
                 .thenReturn(Optional.of(transcription));
-        when(audioProviderResolver.transcriptionModel("OPENAI_COMPATIBLE"))
+        when(audioProviderResolver.transcriptionModel(
+                        WorkspaceProviderSettings.NONE, "OPENAI_COMPATIBLE"))
                 .thenReturn("whisper-large-v3-turbo");
 
         processor =
@@ -122,7 +125,8 @@ class VoiceMessageProcessorTest {
 
     @Test
     void withoutATranscriptionPluginTheVoiceNoteWaitsForAHuman() {
-        when(audioProviderResolver.activeTranscriptionProvider()).thenReturn(Optional.empty());
+        when(audioProviderResolver.activeTranscriptionProvider(WorkspaceProviderSettings.NONE))
+                .thenReturn(Optional.empty());
 
         processor.process(new InboundAudioReceivedEvent(message.getId(), "file-1", true));
 

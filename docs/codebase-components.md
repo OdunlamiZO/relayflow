@@ -67,6 +67,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
 - [Workspace Domain Entities And Enums](#workspace-domain-entities-and-enums)
   - [`Workspace`](#workspace)
   - [`ContactFieldDefinition`](#contactfielddefinition)
+  - [`WorkspaceProviderSettings`](#workspaceprovidersettings)
   - [`ContactTagDefinition`](#contacttagdefinition)
   - [`WorkspaceMember`](#workspacemember)
   - [`WorkspaceRole`](#workspacerole)
@@ -271,6 +272,8 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`SecretsPanel`](#secretspanel)
   - [`HooksPanel`](#hookspanel)
   - [`GeneralPanel`](#generalpanel)
+  - [`ProvidersPanel`](#providerspanel)
+  - [`ProvidersPanel.test.tsx`](#providerspaneltesttsx)
   - [`CreateApiKeyModal`](#createapikeymodal)
   - [`WebhookConfigPanel`](#webhookconfigpanel)
   - [`WebhookSecretModal`](#webhooksecretmodal)
@@ -307,6 +310,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [Contact Hooks](#contact-hooks)
   - [Inbox Hooks](#inbox-hooks)
   - [AI Agent Hooks](#ai-agent-hooks)
+  - [Provider Settings Hooks](#provider-settings-hooks)
   - [Workflow Hooks](#workflow-hooks)
   - [Integration Hooks](#integration-hooks)
 - [Frontend API Libraries](#frontend-api-libraries)
@@ -373,6 +377,10 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`AudioProviderResolver`](#audioproviderresolver)
   - [`VoiceMessageProcessor`](#voicemessageprocessor)
   - [`MessageAudioController` And `MessageAudioService`](#messageaudiocontroller-and-messageaudioservice)
+- [Provider Settings](#provider-settings)
+  - [`ProviderSettingsController`](#providersettingscontroller)
+  - [`ProviderSettingsService`](#providersettingsservice)
+  - [Provider Settings DTO Records](#provider-settings-dto-records)
 - [AI Agent Frontend Components](#ai-agent-frontend-components)
   - [`AiAgentPanel`](#aiagentpanel)
   - [`AiDraftBanner`](#aidraftbanner)
@@ -1044,6 +1052,7 @@ Important fields:
 - `name`
 - `contactTagDefinitions`: `List<ContactTagDefinition>` JSONB (migration `V8__contact_tags.sql`, which also adds `contacts.tags`) — the workspace's contact tags and the values each can take.
 - `contactFieldDefinitions`: `List<ContactFieldDefinition>` JSONB — the workspace's custom contact field schema. A key here can't collide with a `ReservedContactField` key (enforced in `WorkspaceService.updateContactFieldDefinitions`).
+- `providerSettings`: `WorkspaceProviderSettings` JSONB (migration `V13__workspace_provider_settings.sql`) — the workspace's chat model, transcription, and storage plugins and models.
 
 We need it as the tenant boundary for conversations, channels, workflows, and members.
 
@@ -1054,6 +1063,14 @@ Source: [`ContactFieldDefinition.java`](../apps/api/src/main/java/io/odunlamizo/
 `record ContactFieldDefinition(String key, String label, String description)` — one entry in `Workspace.contactFieldDefinitions`.
 
 We need it so operators can define custom fields the AI agent extracts and/or a workflow writes onto a contact, beyond the four reserved fields.
+
+### `WorkspaceProviderSettings`
+
+Source: [`WorkspaceProviderSettings.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workspace/domain/WorkspaceProviderSettings.java)
+
+`record WorkspaceProviderSettings(llmProvider, llmModels, transcriptionProvider, transcriptionModels, storageProvider)` — `Workspace.providerSettings`. Each provider is a plugin ID, or null to use the instance's. `llmModels` and `transcriptionModels` map a plugin ID to the model the workspace uses with it; a plugin with no entry uses the instance's model. `NONE` chooses nothing, and is what a workspace starts with. `llmModel(providerId)` and `transcriptionModel(providerId)` look up one model.
+
+We need it so each workspace can choose its own plugins and models, with the instance's as the fallback.
 
 ### `ContactTagDefinition`
 
@@ -1685,7 +1702,7 @@ We need it to distinguish human replies from workflow/system automation.
 
 Source: [`TranscriptionStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/TranscriptionStatus.java)
 
-Enum on a message with audio: `PENDING` (saved, not yet processed), `TRANSCRIBED`, `FAILED` (download or transcription failed), `NO_PROVIDER` (no transcription plugin is installed or selected).
+Enum on a message with audio: `PENDING` (saved, not yet processed), `TRANSCRIBED`, `FAILED` (download or transcription failed), `NO_PROVIDER` (no installed transcription plugin is chosen).
 
 ### `EscalationType` And `EscalationResolution`
 
@@ -3339,9 +3356,9 @@ We need it for WhatsApp channel setup in settings.
 
 Source: [`apps/web/src/components/settings/SettingsShell.tsx`](../apps/web/src/components/settings/SettingsShell.tsx)
 
-Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, integration, and hooks sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
+Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, integration, hooks, and providers sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
 
-Section visibility is permission-gated: `General` (workspace name, contact fields and tags, contact access) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Members` is always shown.
+Section visibility is permission-gated: `General` (workspace name, contact fields and tags, contact access) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Providers` requires ownership; `Members` is always shown.
 
 The AI Agent, Integrations, and Hooks sections are wrapped in `DesktopOnly`, so phones see a message there while the other sections stay usable.
 
@@ -3435,6 +3452,20 @@ Settings home for basic workspace-level configuration.
 - Contact access (`ContactAccessSection`, owner-only): a two-option toggle picks who can message and saves immediately; turning on the whitelist while it's empty asks for confirmation first. The whitelist only shows in whitelist mode: a single input adds one or more comma-separated numbers, a default-country `Select` (country names from `countryOptions` in `lib/countries.ts`, built with `Intl.DisplayNames`) saves on change, and the list removes a number after a `ConfirmModal`, with a search box once it passes 10 entries.
 
 We need it as the settings home for basic workspace-level configuration that doesn't belong under channels, members, or integrations.
+
+### `ProvidersPanel`
+
+Source: [`apps/web/src/components/settings/ProvidersPanel.tsx`](../apps/web/src/components/settings/ProvidersPanel.tsx)
+
+Owner-only settings panel under `#providers` in `SettingsShell`. Shows a section each for the chat model, transcription, and storage plugins, from `useProviderSettings`. Each section has a row of pills: "Instance default (…)" (null, naming the plugin the instance would use, or "none"), one per installed plugin, marked `(not configured)` when it reports a `configurationProblem`, and a `(not installed)` pill when the saved choice has no plugin. A warning explains what won't work when no plugin of that type is installed, none is chosen, the chosen one isn't configured, or it has no model. The chat model and transcription sections also have a model field for the plugin in effect; its placeholder is the instance's model, or "Required". One Save button sends everything through `useUpdateProviderSettings`, and is disabled until something changes.
+
+We need it so a workspace owner can choose the workspace's plugins and models without server access.
+
+### `ProvidersPanel.test.tsx`
+
+Source: [`apps/web/src/components/settings/ProvidersPanel.test.tsx`](../apps/web/src/components/settings/ProvidersPanel.test.tsx)
+
+Covers marking the instance default with its model as the placeholder, warning when nothing is chosen, flagging a plugin whose settings are missing, a chosen plugin that isn't installed, and a provider type with none installed, and saving a chosen provider with its model.
 
 ### `CreateApiKeyModal`
 
@@ -3949,8 +3980,6 @@ Source:
 - [`apps/web/src/hooks/use-create-ai-agent-configuration.ts`](../apps/web/src/hooks/use-create-ai-agent-configuration.ts)
 - [`apps/web/src/hooks/use-delete-ai-agent-configuration.ts`](../apps/web/src/hooks/use-delete-ai-agent-configuration.ts)
 - [`apps/web/src/hooks/use-discard-ai-draft.ts`](../apps/web/src/hooks/use-discard-ai-draft.ts)
-- [`apps/web/src/hooks/use-llm-providers.ts`](../apps/web/src/hooks/use-llm-providers.ts)
-- [`apps/web/src/hooks/use-platform-llm-provider.ts`](../apps/web/src/hooks/use-platform-llm-provider.ts)
 - [`apps/web/src/hooks/use-send-ai-draft.ts`](../apps/web/src/hooks/use-send-ai-draft.ts)
 - [`apps/web/src/hooks/use-set-default-ai-agent-configuration.ts`](../apps/web/src/hooks/use-set-default-ai-agent-configuration.ts)
 - [`apps/web/src/hooks/use-trigger-workflow-from-draft.ts`](../apps/web/src/hooks/use-trigger-workflow-from-draft.ts)
@@ -3961,14 +3990,24 @@ Source:
 - `useUpdateAiAgentConfiguration(workspaceId, configurationId)`: PUTs a config and updates the cache via `setQueryData` on success.
 - `useDeleteAiAgentConfiguration(workspaceId)`: deletes a config.
 - `useSetDefaultAiAgentConfiguration(workspaceId)`: flags a config as the workspace's default.
-- `useLlmProviders(workspaceId)`: fetches the installed chat model plugins (`GET .../ai-agent-configs/llm-providers`) for the LLM Provider picker.
-- `usePlatformLlmProvider(workspaceId)`: fetches the platform-wide active LLM provider (`GET .../ai-agent-configs/platform-llm-provider`) — used to label the matching pill in the LLM Provider picker as "Platform default" rather than showing a separate pseudo-option for it.
 - `useConversationAiDraft(workspaceId, conversationId)`: fetches the active AI draft; `retry: false`; enabled only when both IDs are truthy.
 - `useSendAiDraft(workspaceId, conversationId)`: mutation function takes an optional `text` — POSTs to `/ai-draft/send` with `{ text }` when provided (sends a human-edited version of the draft), or no body otherwise (sends the draft's own `proposedReply`); invalidates draft, messages, and conversations on success.
 - `useDiscardAiDraft(workspaceId, conversationId)`: DELETEs the draft; invalidates the draft query.
 - `useTriggerWorkflowFromDraft(workspaceId, conversationId)`: mutation that POSTs to `/ai-draft/trigger-workflow/{workflowId}`; invalidates the draft and conversations queries on success. Used by `AiDraftBanner` in workflow suggestion mode.
 
 We need them to keep AI agent API access outside UI components and consistent with the hook-as-service-layer pattern.
+
+### Provider Settings Hooks
+
+Source:
+
+- [`apps/web/src/hooks/use-provider-settings.ts`](../apps/web/src/hooks/use-provider-settings.ts)
+- [`apps/web/src/hooks/use-update-provider-settings.ts`](../apps/web/src/hooks/use-update-provider-settings.ts)
+
+- `useProviderSettings(workspaceId)`: fetches `GET /workspaces/{workspaceId}/provider-settings`; query key `["provider-settings", workspaceId]`. Used by `ProvidersPanel`, and by `AiAgentPanel` for its LLM Provider picker.
+- `useUpdateProviderSettings(workspaceId)`: PUTs the settings and puts the response in the cache.
+
+We need them to keep provider settings API access outside UI components.
 
 ### Workflow Hooks
 
@@ -4290,9 +4329,13 @@ Source:
 - [`LlmPlatformConfigServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmPlatformConfigServiceTest.java)
 - [`LlmClientTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmClientTest.java)
 - [`LlmPromptsTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmPromptsTest.java)
+- [`AudioProviderResolverTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/audio/AudioProviderResolverTest.java)
 - [`VoiceMessageIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/audio/VoiceMessageIT.java)
 - [`VoiceMessageProcessorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/audio/VoiceMessageProcessorTest.java)
 - [`PluginRegistryTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/pluginregistry/PluginRegistryTest.java)
+- [`ProviderSettingsControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/providersettings/ProviderSettingsControllerTest.java)
+- [`ProviderSettingsServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/providersettings/ProviderSettingsServiceTest.java)
+- [`WorkspaceProviderSettingsIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/providersettings/WorkspaceProviderSettingsIT.java)
 - [`ChannelAccountControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountControllerTest.java)
 - [`ChannelAccountMapperTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountMapperTest.java)
 - [`HibernateJsonConfigurationTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/configuration/HibernateJsonConfigurationTest.java)
@@ -4346,9 +4389,11 @@ Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest`
 - `WorkflowEngineServiceTest`, `ReplyRouterTest`: "No reply" handling, unpublished workflows, and reply routing with and without hooks.
 - `ConditionNodeExecutorTest`, `HttpRequestNodeExecutorTest`, `SetContactFieldNodeExecutorTest`: the default operator, secret resolution without leaking into output, and contact field writes.
 - `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, and published-only workflow mappings.
-- `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `LlmClientTest`: LLM response parsing, provider selection and its fallbacks when a plugin isn't installed, the extraction prompt, and how `LlmClient` builds the request, picks the model, and handles plugin errors.
+- `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `LlmClientTest`: LLM response parsing, provider and model selection across the agent, workspace, and instance, with fallbacks when a plugin isn't installed, the extraction prompt, and how `LlmClient` builds the request, picks the model, and handles plugin errors.
 - `PluginRegistryTest`: loading providers from JARs in the plugin directory, passing them settings, skipping one that fails to load, and rejecting two with the same ID.
 - `VoiceMessageProcessorTest`, `VoiceMessageIT`: a voice note's storage, transcription, and the events it fires for each outcome; a Telegram voice update saved as pending; and audio playback for workspace members only.
+- `AudioProviderResolverTest`: the workspace's transcription and storage plugins and models ahead of the instance's, and the fallbacks when a plugin isn't installed or none is chosen.
+- `ProviderSettingsServiceTest`, `ProviderSettingsControllerTest`, `WorkspaceProviderSettingsIT`: listing the workspace's choices next to the instance's, saving them, rejecting a plugin that isn't installed while keeping one already saved, owner-only changes, and the settings' round trip through the database.
 
 We need them to protect the behavior each describes; the pre-commit hook runs the unit tests.
 
@@ -4449,7 +4494,7 @@ Important fields:
 - `defaultConfig`: maps to `is_default` — whether this is the workspace's default config, used by any channel with no explicit assignment. (Named `defaultConfig`, not `isDefault`, to sidestep a Lombok boolean-getter naming quirk with an `is`-prefixed field.)
 - `enabled`
 - `autonomyCeiling`: `DRAFT_ONLY` or `AUTO_SEND`
-- `llmProvider`: nullable chat model plugin ID — which LLM this agent calls. Null means it follows the platform's active provider (`LlmPlatformConfigService`); set means it uses that provider while its plugin is installed. `AiAgentConfigurationService` rejects a new value whose plugin isn't installed with a 400. The model for a provider is still admin-controlled platform-wide (see [LLM Abstraction](#llm-abstraction)) — an agent picks a provider, not a model.
+- `llmProvider`: nullable chat model plugin ID — which LLM this agent calls. Null means it follows the workspace's chat model provider (see `WorkspaceProviderSettings`); set means it uses that provider while its plugin is installed. `AiAgentConfigurationService` rejects a new value whose plugin isn't installed with a 400. The model comes from the workspace's settings, then the instance's (see [LLM Abstraction](#llm-abstraction)) — an agent picks a provider, not a model.
 - `instructions`: free-text system prompt for the LLM
 - `knowledgeBase`: `List<KnowledgeEntry>` stored as JSONB — Q&A pairs injected into the system prompt
 - `escalationKeywords`: `List<String>` JSONB — deterministic pre-LLM keyword check
@@ -4522,8 +4567,6 @@ REST controller at `/workspaces/{workspaceId}/ai-agent-configs`.
 
 - `GET`: any workspace member (`assertMember`) — lists every named config in the workspace.
 - `POST`: requires `AI_AGENT_WRITE` permission or owner role — creates a new config.
-- `GET /platform-llm-provider`: any workspace member — the chat model plugin ID that agents on "Platform default" use, resolved by `LlmClientFactory.getActiveClient()`; null when no chat model plugin is installed.
-- `GET /llm-providers`: any workspace member — the installed chat model plugins as `LlmProviderResponse` records, sorted by display name.
 
 ### `AiAgentConfigurationDetailController`
 
@@ -4583,7 +4626,7 @@ Flow:
 3. Close any prior `CLARIFYING` log for this conversation (frees the unique slot).
 4. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
 5. Re-check for an active `WorkflowRun` committed in the race window since step 4.
-6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call `llmClientFactory.getClient(configuration.getLlmProvider())` — the config's own provider if set, otherwise the platform's active provider (see [LLM Abstraction](#llm-abstraction)). If the call itself failed (`response.failed()` — network, auth, bad status, unparseable body), escalate immediately rather than falling through to drafting or sending; see `AgentLlmResponse`.
+6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call the `LlmClient` from `llmClientFactory.getClient(workspace.getProviderSettings(), configuration.getLlmProvider())` — the config's own provider if set, otherwise the workspace's, otherwise the instance's (see [LLM Abstraction](#llm-abstraction)). The same client serves the run's conversion and correction calls. If the call itself failed (`response.failed()` — network, auth, bad status, unparseable body), escalate immediately rather than falling through to drafting or sending; see `AgentLlmResponse`.
 7. `ExtractedDataValidator.validate(...)` runs each extracted value through its field's `validationHook`, if any. For each rejected value, `convertRejectedValues` asks the LLM once to convert it to the required format (`RejectedExtraction.conversionRequest()`: the field, the customer's answer, and the hook's rejection reason) and re-runs the hook; a converted value the hook accepts is used as if the customer had sent it. Only the accepted (and possibly rewritten) values go on; values still rejected are recorded in `outputSnapshot.rejectedExtractions`.
 8. `contactCustomFieldWriter.apply(...)` runs with the accepted values right after validation, before any branching below — including the draft path.
 9. `mergeWithPendingDraft(conversation, validation.acceptedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
@@ -4686,7 +4729,7 @@ We need it so the agent is never offered, and can never start, a workflow that i
 
 Source: [`LlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmClient.java)
 
-Wraps one installed `ChatModelProvider` plugin. `complete(AgentLlmRequest)` appends `LlmPrompts.buildFormatInstruction` to the system prompt, picks the model (the request's own, otherwise Redis `modelKey(providerId)`, otherwise null so the plugin uses its default), sends a `ChatRequest`, and parses the reply with `AgentLlmResponseParser`. Any exception from the plugin becomes a failed `AgentLlmResponse`. `provider()` returns the plugin's ID, or null when no chat model plugin is installed, in which case every call fails.
+Wraps one installed `ChatModelProvider` plugin. `complete(AgentLlmRequest)` appends `LlmPrompts.buildFormatInstruction` to the system prompt, picks the model (the request's own, otherwise the workspace's model it was built with, otherwise Redis `modelKey(providerId)`, otherwise null, which the official plugins reject), sends a `ChatRequest`, and parses the reply with `AgentLlmResponseParser`. Any exception from the plugin becomes a failed `AgentLlmResponse`. `provider()` returns the plugin's ID, or null when no installed chat model plugin is chosen, in which case every call fails.
 
 `modelKey(providerId)` is `platform:llm:<id>:model`, with the ID lowercased and `_` replaced by `-` — `platform:llm:anthropic:model`, `platform:llm:openai-compatible:model`.
 
@@ -4726,7 +4769,7 @@ Source: [`LlmPlatformConfigService.java`](../apps/api/src/main/java/io/odunlamiz
 
 Source: [`LlmClientFactory.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmClientFactory.java)
 
-`getClient(providerOverride)` returns an `LlmClient` for the first installed plugin of: the override (an `AiAgentConfiguration`'s own `llmProvider`), the platform's active provider, then the first installed chat model plugin by display name, which also covers a platform with no provider set. An override whose plugin isn't installed logs a warning and falls through. `getActiveClient()` is `getClient(null)`. Redis changes take effect on the next call.
+`getClient(settings, agentProvider)` returns an `LlmClient` for the first installed plugin of: the agent's own `llmProvider`, the workspace's `llmProvider`, then `instanceProvider()`, with the workspace's model for that plugin. A choice whose plugin isn't installed logs a warning and falls through. `instanceProvider()` is the plugin named in Redis when installed, otherwise none, so with nothing chosen the client has no provider and every call fails. Settings and Redis changes take effect on the next call.
 
 ### AI Agent Domain Records
 
@@ -4760,8 +4803,6 @@ Source:
 - [`AiAgentConfigurationResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/AiAgentConfigurationResponse.java)
 - [`ChannelAiAgentAssignmentResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/ChannelAiAgentAssignmentResponse.java)
 - [`ConversationAiDraftResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/ConversationAiDraftResponse.java)
-- [`LlmProviderResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/LlmProviderResponse.java)
-- [`PlatformLlmProviderResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/PlatformLlmProviderResponse.java)
 - [`SendAiDraftRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/SendAiDraftRequest.java)
 - [`SetChannelAiAgentConfigurationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/SetChannelAiAgentConfigurationRequest.java)
 - [`UpdateAiAgentConfigurationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/UpdateAiAgentConfigurationRequest.java)
@@ -4772,8 +4813,6 @@ Source:
 - `ChannelAiAgentAssignmentResponse`: `{ configurationId }` — null means the channel has no explicit assignment.
 - `ConversationAiDraftResponse`: draft fields including `proposedReply`, `suggestedActions`, and `extractedData`.
 - `SendAiDraftRequest`: optional `{ text }` body for `POST /send` — when set, replaces the draft's `proposedReply` as the sent message text.
-- `PlatformLlmProviderResponse`: `{ provider }` — the instance's default LLM provider, marked as the default in the AI agent settings' provider picker.
-- `LlmProviderResponse`: `{ id, displayName }` — one installed chat model plugin.
 
 ### AI Agent Repositories
 
@@ -4800,7 +4839,7 @@ The `relayflow-plugin-api` module in `packages/plugin-api`. Plugins compile agai
 
 Source: [`PluginProvider.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/PluginProvider.java)
 
-Base interface: `id()` (stored in settings and Redis, unique per provider type), `displayName()`, and `initialize(ProviderSettings)`, called once at startup.
+Base interface: `id()` (stored in settings and Redis, unique per provider type), `displayName()`, `initialize(ProviderSettings)`, called once at startup, and `configurationProblem()`, what the provider is missing, such as an unset environment variable (empty by default).
 
 #### `ProviderSettings`
 
@@ -4859,7 +4898,7 @@ Source: [`StorageRequest.java`](../packages/plugin-api/src/main/java/io/odunlami
 
 Source: [`PluginRegistry.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/pluginregistry/PluginRegistry.java)
 
-Loads every `ChatModelProvider`, `TranscriptionProvider`, and `StorageProvider` at startup from JARs anywhere under `relayflow.plugins.directory` (`RELAYFLOW_PLUGINS_DIRECTORY`, default `plugins`) and from the API's own classpath, then calls each provider's `initialize`. A provider that fails to load or initialize is logged and skipped; two providers of one type with the same ID stop startup. Exposes the providers sorted by display name and `find*Provider(id)` lookups.
+Loads every `ChatModelProvider`, `TranscriptionProvider`, and `StorageProvider` at startup from JARs anywhere under `relayflow.plugins.directory` (`RELAYFLOW_PLUGINS_DIRECTORY`, default `plugins`) and from the API's own classpath, then calls each provider's `initialize`. A provider that fails to load or initialize is logged and skipped, and one that loads with a configuration problem logs `Plugin provider isn't configured`; two providers of one type with the same ID stop startup. Exposes the providers sorted by display name and `find*Provider(id)` lookups. `configurationProblem(provider)` calls the provider's check and treats an exception from it as a problem too.
 
 #### `EnvironmentProviderSettings`
 
@@ -4873,19 +4912,19 @@ Source: [`EnvironmentProviderSettings.java`](../apps/api/src/main/java/io/odunla
 
 Source: [`AnthropicChatModelProvider.java`](../plugins/anthropic/src/main/java/io/odunlamizo/relayflow/plugins/anthropic/AnthropicChatModelProvider.java)
 
-ID `ANTHROPIC`. Calls Anthropic's Messages API (`/v1/messages`) with `ANTHROPIC_API_KEY`, the system prompt as the top-level `system` field, and `max_tokens: 4096`, and returns `content[0].text`. The model defaults to `claude-haiku-4-5`. `ANTHROPIC_BASE_URL` overrides `https://api.anthropic.com`.
+ID `ANTHROPIC`. Calls Anthropic's Messages API (`/v1/messages`) with `ANTHROPIC_API_KEY`, the system prompt as the top-level `system` field, and `max_tokens: 4096`, and returns `content[0].text`. The model is required. A missing `ANTHROPIC_API_KEY` is its configuration problem, and a call without a key or model throws without sending anything. `ANTHROPIC_BASE_URL` overrides `https://api.anthropic.com`.
 
 #### `OpenAiCompatibleChatModelProvider`
 
 Source: [`OpenAiCompatibleChatModelProvider.java`](../plugins/openai-compatible/src/main/java/io/odunlamizo/relayflow/plugins/openaicompatible/OpenAiCompatibleChatModelProvider.java)
 
-ID `OPENAI_COMPATIBLE`. POSTs to `{OPENAI_COMPATIBLE_BASE_URL}/chat/completions` (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio) with `OPENAI_COMPATIBLE_API_KEY` as a bearer token when set, the system prompt as the first message, and `response_format: json_object`; returns `choices[0].message.content`. The model is required: a missing base URL or model throws without sending anything. When the base URL's host is `openrouter.ai`, it also sends `provider.require_parameters: true`, so OpenRouter routes only to hosts that honour `response_format`; other APIs reject that field.
+ID `OPENAI_COMPATIBLE`. POSTs to `{OPENAI_COMPATIBLE_BASE_URL}/chat/completions` (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio) with `OPENAI_COMPATIBLE_API_KEY` as a bearer token when set, the system prompt as the first message, and `response_format: json_object`; returns `choices[0].message.content`. The model is required. A missing base URL is its configuration problem, and a call without a base URL or model throws without sending anything. When the base URL's host is `openrouter.ai`, it also sends `provider.require_parameters: true`, so OpenRouter routes only to hosts that honour `response_format`; other APIs reject that field.
 
 #### `OpenAiCompatibleTranscriptionProvider`
 
 Source: [`OpenAiCompatibleTranscriptionProvider.java`](../plugins/openai-compatible-transcription/src/main/java/io/odunlamizo/relayflow/plugins/openaicompatibletranscription/OpenAiCompatibleTranscriptionProvider.java)
 
-ID `OPENAI_COMPATIBLE`. Uploads the audio as multipart form data to `{base URL}/audio/transcriptions` (OpenAI, Groq, and self-hosted Whisper servers) and returns the `text` field. Reads `OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL` and `OPENAI_COMPATIBLE_TRANSCRIPTION_API_KEY`, falling back to `OPENAI_COMPATIBLE_BASE_URL` and `OPENAI_COMPATIBLE_API_KEY`. The model defaults to `whisper-1`. `fileExtension(mimeType)` names the upload so the API can tell the format.
+ID `OPENAI_COMPATIBLE`. Uploads the audio as multipart form data to `{base URL}/audio/transcriptions` (OpenAI, Groq, and self-hosted Whisper servers) and returns the `text` field. Reads `OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL` and `OPENAI_COMPATIBLE_TRANSCRIPTION_API_KEY`, falling back to `OPENAI_COMPATIBLE_BASE_URL` and `OPENAI_COMPATIBLE_API_KEY`. The model is required. A missing base URL is its configuration problem, and a call without a base URL or model throws without sending anything. `fileExtension(mimeType)` names the upload so the API can tell the format.
 
 #### `LocalDiskStorageProvider`
 
@@ -4928,13 +4967,13 @@ Per-channel interface: `provider()` and `download(channelAccount, mediaReference
 
 Source: [`AudioProviderResolver.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/AudioProviderResolver.java)
 
-Picks the storage and transcription plugins: the ID in Redis `platform:storage:provider` or `platform:transcription:provider` (case-insensitive, `-` read as `_`), otherwise the only installed plugin of that type. A configured ID whose plugin isn't installed, or several installed plugins with none configured, means none. `transcriptionModel(providerId)` reads `platform:transcription:<id>:model`, for example `platform:transcription:openai-compatible:model`. `storageProvider(id)` looks up the plugin that holds a saved recording.
+Picks the storage and transcription plugins. `activeStorageProvider(settings)` and `activeTranscriptionProvider(settings)` use the workspace's choice when its plugin is installed, otherwise the instance's. `instanceStorageProvider()` and `instanceTranscriptionProvider()` are the plugin named in Redis `platform:storage:provider` or `platform:transcription:provider` (case-insensitive, `-` read as `_`) when it's installed, otherwise none. Nothing is used until it's chosen. `transcriptionModel(settings, providerId)` is the workspace's model, otherwise `instanceTranscriptionModel(providerId)`, which reads `platform:transcription:<id>:model`, for example `platform:transcription:openai-compatible:model`. `storageProvider(id)` looks up the plugin that holds a saved recording.
 
 ### `VoiceMessageProcessor`
 
 Source: [`VoiceMessageProcessor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/VoiceMessageProcessor.java)
 
-`@Async` listener for `InboundAudioReceivedEvent` after the inbound transaction commits. Downloads the audio through the channel's `ChannelMediaDownloader` (up to 25 MB, the upload limit of OpenAI's transcription API), stores it with the active storage plugin, and transcribes it with the active transcription plugin; each step's failure is logged and the rest continue. It then saves the transcript as the message's `text`, the storage key, and the `TranscriptionStatus`, publishes the workflow event when there's a transcript, and broadcasts `message.created` so the inbox refreshes.
+`@Async` listener for `InboundAudioReceivedEvent` after the inbound transaction commits. Downloads the audio through the channel's `ChannelMediaDownloader` (up to 25 MB, the upload limit of OpenAI's transcription API), stores it with the workspace's active storage plugin, and transcribes it with the workspace's active transcription plugin; each step's failure is logged and the rest continue. It then saves the transcript as the message's `text`, the storage key, and the `TranscriptionStatus`, publishes the workflow event when there's a transcript, and broadcasts `message.created` so the inbox refreshes.
 
 ### `MessageAudioController` And `MessageAudioService`
 
@@ -4944,6 +4983,37 @@ Source:
 - [`MessageAudioService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/MessageAudioService.java)
 
 `GET /conversations/{conversationId}/messages/{messageId}/audio?workspaceId=` requires workspace membership and returns the stored recording with its MIME type and `Cache-Control: no-store`. 404 when the message has no stored audio or its storage plugin isn't installed.
+
+## Provider Settings
+
+Each workspace can choose its chat model, transcription, and storage plugins and their models. Anything it leaves unset uses the instance's choice from Redis, and then the installed plugins.
+
+### `ProviderSettingsController`
+
+Source: [`ProviderSettingsController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/providersettings/ProviderSettingsController.java)
+
+- `GET /workspaces/{workspaceId}/provider-settings`: any workspace member — `ProviderSettingsResponse`.
+- `PUT /workspaces/{workspaceId}/provider-settings`: workspace owner — saves an `UpdateProviderSettingsRequest` and returns the new `ProviderSettingsResponse`.
+
+### `ProviderSettingsService`
+
+Source: [`ProviderSettingsService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/providersettings/ProviderSettingsService.java)
+
+`getSettings(workspace)` lists, for each provider type, the workspace's choice, the plugin the instance would use (`LlmClientFactory.instanceProvider()`, `AudioProviderResolver.instanceTranscriptionProvider()`, `instanceStorageProvider()`), and the installed plugins with the workspace's and the instance's model. `updateSettings(workspace, request)` replaces `Workspace.providerSettings`. A blank provider means the instance's, and blank models are dropped. A provider whose plugin isn't installed is a 400, unless it's the one already saved, so an owner can still save other changes after a plugin is removed.
+
+### Provider Settings DTO Records
+
+Source:
+
+- [`ProviderOptionResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/providersettings/dto/ProviderOptionResponse.java)
+- [`ProviderSettingsResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/providersettings/dto/ProviderSettingsResponse.java)
+- [`ProviderTypeSettingsResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/providersettings/dto/ProviderTypeSettingsResponse.java)
+- [`UpdateProviderSettingsRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/providersettings/dto/UpdateProviderSettingsRequest.java)
+
+- `ProviderSettingsResponse`: `chatModel`, `transcription`, and `storage`, each a `ProviderTypeSettingsResponse`.
+- `ProviderTypeSettingsResponse`: `selected` (the workspace's plugin ID, or null), `instanceDefault` (the plugin the instance would use, or null), and `providers`.
+- `ProviderOptionResponse`: one installed plugin — `id`, `displayName`, `configurationProblem` (null when it's ready), `model` (the workspace's), and `instanceModel` (from Redis). Both models are null for storage, or when unset.
+- `UpdateProviderSettingsRequest`: `llmProvider`, `llmModels`, `transcriptionProvider`, `transcriptionModels`, `storageProvider`. IDs are at most 40 characters, models at most 200, and each map holds at most 20 entries.
 
 ## AI Agent Frontend Components
 
@@ -4962,7 +5032,7 @@ Both sections render the shared `AiAgentForm`, whose sections are:
 
 - Enable toggle.
 - Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
-- LLM Provider: a row of pill buttons, one per installed chat model plugin from `useLlmProviders`, plus a `(not installed)` pill when the agent's saved provider has no plugin. A note appears when no chat model plugin is installed. There's no separate "Platform default" pill. Whichever provider `usePlatformLlmProvider` reports as currently active gets a `· Platform default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (defer to the platform setting), clicking any other pill pins the agent to it explicitly. The model per provider stays admin-controlled platform-wide, not chosen here.
+- LLM Provider: a row of pill buttons, one per installed chat model plugin from `useProviderSettings`, marked `(not configured)` when it reports a `configurationProblem`, plus a `(not installed)` pill when the agent's saved provider has no plugin. A note appears when no chat model plugin is installed, or when the agent follows the workspace and neither the workspace nor the instance has chosen one. There's no separate "Workspace default" pill. The workspace's chat model provider, or the instance's when the workspace hasn't chosen one, gets a `· Workspace default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (follow the workspace), clicking any other pill pins the agent to it explicitly. Models are chosen in `ProvidersPanel`, not here.
 - Instructions textarea pre-filled with a skeleton template when empty.
 - Knowledge base: list of `{question, answer}` pairs.
 - Escalation keywords: tag-style list.

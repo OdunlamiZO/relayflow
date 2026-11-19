@@ -3,11 +3,7 @@ package io.odunlamizo.relayflow.agent;
 // Docs: docs/codebase-components.md#aiagentconfigurationscontroller
 
 import io.odunlamizo.relayflow.agent.dto.AiAgentConfigurationResponse;
-import io.odunlamizo.relayflow.agent.dto.LlmProviderResponse;
-import io.odunlamizo.relayflow.agent.dto.PlatformLlmProviderResponse;
 import io.odunlamizo.relayflow.agent.dto.UpdateAiAgentConfigurationRequest;
-import io.odunlamizo.relayflow.agent.llm.LlmClientFactory;
-import io.odunlamizo.relayflow.pluginregistry.PluginRegistry;
 import io.odunlamizo.relayflow.workspace.WorkspaceAuthorizationService;
 import io.odunlamizo.relayflow.workspace.domain.WorkspacePermission;
 import jakarta.validation.Valid;
@@ -31,19 +27,11 @@ public class AiAgentConfigurationsController {
 
     private final WorkspaceAuthorizationService authorizationService;
 
-    private final LlmClientFactory llmClientFactory;
-
-    private final PluginRegistry pluginRegistry;
-
     public AiAgentConfigurationsController(
             AiAgentConfigurationService aiAgentConfigurationService,
-            WorkspaceAuthorizationService authorizationService,
-            LlmClientFactory llmClientFactory,
-            PluginRegistry pluginRegistry) {
+            WorkspaceAuthorizationService authorizationService) {
         this.aiAgentConfigurationService = aiAgentConfigurationService;
         this.authorizationService = authorizationService;
-        this.llmClientFactory = llmClientFactory;
-        this.pluginRegistry = pluginRegistry;
     }
 
     @GetMapping
@@ -52,24 +40,6 @@ public class AiAgentConfigurationsController {
         authorizationService.assertMember(workspaceId, authentication);
 
         return aiAgentConfigurationService.listConfigurations(workspaceId);
-    }
-
-    @GetMapping("/platform-llm-provider")
-    PlatformLlmProviderResponse getPlatformLlmProvider(
-            @PathVariable UUID workspaceId, Authentication authentication) {
-        authorizationService.assertMember(workspaceId, authentication);
-
-        return new PlatformLlmProviderResponse(llmClientFactory.getActiveClient().provider());
-    }
-
-    @GetMapping("/llm-providers")
-    List<LlmProviderResponse> listLlmProviders(
-            @PathVariable UUID workspaceId, Authentication authentication) {
-        authorizationService.assertMember(workspaceId, authentication);
-
-        return pluginRegistry.chatModelProviders().stream()
-                .map(provider -> new LlmProviderResponse(provider.id(), provider.displayName()))
-                .toList();
     }
 
     @PostMapping

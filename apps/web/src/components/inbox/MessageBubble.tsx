@@ -10,7 +10,8 @@ type Props = {
 const TRANSCRIPTION_NOTES: Partial<Record<TranscriptionStatus, string>> = {
   PENDING: "Transcribing…",
   FAILED: "Couldn't transcribe this voice message",
-  NO_PROVIDER: "Not transcribed: no transcription plugin is installed",
+  NO_PROVIDER:
+    "Not transcribed: choose a transcription provider in Settings → Providers",
 };
 
 function formatMessageTime(isoString: string): string {

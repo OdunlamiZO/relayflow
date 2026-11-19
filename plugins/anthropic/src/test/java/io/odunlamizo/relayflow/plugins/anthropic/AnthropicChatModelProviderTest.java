@@ -64,7 +64,9 @@ class AnthropicChatModelProviderTest {
         String reply =
                 provider.complete(
                         new ChatRequest(
-                                "Be helpful", List.of(new ChatMessage("user", "Hello")), null));
+                                "Be helpful",
+                                List.of(new ChatMessage("user", "Hello")),
+                                "claude-haiku-4-5"));
 
         assertThat(reply).isEqualTo("{\"reply\":\"Hi\"}");
         assertThat(receivedApiKey.get()).isEqualTo("sk-test");
@@ -75,10 +77,10 @@ class AnthropicChatModelProviderTest {
     }
 
     @Test
-    void usesTheRequestedModel() {
-        provider("sk-test").complete(new ChatRequest("", List.of(), "claude-sonnet-4-5"));
-
-        assertThat(receivedBody.get()).contains("\"model\":\"claude-sonnet-4-5\"");
+    void aMissingModelThrows() {
+        assertThatThrownBy(() -> provider("sk-test").complete(new ChatRequest("", List.of(), null)))
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("platform:llm:anthropic:model");
     }
 
     @Test
@@ -86,7 +88,11 @@ class AnthropicChatModelProviderTest {
         responseStatus = 401;
         responseBody = "{\"error\":\"invalid key\"}";
 
-        assertThatThrownBy(() -> provider("sk-test").complete(new ChatRequest("", List.of(), null)))
+        assertThatThrownBy(
+                        () ->
+                                provider("sk-test")
+                                        .complete(
+                                                new ChatRequest("", List.of(), "claude-haiku-4-5")))
                 .isInstanceOf(ProviderException.class)
                 .hasMessageContaining("401");
     }
@@ -96,6 +102,13 @@ class AnthropicChatModelProviderTest {
         assertThatThrownBy(() -> provider("").complete(new ChatRequest("", List.of(), null)))
                 .isInstanceOf(ProviderException.class)
                 .hasMessageContaining("ANTHROPIC_API_KEY");
+    }
+
+    @Test
+    void reportsAMissingApiKeyAsAConfigurationProblem() {
+        assertThat(provider("").configurationProblem())
+                .hasValueSatisfying(problem -> assertThat(problem).contains("ANTHROPIC_API_KEY"));
+        assertThat(provider("sk-test").configurationProblem()).isEmpty();
     }
 
     private AnthropicChatModelProvider provider(String apiKey) {

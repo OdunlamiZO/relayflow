@@ -16,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Optional;
 
 public class OpenAiCompatibleChatModelProvider implements ChatModelProvider {
 
@@ -52,15 +53,25 @@ public class OpenAiCompatibleChatModelProvider implements ChatModelProvider {
     }
 
     @Override
+    public Optional<String> configurationProblem() {
+        return baseUrl.isEmpty()
+                ? Optional.of(
+                        "Set OPENAI_COMPATIBLE_BASE_URL to use the OpenAI-compatible provider")
+                : Optional.empty();
+    }
+
+    @Override
     public String complete(ChatRequest request) {
-        if (baseUrl.isEmpty()) {
-            throw new ProviderException(
-                    "Set OPENAI_COMPATIBLE_BASE_URL to use the OpenAI-compatible provider");
+        Optional<String> problem = configurationProblem();
+
+        if (problem.isPresent()) {
+            throw new ProviderException(problem.get());
         }
 
         if (request.model() == null || request.model().isBlank()) {
             throw new ProviderException(
-                    "Set the platform:llm:openai-compatible:model Redis key or the agent's model");
+                    "Choose a model for OpenAI-compatible in Settings → Providers, or set the"
+                            + " platform:llm:openai-compatible:model Redis key");
         }
 
         HttpRequest.Builder builder =

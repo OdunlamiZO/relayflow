@@ -60,7 +60,9 @@ describe("MessageBubble", () => {
     );
 
     expect(
-      screen.getByText("Not transcribed: no transcription plugin is installed")
+      screen.getByText(
+        "Not transcribed: choose a transcription provider in Settings → Providers"
+      )
     ).toBeInTheDocument();
     expect(container.querySelector("audio")).toBeNull();
   });

@@ -16,12 +16,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Optional;
 
 public class AnthropicChatModelProvider implements ChatModelProvider {
 
     private static final String DEFAULT_BASE_URL = "https://api.anthropic.com";
-
-    private static final String DEFAULT_MODEL = "claude-haiku-4-5";
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(90);
 
@@ -55,15 +54,27 @@ public class AnthropicChatModelProvider implements ChatModelProvider {
     }
 
     @Override
+    public Optional<String> configurationProblem() {
+        return apiKey.isEmpty()
+                ? Optional.of("Set ANTHROPIC_API_KEY to use the Anthropic provider")
+                : Optional.empty();
+    }
+
+    @Override
     public String complete(ChatRequest request) {
-        if (apiKey.isEmpty()) {
-            throw new ProviderException("Set ANTHROPIC_API_KEY to use the Anthropic provider");
+        Optional<String> problem = configurationProblem();
+
+        if (problem.isPresent()) {
+            throw new ProviderException(problem.get());
         }
 
-        String model =
-                request.model() != null && !request.model().isBlank()
-                        ? request.model()
-                        : DEFAULT_MODEL;
+        if (request.model() == null || request.model().isBlank()) {
+            throw new ProviderException(
+                    "Choose a model for Anthropic in Settings → Providers, or set the"
+                            + " platform:llm:anthropic:model Redis key");
+        }
+
+        String model = request.model();
 
         HttpRequest httpRequest =
                 HttpRequest.newBuilder(URI.create(baseUrl + "/v1/messages"))

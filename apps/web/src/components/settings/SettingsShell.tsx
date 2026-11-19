@@ -14,6 +14,7 @@ import { GeneralPanel } from "./GeneralPanel";
 import { HooksPanel } from "./HooksPanel";
 import { IntegrationsPanel } from "./IntegrationsPanel";
 import { MembersList } from "./MembersList";
+import { ProvidersPanel } from "./ProvidersPanel";
 
 type Props = {
   workspaceId: string;
@@ -73,6 +74,9 @@ export function SettingsShell({ workspaceId }: Props) {
       : []),
     ...(canManageHooks
       ? [{ href: "#hooks", icon: "rule", label: "Hooks" }]
+      : []),
+    ...(isOwner
+      ? [{ href: "#providers", icon: "extension", label: "Providers" }]
       : []),
   ];
 
@@ -214,6 +218,12 @@ export function SettingsShell({ workspaceId }: Props) {
                 >
                   <HooksPanel workspaceId={workspaceId} />
                 </DesktopOnly>
+              </div>
+            )}
+
+            {isOwner && (
+              <div id="providers" className={sectionClass("#providers")}>
+                <ProvidersPanel workspaceId={workspaceId} />
               </div>
             )}
           </main>
