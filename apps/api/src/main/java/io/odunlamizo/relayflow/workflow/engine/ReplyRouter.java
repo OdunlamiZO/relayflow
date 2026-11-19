@@ -4,9 +4,11 @@ package io.odunlamizo.relayflow.workflow.engine;
 
 import io.odunlamizo.relayflow.hook.HookService;
 import io.odunlamizo.relayflow.hook.domain.HookOutcome;
+import io.odunlamizo.relayflow.hook.domain.HookOutcomeStatus;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -24,15 +26,19 @@ public class ReplyRouter {
 
     private final HookService hookService;
 
-    public ReplyRouter(HookService hookService) {
+    private final VoiceReplyConverter voiceReplyConverter;
+
+    public ReplyRouter(HookService hookService, VoiceReplyConverter voiceReplyConverter) {
         this.hookService = hookService;
+        this.voiceReplyConverter = voiceReplyConverter;
     }
 
     public ReplyRouting route(
             GraphNode waitingNode,
             ExecutionContext context,
             String replyText,
-            int previousInvalidAttempts) {
+            int previousInvalidAttempts,
+            boolean voiceReply) {
         String responseType = (String) waitingNode.data().getOrDefault("responseType", "generic");
 
         if ("defined".equals(responseType)) {
@@ -54,16 +60,30 @@ public class ReplyRouter {
             return ReplyRouting.next(null, Map.of());
         }
 
-        HookOutcome outcome =
-                hookService.runHook(
-                        context.getWorkspaceId(),
-                        hookKey,
-                        replyText,
-                        context.getVariables(),
-                        (String) waitingNode.data().get("validationErrorMessage"));
+        HookOutcome outcome = runHook(waitingNode, context, hookKey, replyText);
 
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("reply", replyText);
+
+        if (voiceReply && outcome.status() == HookOutcomeStatus.REJECTED) {
+            Optional<String> converted =
+                    voiceReplyConverter.convert(
+                            context.getWorkspaceId(),
+                            question(waitingNode, context),
+                            replyText,
+                            outcome.errorMessage());
+
+            if (converted.isPresent()) {
+                HookOutcome convertedOutcome =
+                        runHook(waitingNode, context, hookKey, converted.get());
+                output.put("convertedReply", converted.get());
+
+                if (convertedOutcome.isAccepted()) {
+                    outcome = convertedOutcome;
+                }
+            }
+        }
+
         output.put("validationHook", hookKey);
         output.put("validationOutcome", outcome.status().name());
 
@@ -92,6 +112,22 @@ public class ReplyRouter {
                     throw new NodeExecutionException(
                             "Validation hook " + hookKey + " failed: " + outcome.errorMessage());
         }
+    }
+
+    private HookOutcome runHook(
+            GraphNode waitingNode, ExecutionContext context, String hookKey, String value) {
+        return hookService.runHook(
+                context.getWorkspaceId(),
+                hookKey,
+                value,
+                context.getVariables(),
+                (String) waitingNode.data().get("validationErrorMessage"));
+    }
+
+    private String question(GraphNode waitingNode, ExecutionContext context) {
+        return waitingNode.data().get("question") instanceof String question
+                ? context.interpolate(question)
+                : null;
     }
 
     @SuppressWarnings("unchecked")

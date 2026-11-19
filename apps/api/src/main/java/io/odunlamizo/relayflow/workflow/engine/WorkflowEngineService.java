@@ -159,12 +159,14 @@ public class WorkflowEngineService {
                         snapshot);
 
         String replyText = replyMessage.getText() != null ? replyMessage.getText() : "";
+        boolean voiceReply = replyMessage.getTranscriptionStatus() != null;
         UUID conversationId = run.getConversation().getId();
 
         try {
             Instant replyStart = Instant.now();
             ReplyRouting routing =
-                    replyRouter.route(waitingNode, context, replyText, run.getReplyAttempts());
+                    replyRouter.route(
+                            waitingNode, context, replyText, run.getReplyAttempts(), voiceReply);
 
             if (!routing.output().isEmpty()) {
                 WorkflowRunStep step = newStep(waitingNode, run, context);

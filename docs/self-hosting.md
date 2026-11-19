@@ -95,7 +95,9 @@ docker compose --profile prod exec redis \
   redis-cli SET platform:transcription:openai-compatible:model whisper-large-v3-turbo
 ```
 
-A transcribed voice note reaches workflows and the AI agent like a text message. Without a
+A transcribed voice note reaches workflows and the AI agent like a text message. When an Ask
+Question's hook rejects a voice reply, such as "five thousand" for a number, the chat model
+converts it to the expected value and the hook checks it again. Without a
 transcript, it waits in the inbox for a person. Nothing is transcribed or stored until you choose
 a provider, per workspace in **Settings → Providers**, or for the whole instance with
 `platform:transcription:provider` and `platform:storage:provider` in Redis:
