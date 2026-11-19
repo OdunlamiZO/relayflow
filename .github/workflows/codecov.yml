@@ -17,7 +17,6 @@ jobs:
           cache: maven
 
       - name: Run tests with coverage
-        working-directory: apps/api
         run: mvn -B test
 
       - uses: codecov/codecov-action@v5

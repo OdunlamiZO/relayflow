@@ -9,6 +9,8 @@ Thumbs.db
 
 # Java / Maven
 apps/api/target/
+apps/api/plugins/
+apps/api/data/
 target/
 *.class
 *.jar

@@ -22,6 +22,7 @@ import io.odunlamizo.relayflow.messaging.domain.MessageSenderType;
 import io.odunlamizo.relayflow.messaging.dto.CreateMessageRequest;
 import io.odunlamizo.relayflow.messaging.dto.MessageResponse;
 import io.odunlamizo.relayflow.messaging.repository.ConversationRepository;
+import io.odunlamizo.relayflow.pluginregistry.PluginRegistry;
 import io.odunlamizo.relayflow.workflow.domain.WorkflowDefinition;
 import io.odunlamizo.relayflow.workflow.engine.WorkflowEngineService;
 import io.odunlamizo.relayflow.workflow.repository.WorkflowDefinitionRepository;
@@ -57,6 +58,8 @@ public class AiAgentConfigurationService {
 
     private final HookService hookService;
 
+    private final PluginRegistry pluginRegistry;
+
     public AiAgentConfigurationService(
             AiAgentConfigurationRepository configurationRepository,
             ConversationAiDraftRepository draftRepository,
@@ -66,7 +69,8 @@ public class AiAgentConfigurationService {
             WorkflowDefinitionRepository workflowDefinitionRepository,
             WorkflowEngineService workflowEngineService,
             MessagingService messagingService,
-            HookService hookService) {
+            HookService hookService,
+            PluginRegistry pluginRegistry) {
         this.configurationRepository = configurationRepository;
         this.draftRepository = draftRepository;
         this.workspaceRepository = workspaceRepository;
@@ -76,6 +80,7 @@ public class AiAgentConfigurationService {
         this.workflowEngineService = workflowEngineService;
         this.messagingService = messagingService;
         this.hookService = hookService;
+        this.pluginRegistry = pluginRegistry;
     }
 
     @Transactional(readOnly = true)
@@ -287,6 +292,13 @@ public class AiAgentConfigurationService {
         }
         configuration.setEnabled(request.enabled());
         configuration.setAutonomyCeiling(request.autonomyCeiling());
+        if (request.llmProvider() != null
+                && !request.llmProvider().equals(configuration.getLlmProvider())
+                && pluginRegistry.findChatModelProvider(request.llmProvider()).isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "No installed LLM provider plugin has the ID " + request.llmProvider());
+        }
         configuration.setLlmProvider(request.llmProvider());
         configuration.setInstructions(request.instructions());
         configuration.setKnowledgeBase(request.knowledgeBase());

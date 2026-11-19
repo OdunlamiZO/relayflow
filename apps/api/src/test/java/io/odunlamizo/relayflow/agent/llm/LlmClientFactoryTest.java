@@ -6,55 +6,78 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.odunlamizo.relayflow.plugin.ChatModelProvider;
+import io.odunlamizo.relayflow.pluginregistry.PluginRegistry;
 import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class LlmClientFactoryTest {
 
-    private final LlmClient anthropicClient = stubClient(LlmProvider.ANTHROPIC);
+    private final ChatModelProvider anthropic = provider("ANTHROPIC");
 
-    private final LlmClient openAiCompatibleClient = stubClient(LlmProvider.OPENAI_COMPATIBLE);
+    private final ChatModelProvider openAiCompatible = provider("OPENAI_COMPATIBLE");
+
+    private final PluginRegistry pluginRegistry = mock(PluginRegistry.class);
 
     private final LlmPlatformConfigService configService = mock(LlmPlatformConfigService.class);
 
     private final LlmClientFactory factory =
-            new LlmClientFactory(List.of(anthropicClient, openAiCompatibleClient), configService);
+            new LlmClientFactory(pluginRegistry, configService, new ObjectMapper());
 
-    @Test
-    void getClientReturnsExplicitOverrideRegardlessOfPlatformDefault() {
-        when(configService.getActiveProvider()).thenReturn(LlmProvider.ANTHROPIC);
-
-        assertThat(factory.getClient(LlmProvider.OPENAI_COMPATIBLE))
-                .isSameAs(openAiCompatibleClient);
+    @BeforeEach
+    void setUp() {
+        when(pluginRegistry.findChatModelProvider("ANTHROPIC")).thenReturn(Optional.of(anthropic));
+        when(pluginRegistry.findChatModelProvider("OPENAI_COMPATIBLE"))
+                .thenReturn(Optional.of(openAiCompatible));
+        when(pluginRegistry.findChatModelProvider("GEMINI")).thenReturn(Optional.empty());
+        when(pluginRegistry.chatModelProviders()).thenReturn(List.of(anthropic, openAiCompatible));
     }
 
     @Test
-    void getClientFallsBackToPlatformDefaultWhenOverrideIsNull() {
-        when(configService.getActiveProvider()).thenReturn(LlmProvider.OPENAI_COMPATIBLE);
+    void anInstalledOverrideWinsOverThePlatformProvider() {
+        when(configService.getActiveProvider()).thenReturn("ANTHROPIC");
 
-        assertThat(factory.getClient(null)).isSameAs(openAiCompatibleClient);
+        assertThat(factory.getClient("OPENAI_COMPATIBLE").provider())
+                .isEqualTo("OPENAI_COMPATIBLE");
     }
 
     @Test
-    void getActiveClientUsesPlatformDefault() {
-        when(configService.getActiveProvider()).thenReturn(LlmProvider.ANTHROPIC);
+    void usesThePlatformProviderWithoutAnOverride() {
+        when(configService.getActiveProvider()).thenReturn("OPENAI_COMPATIBLE");
 
-        assertThat(factory.getActiveClient()).isSameAs(anthropicClient);
+        assertThat(factory.getActiveClient().provider()).isEqualTo("OPENAI_COMPATIBLE");
     }
 
     @Test
-    void getClientFallsBackToAnthropicWhenOverrideHasNoRegisteredClient() {
-        LlmClientFactory anthropicOnly =
-                new LlmClientFactory(List.of(anthropicClient), configService);
+    void anOverrideThatIsNotInstalledFallsBackToThePlatformProvider() {
+        when(configService.getActiveProvider()).thenReturn("ANTHROPIC");
 
-        assertThat(anthropicOnly.getClient(LlmProvider.OPENAI_COMPATIBLE))
-                .isSameAs(anthropicClient);
+        assertThat(factory.getClient("GEMINI").provider()).isEqualTo("ANTHROPIC");
     }
 
-    private static LlmClient stubClient(LlmProvider provider) {
-        LlmClient client = mock(LlmClient.class);
-        when(client.provider()).thenReturn(provider);
+    @Test
+    void aPlatformProviderThatIsNotInstalledFallsBackToTheFirstInstalledOne() {
+        when(configService.getActiveProvider()).thenReturn("GEMINI");
 
-        return client;
+        assertThat(factory.getActiveClient().provider()).isEqualTo("ANTHROPIC");
+    }
+
+    @Test
+    void withNoPluginsInstalledTheClientHasNoProvider() {
+        when(configService.getActiveProvider()).thenReturn("ANTHROPIC");
+        when(pluginRegistry.findChatModelProvider("ANTHROPIC")).thenReturn(Optional.empty());
+        when(pluginRegistry.chatModelProviders()).thenReturn(List.of());
+
+        assertThat(factory.getActiveClient().provider()).isNull();
+    }
+
+    private static ChatModelProvider provider(String id) {
+        ChatModelProvider provider = mock(ChatModelProvider.class);
+        when(provider.id()).thenReturn(id);
+
+        return provider;
     }
 }

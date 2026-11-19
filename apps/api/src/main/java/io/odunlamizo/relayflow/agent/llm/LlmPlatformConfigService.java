@@ -17,6 +17,8 @@ public class LlmPlatformConfigService {
 
     private static final String PROVIDER_KEY = "platform:llm:provider";
 
+    private static final String DEFAULT_PROVIDER = "ANTHROPIC";
+
     private static final Set<String> FORMER_OPENAI_COMPATIBLE_PROVIDERS =
             Set.of("OPENAI", "GROQ", "OLLAMA", "OPENROUTER");
 
@@ -43,31 +45,12 @@ public class LlmPlatformConfigService {
         return defaultValue;
     }
 
-    public LlmProvider getActiveProvider() {
-        try {
-            String value = redis.opsForValue().get(PROVIDER_KEY);
+    public String getActiveProvider() {
+        String provider =
+                getConfigValue(PROVIDER_KEY, DEFAULT_PROVIDER).toUpperCase().replace('-', '_');
 
-            if (value != null && !value.isBlank()) {
-                String provider = value.strip().toUpperCase().replace('-', '_');
-
-                if (FORMER_OPENAI_COMPATIBLE_PROVIDERS.contains(provider)) {
-                    return LlmProvider.OPENAI_COMPATIBLE;
-                }
-
-                return LlmProvider.valueOf(provider);
-            }
-        } catch (IllegalArgumentException exception) {
-            log.warn(
-                    "Unknown LLM provider in Redis, defaulting to ANTHROPIC {} {}",
-                    kv("key", PROVIDER_KEY),
-                    kv("error", exception.getMessage()));
-        } catch (Exception exception) {
-            log.warn(
-                    "Redis read failed, defaulting LLM provider to ANTHROPIC {} {}",
-                    kv("key", PROVIDER_KEY),
-                    kv("error", exception.getMessage()));
-        }
-
-        return LlmProvider.ANTHROPIC;
+        return FORMER_OPENAI_COMPATIBLE_PROVIDERS.contains(provider)
+                ? "OPENAI_COMPATIBLE"
+                : provider;
     }
 }

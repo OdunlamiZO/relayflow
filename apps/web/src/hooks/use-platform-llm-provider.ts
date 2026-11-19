@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type LlmProvider, messagingApi } from "@/lib/messaging-api";
 
 export function usePlatformLlmProvider(workspaceId: string) {
-  return useQuery<LlmProvider>({
+  return useQuery<LlmProvider | null>({
     queryKey: ["platform-llm-provider", workspaceId],
     queryFn: async () =>
       (await messagingApi.getPlatformLlmProvider(workspaceId)).provider,

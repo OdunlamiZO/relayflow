@@ -10,4 +10,5 @@ public record WhatsAppMessage(
         @JsonProperty("timestamp") String timestamp,
         @JsonProperty("type") String type,
         @JsonProperty("text") WhatsAppTextBody text,
-        @JsonProperty("interactive") WhatsAppInteractive interactive) {}
+        @JsonProperty("interactive") WhatsAppInteractive interactive,
+        @JsonProperty("audio") WhatsAppAudio audio) {}

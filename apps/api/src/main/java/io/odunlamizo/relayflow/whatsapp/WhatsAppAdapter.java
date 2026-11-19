@@ -6,6 +6,8 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.odunlamizo.relayflow.audio.InboundAudio;
+import io.odunlamizo.relayflow.audio.InboundAudioReceivedEvent;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccountStatus;
 import io.odunlamizo.relayflow.channel.domain.ChannelProvider;
@@ -22,6 +24,7 @@ import io.odunlamizo.relayflow.messaging.domain.ConversationStatus;
 import io.odunlamizo.relayflow.messaging.domain.Message;
 import io.odunlamizo.relayflow.messaging.domain.MessageDirection;
 import io.odunlamizo.relayflow.messaging.domain.MessageSenderType;
+import io.odunlamizo.relayflow.messaging.domain.TranscriptionStatus;
 import io.odunlamizo.relayflow.messaging.repository.ConversationRepository;
 import io.odunlamizo.relayflow.messaging.repository.MessageRepository;
 import io.odunlamizo.relayflow.security.CredentialEncryptionService;
@@ -29,6 +32,7 @@ import io.odunlamizo.relayflow.sse.SseBroadcastEvent;
 import io.odunlamizo.relayflow.sse.SseEventType;
 import io.odunlamizo.relayflow.webhook.WebhookDispatchService;
 import io.odunlamizo.relayflow.webhook.domain.WebhookEventType;
+import io.odunlamizo.relayflow.whatsapp.dto.WhatsAppAudio;
 import io.odunlamizo.relayflow.whatsapp.dto.WhatsAppContactEntry;
 import io.odunlamizo.relayflow.whatsapp.dto.WhatsAppMessage;
 import io.odunlamizo.relayflow.whatsapp.dto.WhatsAppWebhookPayload;
@@ -193,15 +197,16 @@ public class WhatsAppAdapter {
 
                 for (WhatsAppMessage whatsAppMessage : value.messages()) {
                     String messageText = resolveMessageText(whatsAppMessage);
+                    InboundAudio audio = resolveAudio(whatsAppMessage);
 
-                    if (messageText == null) {
+                    if (messageText == null && audio == null) {
                         continue;
                     }
 
                     String displayName = resolveDisplayName(whatsAppMessage.from(), contacts);
 
                     processInboundMessage(
-                            channelAccount, whatsAppMessage, messageText, displayName);
+                            channelAccount, whatsAppMessage, messageText, audio, displayName);
                 }
             }
         }
@@ -268,6 +273,7 @@ public class WhatsAppAdapter {
             ChannelAccount channelAccount,
             WhatsAppMessage whatsAppMessage,
             String messageText,
+            InboundAudio audio,
             String displayName) {
         String whatsAppId = whatsAppMessage.from();
         Workspace workspace = channelAccount.getWorkspace();
@@ -317,6 +323,12 @@ public class WhatsAppAdapter {
         inboundMessage.setDirection(MessageDirection.INBOUND);
         inboundMessage.setSenderType(MessageSenderType.CONTACT);
         inboundMessage.setText(messageText);
+
+        if (audio != null) {
+            inboundMessage.setAudioMimeType(audio.mimeType());
+            inboundMessage.setTranscriptionStatus(TranscriptionStatus.PENDING);
+        }
+
         inboundMessage.setProviderMessageId(whatsAppMessage.id());
         inboundMessage.setRawPayload(
                 objectMapper.convertValue(
@@ -336,7 +348,11 @@ public class WhatsAppAdapter {
                 kv("contactId", contact.getId()),
                 kv("provider", ChannelProvider.WHATSAPP));
 
-        if (triggersWorkflow) {
+        if (audio != null) {
+            eventPublisher.publishEvent(
+                    new InboundAudioReceivedEvent(
+                            inboundMessage.getId(), audio.mediaReference(), triggersWorkflow));
+        } else if (triggersWorkflow) {
             eventPublisher.publishEvent(new ConversationOpenedEvent(conversation, inboundMessage));
         } else {
             eventPublisher.publishEvent(
@@ -453,6 +469,17 @@ public class WhatsAppAdapter {
                             + channelAccount.getId(),
                     exception);
         }
+    }
+
+    private InboundAudio resolveAudio(WhatsAppMessage whatsAppMessage) {
+        WhatsAppAudio audio = whatsAppMessage.audio();
+
+        if (!"audio".equals(whatsAppMessage.type()) || audio == null || audio.id() == null) {
+            return null;
+        }
+
+        return new InboundAudio(
+                audio.id(), audio.mimeType() != null ? audio.mimeType() : "audio/ogg", null);
     }
 
     private String resolveMessageText(WhatsAppMessage whatsAppMessage) {

@@ -1,0 +1,9 @@
+**/target/
+**/node_modules/
+**/.next/
+.git
+apps/web
+apps/marketing
+apps/api/plugins
+apps/api/data
+docs

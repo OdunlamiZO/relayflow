@@ -176,6 +176,20 @@ export type Conversation = {
   createdAt: string;
 };
 
+export type TranscriptionStatus =
+  | "PENDING"
+  | "TRANSCRIBED"
+  | "FAILED"
+  | "NO_PROVIDER";
+
+export type MessageAudio = {
+  mimeType: string | null;
+  durationSeconds: number | null;
+  /** True when the recording can be played from messageAudioUrl. */
+  stored: boolean;
+  transcriptionStatus: TranscriptionStatus;
+};
+
 export type Message = {
   id: string;
   workspaceId: string;
@@ -186,6 +200,8 @@ export type Message = {
   providerMessageId: string | null;
   rawPayload: JsonObject;
   createdAt: string;
+  /** Null for messages without audio. */
+  audio: MessageAudio | null;
 };
 
 export type CreateWorkspaceRequest = {
@@ -490,7 +506,13 @@ export type WorkflowRunDetail = WorkflowRun & {
 
 export type AutonomyCeiling = "DRAFT_ONLY" | "AUTO_SEND";
 
-export type LlmProvider = "ANTHROPIC" | "OPENAI_COMPATIBLE";
+/** A chat model plugin ID, such as "ANTHROPIC" or "OPENAI_COMPATIBLE". */
+export type LlmProvider = string;
+
+export type LlmProviderOption = {
+  id: LlmProvider;
+  displayName: string;
+};
 
 export type KnowledgeEntry = {
   question: string;
@@ -1099,8 +1121,18 @@ export class MessagingApiClient {
   }
 
   getPlatformLlmProvider(workspaceId: string) {
-    return this.request<{ provider: LlmProvider }>(
+    return this.request<{ provider: LlmProvider | null }>(
       `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/platform-llm-provider`
+    );
+  }
+
+  messageAudioUrl(message: Message) {
+    return `${this.baseUrl}/conversations/${encodeURIComponent(message.conversationId)}/messages/${encodeURIComponent(message.id)}/audio?workspaceId=${encodeURIComponent(message.workspaceId)}`;
+  }
+
+  listLlmProviders(workspaceId: string) {
+    return this.request<LlmProviderOption[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/ai-agent-configs/llm-providers`
     );
   }
 

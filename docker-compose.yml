@@ -137,7 +137,8 @@ services:
 
   api:
     build:
-      context: ./apps/api
+      context: .
+      dockerfile: apps/api/Dockerfile
     image: ghcr.io/odunlamizo/relayflow-api:${RELAYFLOW_VERSION:-latest}
     profiles: ["prod"]
     restart: unless-stopped
@@ -163,6 +164,11 @@ services:
       timeout: 3s
       retries: 5
       start_period: 45s
+    volumes:
+      # Extra plugin JARs; the official ones ship in the image under /app/plugins/official.
+      - ./plugins:/app/plugins/custom:ro
+      # Voice messages saved by the local disk storage plugin.
+      - api_data:/app/data
     read_only: true
     tmpfs: ["/tmp"]
     security_opt: ["no-new-privileges:true"]
@@ -217,5 +223,6 @@ volumes:
   ollama_data:
   postgres_data:
   redis_data:
+  api_data:
   caddy_data:
   caddy_config:

@@ -1563,6 +1563,34 @@ paths:
 
   # ── Workflows ────────────────────────────────────────────────────────────────
 
+  /conversations/{conversationId}/messages/{messageId}/audio:
+    get:
+      operationId: getMessageAudio
+      summary: Play a voice message's stored recording
+      description: Requires workspace membership. 404 when the message has no stored recording or its storage plugin isn't installed.
+      tags: [Messaging]
+      parameters:
+        - $ref: "#/components/parameters/conversationIdPath"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/workspaceIdQuery"
+      responses:
+        "200":
+          description: The recording, with its MIME type as the content type
+          content:
+            audio/*:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Not a member of this workspace
+        "404":
+          description: No stored recording
+
   /workflows:
     get:
       operationId: listWorkflows
@@ -1924,6 +1952,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlatformLlmProviderResponse"
+
+  /workspaces/{workspaceId}/ai-agent-configs/llm-providers:
+    get:
+      operationId: listLlmProviders
+      summary: List the installed LLM provider plugins
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Installed chat model plugins, sorted by display name
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LlmProviderResponse"
 
   /workspaces/{workspaceId}/ai-agent-configs/{configurationId}:
     put:
@@ -2631,7 +2676,38 @@ components:
 
     LlmProvider:
       type: string
-      enum: [ANTHROPIC, OPENAI_COMPATIBLE]
+      maxLength: 40
+      description: A chat model plugin ID. The official plugins are `ANTHROPIC` and `OPENAI_COMPATIBLE`.
+      example: ANTHROPIC
+
+    LlmProviderResponse:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:
+          $ref: "#/components/schemas/LlmProvider"
+        displayName:
+          type: string
+
+    TranscriptionStatus:
+      type: string
+      enum: [PENDING, TRANSCRIBED, FAILED, NO_PROVIDER]
+
+    MessageAudioResponse:
+      type: object
+      required: [stored, transcriptionStatus]
+      properties:
+        mimeType:
+          type: string
+          nullable: true
+        durationSeconds:
+          type: integer
+          nullable: true
+        stored:
+          type: boolean
+          description: True when the recording plays from `GET /conversations/{conversationId}/messages/{messageId}/audio`.
+        transcriptionStatus:
+          $ref: "#/components/schemas/TranscriptionStatus"
 
     HookOutcomeStatus:
       type: string
@@ -3891,6 +3967,11 @@ components:
         createdAt:
           type: string
           format: date-time
+        audio:
+          allOf:
+            - $ref: "#/components/schemas/MessageAudioResponse"
+          nullable: true
+          description: Set on voice messages, whose `text` is the transcript.
 
     MessagePageResponse:
       type: object
@@ -4046,7 +4127,10 @@ components:
       required: [provider]
       properties:
         provider:
-          $ref: "#/components/schemas/LlmProvider"
+          allOf:
+            - $ref: "#/components/schemas/LlmProvider"
+          nullable: true
+          description: Null when no chat model plugin is installed.
 
     ChannelAiAgentAssignmentResponse:
       type: object

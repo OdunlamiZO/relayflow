@@ -19,6 +19,7 @@ import io.odunlamizo.relayflow.channel.repository.ChannelAccountRepository;
 import io.odunlamizo.relayflow.hook.HookService;
 import io.odunlamizo.relayflow.messaging.MessagingService;
 import io.odunlamizo.relayflow.messaging.repository.ConversationRepository;
+import io.odunlamizo.relayflow.pluginregistry.PluginRegistry;
 import io.odunlamizo.relayflow.workflow.engine.WorkflowEngineService;
 import io.odunlamizo.relayflow.workflow.repository.WorkflowDefinitionRepository;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
@@ -53,6 +54,8 @@ class AiAgentConfigurationServiceTest {
 
     @Mock private HookService hookService;
 
+    @Mock private PluginRegistry pluginRegistry;
+
     private final UUID workspaceId = UUID.randomUUID();
 
     private final UUID channelAccountId = UUID.randomUUID();
@@ -67,7 +70,8 @@ class AiAgentConfigurationServiceTest {
                 workflowDefinitionRepository,
                 workflowEngineService,
                 messagingService,
-                hookService);
+                hookService,
+                pluginRegistry);
     }
 
     private AiAgentConfiguration configuration(boolean enabled) {
@@ -162,6 +166,38 @@ class AiAgentConfigurationServiceTest {
                         () -> service().updateConfiguration(workspaceId, configurationId, request))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("'email'");
+
+        verify(configurationRepository, never()).save(any());
+    }
+
+    @Test
+    void updateRejectsAnLlmProviderWhosePluginIsNotInstalled() {
+        Workspace workspace = new Workspace();
+        workspace.setId(workspaceId);
+        AiAgentConfiguration configuration = configuration(true);
+        configuration.setWorkspace(workspace);
+        UUID configurationId = UUID.randomUUID();
+
+        when(configurationRepository.findInWorkspace(configurationId, workspaceId))
+                .thenReturn(Optional.of(configuration));
+        when(pluginRegistry.findChatModelProvider("GEMINI")).thenReturn(Optional.empty());
+
+        UpdateAiAgentConfigurationRequest request =
+                new UpdateAiAgentConfigurationRequest(
+                        "Support",
+                        true,
+                        AutonomyCeiling.DRAFT_ONLY,
+                        "GEMINI",
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of());
+
+        assertThatThrownBy(
+                        () -> service().updateConfiguration(workspaceId, configurationId, request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("GEMINI");
 
         verify(configurationRepository, never()).save(any());
     }

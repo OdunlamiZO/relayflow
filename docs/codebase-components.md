@@ -120,6 +120,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`MessageDirection`](#messagedirection)
   - [`MessageSenderType`](#messagesendertype)
   - [`EscalationType` And `EscalationResolution`](#escalationtype-and-escalationresolution)
+  - [`TranscriptionStatus`](#transcriptionstatus)
 - [Messaging DTO Records](#messaging-dto-records)
 - [Messaging Repositories](#messaging-repositories)
 - [Public API Backend](#public-api-backend)
@@ -150,6 +151,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`TelegramAdapter`](#telegramadapter)
   - [`TelegramWebhookRegistrar`](#telegramwebhookregistrar)
   - [`TelegramFormatter`](#telegramformatter)
+  - [`TelegramMediaDownloader`](#telegrammediadownloader)
   - [`TelegramSendException`](#telegramsendexception)
   - [`TelegramExceptionHandler`](#telegramexceptionhandler)
   - [`TelegramFailures`](#telegramfailures)
@@ -158,6 +160,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`WhatsAppController`](#whatsappcontroller)
   - [`WhatsAppAdapter`](#whatsappadapter)
   - [`WhatsAppCredentials`](#whatsappcredentials)
+  - [`WhatsAppMediaDownloader`](#whatsappmediadownloader)
   - [`WhatsAppSendException`](#whatsappsendexception)
   - [WhatsApp DTO Records](#whatsapp-dto-records)
 - [Workflow Backend](#workflow-backend)
@@ -360,6 +363,16 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [AI Agent Domain Records](#ai-agent-domain-records)
   - [AI Agent DTO Records](#ai-agent-dto-records)
   - [AI Agent Repositories](#ai-agent-repositories)
+- [Plugins](#plugins)
+  - [Plugin API](#plugin-api)
+  - [Plugin Registry](#plugin-registry)
+  - [Official Plugins](#official-plugins)
+- [Voice Messages](#voice-messages)
+  - [`InboundAudio` And `InboundAudioReceivedEvent`](#inboundaudio-and-inboundaudioreceivedevent)
+  - [`ChannelMediaDownloader`](#channelmediadownloader)
+  - [`AudioProviderResolver`](#audioproviderresolver)
+  - [`VoiceMessageProcessor`](#voicemessageprocessor)
+  - [`MessageAudioController` And `MessageAudioService`](#messageaudiocontroller-and-messageaudioservice)
 - [AI Agent Frontend Components](#ai-agent-frontend-components)
   - [`AiAgentPanel`](#aiagentpanel)
   - [`AiDraftBanner`](#aidraftbanner)
@@ -1646,6 +1659,9 @@ Important fields:
 - `providerMessageId`
 - `rawPayload`
 - `createdAt`
+- `audioMimeType`, `audioDurationSeconds`: set on voice notes and audio files.
+- `audioStorageProvider`, `audioStorageKey`: the storage plugin and key holding the recording; null when it wasn't stored.
+- `transcriptionStatus`: a `TranscriptionStatus`; null for messages without audio. A voice note's `text` is its transcript.
 
 We need it as a durable conversation timeline.
 
@@ -1665,6 +1681,12 @@ Enum for contact, agent, system, and workflow messages.
 
 We need it to distinguish human replies from workflow/system automation.
 
+### `TranscriptionStatus`
+
+Source: [`TranscriptionStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/TranscriptionStatus.java)
+
+Enum on a message with audio: `PENDING` (saved, not yet processed), `TRANSCRIBED`, `FAILED` (download or transcription failed), `NO_PROVIDER` (no transcription plugin is installed or selected).
+
 ### `EscalationType` And `EscalationResolution`
 
 Source:
@@ -1683,12 +1705,14 @@ Source:
 - [`ConversationResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/ConversationResponse.java)
 - [`CreateConversationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/CreateConversationRequest.java)
 - [`CreateMessageRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/CreateMessageRequest.java)
+- [`MessageAudioResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/MessageAudioResponse.java)
 - [`MessageResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/MessageResponse.java)
 - [`UpdateAssigneeRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/UpdateAssigneeRequest.java)
 - [`UpdateConversationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/dto/UpdateConversationRequest.java)
 
 - `CreateConversationRequest`, `UpdateConversationRequest`, `ConversationResponse`
 - `CreateMessageRequest`, `MessageResponse`
+- `MessageAudioResponse`: `MessageResponse.audio` — `mimeType`, `durationSeconds`, `stored` (the recording plays from `GET /conversations/{id}/messages/{messageId}/audio`), and `transcriptionStatus`. Null for messages without audio.
 - `UpdateAssigneeRequest`: `assigneeId`; null unassigns the conversation.
 
 We need these records to keep frontend/backend data exchange explicit and stable.
@@ -1973,12 +1997,13 @@ Telegram integration service.
 Important methods:
 
 - `handleWebhook`: accepts dedicated bot updates.
-- `processInboundMessage`: normalizes a Telegram message into contact, external identity, conversation, and message records.
+- `processInboundMessage`: normalizes a Telegram message into contact, external identity, conversation, and message records. A `voice` or `audio` message is saved with `transcriptionStatus` `PENDING` and published as an `InboundAudioReceivedEvent` in place of the workflow events.
 - `onOutboundMessage`: listens for outbound messages and sends them through Telegram.
 - `sendTelegramMessage`: converts the text with `TelegramFormatter` and calls Telegram Bot API (`parse_mode: HTML`) with retry, attaching a one-time reply keyboard when button options are present.
 - `sendTelegramMessageQuietly`: best-effort bot replies for linking/error hints.
 - `createIdentity`, `createConversation`, `buildDisplayName`: helper methods for inbound normalization.
 - `admitThroughWhitelist`: in a whitelist-only workspace, asks an unknown sender to share their phone number (`request_contact` keyboard). A shared, whitelisted number is saved as the identity's `verifiedPhoneNumber` (creating the contact if needed) and copied to the contact's `phone` field; any other number is told it isn't registered and nothing is stored. Saved contacts are checked by `verifiedPhoneNumber`, so one without it is asked to share their number.
+- `resolveAudio`: reads a `voice` or `audio` attachment into an `InboundAudio`.
 - `buildRawProfile`: captures the inbound update's `firstName`/`lastName` (trimmed, omitted if blank) onto the `ExternalIdentity.rawProfile` map, so `ReservedContactFieldResolver` can derive them.
 
 We need it to keep Telegram-specific behavior out of the channel-agnostic messaging service.
@@ -1990,6 +2015,12 @@ Source: [`TelegramWebhookRegistrar.java`](../apps/api/src/main/java/io/odunlamiz
 Registers a Telegram webhook for a dedicated bot token.
 
 We need it so workspace-owned Telegram bots can receive inbound updates automatically.
+
+### `TelegramMediaDownloader`
+
+Source: [`TelegramMediaDownloader.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/TelegramMediaDownloader.java)
+
+`ChannelMediaDownloader` for Telegram: calls `getFile` with the bot token for the file's path, then downloads it from `api.telegram.org/file/bot<token>/<path>`.
 
 ### `TelegramFormatter`
 
@@ -2029,6 +2060,7 @@ We need it because the Telegram API URL contains the bot token, and the default 
 
 Source:
 
+- [`TelegramAudio.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramAudio.java)
 - [`TelegramChat.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramChat.java)
 - [`TelegramContact.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramContact.java)
 - [`TelegramMessage.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/telegram/dto/TelegramMessage.java)
@@ -2040,6 +2072,7 @@ Source:
 - `TelegramUser`
 - `TelegramChat`
 - `TelegramContact`
+- `TelegramAudio`: a `voice` or `audio` attachment — `fileId`, `duration`, `mimeType`.
 
 We need these records to deserialize Telegram's webhook JSON into typed Java data.
 
@@ -2068,13 +2101,20 @@ Important methods:
 
 - `verifyWebhook`: validates Meta verification mode/token and returns the challenge text.
 - `handleWebhook`: accepts inbound WhatsApp payloads.
-- `processInboundMessage`: normalizes supported text or interactive button-reply messages into contact, identity, conversation, and message records. Drops the message first if `ContactAccessService.isAllowed` rejects the sender's number.
+- `processInboundMessage`: normalizes supported text, interactive button-reply, or audio messages into contact, identity, conversation, and message records. Drops the message first if `ContactAccessService.isAllowed` rejects the sender's number. An audio message is saved with `transcriptionStatus` `PENDING` and published as an `InboundAudioReceivedEvent` in place of the workflow events.
 - `onOutboundMessage`: listens for outbound messages and sends them through WhatsApp.
 - `sendWhatsAppMessage`: calls Meta Graph API with retry, sending 1-3 options as native interactive buttons and 4+ options as numbered plain text.
 - `resolveMessageText`: extracts text from inbound plain text and interactive button replies.
+- `resolveAudio`: reads an `audio` message into an `InboundAudio`.
 - `createIdentity`, `createConversation`, `resolveDisplayName`: helper methods for inbound normalization.
 
 We need it to keep WhatsApp-specific webhook, credential, and Graph API behavior out of the channel-agnostic messaging service.
+
+### `WhatsAppMediaDownloader`
+
+Source: [`WhatsAppMediaDownloader.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/WhatsAppMediaDownloader.java)
+
+`ChannelMediaDownloader` for WhatsApp: looks up the media ID on the Graph API for a download URL, then fetches it. Both requests send the channel's access token.
 
 ### `WhatsAppCredentials`
 
@@ -2102,6 +2142,7 @@ We need it so failed WhatsApp delivery can be surfaced to callers and avoid pret
 
 Source:
 
+- [`WhatsAppAudio.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppAudio.java)
 - [`WhatsAppButtonReply.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppButtonReply.java)
 - [`WhatsAppChange.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppChange.java)
 - [`WhatsAppContactEntry.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/whatsapp/dto/WhatsAppContactEntry.java)
@@ -2123,6 +2164,7 @@ Source:
 - `WhatsAppTextBody`
 - `WhatsAppInteractive`
 - `WhatsAppButtonReply`
+- `WhatsAppAudio`: an `audio` message's media `id`, `mimeType`, and `voice` flag.
 
 We need these records to deserialize Meta's webhook JSON into typed Java data.
 
@@ -3152,13 +3194,22 @@ We need it as the main reading/reply surface.
 
 Source: [`apps/web/src/components/inbox/MessageBubble.tsx`](../apps/web/src/components/inbox/MessageBubble.tsx)
 
-Renders one message bubble, with its text formatted by `FormattedText`.
+Source: [`apps/web/src/hooks/use-message-audio-url.ts`](../apps/web/src/hooks/use-message-audio-url.ts)
 
-Important function:
+Renders one message bubble, with its text formatted by `FormattedText`. A message with `audio` gets a "Voice message" label, an `<audio>` player when the recording is stored, and a note for `PENDING`, `FAILED`, or `NO_PROVIDER` transcriptions. Its `text` is the transcript.
+
+Important functions:
 
 - `formatMessageTime`
+- `useMessageAudioUrl(message)`: the playback URL from `MessagingApiClient.messageAudioUrl`, or null when the recording isn't stored.
 
 We need it for readable inbound/outbound timeline rendering.
+
+### `MessageBubble.test.tsx`
+
+Source: [`apps/web/src/components/inbox/MessageBubble.test.tsx`](../apps/web/src/components/inbox/MessageBubble.test.tsx)
+
+Covers a stored, transcribed voice message (player, label, transcript) and one with no recording or transcription plugin.
 
 ### `MessageComposer`
 
@@ -3898,6 +3949,7 @@ Source:
 - [`apps/web/src/hooks/use-create-ai-agent-configuration.ts`](../apps/web/src/hooks/use-create-ai-agent-configuration.ts)
 - [`apps/web/src/hooks/use-delete-ai-agent-configuration.ts`](../apps/web/src/hooks/use-delete-ai-agent-configuration.ts)
 - [`apps/web/src/hooks/use-discard-ai-draft.ts`](../apps/web/src/hooks/use-discard-ai-draft.ts)
+- [`apps/web/src/hooks/use-llm-providers.ts`](../apps/web/src/hooks/use-llm-providers.ts)
 - [`apps/web/src/hooks/use-platform-llm-provider.ts`](../apps/web/src/hooks/use-platform-llm-provider.ts)
 - [`apps/web/src/hooks/use-send-ai-draft.ts`](../apps/web/src/hooks/use-send-ai-draft.ts)
 - [`apps/web/src/hooks/use-set-default-ai-agent-configuration.ts`](../apps/web/src/hooks/use-set-default-ai-agent-configuration.ts)
@@ -3909,6 +3961,7 @@ Source:
 - `useUpdateAiAgentConfiguration(workspaceId, configurationId)`: PUTs a config and updates the cache via `setQueryData` on success.
 - `useDeleteAiAgentConfiguration(workspaceId)`: deletes a config.
 - `useSetDefaultAiAgentConfiguration(workspaceId)`: flags a config as the workspace's default.
+- `useLlmProviders(workspaceId)`: fetches the installed chat model plugins (`GET .../ai-agent-configs/llm-providers`) for the LLM Provider picker.
 - `usePlatformLlmProvider(workspaceId)`: fetches the platform-wide active LLM provider (`GET .../ai-agent-configs/platform-llm-provider`) — used to label the matching pill in the LLM Provider picker as "Platform default" rather than showing a separate pseudo-option for it.
 - `useConversationAiDraft(workspaceId, conversationId)`: fetches the active AI draft; `retry: false`; enabled only when both IDs are truthy.
 - `useSendAiDraft(workspaceId, conversationId)`: mutation function takes an optional `text` — POSTs to `/ai-draft/send` with `{ text }` when provided (sends a human-edited version of the draft), or no body otherwise (sends the draft's own `proposedReply`); invalidates draft, messages, and conversations on success.
@@ -4235,8 +4288,11 @@ Source:
 - [`AgentLlmResponseParserTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/AgentLlmResponseParserTest.java)
 - [`LlmClientFactoryTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmClientFactoryTest.java)
 - [`LlmPlatformConfigServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmPlatformConfigServiceTest.java)
+- [`LlmClientTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmClientTest.java)
 - [`LlmPromptsTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/LlmPromptsTest.java)
-- [`OpenAiCompatibleLlmClientTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/llm/OpenAiCompatibleLlmClientTest.java)
+- [`VoiceMessageIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/audio/VoiceMessageIT.java)
+- [`VoiceMessageProcessorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/audio/VoiceMessageProcessorTest.java)
+- [`PluginRegistryTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/pluginregistry/PluginRegistryTest.java)
 - [`ChannelAccountControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountControllerTest.java)
 - [`ChannelAccountMapperTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/channel/ChannelAccountMapperTest.java)
 - [`HibernateJsonConfigurationTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/configuration/HibernateJsonConfigurationTest.java)
@@ -4290,7 +4346,9 @@ Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest`
 - `WorkflowEngineServiceTest`, `ReplyRouterTest`: "No reply" handling, unpublished workflows, and reply routing with and without hooks.
 - `ConditionNodeExecutorTest`, `HttpRequestNodeExecutorTest`, `SetContactFieldNodeExecutorTest`: the default operator, secret resolution without leaking into output, and contact field writes.
 - `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, and published-only workflow mappings.
-- `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `OpenAiCompatibleLlmClientTest`: LLM response parsing, provider selection (including former provider names read as `OPENAI_COMPATIBLE`), the extraction prompt, and the OpenAI-compatible provider's request URL, key, Redis model, OpenRouter routing option, and failure handling.
+- `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `LlmClientTest`: LLM response parsing, provider selection and its fallbacks when a plugin isn't installed, the extraction prompt, and how `LlmClient` builds the request, picks the model, and handles plugin errors.
+- `PluginRegistryTest`: loading providers from JARs in the plugin directory, passing them settings, skipping one that fails to load, and rejecting two with the same ID.
+- `VoiceMessageProcessorTest`, `VoiceMessageIT`: a voice note's storage, transcription, and the events it fires for each outcome; a Telegram voice update saved as pending; and audio playback for workspace members only.
 
 We need them to protect the behavior each describes; the pre-commit hook runs the unit tests.
 
@@ -4391,7 +4449,7 @@ Important fields:
 - `defaultConfig`: maps to `is_default` — whether this is the workspace's default config, used by any channel with no explicit assignment. (Named `defaultConfig`, not `isDefault`, to sidestep a Lombok boolean-getter naming quirk with an `is`-prefixed field.)
 - `enabled`
 - `autonomyCeiling`: `DRAFT_ONLY` or `AUTO_SEND`
-- `llmProvider`: nullable `LlmProvider` — which LLM this agent calls. Null means it follows the platform's active provider (`LlmPlatformConfigService`); set means it always uses that provider regardless of the platform default. The model for a provider is still admin-controlled platform-wide (see [LLM Abstraction](#llm-abstraction)) — an agent picks a provider, not a model.
+- `llmProvider`: nullable chat model plugin ID — which LLM this agent calls. Null means it follows the platform's active provider (`LlmPlatformConfigService`); set means it uses that provider while its plugin is installed. `AiAgentConfigurationService` rejects a new value whose plugin isn't installed with a 400. The model for a provider is still admin-controlled platform-wide (see [LLM Abstraction](#llm-abstraction)) — an agent picks a provider, not a model.
 - `instructions`: free-text system prompt for the LLM
 - `knowledgeBase`: `List<KnowledgeEntry>` stored as JSONB — Q&A pairs injected into the system prompt
 - `escalationKeywords`: `List<String>` JSONB — deterministic pre-LLM keyword check
@@ -4464,7 +4522,8 @@ REST controller at `/workspaces/{workspaceId}/ai-agent-configs`.
 
 - `GET`: any workspace member (`assertMember`) — lists every named config in the workspace.
 - `POST`: requires `AI_AGENT_WRITE` permission or owner role — creates a new config.
-- `GET /platform-llm-provider`: any workspace member — the platform-wide active `LlmProvider` (not scoped to this workspace; reads straight from `LlmPlatformConfigService`).
+- `GET /platform-llm-provider`: any workspace member — the chat model plugin ID that agents on "Platform default" use, resolved by `LlmClientFactory.getActiveClient()`; null when no chat model plugin is installed.
+- `GET /llm-providers`: any workspace member — the installed chat model plugins as `LlmProviderResponse` records, sorted by display name.
 
 ### `AiAgentConfigurationDetailController`
 
@@ -4627,13 +4686,9 @@ We need it so the agent is never offered, and can never start, a workflow that i
 
 Source: [`LlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmClient.java)
 
-Interface: `provider()` returns `LlmProvider`; `complete(AgentLlmRequest)` returns `AgentLlmResponse`.
+Wraps one installed `ChatModelProvider` plugin. `complete(AgentLlmRequest)` appends `LlmPrompts.buildFormatInstruction` to the system prompt, picks the model (the request's own, otherwise Redis `modelKey(providerId)`, otherwise null so the plugin uses its default), sends a `ChatRequest`, and parses the reply with `AgentLlmResponseParser`. Any exception from the plugin becomes a failed `AgentLlmResponse`. `provider()` returns the plugin's ID, or null when no chat model plugin is installed, in which case every call fails.
 
-#### `LlmProvider`
-
-Source: [`LlmProvider.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmProvider.java)
-
-Enum: `ANTHROPIC`, `OPENAI_COMPATIBLE`. `OPENAI_COMPATIBLE` replaced the former `OPENAI`, `GROQ`, `OLLAMA`, and `OPENROUTER` values — migration `V11` rewrites stored agent configs, and `LlmPlatformConfigService` reads the old names from Redis as `OPENAI_COMPATIBLE`.
+`modelKey(providerId)` is `platform:llm:<id>:model`, with the ID lowercased and `_` replaced by `-` — `platform:llm:anthropic:model`, `platform:llm:openai-compatible:model`.
 
 #### `AgentLlmRequest`
 
@@ -4659,35 +4714,19 @@ Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`
 
 Source: [`LlmPrompts.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmPrompts.java)
 
-Package-private class holding `buildFormatInstruction(extractionFields)`, appended by each LLM client to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model always includes the customer's answer — converted to the expected format when the meaning is clear, such as words to digits, otherwise exactly as sent — and the hook decides whether it's valid; a field with `askIfMissing` false is marked "include it only if the customer mentions it — never ask for it") and two directives: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved. When asking for a field, the model may only ask for one listed as "Still missing", one at a time.
-
-#### `AnthropicLlmClient`
-
-Source: [`AnthropicLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/AnthropicLlmClient.java)
-
-Implements `LlmClient` by calling Anthropic's Messages API (`/v1/messages`) directly with a Spring `RestClient` built in `@PostConstruct` — `x-api-key: {ANTHROPIC_API_KEY}` and `anthropic-version: 2023-06-01` headers, the system prompt as the top-level `system` field, `max_tokens: 4096`, reply read from `content[0].text`. It stays separate from `OpenAiCompatibleLlmClient` because every one of those differs from the chat completions format. Model read from Redis `platform:llm:anthropic:model`, default `claude-haiku-4-5`.
-
-#### `OpenAiCompatibleLlmClient`
-
-Source: [`OpenAiCompatibleLlmClient.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/OpenAiCompatibleLlmClient.java)
-
-Implements `LlmClient` for `LlmProvider.OPENAI_COMPATIBLE` — any API speaking OpenAI's chat completions format (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio). Configured from `OPENAI_COMPATIBLE_BASE_URL` (including `/v1`, trailing slashes stripped) and `OPENAI_COMPATIBLE_API_KEY` (sent as a bearer token; omitted when blank, for local servers). The model comes only from Redis `platform:llm:openai-compatible:model` — there's no default, since a model name that works on one API fails on another. Builds the JSON payload with `response_format: json_object`, POSTs to `{baseUrl}/chat/completions` through the injected `RestClient.Builder`, extracts `choices[0].message.content`, and parses it into `AgentLlmResponse`. A missing base URL or model fails the call without sending anything, with an error log naming the variables to set.
-
-When the base URL's host is `openrouter.ai`, it also sends `provider.require_parameters: true`.
-
-We need that so OpenRouter only routes to hosts that honour `response_format` — otherwise it may pick one that replies in prose, which `AgentLlmResponseParser` can't read. It's limited to OpenRouter because other APIs reject the unknown field.
+Package-private class holding `buildFormatInstruction(extractionFields)`, which `LlmClient` appends to the assembled system prompt. Covers the required JSON response shape and confidence guidance, plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model always includes the customer's answer — converted to the expected format when the meaning is clear, such as words to digits, otherwise exactly as sent — and the hook decides whether it's valid; a field with `askIfMissing` false is marked "include it only if the customer mentions it — never ask for it") and two directives: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved. When asking for a field, the model may only ask for one listed as "Still missing", one at a time.
 
 #### `LlmPlatformConfigService`
 
 Source: [`LlmPlatformConfigService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmPlatformConfigService.java)
 
-Reads the active `LlmProvider` from Redis key `platform:llm:provider`, ignoring case and treating `-` as `_`. Falls back to `ANTHROPIC` on missing/invalid values, and maps the former provider names `OPENAI`, `GROQ`, `OLLAMA`, and `OPENROUTER` to `OPENAI_COMPATIBLE` so an existing setting keeps working after the upgrade. Also exposes `getConfigValue(key, default)` — a generic Redis read with a fallback — used by both clients for their Redis model overrides.
+`getActiveProvider()` reads the platform's chat model plugin ID from Redis `platform:llm:provider`, uppercased with `-` read as `_`, defaulting to `ANTHROPIC`. `OPENAI`, `GROQ`, `OLLAMA`, and `OPENROUTER` are read as `OPENAI_COMPATIBLE`. `getConfigValue(key, default)` is a Redis read with a fallback, also used by `LlmClient` for model keys.
 
 #### `LlmClientFactory`
 
 Source: [`LlmClientFactory.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmClientFactory.java)
 
-Collects all `LlmClient` beans into a `Map<LlmProvider, LlmClient>`. `getClient(providerOverride)` returns the client for `providerOverride` when non-null (an `AiAgentConfiguration`'s own `llmProvider`), otherwise resolves `LlmPlatformConfigService.getActiveProvider()` — so a Redis update to the platform default takes effect immediately without restart, for any agent left on "Platform default". `getActiveClient()` is `getClient(null)`, kept as a convenience for always wanting the platform default.
+`getClient(providerOverride)` returns an `LlmClient` for the first installed plugin of: the override (an `AiAgentConfiguration`'s own `llmProvider`), the platform's active provider, then the first installed chat model plugin by display name. An override whose plugin isn't installed logs a warning and falls through. `getActiveClient()` is `getClient(null)`. Redis changes take effect on the next call.
 
 ### AI Agent Domain Records
 
@@ -4721,6 +4760,7 @@ Source:
 - [`AiAgentConfigurationResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/AiAgentConfigurationResponse.java)
 - [`ChannelAiAgentAssignmentResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/ChannelAiAgentAssignmentResponse.java)
 - [`ConversationAiDraftResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/ConversationAiDraftResponse.java)
+- [`LlmProviderResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/LlmProviderResponse.java)
 - [`PlatformLlmProviderResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/PlatformLlmProviderResponse.java)
 - [`SendAiDraftRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/SendAiDraftRequest.java)
 - [`SetChannelAiAgentConfigurationRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/dto/SetChannelAiAgentConfigurationRequest.java)
@@ -4733,6 +4773,7 @@ Source:
 - `ConversationAiDraftResponse`: draft fields including `proposedReply`, `suggestedActions`, and `extractedData`.
 - `SendAiDraftRequest`: optional `{ text }` body for `POST /send` — when set, replaces the draft's `proposedReply` as the sent message text.
 - `PlatformLlmProviderResponse`: `{ provider }` — the instance's default LLM provider, marked as the default in the AI agent settings' provider picker.
+- `LlmProviderResponse`: `{ id, displayName }` — one installed chat model plugin.
 
 ### AI Agent Repositories
 
@@ -4746,6 +4787,163 @@ Source:
 - `AiAgentInvocationLogRepository`: `findForConversationWithStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query), `deleteByWorkspace`.
 - `ConversationAiDraftRepository`: `findByConversation`, `deleteByConversation`, `deleteByConversations`, `deleteByWorkspace`.
 - A channel's own assignment is read directly off `ChannelAccount` via `ChannelAccountRepository.findAiAgentConfiguration(channelAccountId)`, not through `AiAgentConfigurationRepository`.
+
+## Plugins
+
+Chat model, transcription, and storage providers are plugins: JARs in the plugin directory, found with Java's `ServiceLoader`. The official plugins ship in the API image under `/app/plugins/official`; see [`docs/plugins.md`](plugins.md) for writing one.
+
+### Plugin API
+
+The `relayflow-plugin-api` module in `packages/plugin-api`. Plugins compile against it with `provided` scope; the API ships it.
+
+#### `PluginProvider`
+
+Source: [`PluginProvider.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/PluginProvider.java)
+
+Base interface: `id()` (stored in settings and Redis, unique per provider type), `displayName()`, and `initialize(ProviderSettings)`, called once at startup.
+
+#### `ProviderSettings`
+
+Source: [`ProviderSettings.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/ProviderSettings.java)
+
+`get(name)` returns a setting, such as an environment variable, as an `Optional`.
+
+#### `ProviderException`
+
+Source: [`ProviderException.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/ProviderException.java)
+
+Unchecked exception a provider throws when a call fails.
+
+#### `ChatModelProvider`
+
+Source: [`ChatModelProvider.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/ChatModelProvider.java)
+
+`complete(ChatRequest)` returns the model's reply text. `LlmClient` adds RelayFlow's JSON format instruction to the system prompt and parses the reply.
+
+#### `ChatRequest` And `ChatMessage`
+
+Source:
+
+- [`ChatRequest.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/ChatRequest.java)
+- [`ChatMessage.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/ChatMessage.java)
+
+`ChatRequest`: `systemPrompt`, `messages`, and `model` (null means the provider's default). `ChatMessage`: `role` (`user` or `assistant`) and `content`.
+
+#### `TranscriptionProvider`
+
+Source: [`TranscriptionProvider.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/TranscriptionProvider.java)
+
+`transcribe(TranscriptionRequest)` returns the audio's text.
+
+#### `TranscriptionRequest`
+
+Source: [`TranscriptionRequest.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/TranscriptionRequest.java)
+
+`audio` bytes, `mimeType`, and `model` (null means the provider's default).
+
+#### `StorageProvider`
+
+Source: [`StorageProvider.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/StorageProvider.java)
+
+`store(StorageRequest)` saves a file and returns its key; `load(key)` returns the file's bytes.
+
+#### `StorageRequest`
+
+Source: [`StorageRequest.java`](../packages/plugin-api/src/main/java/io/odunlamizo/relayflow/plugin/StorageRequest.java)
+
+`workspaceId`, `contentType`, and `content`.
+
+### Plugin Registry
+
+#### `PluginRegistry`
+
+Source: [`PluginRegistry.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/pluginregistry/PluginRegistry.java)
+
+Loads every `ChatModelProvider`, `TranscriptionProvider`, and `StorageProvider` at startup from JARs anywhere under `relayflow.plugins.directory` (`RELAYFLOW_PLUGINS_DIRECTORY`, default `plugins`) and from the API's own classpath, then calls each provider's `initialize`. A provider that fails to load or initialize is logged and skipped; two providers of one type with the same ID stop startup. Exposes the providers sorted by display name and `find*Provider(id)` lookups.
+
+#### `EnvironmentProviderSettings`
+
+Source: [`EnvironmentProviderSettings.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/pluginregistry/EnvironmentProviderSettings.java)
+
+`ProviderSettings` backed by Spring's `Environment`, so providers read environment variables and application properties.
+
+### Official Plugins
+
+#### `AnthropicChatModelProvider`
+
+Source: [`AnthropicChatModelProvider.java`](../plugins/anthropic/src/main/java/io/odunlamizo/relayflow/plugins/anthropic/AnthropicChatModelProvider.java)
+
+ID `ANTHROPIC`. Calls Anthropic's Messages API (`/v1/messages`) with `ANTHROPIC_API_KEY`, the system prompt as the top-level `system` field, and `max_tokens: 4096`, and returns `content[0].text`. The model defaults to `claude-haiku-4-5`. `ANTHROPIC_BASE_URL` overrides `https://api.anthropic.com`.
+
+#### `OpenAiCompatibleChatModelProvider`
+
+Source: [`OpenAiCompatibleChatModelProvider.java`](../plugins/openai-compatible/src/main/java/io/odunlamizo/relayflow/plugins/openaicompatible/OpenAiCompatibleChatModelProvider.java)
+
+ID `OPENAI_COMPATIBLE`. POSTs to `{OPENAI_COMPATIBLE_BASE_URL}/chat/completions` (OpenAI, Groq, OpenRouter, Together, DeepSeek, Mistral, Ollama, vLLM, LM Studio) with `OPENAI_COMPATIBLE_API_KEY` as a bearer token when set, the system prompt as the first message, and `response_format: json_object`; returns `choices[0].message.content`. The model is required: a missing base URL or model throws without sending anything. When the base URL's host is `openrouter.ai`, it also sends `provider.require_parameters: true`, so OpenRouter routes only to hosts that honour `response_format`; other APIs reject that field.
+
+#### `OpenAiCompatibleTranscriptionProvider`
+
+Source: [`OpenAiCompatibleTranscriptionProvider.java`](../plugins/openai-compatible-transcription/src/main/java/io/odunlamizo/relayflow/plugins/openaicompatibletranscription/OpenAiCompatibleTranscriptionProvider.java)
+
+ID `OPENAI_COMPATIBLE`. Uploads the audio as multipart form data to `{base URL}/audio/transcriptions` (OpenAI, Groq, and self-hosted Whisper servers) and returns the `text` field. Reads `OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL` and `OPENAI_COMPATIBLE_TRANSCRIPTION_API_KEY`, falling back to `OPENAI_COMPATIBLE_BASE_URL` and `OPENAI_COMPATIBLE_API_KEY`. The model defaults to `whisper-1`. `fileExtension(mimeType)` names the upload so the API can tell the format.
+
+#### `LocalDiskStorageProvider`
+
+Source: [`LocalDiskStorageProvider.java`](../plugins/local-disk-storage/src/main/java/io/odunlamizo/relayflow/plugins/localdiskstorage/LocalDiskStorageProvider.java)
+
+ID `LOCAL_DISK`. Writes each file to `<RELAYFLOW_STORAGE_DIRECTORY>/<workspaceId>/<random UUID>` (default `data/storage`; the API image sets `/app/data/storage`) and returns that relative path as the key. A workspace ID that isn't letters, digits, and hyphens goes to a `shared` folder, and a key that resolves outside the directory is rejected.
+
+#### Official Plugin Tests
+
+Source:
+
+- [`AnthropicChatModelProviderTest.java`](../plugins/anthropic/src/test/java/io/odunlamizo/relayflow/plugins/anthropic/AnthropicChatModelProviderTest.java)
+- [`OpenAiCompatibleChatModelProviderTest.java`](../plugins/openai-compatible/src/test/java/io/odunlamizo/relayflow/plugins/openaicompatible/OpenAiCompatibleChatModelProviderTest.java)
+- [`OpenAiCompatibleTranscriptionProviderTest.java`](../plugins/openai-compatible-transcription/src/test/java/io/odunlamizo/relayflow/plugins/openaicompatibletranscription/OpenAiCompatibleTranscriptionProviderTest.java)
+- [`LocalDiskStorageProviderTest.java`](../plugins/local-disk-storage/src/test/java/io/odunlamizo/relayflow/plugins/localdiskstorage/LocalDiskStorageProviderTest.java)
+
+- `AnthropicChatModelProviderTest`, `OpenAiCompatibleChatModelProviderTest`, `OpenAiCompatibleTranscriptionProviderTest`: each request's URL, headers, body, and model against a local JDK `HttpServer`, plus missing settings and error statuses.
+- `LocalDiskStorageProviderTest`: stored files load back, unsafe workspace IDs, and keys outside the directory.
+
+## Voice Messages
+
+Voice notes and audio files from Telegram and WhatsApp. The adapter saves the message right away; `VoiceMessageProcessor` then downloads, stores, and transcribes it in the background. A transcribed voice note reaches workflows and AI agents as a text message. One without a transcript stays in the inbox for a human, with no automatic reply.
+
+### `InboundAudio` And `InboundAudioReceivedEvent`
+
+Source:
+
+- [`InboundAudio.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/InboundAudio.java)
+- [`InboundAudioReceivedEvent.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/InboundAudioReceivedEvent.java)
+
+`InboundAudio`: the channel's `mediaReference` (Telegram `file_id`, WhatsApp media ID), `mimeType`, and `durationSeconds`. `InboundAudioReceivedEvent`: the saved message's ID, the media reference, and `opensConversation` — whether the message opened or reopened its conversation, which decides between `ConversationOpenedEvent` and `ConversationMessageReceivedEvent` once it's transcribed.
+
+### `ChannelMediaDownloader`
+
+Source: [`ChannelMediaDownloader.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/ChannelMediaDownloader.java)
+
+Per-channel interface: `provider()` and `download(channelAccount, mediaReference)`. Implemented by `TelegramMediaDownloader` and `WhatsAppMediaDownloader`.
+
+### `AudioProviderResolver`
+
+Source: [`AudioProviderResolver.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/AudioProviderResolver.java)
+
+Picks the storage and transcription plugins: the ID in Redis `platform:storage:provider` or `platform:transcription:provider` (case-insensitive, `-` read as `_`), otherwise the only installed plugin of that type. A configured ID whose plugin isn't installed, or several installed plugins with none configured, means none. `transcriptionModel(providerId)` reads `platform:transcription:<id>:model`, for example `platform:transcription:openai-compatible:model`. `storageProvider(id)` looks up the plugin that holds a saved recording.
+
+### `VoiceMessageProcessor`
+
+Source: [`VoiceMessageProcessor.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/VoiceMessageProcessor.java)
+
+`@Async` listener for `InboundAudioReceivedEvent` after the inbound transaction commits. Downloads the audio through the channel's `ChannelMediaDownloader` (up to 25 MB, the upload limit of OpenAI's transcription API), stores it with the active storage plugin, and transcribes it with the active transcription plugin; each step's failure is logged and the rest continue. It then saves the transcript as the message's `text`, the storage key, and the `TranscriptionStatus`, publishes the workflow event when there's a transcript, and broadcasts `message.created` so the inbox refreshes.
+
+### `MessageAudioController` And `MessageAudioService`
+
+Source:
+
+- [`MessageAudioController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/MessageAudioController.java)
+- [`MessageAudioService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/audio/MessageAudioService.java)
+
+`GET /conversations/{conversationId}/messages/{messageId}/audio?workspaceId=` requires workspace membership and returns the stored recording with its MIME type and `Cache-Control: no-store`. 404 when the message has no stored audio or its storage plugin isn't installed.
 
 ## AI Agent Frontend Components
 
@@ -4764,7 +4962,7 @@ Both sections render the shared `AiAgentForm`, whose sections are:
 
 - Enable toggle.
 - Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
-- LLM Provider: a row of pill buttons, one per `LlmProvider` value — no separate "Platform default" pill. Whichever provider `usePlatformLlmProvider` reports as currently active gets a `· Platform default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (defer to the platform setting), clicking any other pill pins the agent to it explicitly. The model per provider stays admin-controlled platform-wide, not chosen here.
+- LLM Provider: a row of pill buttons, one per installed chat model plugin from `useLlmProviders`, plus a `(not installed)` pill when the agent's saved provider has no plugin. A note appears when no chat model plugin is installed. There's no separate "Platform default" pill. Whichever provider `usePlatformLlmProvider` reports as currently active gets a `· Platform default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (defer to the platform setting), clicking any other pill pins the agent to it explicitly. The model per provider stays admin-controlled platform-wide, not chosen here.
 - Instructions textarea pre-filled with a skeleton template when empty.
 - Knowledge base: list of `{question, answer}` pairs.
 - Escalation keywords: tag-style list.
