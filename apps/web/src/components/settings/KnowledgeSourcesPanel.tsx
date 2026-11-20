@@ -7,11 +7,17 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { IconButton } from "@/components/common/IconButton";
 import { LoadingButton } from "@/components/common/LoadingButton";
 import { Spinner } from "@/components/common/Spinner";
+import {
+  VariablePicker,
+  type WorkflowVariable,
+} from "@/components/workflows/VariablePicker";
 import { useDeleteKnowledgeSource } from "@/hooks/use-delete-knowledge-source";
 import { useKnowledgeSources } from "@/hooks/use-knowledge-sources";
 import { useSaveKnowledgeSource } from "@/hooks/use-save-knowledge-source";
+import { useSecrets } from "@/hooks/use-secrets";
 import { useTestKnowledgeSource } from "@/hooks/use-test-knowledge-source";
 import { errorMessage } from "@/lib/error-message";
+import { insertAtCursor } from "@/lib/insert-at-cursor";
 import {
   type KnowledgeSource,
   type KnowledgeSourceHeader,
@@ -174,6 +180,12 @@ function KnowledgeSourceEditor({
 }) {
   const saveSource = useSaveKnowledgeSource(workspaceId, source?.id);
   const testSource = useTestKnowledgeSource(workspaceId);
+  const { data: secrets = [] } = useSecrets(workspaceId);
+  const secretVariables: WorkflowVariable[] = secrets.map((secret) => ({
+    name: `secrets.${secret.name}`,
+    label: secret.name,
+    group: "secrets",
+  }));
 
   const [name, setName] = useState(source?.name ?? "");
   const [url, setUrl] = useState(source?.url ?? "");
@@ -185,6 +197,7 @@ function KnowledgeSourceEditor({
   );
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const headerValueRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -336,16 +349,34 @@ function KnowledgeSourceEditor({
                       aria-label={`Header ${index + 1} name`}
                       className={INPUT_CLASS}
                     />
-                    <input
-                      type="text"
-                      value={header.value}
-                      onChange={(event) =>
-                        updateHeader(index, "value", event.target.value)
-                      }
-                      placeholder="Bearer {{secrets.API_KEY}}"
-                      aria-label={`Header ${index + 1} value`}
-                      className={INPUT_CLASS}
-                    />
+                    <div className="relative flex w-full items-center">
+                      <input
+                        ref={(element) => {
+                          headerValueRefs.current[index] = element;
+                        }}
+                        type="text"
+                        value={header.value}
+                        onChange={(event) =>
+                          updateHeader(index, "value", event.target.value)
+                        }
+                        placeholder="Bearer {{secrets.API_KEY}}"
+                        aria-label={`Header ${index + 1} value`}
+                        className={`${INPUT_CLASS} pr-10`}
+                      />
+                      <div className="absolute right-1">
+                        <VariablePicker
+                          variables={secretVariables}
+                          onSelect={(expression) =>
+                            insertAtCursor(
+                              headerValueRefs.current[index] ?? null,
+                              header.value,
+                              `{{${expression}}}`,
+                              (value) => updateHeader(index, "value", value)
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
                     <IconButton
                       icon="close"
                       label={`Remove header ${index + 1}`}

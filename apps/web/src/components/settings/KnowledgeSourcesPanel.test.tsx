@@ -43,6 +43,12 @@ vi.mock("@/hooks/use-delete-knowledge-source", () => ({
   })),
 }));
 
+vi.mock("@/hooks/use-secrets", () => ({
+  useSecrets: vi.fn(() => ({
+    data: [{ id: "secret-1", name: "FEES_KEY" }],
+  })),
+}));
+
 vi.mock("@/hooks/use-test-knowledge-source", () => ({
   useTestKnowledgeSource: vi.fn(() => ({
     mutate: mockTest,
@@ -83,6 +89,21 @@ describe("KnowledgeSourcesPanel", () => {
         cacheSeconds: 60,
       },
       expect.anything()
+    );
+  });
+
+  it("inserts a secret into a header value from the picker", async () => {
+    const user = userEvent.setup();
+    render(<KnowledgeSourcesPanel workspaceId="workspace-1" />);
+
+    await user.click(screen.getByRole("button", { name: /New source/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add header" }));
+    await user.type(screen.getByLabelText("Header 1 value"), "Bearer ");
+    await user.click(screen.getByTitle("Insert variable"));
+    await user.click(screen.getByText("{{secrets.FEES_KEY}}"));
+
+    expect(screen.getByLabelText("Header 1 value")).toHaveValue(
+      "Bearer {{secrets.FEES_KEY}}"
     );
   });
 

@@ -1,7 +1,7 @@
 "use client";
 
 // Docs: docs/codebase-components.md#aiagentpanel
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { IconButton } from "@/components/common/IconButton";
@@ -9,16 +9,22 @@ import { LoadingButton } from "@/components/common/LoadingButton";
 import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
 import { useToast } from "@/components/providers/ToastProvider";
+import {
+  VariablePicker,
+  type WorkflowVariable,
+} from "@/components/workflows/VariablePicker";
 import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
 import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
 import { useCreateAiAgentConfiguration } from "@/hooks/use-create-ai-agent-configuration";
 import { useDeleteAiAgentConfiguration } from "@/hooks/use-delete-ai-agent-configuration";
 import { useHooks } from "@/hooks/use-hooks";
+import { useKnowledgeSources } from "@/hooks/use-knowledge-sources";
 import { useProviderSettings } from "@/hooks/use-provider-settings";
 import { useSetDefaultAiAgentConfiguration } from "@/hooks/use-set-default-ai-agent-configuration";
 import { useUpdateAiAgentConfiguration } from "@/hooks/use-update-ai-agent-configuration";
 import { useWorkflows } from "@/hooks/use-workflows";
 import { errorMessage } from "@/lib/error-message";
+import { insertAtCursor } from "@/lib/insert-at-cursor";
 import type {
   AiAgentConfiguration,
   AutonomyCeiling,
@@ -388,6 +394,15 @@ function AiAgentForm({
   const { data: customHooks = [], isSuccess: customHooksLoaded } =
     useHooks(workspaceId);
   const { showToast } = useToast();
+  const { data: knowledgeSources = [] } = useKnowledgeSources(workspaceId);
+  const sourceVariables: WorkflowVariable[] = knowledgeSources.map(
+    (source) => ({
+      name: `sources.${source.name}`,
+      label: source.url,
+      group: "sources",
+    })
+  );
+  const answerRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
 
   const hookOptions = [
     { value: "", label: "No validation" },
@@ -840,15 +855,37 @@ function AiAgentForm({
                 }
                 className="mb-2 w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
-              <textarea
-                placeholder="Answer"
-                value={entry.answer}
-                onChange={(event) =>
-                  updateKnowledgeEntry(index, "answer", event.target.value)
-                }
-                rows={2}
-                className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
-              />
+              <div className="relative">
+                <textarea
+                  ref={(element) => {
+                    answerRefs.current[index] = element;
+                  }}
+                  placeholder="Answer"
+                  value={entry.answer}
+                  onChange={(event) =>
+                    updateKnowledgeEntry(index, "answer", event.target.value)
+                  }
+                  rows={2}
+                  className="block w-full rounded-lg border border-neutral-300 bg-neutral-100 py-2 pl-3 pr-10 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+                />
+                <div className="absolute right-1 top-1.5">
+                  <VariablePicker
+                    variables={sourceVariables}
+                    onSelect={(expression) => {
+                      const placeholder = `{{${expression}}}`;
+
+                      insertAtCursor(
+                        answerRefs.current[index] ?? null,
+                        entry.answer,
+                        placeholder,
+                        (answer) =>
+                          updateKnowledgeEntry(index, "answer", answer),
+                        placeholder.length - 2
+                      );
+                    }}
+                  />
+                </div>
+              </div>
               {entry.answer.includes("{{sources.") && (
                 <KnowledgeAnswerPreview
                   workspaceId={workspaceId}

@@ -330,6 +330,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [Knowledge Source Hooks](#knowledge-source-hooks)
 - [Frontend API Libraries](#frontend-api-libraries)
   - [`message-formatting.ts`](#message-formattingts)
+  - [`insert-at-cursor.ts`](#insert-at-cursorts)
   - [`authentication-api.ts`](#authentication-apits)
   - [`messaging-api.ts`](#messaging-apits)
   - [`server-authentication.ts`](#server-authenticationts)
@@ -3565,6 +3566,7 @@ Settings section (`#knowledge-sources`, shown to owners and members with `AI_AGE
 Important behavior:
 
 - The editor (`KnowledgeSourceEditor`) asks for the name, URL, headers, and how long to reuse a response. Headers with a blank name are dropped on save.
+- Each header value has a `VariablePicker` listing the workspace's secrets (`useSecrets`) as `{{secrets.NAME}}`. Listing secrets needs `SECRETS_WRITE`, so for other members the list is empty.
 - Test (`useTestKnowledgeSource`) fetches what's in the form, saved or not, and shows the status and the formatted response, so the right field path can be picked.
 - A refused delete (the source is in use) shows the API's message above the list.
 
@@ -3574,7 +3576,7 @@ We need it so a workspace can connect live data to its AI agents' knowledge with
 
 Source: [`apps/web/src/components/settings/KnowledgeSourcesPanel.test.tsx`](../apps/web/src/components/settings/KnowledgeSourcesPanel.test.tsx)
 
-Covers the list, saving a new source without blank headers, and showing a test response.
+Covers the list, saving a new source without blank headers, inserting a secret into a header value from the picker, and showing a test response.
 
 ### `KnowledgeAnswerPreview`
 
@@ -3693,7 +3695,6 @@ Side panel for editing selected node data.
 Important helpers:
 
 - `extractWorkflowVariables`: finds user-defined variables from Set Variable, HTTP response mappings, and Ask Question nodes.
-- `insertAtCursor`: inserts `{{variable}}` into inputs/textareas.
 - `Field`: reusable label/action wrapper.
 - `ConditionValueField`, `HeaderRow`: smaller controlled field components with their own refs.
 - `writableContactFieldOptions`: `SelectOption[]` combining `RESERVED_CONTACT_FIELD_KEYS` and the workspace's `contactFieldDefinitions` — the dropdown source for `SetContactFieldForm`'s field picker. `contactFieldVariables` (the `contact.data.<key>` entries offered by the `{{…}}` variable picker for *reading*) covers the same reserved-plus-workspace-defined set, so a field that's writable is also readable via the picker.
@@ -3744,13 +3745,13 @@ Dropdown for inserting variables into text fields.
 
 Important values/components:
 
-- `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow" | "secrets"`.
+- `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow" | "secrets" | "sources"`.
 - `VARIABLE_FILTERS`: the `upper`, `lower`, and `title` filters, mirroring `VariableInterpolator` on the backend.
 - `findUnknownFilters(text)`: the filter names in `{{name|filter}}` placeholders that aren't in `VARIABLE_FILTERS`.
 - `FilterWarning`: shows those unknown filters under a text field, since the backend leaves them unapplied.
 - `BUILT_IN_VARIABLES`: `contact.id`, `contact.name`, `contact.username`, `contact.message` (group `"contact"`); `conversation.channel` (group `"conversation"`); `agent.reply`, `agent.confidence` (group `"ai"`). `conversation.id` and `workspace.id` are populated at runtime (`WorkflowEngineService`) but deliberately excluded from this list — internal IDs not meant for the common case. `contact.id` is included despite being an internal ID too, since it has a real, common use: referencing the contact by RelayFlow's own ID in an HTTP Request header/body to an external system.
-- `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs), then Secrets — instead of one flat "Built-in" bucket.
-- `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter). The `allowFilters` prop turns off the `AA`/`aa`/`Aa` buttons for a section — used for Secrets, since a case transform on a credential value doesn't make sense.
+- `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs), Secrets, then Knowledge sources — instead of one flat "Built-in" bucket.
+- `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter). The `allowFilters` prop turns off the `AA`/`aa`/`Aa` buttons for a section — used for Secrets, since a case transform on a credential value doesn't make sense, and for Knowledge sources, whose placeholders don't support filters.
 
 We need it so users can discover and insert valid `{{variable}}` placeholders without memorizing names, grouped so contact data, AI-agent data, and workflow-local variables aren't all mixed into one undifferentiated list.
 
@@ -4247,6 +4248,12 @@ Source: [`apps/web/src/lib/message-formatting.ts`](../apps/web/src/lib/message-f
 - `parseFormattedText(text)`: parses WhatsApp-style markers into a tree of text, bold, italic, strike, code, and code block nodes (with `- ` / `* ` line starts shown as `• `), with the same rules as the API's `TelegramFormatter`.
 - `bulletLines(value, start, end)`: adds `- ` to each selected line (or the current line) that isn't already a bullet.
 - `wrapSelection(value, start, end, marker)`: wraps the selected text in a marker (a code block goes on its own lines) and returns the new value and selection.
+
+### `insert-at-cursor.ts`
+
+Source: [`apps/web/src/lib/insert-at-cursor.ts`](../apps/web/src/lib/insert-at-cursor.ts)
+
+- `insertAtCursor(element, value, text, onChange, cursorOffset?)`: replaces the selection in an input or textarea with `text` (or appends it when there's no element), then puts the cursor `cursorOffset` characters into the inserted text, at its end by default. Used with `VariablePicker` in `NodeConfigPanel`, `KnowledgeSourcesPanel`, and `AiAgentPanel`.
 
 ### `authentication-api.ts`
 
@@ -5236,7 +5243,7 @@ Both sections render the shared `AiAgentForm`, whose sections are:
 - Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
 - LLM Provider: a row of pill buttons, one per installed chat model plugin from `useProviderSettings`, marked `(not configured)` when it reports a `configurationProblem`, plus a `(not installed)` pill when the agent's saved provider has no plugin. A note appears when no chat model plugin is installed, or when the agent follows the workspace and neither the workspace nor the instance has chosen one. There's no separate "Workspace default" pill. The workspace's chat model provider, or the instance's when the workspace hasn't chosen one, gets a `· Workspace default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (follow the workspace), clicking any other pill pins the agent to it explicitly. Models are chosen in `ProvidersPanel`, not here.
 - Instructions textarea pre-filled with a skeleton template when empty.
-- Knowledge base: list of `{question, answer}` pairs. An answer can include `{{sources.NAME.field}}` from a knowledge source; one that does shows `KnowledgeAnswerPreview`.
+- Knowledge base: list of `{question, answer}` pairs. An answer can include `{{sources.NAME.field}}` from a knowledge source; one that does shows `KnowledgeAnswerPreview`. The answer has a `VariablePicker` listing the workspace's knowledge sources (`useKnowledgeSources`); picking one inserts `{{sources.NAME}}` with the cursor before `}}`, ready for a field path.
 - Escalation keywords: tag-style list.
 - Workflow mappings: workflow dropdown + trigger description rows.
 - Data extraction: list of `{key, description, validationHook}` extraction fields. Only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence — see `AgentWorkflowContext` and `ContactCustomFieldWriter`. Each field has a hook picker (built-in and custom hooks from `useBuiltInHooks` / `useHooks`, "Unavailable hook" if the saved one is gone), validated by `ExtractedDataValidator`.

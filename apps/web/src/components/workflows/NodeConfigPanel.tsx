@@ -15,6 +15,7 @@ import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
 import { useHooks } from "@/hooks/use-hooks";
 import { useSecrets } from "@/hooks/use-secrets";
 import { useWorkspace } from "@/hooks/use-workspaces";
+import { insertAtCursor } from "@/lib/insert-at-cursor";
 import {
   type FormattingMarker,
   bulletLines,
@@ -115,29 +116,6 @@ function extractWorkflowVariables(nodes: Node[]): WorkflowVariable[] {
   }
 
   return variables;
-}
-
-function insertAtCursor(
-  element: HTMLInputElement | HTMLTextAreaElement | null,
-  currentValue: string,
-  text: string,
-  onChange: (value: string) => void
-) {
-  if (element) {
-    const start = element.selectionStart ?? currentValue.length;
-    const end = element.selectionEnd ?? currentValue.length;
-    const newValue =
-      currentValue.slice(0, start) + text + currentValue.slice(end);
-
-    onChange(newValue);
-
-    requestAnimationFrame(() => {
-      element.focus();
-      element.setSelectionRange(start + text.length, start + text.length);
-    });
-  } else {
-    onChange(currentValue + text);
-  }
 }
 
 const FORMATTING_ACTIONS: {

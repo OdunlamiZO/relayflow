@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 export type WorkflowVariable = {
   name: string;
   label: string;
-  group: "contact" | "ai" | "conversation" | "workflow" | "secrets";
+  group: "contact" | "ai" | "conversation" | "workflow" | "secrets" | "sources";
 };
 
 /** Mirrors VariableInterpolator's filters on the backend. */
@@ -134,6 +134,11 @@ export function VariablePicker({ variables, onSelect }: Props) {
       items: variables.filter((variable) => variable.group === "secrets"),
       allowFilters: false,
     },
+    {
+      title: "Knowledge sources",
+      items: variables.filter((variable) => variable.group === "sources"),
+      allowFilters: false,
+    },
   ].filter((section) => section.items.length > 0);
 
   return (
@@ -148,7 +153,7 @@ export function VariablePicker({ variables, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 max-h-72 w-72 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-100 shadow-lg">
           {sections.length === 0 && (
             <p className="px-3 py-2.5 text-[11px] text-neutral-400">
               No variables available yet.
