@@ -19,6 +19,7 @@ import { useWorkspace } from "@/hooks/use-workspaces";
 import { AiDraftBanner } from "./AiDraftBanner";
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
+import { RunWorkflowMenu } from "./RunWorkflowMenu";
 
 type Props = {
   workspaceId: string;
@@ -238,9 +239,23 @@ export function MessageThread({ workspaceId, conversationId, onBack }: Props) {
               </div>
             )}
 
+            {!conversation.lockedByWorkflow &&
+              conversation.status !== "CLOSED" && (
+                <RunWorkflowMenu
+                  workspaceId={workspaceId}
+                  conversationId={conversationId}
+                />
+              )}
+
             <LoadingButton
               type="button"
               isLoading={isUpdating}
+              title={
+                conversation.lockedByWorkflow &&
+                conversation.status !== "CLOSED"
+                  ? "Closing stops the running workflow"
+                  : undefined
+              }
               onClick={() =>
                 updateConversation({
                   conversationId: conversationId,

@@ -13,9 +13,10 @@ export type PopoverMenuItem = {
 type Props = {
   trigger: (toggle: () => void) => ReactNode;
   items: PopoverMenuItem[];
+  align?: "start" | "end";
 };
 
-export function PopoverMenu({ trigger, items }: Props) {
+export function PopoverMenu({ trigger, items, align = "start" }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +51,7 @@ export function PopoverMenu({ trigger, items }: Props) {
       {isOpen && (
         <ul
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 min-w-40 rounded-xl border border-neutral-300 bg-neutral-100 p-1 shadow-lg"
+          className={`absolute ${align === "end" ? "right-0" : "left-0"} top-full z-50 mt-1 min-w-40 rounded-xl border border-neutral-300 bg-neutral-100 p-1 shadow-lg`}
         >
           {items.map((item) => (
             <li key={item.key}>

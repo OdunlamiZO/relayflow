@@ -8,12 +8,14 @@ import static org.mockito.Mockito.when;
 
 import io.odunlamizo.relayflow.agent.domain.AiAgentConfiguration;
 import io.odunlamizo.relayflow.agent.domain.ExtractionField;
+import io.odunlamizo.relayflow.agent.domain.KnowledgeEntry;
 import io.odunlamizo.relayflow.agent.llm.AgentLlmRequest;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.channel.domain.ChannelProvider;
 import io.odunlamizo.relayflow.contact.ReservedContactFieldResolver;
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.contact.repository.ExternalIdentityRepository;
+import io.odunlamizo.relayflow.knowledge.RenderedKnowledge;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.Message;
 import io.odunlamizo.relayflow.messaging.domain.MessageDirection;
@@ -91,7 +93,12 @@ class AiAgentContextAssemblerTest {
 
         AiAgentConfiguration configuration = new AiAgentConfiguration();
 
-        AgentLlmRequest request = assembler().assemble(configuration, conversation);
+        AgentLlmRequest request =
+                assembler()
+                        .assemble(
+                                configuration,
+                                conversation,
+                                RenderedKnowledge.unchanged(configuration.getKnowledgeBase()));
 
         assertThat(lastMessageContent(request))
                 .endsWith("<context>Contact: Jane Doe | Channel: WHATSAPP</context>");
@@ -116,7 +123,12 @@ class AiAgentContextAssemblerTest {
                         new ExtractionField("lastName", ""),
                         new ExtractionField("email", "")));
 
-        AgentLlmRequest request = assembler().assemble(configuration, conversation);
+        AgentLlmRequest request =
+                assembler()
+                        .assemble(
+                                configuration,
+                                conversation,
+                                RenderedKnowledge.unchanged(configuration.getKnowledgeBase()));
 
         assertThat(lastMessageContent(request))
                 .endsWith(
@@ -139,7 +151,12 @@ class AiAgentContextAssemblerTest {
         AiAgentConfiguration configuration = new AiAgentConfiguration();
         configuration.setExtractionFields(List.of(new ExtractionField("phone", "")));
 
-        AgentLlmRequest request = assembler().assemble(configuration, conversation);
+        AgentLlmRequest request =
+                assembler()
+                        .assemble(
+                                configuration,
+                                conversation,
+                                RenderedKnowledge.unchanged(configuration.getKnowledgeBase()));
 
         assertThat(lastMessageContent(request))
                 .endsWith(
@@ -160,7 +177,12 @@ class AiAgentContextAssemblerTest {
         AiAgentConfiguration configuration = new AiAgentConfiguration();
         configuration.setExtractionFields(List.of(new ExtractionField("firstName", "")));
 
-        AgentLlmRequest request = assembler().assemble(configuration, conversation);
+        AgentLlmRequest request =
+                assembler()
+                        .assemble(
+                                configuration,
+                                conversation,
+                                RenderedKnowledge.unchanged(configuration.getKnowledgeBase()));
 
         assertThat(lastMessageContent(request))
                 .endsWith(
@@ -186,7 +208,12 @@ class AiAgentContextAssemblerTest {
                         new ExtractionField("amount", "", null, false),
                         new ExtractionField("purpose", "", null, false)));
 
-        AgentLlmRequest request = assembler().assemble(configuration, conversation);
+        AgentLlmRequest request =
+                assembler()
+                        .assemble(
+                                configuration,
+                                conversation,
+                                RenderedKnowledge.unchanged(configuration.getKnowledgeBase()));
 
         assertThat(lastMessageContent(request))
                 .endsWith(
@@ -208,11 +235,53 @@ class AiAgentContextAssemblerTest {
         AiAgentConfiguration configuration = new AiAgentConfiguration();
         configuration.setExtractionFields(List.of(new ExtractionField("displayName", "")));
 
-        AgentLlmRequest request = assembler().assemble(configuration, conversation);
+        AgentLlmRequest request =
+                assembler()
+                        .assemble(
+                                configuration,
+                                conversation,
+                                RenderedKnowledge.unchanged(configuration.getKnowledgeBase()));
 
         assertThat(lastMessageContent(request))
                 .endsWith(
                         "<context>Contact: Jane Doe | Channel: WHATSAPP"
                                 + " | Already known: displayName=Jane Doe</context>");
+    }
+
+    @Test
+    void usesTheFilledInKnowledgeAndWarnsAboutUnavailableValues() {
+        Conversation conversation = conversation();
+        stubInboundMessage(conversation, "What's the rate?");
+
+        AiAgentConfiguration configuration = new AiAgentConfiguration();
+        configuration.setKnowledgeBase(
+                List.of(new KnowledgeEntry("Rate?", "It is {{sources.rates.usd}}")));
+        RenderedKnowledge knowledge =
+                new RenderedKnowledge(
+                        List.of(new KnowledgeEntry("Rate?", "It is (unavailable)")),
+                        List.of("rates: HTTP 503"));
+
+        AgentLlmRequest request = assembler().assemble(configuration, conversation, knowledge);
+
+        assertThat(request.systemPrompt())
+                .contains("A: It is (unavailable)")
+                .doesNotContain("{{sources.rates.usd}}")
+                .contains("Never guess or estimate it");
+    }
+
+    @Test
+    void leavesOutTheUnavailableWarningWhenEveryValueWasFilledIn() {
+        Conversation conversation = conversation();
+        stubInboundMessage(conversation, "What's the rate?");
+
+        AiAgentConfiguration configuration = new AiAgentConfiguration();
+        RenderedKnowledge knowledge =
+                RenderedKnowledge.unchanged(List.of(new KnowledgeEntry("Rate?", "It is 1500")));
+
+        AgentLlmRequest request = assembler().assemble(configuration, conversation, knowledge);
+
+        assertThat(request.systemPrompt())
+                .contains("A: It is 1500")
+                .doesNotContain("Never guess or estimate it");
     }
 }

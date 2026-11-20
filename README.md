@@ -185,7 +185,7 @@ There is no self-service "change password" form — a password only ever changes
 - `POST   /conversations`
 - `GET    /conversations?workspaceId={workspaceId}`
 - `GET    /conversations/{id}?workspaceId={workspaceId}`
-- `PATCH  /conversations/{id}?workspaceId={workspaceId}`
+- `PATCH  /conversations/{id}?workspaceId={workspaceId}` — change the status; closing cancels the conversation's running or waiting workflow runs
 - `PATCH  /conversations/{id}/assignee?workspaceId={workspaceId}` — assign or unassign (`assigneeId: null`) a conversation to a workspace member.
 - `GET    /conversations/{id}/messages?workspaceId={workspaceId}` — a voice message has an `audio` object (`mimeType`, `durationSeconds`, `stored`, `transcriptionStatus`) and its transcript as `text`
 - `POST   /conversations/{id}/messages?workspaceId={workspaceId}`
@@ -201,7 +201,7 @@ There is no self-service "change password" form — a password only ever changes
 - `PUT    /workspaces/{workspaceId}/secrets/{secretId}` — replace a secret's value; the old value can't be recovered
 - `DELETE /workspaces/{workspaceId}/secrets/{secretId}`
 
-All secret endpoints require `SECRETS_WRITE` permission or owner role. Reference a secret in a workflow's HTTP Request node (URL, headers, or body) as `{{secrets.NAME}}` — the decrypted value is resolved only at request time and never appears in the workflow definition, a run log, or an API response.
+All secret endpoints require `SECRETS_WRITE` permission or owner role. Reference a secret in a workflow's HTTP Request node (URL, headers, or body) or a knowledge source (URL or headers) as `{{secrets.NAME}}` — the decrypted value is resolved only at request time and never appears in the workflow definition, a run log, or an API response.
 
 - `GET    /workspaces/{workspaceId}/hooks` — list the workspace's custom hooks
 - `GET    /workspaces/{workspaceId}/hooks/built-in` — list the built-in hooks (email, phone number, number, whole number, date, web address)
@@ -294,6 +294,16 @@ The `GET` path handles Meta webhook verification using the channel account's sto
 - `POST   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/send` — send the draft as an outbound message; optional `{ text }` body sends a human-edited version instead of the draft's own wording
 - `DELETE /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft` — discard the draft
 - `POST   /workspaces/{workspaceId}/conversations/{conversationId}/ai-draft/trigger-workflow/{workflowId}` — approve and execute an AI-suggested workflow (DRAFT_ONLY mode); validates the workflow ID is in `suggestedActions`, discards the draft, and starts the workflow
+- `GET    /workspaces/{workspaceId}/conversations/{conversationId}/agent-workflows` — the published workflows of the conversation's AI agent
+- `POST   /workspaces/{workspaceId}/conversations/{conversationId}/agent-workflows/{workflowId}/run` — start one of them when the agent couldn't pick it; clears the escalation and discards any draft. 409 when the conversation is closed, a workflow is already running or waiting, or the agent is replying
+- `GET    /workspaces/{workspaceId}/knowledge-sources` — list the workspace's knowledge sources
+- `POST   /workspaces/{workspaceId}/knowledge-sources` — create a source: a `name`, a GET `url`, `headers`, and `cacheSeconds` (0–3600, default 60)
+- `PUT    /workspaces/{workspaceId}/knowledge-sources/{sourceId}` — update a source
+- `DELETE /workspaces/{workspaceId}/knowledge-sources/{sourceId}` — renaming or deleting is refused with 409 while an agent's knowledge base uses the source
+- `POST   /workspaces/{workspaceId}/knowledge-sources/test` — fetch an unsaved URL and headers once and return the response
+- `POST   /workspaces/{workspaceId}/knowledge-sources/preview` — fill a knowledge text with live values
+
+Knowledge source endpoints require `AI_AGENT_WRITE` permission or owner role. A knowledge base question or answer can include a value from a source's JSON response as `{{sources.NAME.path}}`, such as `{{sources.rates.usd}}` or `{{sources.branches[0].city}}`. The value is fetched each time the agent replies, reusing a response for the source's `cacheSeconds`, with a 5-second timeout. A value that can't be fetched reaches the agent as `(unavailable)`, and the agent is told not to guess it. The URL and headers can use `{{secrets.NAME}}`.
 
 ### SSE
 

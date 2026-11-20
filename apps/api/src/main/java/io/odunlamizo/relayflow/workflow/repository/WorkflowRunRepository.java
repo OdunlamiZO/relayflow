@@ -34,13 +34,13 @@ public interface WorkflowRunRepository extends JpaRepository<WorkflowRun, UUID> 
     @Query(
             """
             update WorkflowRun r
-            set r.status = :failed, r.finishedAt = :now, r.errorMessage = :reason
+            set r.status = :endStatus, r.finishedAt = :now, r.errorMessage = :reason
             where r.conversation.id in :conversationIds and r.status in :activeStatuses
             """)
-    void failActiveForConversations(
+    void endActiveForConversations(
             @Param("conversationIds") Collection<UUID> conversationIds,
             @Param("activeStatuses") Collection<WorkflowRunStatus> activeStatuses,
-            @Param("failed") WorkflowRunStatus failed,
+            @Param("endStatus") WorkflowRunStatus endStatus,
             @Param("reason") String reason,
             @Param("now") Instant now);
 

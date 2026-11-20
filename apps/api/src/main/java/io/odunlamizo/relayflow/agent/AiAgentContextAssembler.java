@@ -12,6 +12,8 @@ import io.odunlamizo.relayflow.contact.ReservedContactFieldResolver;
 import io.odunlamizo.relayflow.contact.domain.Contact;
 import io.odunlamizo.relayflow.contact.domain.ExternalIdentity;
 import io.odunlamizo.relayflow.contact.repository.ExternalIdentityRepository;
+import io.odunlamizo.relayflow.knowledge.KnowledgeTemplateRenderer;
+import io.odunlamizo.relayflow.knowledge.RenderedKnowledge;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.Message;
 import io.odunlamizo.relayflow.messaging.domain.MessageDirection;
@@ -49,11 +51,15 @@ public class AiAgentContextAssembler {
         this.publishedWorkflowMappings = publishedWorkflowMappings;
     }
 
-    public AgentLlmRequest assemble(AiAgentConfiguration configuration, Conversation conversation) {
+    /** {@code knowledge} is the configuration's knowledge base with live values filled in. */
+    public AgentLlmRequest assemble(
+            AiAgentConfiguration configuration,
+            Conversation conversation,
+            RenderedKnowledge knowledge) {
         List<WorkflowMapping> workflowMappings =
                 publishedWorkflowMappings.filter(
                         conversation.getWorkspace().getId(), configuration.getWorkflowMappings());
-        String systemPrompt = buildSystemPrompt(configuration, workflowMappings);
+        String systemPrompt = buildSystemPrompt(configuration, workflowMappings, knowledge);
         List<LlmMessage> messages = buildHistory(configuration, conversation);
 
         return new AgentLlmRequest(
@@ -61,7 +67,9 @@ public class AiAgentContextAssembler {
     }
 
     private String buildSystemPrompt(
-            AiAgentConfiguration configuration, List<WorkflowMapping> workflowMappings) {
+            AiAgentConfiguration configuration,
+            List<WorkflowMapping> workflowMappings,
+            RenderedKnowledge knowledge) {
         StringBuilder sb = new StringBuilder();
 
         if (configuration.getInstructions() != null && !configuration.getInstructions().isBlank()) {
@@ -87,11 +95,20 @@ public class AiAgentContextAssembler {
             }
         }
 
-        if (!configuration.getKnowledgeBase().isEmpty()) {
+        if (!knowledge.entries().isEmpty()) {
             sb.append("\n\n# KNOWLEDGE BASE\n");
-            for (KnowledgeEntry entry : configuration.getKnowledgeBase()) {
+            for (KnowledgeEntry entry : knowledge.entries()) {
                 sb.append("\nQ: ").append(entry.question());
                 sb.append("\nA: ").append(entry.answer());
+            }
+
+            if (!knowledge.failures().isEmpty()) {
+                sb.append("\n\nA value shown as ")
+                        .append(KnowledgeTemplateRenderer.UNAVAILABLE)
+                        .append(
+                                " couldn't be looked up right now. Never guess or estimate it. If"
+                                        + " the customer needs it, set \"escalate\" to true so a"
+                                        + " person can answer.");
             }
         }
 

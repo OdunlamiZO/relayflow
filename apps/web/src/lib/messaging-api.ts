@@ -387,6 +387,45 @@ export type SaveSecretRequest = {
   value: string;
 };
 
+export type KnowledgeSourceHeader = {
+  key: string;
+  value: string;
+};
+
+export type KnowledgeSource = {
+  id: string;
+  name: string;
+  url: string;
+  headers: KnowledgeSourceHeader[];
+  cacheSeconds: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveKnowledgeSourceRequest = {
+  name: string;
+  url: string;
+  headers: KnowledgeSourceHeader[];
+  cacheSeconds: number;
+};
+
+export type TestKnowledgeSourceRequest = {
+  url: string;
+  headers: KnowledgeSourceHeader[];
+};
+
+export type TestKnowledgeSourceResponse = {
+  statusCode: number | null;
+  /** Formatted JSON, or the raw text when the response isn't JSON. */
+  body: string | null;
+  error: string | null;
+};
+
+export type PreviewKnowledgeResponse = {
+  text: string;
+  failures: string[];
+};
+
 export type HookOutcomeStatus = "ACCEPTED" | "REJECTED" | "ERROR";
 
 export type BuiltInHook = {
@@ -473,7 +512,12 @@ export type UpdateWorkflowRequest = {
   draftGraph?: JsonObject;
 };
 
-export type WorkflowRunStatus = "RUNNING" | "WAITING" | "COMPLETED" | "FAILED";
+export type WorkflowRunStatus =
+  | "RUNNING"
+  | "WAITING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
 export type WorkflowRunStepStatus = "COMPLETED" | "FAILED" | "SKIPPED";
 
 export type WorkflowRun = {
@@ -1029,6 +1073,57 @@ export class MessagingApiClient {
     );
   }
 
+  listKnowledgeSources(workspaceId: string) {
+    return this.request<KnowledgeSource[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources`
+    );
+  }
+
+  createKnowledgeSource(
+    workspaceId: string,
+    request: SaveKnowledgeSourceRequest
+  ) {
+    return this.request<KnowledgeSource>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources`,
+      { method: "POST", body: request }
+    );
+  }
+
+  updateKnowledgeSource(
+    workspaceId: string,
+    sourceId: string,
+    request: SaveKnowledgeSourceRequest
+  ) {
+    return this.request<KnowledgeSource>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources/${encodeURIComponent(sourceId)}`,
+      { method: "PUT", body: request }
+    );
+  }
+
+  deleteKnowledgeSource(workspaceId: string, sourceId: string) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources/${encodeURIComponent(sourceId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  testKnowledgeSource(
+    workspaceId: string,
+    request: TestKnowledgeSourceRequest
+  ) {
+    return this.request<TestKnowledgeSourceResponse>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources/test`,
+      { method: "POST", body: request }
+    );
+  }
+
+  previewKnowledge(workspaceId: string, text: string) {
+    return this.request<PreviewKnowledgeResponse>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources/preview`,
+      { method: "POST", body: { text } }
+    );
+  }
+
   updateContactAccess(
     workspaceId: string,
     request: UpdateContactAccessRequest
@@ -1242,6 +1337,23 @@ export class MessagingApiClient {
   ) {
     return this.request<void>(
       `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/ai-draft/trigger-workflow/${encodeURIComponent(workflowId)}`,
+      { method: "POST" }
+    );
+  }
+
+  getConversationAgentWorkflows(workspaceId: string, conversationId: string) {
+    return this.request<WorkflowMapping[]>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/agent-workflows`
+    );
+  }
+
+  runConversationAgentWorkflow(
+    workspaceId: string,
+    conversationId: string,
+    workflowId: string
+  ) {
+    return this.request<void>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversationId)}/agent-workflows/${encodeURIComponent(workflowId)}/run`,
       { method: "POST" }
     );
   }

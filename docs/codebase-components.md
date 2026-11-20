@@ -213,6 +213,14 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`HookService`](#hookservice)
   - [`HookController`](#hookcontroller)
   - [`Hook`](#hook)
+- [Knowledge Sources](#knowledge-sources)
+  - [`KnowledgeSourceFetcher`](#knowledgesourcefetcher)
+  - [`KnowledgeTemplateRenderer`](#knowledgetemplaterenderer)
+  - [`KnowledgeSourceService`](#knowledgesourceservice)
+  - [`KnowledgeSourceController`](#knowledgesourcecontroller)
+  - [`KnowledgeSource`](#knowledgesource)
+  - [Knowledge DTO Records](#knowledge-dto-records)
+  - [`KnowledgeSourceRepository`](#knowledgesourcerepository)
 - [Workflow Repositories](#workflow-repositories)
 - [Frontend Route Components](#frontend-route-components)
   - [Root Layout Components](#root-layout-components)
@@ -274,6 +282,9 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`IntegrationsPanel`](#integrationspanel)
   - [`SecretsPanel`](#secretspanel)
   - [`HooksPanel`](#hookspanel)
+  - [`KnowledgeSourcesPanel`](#knowledgesourcespanel)
+  - [`KnowledgeSourcesPanel.test.tsx`](#knowledgesourcespaneltesttsx)
+  - [`KnowledgeAnswerPreview`](#knowledgeanswerpreview)
   - [`GeneralPanel`](#generalpanel)
   - [`ProvidersPanel`](#providerspanel)
   - [`ProvidersPanel.test.tsx`](#providerspaneltesttsx)
@@ -316,6 +327,7 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [Provider Settings Hooks](#provider-settings-hooks)
   - [Workflow Hooks](#workflow-hooks)
   - [Integration Hooks](#integration-hooks)
+  - [Knowledge Source Hooks](#knowledge-source-hooks)
 - [Frontend API Libraries](#frontend-api-libraries)
   - [`message-formatting.ts`](#message-formattingts)
   - [`authentication-api.ts`](#authentication-apits)
@@ -357,6 +369,8 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`AiAgentConfigurationDetailController`](#aiagentconfigurationdetailcontroller)
   - [`ChannelAiAgentConfigurationController`](#channelaiagentconfigurationcontroller)
   - [`ConversationAiDraftController`](#conversationaidraftcontroller)
+  - [`ConversationAgentWorkflowController`](#conversationagentworkflowcontroller)
+  - [`ManualWorkflowTriggerService`](#manualworkflowtriggerservice)
   - [`AiAgentInvocationSlotClaimer`](#aiagentinvocationslotclaimer)
   - [`AiAgentInvocationService`](#aiagentinvocationservice)
   - [`AiAgentTriggerListener`](#aiagenttriggerlistener)
@@ -387,6 +401,8 @@ Every source file links to its section with a `// Docs: docs/codebase-components
 - [AI Agent Frontend Components](#ai-agent-frontend-components)
   - [`AiAgentPanel`](#aiagentpanel)
   - [`AiDraftBanner`](#aidraftbanner)
+  - [`RunWorkflowMenu`](#runworkflowmenu)
+  - [`RunWorkflowMenu.test.tsx`](#runworkflowmenutesttsx)
 - [`apps/marketing`](#appsmarketing)
   - [`deployment-artifacts.ts` And The Self-Hosting Docs Page](#deployment-artifactsts-and-the-self-hosting-docs-page)
   - [Changelog Page And `changelog.ts`](#changelog-page-and-changelogts)
@@ -1585,7 +1601,8 @@ Business service for conversation and message persistence.
 Important methods:
 
 - `createExternalIdentity`, `createConversation`
-- `listConversations`, `getConversation`, `updateConversationStatus`, `listMessages`
+- `listConversations`, `getConversation`, `listMessages`
+- `updateConversationStatus`: closing unassigns the conversation, cancels its `RUNNING`/`WAITING` workflow runs (`CANCELLED`, "Stopped because the conversation was closed"), and clears `lockedByWorkflow`.
 - `createMessage`: reopens a closed conversation unless called with `reopenIfClosed = false`, stores messages, updates conversation timestamps, emits SSE events, and publishes outbound delivery events. Also auto-assigns an unassigned conversation to the first agent who replies, and clears `Conversation.escalatedAt`/`escalationReason`/`escalationType` on that same first human (`MessageSenderType.AGENT`) outbound reply.
 
 We need it because messaging has cross-entity rules that should not live in controllers or repositories.
@@ -2367,9 +2384,9 @@ We need it so every workflow run is inspectable step by step.
 
 Source: [`WorkflowRunStatus.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/domain/WorkflowRunStatus.java)
 
-Enum for run lifecycle: running, completed, failed, waiting.
+Enum for run lifecycle: running, completed, failed, waiting, cancelled. `CANCELLED` means the conversation was closed while the run was running or waiting.
 
-We need it to distinguish active, done, broken, and paused workflow runs.
+We need it to distinguish active, done, broken, paused, and stopped workflow runs.
 
 ### `WorkflowRunStepStatus`
 
@@ -2798,6 +2815,77 @@ JPA entity (`hooks`, migration `V6__hooks_and_escalation_types.sql`) for a user-
 
 DTOs: `SaveHookRequest`, `HookResponse`, `BuiltInHookResponse`, `TestHookRequest`, `TestHookResponse`. Outcome types: `HookOutcome`, `HookOutcomeStatus` (`ACCEPTED`, `REJECTED`, `ERROR`).
 
+## Knowledge Sources
+
+Knowledge sources (package `io.odunlamizo.relayflow.knowledge`) let an AI agent's knowledge base include live business data. A source is a named GET request that returns JSON; a knowledge question or answer refers to one of its values as `{{sources.NAME.path}}`, and the agent sees the current value each time it replies. Sources belong to the workspace, so every agent can use them. They hold business data, not anything about the contact, so one response serves every conversation.
+
+### `KnowledgeSourceFetcher`
+
+Source: [`KnowledgeSourceFetcher.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceFetcher.java)
+
+- `fetchUncached(workspaceId, url, headers)`: sends the GET, with `Accept: application/json` (a header of the source's own replaces it), following redirects, with a 5-second connect and response timeout. `{{secrets.NAME}}` in the URL or a header value is replaced with the decrypted secret just before sending; the value never appears in results or logs. Returns a `FetchResult` (`statusCode`, raw `body`, parsed `json`, `error`); `error` is set for an unknown secret, an invalid URL or header, a timeout or connection failure, a non-2xx status, or a body that isn't JSON.
+- `fetch(source)`: the same, but reuses a successful response for the source's `cacheSeconds`. The cache is in memory, per API instance, keyed by source ID and its `updatedAt`, so editing a source fetches it fresh. Failures aren't kept, so the next reply tries again. `evict(sourceId)` drops an entry.
+
+### `KnowledgeTemplateRenderer`
+
+Source:
+
+- [`KnowledgeTemplateRenderer.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/KnowledgeTemplateRenderer.java)
+- [`RenderedKnowledge.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/RenderedKnowledge.java)
+
+Fills `{{sources.NAME.path}}` placeholders. `path` is dot-separated with `[n]` for array items (`rates.usd`, `branches[0].city`, or `[0].name` for a top-level array); with no path the whole response is used. Spaces inside the braces are allowed.
+
+- `renderKnowledgeBase(workspaceId, entries)`: returns `RenderedKnowledge` (the entries with values filled in, and `failures`). Each source referenced is looked up once and all are fetched at the same time. A value that's text, a number, or a boolean is inserted as text; an object or array as compact JSON.
+- A placeholder that can't be filled becomes `(unavailable)` (`UNAVAILABLE`) and adds a failure: an unknown source name, a failed fetch (`rates: HTTP 503`), or nothing (or `null`) at the path. Failures are logged as a warning.
+- Knowledge with no placeholders is returned as it is, without a query.
+- `renderText(workspaceId, text)`: the same for one text, used by the preview endpoint.
+
+Called by `AiAgentInvocationService` before each LLM call. The filled-in values are never saved.
+
+### `KnowledgeSourceService`
+
+Source: [`KnowledgeSourceService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceService.java)
+
+- `listSources`, `createSource`, `updateSource`, `deleteSource`. Names are unique per workspace (409). `cacheSeconds` defaults to 60. Fields are trimmed, and headers with a blank value are saved with `""`.
+- Renaming or deleting a source is refused (409, naming the agents) while an AI agent's knowledge base refers to it.
+- Updating or deleting a source drops its cached response.
+- `testSource(workspaceId, request)`: fetches an unsaved URL and headers without the cache and returns the status, the response formatted as JSON (or raw when it isn't JSON) cut to 20,000 characters, and any error. Backs the editor's Test button.
+- `preview(workspaceId, text)`: fills a knowledge text with live values. Backs "Preview with live values" in `AiAgentPanel`.
+
+### `KnowledgeSourceController`
+
+Source: [`KnowledgeSourceController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceController.java)
+
+REST controller at `/workspaces/{workspaceId}/knowledge-sources`: `GET`, `POST`, `PUT /{sourceId}`, `DELETE /{sourceId}`, `POST /test`, and `POST /preview`. Every endpoint needs `AI_AGENT_WRITE`, including the list, since headers can hold API keys typed in directly.
+
+### `KnowledgeSource`
+
+Source:
+
+- [`KnowledgeSource.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/domain/KnowledgeSource.java)
+- [`KnowledgeSourceHeader.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/domain/KnowledgeSourceHeader.java)
+
+JPA entity (`knowledge_sources`, migration `V14__knowledge_sources.sql`): `name` (unique per workspace, `[A-Za-z][A-Za-z0-9_]*` so it fits a placeholder), `url`, `headers` (JSONB list of `KnowledgeSourceHeader` `{key, value}`), and `cacheSeconds` (0–3600; 0 fetches for every reply).
+
+### Knowledge DTO Records
+
+Source:
+
+- [`SaveKnowledgeSourceRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/SaveKnowledgeSourceRequest.java)
+- [`KnowledgeSourceResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/KnowledgeSourceResponse.java)
+- [`TestKnowledgeSourceRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/TestKnowledgeSourceRequest.java)
+- [`TestKnowledgeSourceResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/TestKnowledgeSourceResponse.java)
+- [`PreviewKnowledgeRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/PreviewKnowledgeRequest.java)
+- [`PreviewKnowledgeResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/PreviewKnowledgeResponse.java)
+
+`SaveKnowledgeSourceRequest` validates the name pattern, a URL of up to 2,000 characters, up to 20 headers, and `cacheSeconds` of 0–3600.
+
+### `KnowledgeSourceRepository`
+
+Source: [`KnowledgeSourceRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/repository/KnowledgeSourceRepository.java)
+
+`findByWorkspace`, `findInWorkspace`, `findByWorkspaceAndNames`, and `findAiAgentNamesReferencing(workspaceId, sourceName)`, a native query matching `{{sources.NAME.`, `{{sources.NAME[` or `{{sources.NAME}}` in an agent's `knowledge_base` JSON, so `rates` doesn't match `rates_v2`.
+
 ## Workflow Repositories
 
 Source:
@@ -2808,7 +2896,7 @@ Source:
 - [`WorkflowRunStepRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/workflow/repository/WorkflowRunStepRepository.java)
 
 - `WorkflowDefinitionRepository`
-- `WorkflowRunRepository` — includes `failActiveForConversations`, which fails `RUNNING`/`WAITING` runs when their contact is deleted.
+- `WorkflowRunRepository` — includes `endActiveForConversations`, which ends `RUNNING`/`WAITING` runs with a given status and reason: `FAILED` when their contact is deleted, `CANCELLED` when their conversation is closed.
 - `WorkflowRunStepRepository`
 - `HookRepository` — includes `findWorkflowNamesReferencing` and `findAiAgentNamesReferencing`, native queries over `workflow_definitions.draft_graph` and `ai_agent_configs.extraction_fields` used to block deleting a hook still in use.
 
@@ -3035,9 +3123,9 @@ We need it so screens that aren't usable on a phone say so instead of rendering 
 
 Source: [`apps/web/src/components/common/PopoverMenu.tsx`](../apps/web/src/components/common/PopoverMenu.tsx)
 
-Small dropdown menu: `trigger(toggle)` renders the button, `items` are `{ key, content, onSelect, selected? }`. Closes on selection, an outside click, or Escape; a selected item shows a check.
+Small dropdown menu: `trigger(toggle)` renders the button, `items` are `{ key, content, onSelect, selected? }`. Closes on selection, an outside click, or Escape; a selected item shows a check. `align="end"` opens it right-aligned under the button, for buttons near the right edge.
 
-We need it for compact pick-one menus, such as changing a contact's tag.
+We need it for compact pick-one menus, such as changing a contact's tag or picking a workflow to run.
 
 ### `GoogleIcon`
 
@@ -3221,7 +3309,7 @@ Important state:
 - `composerPrefill`: lifted state that pre-fills the composer when the agent clicks Edit on a draft.
 - `isEditingAiDraft`: lifted state set alongside `composerPrefill` when Edit is clicked, passed to `MessageComposer` so its next send routes through `sendDraft` instead of a normal agent message. Reset to `false` on every conversation switch and whenever the draft disappears (sent/discarded), so it can never leak into an unrelated send.
 
-Renders `AiDraftBanner` above the composer when an AI draft exists for the conversation.
+Renders `AiDraftBanner` above the composer when an AI draft exists for the conversation. Shows `RunWorkflowMenu` in the header when the conversation is open and no workflow owns it. While a workflow owns it, the Close button's title says closing stops the workflow.
 
 We need it as the main reading/reply surface.
 
@@ -3388,9 +3476,9 @@ We need it for WhatsApp channel setup in settings.
 
 Source: [`apps/web/src/components/settings/SettingsShell.tsx`](../apps/web/src/components/settings/SettingsShell.tsx)
 
-Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, integration, hooks, and providers sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
+Settings page layout with `WorkspaceNav`, a responsive settings subnav (horizontal tab strip on mobile/tablet, vertical sidebar on desktop), and general, channel, member, AI agent, knowledge source, integration, hooks, and providers sections. One section shows at a time, chosen by the URL hash (`#general`, `#hooks`, …) so reloads, shared links, and back/forward keep the section; with no or an unavailable hash, the first permitted section shows. Inactive sections stay mounted but hidden, so unsaved edits survive switching, and switching resets the content scroll.
 
-Section visibility is permission-gated: `General` (workspace name, contact fields and tags, contact access) and `Channels` require ownership or the relevant granular permission; `AI Agent` requires `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Providers` requires ownership; `Members` is always shown.
+Section visibility is permission-gated: `General` (workspace name, contact fields and tags, contact access) and `Channels` require ownership or the relevant granular permission; `AI Agent` and `Knowledge sources` require `AI_AGENT_WRITE`; `Integrations` requires `API_KEYS_WRITE`, `WEBHOOKS_WRITE`, or `SECRETS_WRITE`; `Hooks` requires `WORKFLOWS_WRITE`; `Providers` requires ownership; `Members` is always shown.
 
 The AI Agent, Integrations, and Hooks sections are wrapped in `DesktopOnly`, so phones see a message there while the other sections stay usable.
 
@@ -3454,7 +3542,7 @@ Important behavior:
 - Edit (`EditSecretModal`) only ever asks for a new `value` — the name field isn't rendered at all in this mode (the modal title already names the secret being edited), and the value field is always blank; there is no way to view or prefill the current value, by design.
 - The list only ever shows `name` and timestamps — the value is never returned by the API to begin with.
 
-We need it so a workspace can manage the credentials its workflows call external APIs with, without ever exposing them again after creation.
+We need it so a workspace can manage the credentials its workflows and knowledge sources call external APIs with, without ever exposing them again after creation.
 
 ### `HooksPanel`
 
@@ -3467,6 +3555,32 @@ Important behavior:
 - Custom hooks list with create, edit, and delete; a delete blocked because a workflow or AI agent still uses the hook shows the API's 409 message above the list.
 - Built-in hooks are read-only; each has a "Copy into a custom hook" action that opens the editor prefilled with its expression and error message.
 - The editor modal (`HookEditorModal`) takes a name, optional description, FEEL expression, and error message, and embeds `HookTester` — a sample-reply box that calls the test endpoint and shows accepted (with the stored value and extra variables), rejected (with the message the contact would see), or error, plus any FEEL warnings. Enter in the sample box runs the test instead of submitting the form.
+
+### `KnowledgeSourcesPanel`
+
+Source: [`apps/web/src/components/settings/KnowledgeSourcesPanel.tsx`](../apps/web/src/components/settings/KnowledgeSourcesPanel.tsx)
+
+Settings section (`#knowledge-sources`, shown to owners and members with `AI_AGENT_WRITE`) for the workspace's knowledge sources (`useKnowledgeSources`). Lists each source's name, URL, and how often it's fetched, with Edit and Delete.
+
+Important behavior:
+
+- The editor (`KnowledgeSourceEditor`) asks for the name, URL, headers, and how long to reuse a response. Headers with a blank name are dropped on save.
+- Test (`useTestKnowledgeSource`) fetches what's in the form, saved or not, and shows the status and the formatted response, so the right field path can be picked.
+- A refused delete (the source is in use) shows the API's message above the list.
+
+We need it so a workspace can connect live data to its AI agents' knowledge without code.
+
+### `KnowledgeSourcesPanel.test.tsx`
+
+Source: [`apps/web/src/components/settings/KnowledgeSourcesPanel.test.tsx`](../apps/web/src/components/settings/KnowledgeSourcesPanel.test.tsx)
+
+Covers the list, saving a new source without blank headers, and showing a test response.
+
+### `KnowledgeAnswerPreview`
+
+Source: [`apps/web/src/components/settings/KnowledgeAnswerPreview.tsx`](../apps/web/src/components/settings/KnowledgeAnswerPreview.tsx)
+
+Shown under a knowledge answer in `AiAgentPanel` that contains `{{sources.`. "Preview with live values" (`usePreviewKnowledge`) shows the answer as the agent would see it, with any failures listed in red. The result hides once the answer is edited.
 
 ### `GeneralPanel`
 
@@ -4015,6 +4129,8 @@ Source:
 - [`apps/web/src/hooks/use-send-ai-draft.ts`](../apps/web/src/hooks/use-send-ai-draft.ts)
 - [`apps/web/src/hooks/use-set-default-ai-agent-configuration.ts`](../apps/web/src/hooks/use-set-default-ai-agent-configuration.ts)
 - [`apps/web/src/hooks/use-trigger-workflow-from-draft.ts`](../apps/web/src/hooks/use-trigger-workflow-from-draft.ts)
+- [`apps/web/src/hooks/use-conversation-agent-workflows.ts`](../apps/web/src/hooks/use-conversation-agent-workflows.ts)
+- [`apps/web/src/hooks/use-run-conversation-agent-workflow.ts`](../apps/web/src/hooks/use-run-conversation-agent-workflow.ts)
 - [`apps/web/src/hooks/use-update-ai-agent-configuration.ts`](../apps/web/src/hooks/use-update-ai-agent-configuration.ts)
 
 - `useAiAgentConfigurations(workspaceId)`: fetches every named AI agent config in the workspace; query key `["ai-agent-configurations", workspaceId]`.
@@ -4026,6 +4142,8 @@ Source:
 - `useSendAiDraft(workspaceId, conversationId)`: mutation function takes an optional `text` — POSTs to `/ai-draft/send` with `{ text }` when provided (sends a human-edited version of the draft), or no body otherwise (sends the draft's own `proposedReply`); invalidates draft, messages, and conversations on success.
 - `useDiscardAiDraft(workspaceId, conversationId)`: DELETEs the draft; invalidates the draft query.
 - `useTriggerWorkflowFromDraft(workspaceId, conversationId)`: mutation that POSTs to `/ai-draft/trigger-workflow/{workflowId}`; invalidates the draft and conversations queries on success. Used by `AiDraftBanner` in workflow suggestion mode.
+- `useConversationAgentWorkflows(workspaceId, conversationId)`: the conversation's AI agent's published workflows; query key `["agent-workflows", workspaceId, conversationId]`.
+- `useRunConversationAgentWorkflow(workspaceId, conversationId)`: mutation that POSTs to `/agent-workflows/{workflowId}/run`; invalidates the draft and conversations queries on success. Used by `RunWorkflowMenu`.
 
 We need them to keep AI agent API access outside UI components and consistent with the hook-as-service-layer pattern.
 
@@ -4063,6 +4181,22 @@ Source:
 - `useWorkflowRun`: one run with its steps.
 
 We need them to keep workflow builder API access outside UI components.
+
+### Knowledge Source Hooks
+
+Source:
+
+- [`apps/web/src/hooks/use-knowledge-sources.ts`](../apps/web/src/hooks/use-knowledge-sources.ts)
+- [`apps/web/src/hooks/use-save-knowledge-source.ts`](../apps/web/src/hooks/use-save-knowledge-source.ts)
+- [`apps/web/src/hooks/use-delete-knowledge-source.ts`](../apps/web/src/hooks/use-delete-knowledge-source.ts)
+- [`apps/web/src/hooks/use-test-knowledge-source.ts`](../apps/web/src/hooks/use-test-knowledge-source.ts)
+- [`apps/web/src/hooks/use-preview-knowledge.ts`](../apps/web/src/hooks/use-preview-knowledge.ts)
+
+- `useKnowledgeSources`: lists the workspace's sources (query key `["knowledge-sources", workspaceId]`).
+- `useSaveKnowledgeSource(workspaceId, sourceId?)`: creates a source, or updates it when `sourceId` is given, then refreshes the list.
+- `useDeleteKnowledgeSource`: deletes a source, then refreshes the list.
+- `useTestKnowledgeSource`: fetches an unsaved source once.
+- `usePreviewKnowledge`: fills a knowledge text with live values.
 
 ### Integration Hooks
 
@@ -4352,6 +4486,8 @@ Source:
 - [`RelayFlowApiApplicationSmokeTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/RelayFlowApiApplicationSmokeTest.java)
 - [`AgentWorkflowContextTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AgentWorkflowContextTest.java)
 - [`AiAgentConfigurationServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AiAgentConfigurationServiceTest.java)
+- [`ConversationAgentWorkflowControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/ConversationAgentWorkflowControllerTest.java)
+- [`ManualWorkflowTriggerServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/ManualWorkflowTriggerServiceTest.java)
 - [`AiAgentContextAssemblerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AiAgentContextAssemblerTest.java)
 - [`AiAgentInvocationServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/AiAgentInvocationServiceTest.java)
 - [`ContactCustomFieldWriterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/agent/ContactCustomFieldWriterTest.java)
@@ -4380,6 +4516,11 @@ Source:
 - [`FeelHookEvaluatorTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/hook/FeelHookEvaluatorTest.java)
 - [`HookControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/hook/HookControllerTest.java)
 - [`HookServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/hook/HookServiceTest.java)
+- [`KnowledgeSourceControllerTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceControllerTest.java)
+- [`KnowledgeSourceFetcherTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceFetcherTest.java)
+- [`KnowledgeSourceRepositoryIT.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceRepositoryIT.java)
+- [`KnowledgeSourceServiceTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceServiceTest.java)
+- [`KnowledgeTemplateRendererTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/knowledge/KnowledgeTemplateRendererTest.java)
 - [`GelfJsonProviderTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/logging/GelfJsonProviderTest.java)
 - [`LogfmtLayoutTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/logging/LogfmtLayoutTest.java)
 - [`RequestIdFilterTest.java`](../apps/api/src/test/java/io/odunlamizo/relayflow/logging/RequestIdFilterTest.java)
@@ -4415,13 +4556,15 @@ Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest`
 - `WorkspaceControllerTest`, `WorkspaceServiceTest`, `SecretServiceTest`: workspace creation rules, contact tag definition rules, and secret encryption, lookup, and conflicts.
 - `ChannelAccountControllerTest`, `ChannelAccountMapperTest`: channel account endpoints, and the webhook URL each provider gets.
 - `ContactServiceTest`, `ContactTagServiceTest`, `ContactAccessServiceTest`, `PhoneNumberNormalizerTest`, `ReservedContactFieldResolverTest`: contact delete and merge webhooks and cleanup, tag rules, whitelist checks, number normalization, and derived reserved fields.
-- `MessagingControllerTest`, `MessagingServiceTest`: conversation and message endpoints, and when a reply reopens a closed conversation.
+- `MessagingControllerTest`, `MessagingServiceTest`: conversation and message endpoints, when a reply reopens a closed conversation, and closing one cancelling its workflow runs.
 - `SseControllerTest`, `WorkspaceSseServiceTest`: the stream's no-transform headers and its retry hint.
 - `TelegramFormatterTest`: Markdown-style markers to Telegram HTML.
 - `FeelHookEvaluatorTest`, `BuiltInHookTest`, `HookServiceTest`, `HookControllerTest`: FEEL evaluation results, the built-in hooks, hook CRUD rules, and the test endpoint.
+- `KnowledgeTemplateRendererTest`, `KnowledgeSourceFetcherTest`, `KnowledgeSourceServiceTest`, `KnowledgeSourceControllerTest`, `KnowledgeSourceRepositoryIT`: filling placeholders and marking failures unavailable, fetching each source once, secrets in headers, the response cache, refusing to rename or delete a source in use, request validation and permissions, and the source queries against Postgres.
 - `WorkflowEngineServiceTest`, `ReplyRouterTest`, `VoiceReplyConverterTest`: "No reply" handling, unpublished workflows, reply routing with and without hooks, and converting rejected voice replies.
 - `ConditionNodeExecutorTest`, `HttpRequestNodeExecutorTest`, `SetContactFieldNodeExecutorTest`: the default operator, secret resolution without leaking into output, and contact field writes.
-- `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, and published-only workflow mappings.
+- `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, published-only workflow mappings, and live knowledge values in the prompt.
+- `ManualWorkflowTriggerServiceTest`, `ConversationAgentWorkflowControllerTest`: listing the agent's published workflows, starting one with the draft's data and clearing the escalation, and refusing a closed conversation, an unmapped workflow, an active run, or an agent reply in progress.
 - `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `LlmClientTest`: LLM response parsing, provider and model selection across the agent, workspace, and instance, with fallbacks when a plugin isn't installed, the extraction prompt, and how `LlmClient` builds the request, picks the model, and handles plugin errors.
 - `PluginRegistryTest`: loading providers from JARs in the plugin directory, passing them settings, skipping one that fails to load, and rejecting two with the same ID.
 - `VoiceMessageProcessorTest`, `VoiceMessageIT`: a voice note's storage, transcription, and the events it fires for each outcome; a Telegram voice update saved as pending; and audio playback for workspace members only.
@@ -4632,6 +4775,32 @@ All endpoints require `INBOX` permission. Endpoints: `GET`, `POST /send` (option
 
 `POST /trigger-workflow/{workflowId}` validates that `workflowId` is in the draft's `suggestedActions`, discards the draft, and triggers the workflow — used when `DRAFT_ONLY` mode holds a workflow suggestion for human approval.
 
+### `ConversationAgentWorkflowController`
+
+Source: [`ConversationAgentWorkflowController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/ConversationAgentWorkflowController.java)
+
+REST controller at `/workspaces/{workspaceId}/conversations/{conversationId}/agent-workflows`. Both endpoints require `INBOX` permission.
+
+- `GET`: the conversation's AI agent's published workflows, as `WorkflowMapping`s.
+- `POST /{workflowId}/run`: starts one of them; 204.
+
+We need it so a person can start the workflow the AI agent couldn't pick.
+
+### `ManualWorkflowTriggerService`
+
+Source: [`ManualWorkflowTriggerService.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/ManualWorkflowTriggerService.java)
+
+Starts one of the AI agent's workflows on a person's request.
+
+Important behavior:
+
+- the agent is the channel's assigned configuration, then the workspace default, enabled or not; its workflow mappings are filtered by `PublishedWorkflowMappings`.
+- `runWorkflow` refuses a closed conversation (409), a workflow that isn't one of the agent's published ones (404), a conversation with a `RUNNING` or `WAITING` run (409), and an agent reply in progress (409).
+- it ends a `CLARIFYING` agent turn, deletes the AI draft, clears the escalation and `lockedByAiAgent`, and starts the workflow with `AgentWorkflowContext`. `agent.data.*` comes from the draft's extracted data; `agent.reply` is empty.
+- broadcasts `CONVERSATION_UPDATED`.
+
+We need it as the fallback when the AI agent can't tell which workflow the contact wants.
+
 ### `AiAgentInvocationSlotClaimer`
 
 Source: [`AiAgentInvocationSlotClaimer.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/AiAgentInvocationSlotClaimer.java)
@@ -4659,7 +4828,7 @@ Flow:
 3. Close any prior `CLARIFYING` log for this conversation (frees the unique slot).
 4. Claim the slot via `AiAgentInvocationSlotClaimer.tryClaim()`. If it returns empty, another invocation is already active — return immediately.
 5. Re-check for an active `WorkflowRun` committed in the race window since step 4.
-6. `runPipeline`: deterministic keyword escalation check, then assemble context via `AiAgentContextAssembler` and call the `LlmClient` from `llmClientFactory.getClient(workspace.getProviderSettings(), configuration.getLlmProvider())` — the config's own provider if set, otherwise the workspace's, otherwise the instance's (see [LLM Abstraction](#llm-abstraction)). The same client serves the run's conversion and correction calls. If the call itself failed (`response.failed()` — network, auth, bad status, unparseable body), escalate immediately rather than falling through to drafting or sending; see `AgentLlmResponse`.
+6. `runPipeline`: deterministic keyword escalation check, then fill the knowledge base's live values (`KnowledgeTemplateRenderer.renderKnowledgeBase`; any failures are recorded in `outputSnapshot.knowledgeFailures`), assemble context via `AiAgentContextAssembler`, and call the `LlmClient` from `llmClientFactory.getClient(workspace.getProviderSettings(), configuration.getLlmProvider())` — the config's own provider if set, otherwise the workspace's, otherwise the instance's (see [LLM Abstraction](#llm-abstraction)). The same client serves the run's conversion and correction calls. If the call itself failed (`response.failed()` — network, auth, bad status, unparseable body), escalate immediately rather than falling through to drafting or sending; see `AgentLlmResponse`.
 7. `ExtractedDataValidator.validate(...)` runs each extracted value through its field's `validationHook`, if any. For each rejected value, `convertRejectedValues` asks the LLM once to convert it to the required format (`RejectedExtraction.conversionRequest()`: the field, the customer's answer, and the hook's rejection reason) and re-runs the hook; a converted value the hook accepts is used as if the customer had sent it. Only the accepted (and possibly rewritten) values go on; values still rejected are recorded in `outputSnapshot.rejectedExtractions`.
 8. `contactCustomFieldWriter.apply(...)` runs with the accepted values right after validation, before any branching below — including the draft path.
 9. `mergeWithPendingDraft(conversation, validation.acceptedData())` merges this turn's extraction into any existing draft's already-accumulated `extractedData`, unless that draft predates `conversation.sessionStartedAt` — a draft from before the conversation was last reopened is deleted instead of merged, so extracted data never leaks from a previous session into a new one. The merged result (`accumulatedExtractedData`) is what workflow-trigger and draft-save use below, not just this turn's data.
@@ -4692,7 +4861,7 @@ Builds the `AgentLlmRequest` from config and conversation history.
 Important behavior:
 
 - Fetches the last 20 messages created at or after `conversation.sessionStartedAt` (newest-first), reverses to chronological order. This scopes history to the current session so prior closed-conversation messages never pollute the context.
-- Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from the `workflowMappings` whose workflow is published, via `PublishedWorkflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from `knowledgeBase`).
+- Constructs the system prompt from `instructions` + `# WORKFLOW ROUTING` block (from the `workflowMappings` whose workflow is published, via `PublishedWorkflowMappings`, with directive wording: "MUST trigger that workflow — set reply to '' — Never write a reply AND trigger a workflow at the same time") + `# KNOWLEDGE BASE` (from the `RenderedKnowledge` passed in: the config's `knowledgeBase` with live values filled in by `KnowledgeTemplateRenderer`). When any value is `(unavailable)`, the block ends with a rule never to guess it and to set `escalate` when the customer needs it.
 - Appends a `<context>Contact: name | Channel: PROVIDER</context>` block to the last inbound message only — an XML-style tag rather than a bare `[...]` bracket, so `LlmPrompts`'s format instruction can tell the model this is internal metadata it must never repeat verbatim in its reply. When `extractionFields` is configured, also appends `| Already known: key=value, ...` and `| Still missing: key, ...` inside the tag ("Still missing" lists only `askIfMissing` fields, so the agent never works through a capture-only field) — the same effective-value precedence as `ContactService.getContactDetail` (explicitly-stored `Contact.customFields` over `ReservedContactFieldResolver`'s derived values), computed via an injected `ExternalIdentityRepository` and `ReservedContactFieldResolver`. Either segment is omitted if empty; with no extraction fields configured the block is just `<context>Contact: ... | Channel: ...</context>`. This steers the agent toward asking only for fields it doesn't already effectively know, instead of re-asking for information already on file.
 
 We need it to keep LLM prompt construction separate from the invocation pipeline, and to give the agent visibility into what it already knows about the contact so extraction feels like a conversation, not a form.
@@ -5067,7 +5236,7 @@ Both sections render the shared `AiAgentForm`, whose sections are:
 - Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
 - LLM Provider: a row of pill buttons, one per installed chat model plugin from `useProviderSettings`, marked `(not configured)` when it reports a `configurationProblem`, plus a `(not installed)` pill when the agent's saved provider has no plugin. A note appears when no chat model plugin is installed, or when the agent follows the workspace and neither the workspace nor the instance has chosen one. There's no separate "Workspace default" pill. The workspace's chat model provider, or the instance's when the workspace hasn't chosen one, gets a `· Workspace default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (follow the workspace), clicking any other pill pins the agent to it explicitly. Models are chosen in `ProvidersPanel`, not here.
 - Instructions textarea pre-filled with a skeleton template when empty.
-- Knowledge base: list of `{question, answer}` pairs.
+- Knowledge base: list of `{question, answer}` pairs. An answer can include `{{sources.NAME.field}}` from a knowledge source; one that does shows `KnowledgeAnswerPreview`.
 - Escalation keywords: tag-style list.
 - Workflow mappings: workflow dropdown + trigger description rows.
 - Data extraction: list of `{key, description, validationHook}` extraction fields. Only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence — see `AgentWorkflowContext` and `ContactCustomFieldWriter`. Each field has a hook picker (built-in and custom hooks from `useBuiltInHooks` / `useHooks`, "Unavailable hook" if the saved one is gone), validated by `ExtractedDataValidator`.
@@ -5098,6 +5267,20 @@ It detects whether the draft carries a `trigger_workflow:<id>` entry in `suggest
 Button row uses `flex-wrap` for mobile responsiveness. All buttons disabled while any mutation is pending.
 
 We need it so agents can send AI replies, trigger AI-suggested workflows, or discard — all from the inbox without leaving the conversation.
+
+### `RunWorkflowMenu`
+
+Source: [`apps/web/src/components/inbox/RunWorkflowMenu.tsx`](../apps/web/src/components/inbox/RunWorkflowMenu.tsx)
+
+"Run workflow" button in the conversation header. Opens a `PopoverMenu` of the AI agent's published workflows, each with its trigger description, and runs the one picked. Renders nothing when there are none. A refused run shows the API's message next to the button.
+
+We need it so a person can start the right workflow when the AI agent can't.
+
+### `RunWorkflowMenu.test.tsx`
+
+Source: [`apps/web/src/components/inbox/RunWorkflowMenu.test.tsx`](../apps/web/src/components/inbox/RunWorkflowMenu.test.tsx)
+
+Covers rendering nothing without workflows and running the picked one.
 
 ## `apps/marketing`
 

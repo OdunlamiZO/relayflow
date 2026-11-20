@@ -29,6 +29,8 @@ import type {
   WorkflowMapping,
 } from "@/lib/messaging-api";
 
+import { KnowledgeAnswerPreview } from "./KnowledgeAnswerPreview";
+
 const INSTRUCTIONS_SAMPLE = `# ABOUT YOUR BUSINESS
 We're a small online store selling handmade crafts.
 
@@ -803,7 +805,13 @@ function AiAgentForm({
         <p className="mb-3 text-xs text-neutral-500">
           Q&amp;A pairs the agent uses to answer common questions accurately.
           Keep each entry to one specific question — split bundled topics into
-          separate entries so the agent can match and answer precisely.
+          separate entries so the agent can match and answer precisely. For a
+          value that changes, like a price or rate, add a knowledge source and
+          write{" "}
+          <code className="rounded bg-neutral-200 px-1 text-[11px]">
+            {"{{sources.NAME.field}}"}
+          </code>{" "}
+          in the answer.
         </p>
 
         <div className="space-y-3">
@@ -841,6 +849,12 @@ function AiAgentForm({
                 rows={2}
                 className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
               />
+              {entry.answer.includes("{{sources.") && (
+                <KnowledgeAnswerPreview
+                  workspaceId={workspaceId}
+                  answer={entry.answer}
+                />
+              )}
             </div>
           ))}
         </div>
