@@ -29,6 +29,20 @@ public interface AiAgentInvocationLogRepository extends JpaRepository<AiAgentInv
             """)
     boolean existsActiveForConversation(@Param("conversationId") UUID conversationId);
 
+    @Query(
+            """
+            select l from AiAgentInvocationLog l
+            where l.conversation.id = :conversationId
+              and l.startedAt >= :since
+              and l.startedAt < :before
+            order by l.startedAt desc
+            limit 1
+            """)
+    Optional<AiAgentInvocationLog> findLatestForConversationBetween(
+            @Param("conversationId") UUID conversationId,
+            @Param("since") Instant since,
+            @Param("before") Instant before);
+
     @Modifying
     @Query("delete from AiAgentInvocationLog l where l.startedAt < :cutoff")
     int deleteByStartedAtBefore(@Param("cutoff") Instant cutoff);

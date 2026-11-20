@@ -300,6 +300,7 @@ The `GET` path handles Meta webhook verification using the channel account's sto
 - `POST   /workspaces/{workspaceId}/knowledge-sources` — create a source: a `name`, a GET `url`, `headers`, and `cacheSeconds` (0–3600, default 60)
 - `PUT    /workspaces/{workspaceId}/knowledge-sources/{sourceId}` — update a source
 - `DELETE /workspaces/{workspaceId}/knowledge-sources/{sourceId}` — renaming or deleting is refused with 409 while an agent's knowledge base uses the source
+- `GET    /workspaces/{workspaceId}/knowledge-sources/{sourceId}/fields` — fetch a source (through its cache) and list its field paths with their current values
 - `POST   /workspaces/{workspaceId}/knowledge-sources/test` — fetch an unsaved URL and headers once and return the response
 - `POST   /workspaces/{workspaceId}/knowledge-sources/preview` — fill a knowledge text with live values
 

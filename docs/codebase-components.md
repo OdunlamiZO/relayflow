@@ -285,6 +285,8 @@ Every source file links to its section with a `// Docs: docs/codebase-components
   - [`KnowledgeSourcesPanel`](#knowledgesourcespanel)
   - [`KnowledgeSourcesPanel.test.tsx`](#knowledgesourcespaneltesttsx)
   - [`KnowledgeAnswerPreview`](#knowledgeanswerpreview)
+  - [`KnowledgeSourcePicker`](#knowledgesourcepicker)
+  - [`KnowledgeSourcePicker.test.tsx`](#knowledgesourcepickertesttsx)
   - [`GeneralPanel`](#generalpanel)
   - [`ProvidersPanel`](#providerspanel)
   - [`ProvidersPanel.test.tsx`](#providerspaneltesttsx)
@@ -1670,7 +1672,7 @@ Important fields:
 - `lockedByAiAgent`: true during an active AI agent invocation pipeline run.
 - `assigneeId`
 - `lastMessageAt`
-- `escalatedAt` / `escalationReason` / `escalationType`: set by `AiAgentInvocationService.broadcastEscalation` when the AI agent escalates. `EscalationType` is `KEYWORD_MATCHED`, `AI_REQUESTED`, `LLM_FAILED` or `INTERNAL_ERROR`, and each declares an `EscalationResolution`: `HUMAN_REPLY` (only a human clears it) or `AI_RECOVERY` (temporary; `AiAgentInvocationService.resolveTemporaryEscalation` also clears it on the next successful LLM call and pushes `conversation.updated`). `MessagingService.createMessage` clears every type on the next outbound message from a human agent (`MessageSenderType.AGENT`).
+- `escalatedAt` / `escalationReason` / `escalationType`: set by `AiAgentInvocationService.broadcastEscalation` when the AI agent escalates. `EscalationType` is `KEYWORD_MATCHED`, `AI_REQUESTED`, `CLARIFICATION_FAILED`, `LLM_FAILED` or `INTERNAL_ERROR`, and each declares an `EscalationResolution`: `HUMAN_REPLY` (only a human clears it) or `AI_RECOVERY` (temporary; `AiAgentInvocationService.resolveTemporaryEscalation` also clears it on the next successful LLM call and pushes `conversation.updated`). `MessagingService.createMessage` clears every type on the next outbound message from a human agent (`MessageSenderType.AGENT`).
 - `isAwaitingHumanReply()`: true while an escalation whose resolution is `HUMAN_REPLY` is open and was raised in the current session (`escalatedAt` not before `sessionStartedAt`), so a reopened conversation isn't held back by an old one. `AiAgentInvocationService` skips the agent while it's true.
 - `sessionStartedAt`: reset to `now()` whenever the conversation is reopened. Used by `AiAgentContextAssembler` to scope history to the current session only, preventing old closed-conversation messages from polluting the LLM context.
 
@@ -1733,7 +1735,7 @@ Source:
 - [`EscalationResolution.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/EscalationResolution.java)
 - [`EscalationType.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/messaging/domain/EscalationType.java)
 
-`EscalationType` records why a conversation was escalated: `KEYWORD_MATCHED`, `AI_REQUESTED`, `LLM_FAILED`, or `INTERNAL_ERROR`. Each carries an `EscalationResolution`: `HUMAN_REPLY` for the first two, `AI_RECOVERY` for the last two. A human reply clears any escalation; an `AI_RECOVERY` one is also cleared by the AI agent's next successful LLM call.
+`EscalationType` records why a conversation was escalated: `KEYWORD_MATCHED`, `AI_REQUESTED`, `CLARIFICATION_FAILED`, `LLM_FAILED`, or `INTERNAL_ERROR`. Each carries an `EscalationResolution`: `HUMAN_REPLY` for the first three, `AI_RECOVERY` for the last two. A human reply clears any escalation; an `AI_RECOVERY` one is also cleared by the AI agent's next successful LLM call.
 
 We need them so temporary failures don't leave a conversation flagged once the agent works again.
 
@@ -2852,13 +2854,14 @@ Source: [`KnowledgeSourceService.java`](../apps/api/src/main/java/io/odunlamizo/
 - Renaming or deleting a source is refused (409, naming the agents) while an AI agent's knowledge base refers to it.
 - Updating or deleting a source drops its cached response.
 - `testSource(workspaceId, request)`: fetches an unsaved URL and headers without the cache and returns the status, the response formatted as JSON (or raw when it isn't JSON) cut to 20,000 characters, and any error. Backs the editor's Test button.
+- `listFields(workspaceId, sourceId)`: fetches a saved source through the cache and lists its value paths (such as `rates.usd` or `[0].name`) with each one's current value, cut to 60 characters. Only the first item of an array is used, at most 200 fields are listed, and keys a path can't reach (with `.`, `[`, `]`, `{` or `}`) and null values are left out. A failed fetch returns no fields and the error. Backs `KnowledgeSourcePicker`.
 - `preview(workspaceId, text)`: fills a knowledge text with live values. Backs "Preview with live values" in `AiAgentPanel`.
 
 ### `KnowledgeSourceController`
 
 Source: [`KnowledgeSourceController.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/KnowledgeSourceController.java)
 
-REST controller at `/workspaces/{workspaceId}/knowledge-sources`: `GET`, `POST`, `PUT /{sourceId}`, `DELETE /{sourceId}`, `POST /test`, and `POST /preview`. Every endpoint needs `AI_AGENT_WRITE`, including the list, since headers can hold API keys typed in directly.
+REST controller at `/workspaces/{workspaceId}/knowledge-sources`: `GET`, `POST`, `PUT /{sourceId}`, `DELETE /{sourceId}`, `GET /{sourceId}/fields`, `POST /test`, and `POST /preview`. Every endpoint needs `AI_AGENT_WRITE`, including the list, since headers can hold API keys typed in directly.
 
 ### `KnowledgeSource`
 
@@ -2879,6 +2882,8 @@ Source:
 - [`TestKnowledgeSourceResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/TestKnowledgeSourceResponse.java)
 - [`PreviewKnowledgeRequest.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/PreviewKnowledgeRequest.java)
 - [`PreviewKnowledgeResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/PreviewKnowledgeResponse.java)
+- [`KnowledgeSourceField.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/KnowledgeSourceField.java)
+- [`KnowledgeSourceFieldsResponse.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/knowledge/dto/KnowledgeSourceFieldsResponse.java)
 
 `SaveKnowledgeSourceRequest` validates the name pattern, a URL of up to 2,000 characters, up to 20 headers, and `cacheSeconds` of 0–3600.
 
@@ -3585,6 +3590,20 @@ Source: [`apps/web/src/components/settings/KnowledgeAnswerPreview.tsx`](../apps/
 
 Shown under a knowledge answer in `AiAgentPanel` that contains `{{sources.`. "Preview with live values" (`usePreviewKnowledge`) shows the answer as the agent would see it, with any failures listed in red. The result hides once the answer is edited.
 
+### `KnowledgeSourcePicker`
+
+Source: [`apps/web/src/components/settings/KnowledgeSourcePicker.tsx`](../apps/web/src/components/settings/KnowledgeSourcePicker.tsx)
+
+The `{{…}}` button on a knowledge answer in `AiAgentPanel`. It lists the workspace's sources (`useKnowledgeSources`); picking one shows "The whole response" and the source's fields with their current values (`useKnowledgeSourceFields`), or the fetch error. Picking one passes the expression to `onSelect`, such as `sources.rates.usd`, or `sources.rates[0].usd` for a path that starts with an array index.
+
+We need it so a knowledge answer can use a live value without knowing the response's shape or the path syntax.
+
+### `KnowledgeSourcePicker.test.tsx`
+
+Source: [`apps/web/src/components/settings/KnowledgeSourcePicker.test.tsx`](../apps/web/src/components/settings/KnowledgeSourcePicker.test.tsx)
+
+Covers listing a source's fields with their values and the placeholder path a picked field gives, with and without a leading array index.
+
 ### `GeneralPanel`
 
 Source:
@@ -3746,13 +3765,13 @@ Dropdown for inserting variables into text fields.
 
 Important values/components:
 
-- `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow" | "secrets" | "sources"`.
+- `WorkflowVariable`: `{ name, label, group }` — `group` is `"contact" | "ai" | "conversation" | "workflow" | "secrets"`.
 - `VARIABLE_FILTERS`: the `upper`, `lower`, and `title` filters, mirroring `VariableInterpolator` on the backend.
 - `findUnknownFilters(text)`: the filter names in `{{name|filter}}` placeholders that aren't in `VARIABLE_FILTERS`.
 - `FilterWarning`: shows those unknown filters under a text field, since the backend leaves them unapplied.
 - `BUILT_IN_VARIABLES`: `contact.id`, `contact.name`, `contact.username`, `contact.message` (group `"contact"`); `conversation.channel` (group `"conversation"`); `agent.reply`, `agent.confidence` (group `"ai"`). `conversation.id` and `workspace.id` are populated at runtime (`WorkflowEngineService`) but deliberately excluded from this list — internal IDs not meant for the common case. `contact.id` is included despite being an internal ID too, since it has a real, common use: referencing the contact by RelayFlow's own ID in an HTTP Request header/body to an external system.
-- `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs), Secrets, then Knowledge sources — instead of one flat "Built-in" bucket.
-- `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter). The `allowFilters` prop turns off the `AA`/`aa`/`Aa` buttons for a section — used for Secrets, since a case transform on a credential value doesn't make sense, and for Knowledge sources, whose placeholders don't support filters.
+- `VariablePicker`: renders one section per non-empty group, in a fixed order — Contact, AI agent, Conversation, From workflow (the caller-supplied `"workflow"`-group entries, e.g. `extractWorkflowVariables`'s Set Variable/HTTP response/Ask Question outputs), then Secrets — instead of one flat "Built-in" bucket.
+- `VariableGroup`: renders one section's heading + variable rows (each with `{{…}}`/`AA`/`aa`/`Aa` insert buttons for the raw value or an `upper`/`lower`/`title` filter). The `allowFilters` prop turns off the `AA`/`aa`/`Aa` buttons for a section — used for Secrets, since a case transform on a credential value doesn't make sense.
 
 We need it so users can discover and insert valid `{{variable}}` placeholders without memorizing names, grouped so contact data, AI-agent data, and workflow-local variables aren't all mixed into one undifferentiated list.
 
@@ -4193,11 +4212,13 @@ Source:
 - [`apps/web/src/hooks/use-delete-knowledge-source.ts`](../apps/web/src/hooks/use-delete-knowledge-source.ts)
 - [`apps/web/src/hooks/use-test-knowledge-source.ts`](../apps/web/src/hooks/use-test-knowledge-source.ts)
 - [`apps/web/src/hooks/use-preview-knowledge.ts`](../apps/web/src/hooks/use-preview-knowledge.ts)
+- [`apps/web/src/hooks/use-knowledge-source-fields.ts`](../apps/web/src/hooks/use-knowledge-source-fields.ts)
 
 - `useKnowledgeSources`: lists the workspace's sources (query key `["knowledge-sources", workspaceId]`).
 - `useSaveKnowledgeSource(workspaceId, sourceId?)`: creates a source, or updates it when `sourceId` is given, then refreshes the list.
 - `useDeleteKnowledgeSource`: deletes a source, then refreshes the list.
 - `useTestKnowledgeSource`: fetches an unsaved source once.
+- `useKnowledgeSourceFields(workspaceId, sourceId)`: lists a saved source's fields (query key `["knowledge-sources", workspaceId, sourceId, "fields"]`, so saving a source refreshes it too); idle while `sourceId` is null.
 - `usePreviewKnowledge`: fills a knowledge text with live values.
 
 ### Integration Hooks
@@ -4254,7 +4275,7 @@ Source: [`apps/web/src/lib/message-formatting.ts`](../apps/web/src/lib/message-f
 
 Source: [`apps/web/src/lib/insert-at-cursor.ts`](../apps/web/src/lib/insert-at-cursor.ts)
 
-- `insertAtCursor(element, value, text, onChange, cursorOffset?)`: replaces the selection in an input or textarea with `text` (or appends it when there's no element), then puts the cursor `cursorOffset` characters into the inserted text, at its end by default. Used with `VariablePicker` in `NodeConfigPanel`, `KnowledgeSourcesPanel`, and `AiAgentPanel`.
+- `insertAtCursor(element, value, text, onChange)`: replaces the selection in an input or textarea with `text` (or appends it when there's no element), then puts the cursor after it. Used with the variable pickers in `NodeConfigPanel`, `KnowledgeSourcesPanel`, and `AiAgentPanel`.
 
 ### `authentication-api.ts`
 
@@ -4568,10 +4589,10 @@ Unit tests use JUnit 5, Mockito, and AssertJ; controller tests are `@WebMvcTest`
 - `SseControllerTest`, `WorkspaceSseServiceTest`: the stream's no-transform headers and its retry hint.
 - `TelegramFormatterTest`: Markdown-style markers to Telegram HTML.
 - `FeelHookEvaluatorTest`, `BuiltInHookTest`, `HookServiceTest`, `HookControllerTest`: FEEL evaluation results, the built-in hooks, hook CRUD rules, and the test endpoint.
-- `KnowledgeTemplateRendererTest`, `KnowledgeSourceFetcherTest`, `KnowledgeSourceServiceTest`, `KnowledgeSourceControllerTest`, `KnowledgeSourceRepositoryIT`: filling placeholders and marking failures unavailable, fetching each source once, secrets in headers, the response cache, refusing to rename or delete a source in use, request validation and permissions, and the source queries against Postgres.
+- `KnowledgeTemplateRendererTest`, `KnowledgeSourceFetcherTest`, `KnowledgeSourceServiceTest`, `KnowledgeSourceControllerTest`, `KnowledgeSourceRepositoryIT`: filling placeholders and marking failures unavailable, fetching each source once, secrets in headers, the response cache, listing a source's fields, refusing to rename or delete a source in use, request validation and permissions, and the source queries against Postgres.
 - `WorkflowEngineServiceTest`, `ReplyRouterTest`, `VoiceReplyConverterTest`: "No reply" handling, unpublished workflows, reply routing with and without hooks, and converting rejected voice replies.
 - `ConditionNodeExecutorTest`, `HttpRequestNodeExecutorTest`, `SetContactFieldNodeExecutorTest`: the default operator, secret resolution without leaking into output, and contact field writes.
-- `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, hand-off replies and staying quiet until a person replies, sending clarifying questions instead of drafting them, the hand-off message setting, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, published-only workflow mappings, and live knowledge values in the prompt.
+- `AiAgentInvocationServiceTest`, `AiAgentConfigurationServiceTest`, `AiAgentContextAssemblerTest`, `AgentWorkflowContextTest`, `ContactCustomFieldWriterTest`, `PublishedWorkflowMappingsTest`: escalation types, hand-off replies and staying quiet until a person replies, handing off when a message is still unclear after a clarifying question, sending clarifying questions instead of drafting them, the hand-off message setting, rejected extractions, agent resolution per channel, the known/missing field footer, workflow variables, extracted field writes, published-only workflow mappings, and live knowledge values in the prompt.
 - `ManualWorkflowTriggerServiceTest`, `ConversationAgentWorkflowControllerTest`: listing the agent's published workflows, starting one with the draft's data and clearing the escalation, and refusing a closed conversation, an unmapped workflow, an active run, or an agent reply in progress.
 - `AgentLlmResponseParserTest`, `LlmClientFactoryTest`, `LlmPlatformConfigServiceTest`, `LlmPromptsTest`, `LlmClientTest`: LLM response parsing, provider and model selection across the agent, workspace, and instance, with fallbacks when a plugin isn't installed, the extraction prompt, and how `LlmClient` builds the request, picks the model, and handles plugin errors.
 - `PluginRegistryTest`: loading providers from JARs in the plugin directory, passing them settings, skipping one that fails to load, and rejecting two with the same ID.
@@ -4682,7 +4703,7 @@ Important fields:
 - `instructions`: free-text system prompt for the LLM
 - `knowledgeBase`: `List<KnowledgeEntry>` stored as JSONB — Q&A pairs injected into the system prompt
 - `escalationKeywords`: `List<String>` JSONB — deterministic pre-LLM keyword check
-- `handoffMessage`: sent to the customer when the agent escalates without a reply of its own, such as on a keyword match. Defaults to `DEFAULT_HANDOFF_MESSAGE`.
+- `handoffMessage`: sent to the customer when the agent escalates without a reply of its own: on a keyword match, when the LLM escalates with a blank reply, or when a message is still unclear after a clarifying question. Defaults to `DEFAULT_HANDOFF_MESSAGE`.
 - `workflowMappings`: `List<WorkflowMapping>` JSONB — maps workflow IDs to trigger descriptions shown to the LLM
 - `extractionFields`: `List<ExtractionField>` JSONB (key, description, optional `validationHook`, `askIfMissing`) — fields the LLM is prompted to pull from the conversation. `askIfMissing` false means the field is captured only when the customer mentions it and is never asked for (a missing value means true, so fields saved before the flag existed keep being asked for); only a key on this list is ever exposed as an `agent.data.<key>` workflow variable or considered for contact persistence (see `AgentWorkflowContext` and `ContactCustomFieldWriter`)
 
@@ -4844,6 +4865,7 @@ Flow:
 10. `sanitizeSuggestedActions(...)` drops any `trigger_workflow:<id>` action whose `<id>` isn't a configured `WorkflowMapping` to a published workflow (`PublishedWorkflowMappings`) — a defense against the LLM hallucinating a workflow ID that doesn't exist for this workspace. The *raw*, unsanitized `suggestedActions` are still recorded in `invocationLog.outputSnapshot` for debugging. If any extracted value was rejected, `trigger_workflow:` actions are dropped too, so a workflow doesn't start while a value it may need is being corrected.
 11. Decision:
     - `escalate` → send the LLM's reply, or the config's `handoffMessage` when the reply is blank (`sendHandoffReply`; nothing is sent under `DRAFT_ONLY`), then stamp `Conversation.escalatedAt`/`escalationReason`, broadcast `ai.escalated` SSE + ESCALATED (see `broadcastEscalation`; cleared later by `MessagingService.createMessage` on the next human reply).
+    - `needsClarification` again, with no rejected value, when the agent's previous turn this session was a clarifying question it sent (`previousReplyAskedForClarification`: the latest invocation log since `sessionStartedAt` is SENT with `needsClarification` true) → send the config's `handoffMessage` and escalate as `CLARIFICATION_FAILED`, so the agent asks once and then hands off instead of asking forever.
     - otherwise, if a value was rejected, `correctionReply()` makes a second LLM call — the original history, with `ExtractionValidation.correctionInstruction(draftReply)` appended to the system prompt (which value was rejected and why, the draft, and a rule to say what was wrong rather than re-ask) — with no extraction fields, so it can't bring a rejected value back. Its reply replaces the original for the branches below; if it fails or is blank, `ExtractionValidation.fallbackReply()` (the hooks' error messages) is used.
     - sanitized `trigger_workflow:` action present and autonomy ceiling is not `DRAFT_ONLY` → `triggerWorkflow()` — builds `AgentWorkflowContext` from `accumulatedExtractedData`, deletes the pending draft, calls `WorkflowEngineService.executeWorkflow()` + SENT.
     - `draftOnly` OR (`confidence == "low"` AND NOT `needsClarification`) → `saveDraft()` updates the existing `ConversationAiDraft` in place (merging `accumulatedExtractedData` and the sanitized `suggestedActions`) instead of delete-and-recreate, so a workflow suggestion isn't lost across drafted turns + broadcast + DRAFTED (human approves via `POST /trigger-workflow/{workflowId}`).
@@ -4968,7 +4990,7 @@ Record: `reply`, `confidence` (`"high"`, `"low"`, or `null`), `suggestedActions`
 
 Source: [`LlmPrompts.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/llm/LlmPrompts.java)
 
-Package-private class holding `buildFormatInstruction(extractionFields)`, which `LlmClient` appends to the assembled system prompt. Covers the required JSON response shape and guidance for `confidence`, `escalate` (the customer asks for a person, or the agent can't help — the reply is sent first, so it should say a team member will reply) and `needsClarification` (the reply asks the customer to explain), plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model always includes the customer's answer — converted to the expected format when the meaning is clear, such as words to digits, otherwise exactly as sent — and the hook decides whether it's valid; a field with `askIfMissing` false is marked "include it only if the customer mentions it — never ask for it") and two directives: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved. When asking for a field, the model may only ask for one listed as "Still missing", one at a time.
+Package-private class holding `buildFormatInstruction(extractionFields)`, which `LlmClient` appends to the assembled system prompt. Covers the required JSON response shape and guidance for `confidence`, `escalate` (the customer asks for a person, in any words or language, or the agent can't help — the reply is sent first, so it should say a team member will reply; a reply that says a person will take over must set it) and `needsClarification` (the reply asks the customer to explain), plus — when `extractionFields` is non-empty — a `# DATA EXTRACTION` section listing each field's key/description (a field with a `validationHook` is marked so the model always includes the customer's answer — converted to the expected format when the meaning is clear, such as words to digits, otherwise exactly as sent — and the hook decides whether it's valid; a field with `askIfMissing` false is marked "include it only if the customer mentions it — never ask for it") and two directives: never repeat the literal text of a `<context>...</context>` block (see `AiAgentContextAssembler`) in the reply, and before finalizing, check the customer's latest message against the "Still missing" fields inside that block — a field the customer just answered must be included in `extractedData` even if the reply already treats it as resolved. When asking for a field, the model may only ask for one listed as "Still missing", one at a time.
 
 #### `LlmPlatformConfigService`
 
@@ -5034,7 +5056,7 @@ Source:
 - [`ConversationAiDraftRepository.java`](../apps/api/src/main/java/io/odunlamizo/relayflow/agent/repository/ConversationAiDraftRepository.java)
 
 - `AiAgentConfigurationRepository`: `findByWorkspace` (oldest first), `findInWorkspace`, `findDefault`, `clearDefault(workspaceId)` (`@Modifying` — unsets `is_default` for every config in the workspace, called before flagging a new default), `deleteByWorkspace`.
-- `AiAgentInvocationLogRepository`: `findForConversationWithStatus`, `existsActiveForConversation`, `deleteByStartedAtBefore` (`@Modifying` cleanup query), `deleteByWorkspace`.
+- `AiAgentInvocationLogRepository`: `findForConversationWithStatus`, `existsActiveForConversation`, `findLatestForConversationBetween` (the latest log started in a time range, for the previous turn), `deleteByStartedAtBefore` (`@Modifying` cleanup query), `deleteByWorkspace`.
 - `ConversationAiDraftRepository`: `findByConversation`, `deleteByConversation`, `deleteByConversations`, `deleteByWorkspace`.
 - A channel's own assignment is read directly off `ChannelAccount` via `ChannelAccountRepository.findAiAgentConfiguration(channelAccountId)`, not through `AiAgentConfigurationRepository`.
 
@@ -5245,7 +5267,7 @@ Both sections render the shared `AiAgentForm`, whose sections are:
 - Autonomy radio: `DRAFT_ONLY` (agent drafts for human review) / `AUTO_SEND` (agent sends directly when confident).
 - LLM Provider: a row of pill buttons, one per installed chat model plugin from `useProviderSettings`, marked `(not configured)` when it reports a `configurationProblem`, plus a `(not installed)` pill when the agent's saved provider has no plugin. A note appears when no chat model plugin is installed, or when the agent follows the workspace and neither the workspace nor the instance has chosen one. There's no separate "Workspace default" pill. The workspace's chat model provider, or the instance's when the workspace hasn't chosen one, gets a `· Workspace default` suffix on its own pill; clicking that pill sets `llmProvider` to `null` (follow the workspace), clicking any other pill pins the agent to it explicitly. Models are chosen in `ProvidersPanel`, not here.
 - Instructions textarea pre-filled with a skeleton template when empty.
-- Knowledge base: list of `{question, answer}` pairs. An answer can include `{{sources.NAME.field}}` from a knowledge source; one that does shows `KnowledgeAnswerPreview`. The answer has a `VariablePicker` listing the workspace's knowledge sources (`useKnowledgeSources`); picking one inserts `{{sources.NAME}}` with the cursor before `}}`, ready for a field path.
+- Knowledge base: list of `{question, answer}` pairs. An answer can include `{{sources.NAME.field}}` from a knowledge source; one that does shows `KnowledgeAnswerPreview`. The answer has a `KnowledgeSourcePicker` that inserts a source's field, such as `{{sources.rates.usd}}`, at the cursor.
 - Escalation keywords: tag-style list.
 - Handoff message: textarea for `handoffMessage`, with the default as its placeholder; saved blank, it resets to the default.
 - Workflow mappings: workflow dropdown + trigger description rows.

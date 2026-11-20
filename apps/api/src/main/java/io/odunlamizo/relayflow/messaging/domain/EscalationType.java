@@ -5,6 +5,7 @@ package io.odunlamizo.relayflow.messaging.domain;
 public enum EscalationType {
     KEYWORD_MATCHED(EscalationResolution.HUMAN_REPLY),
     AI_REQUESTED(EscalationResolution.HUMAN_REPLY),
+    CLARIFICATION_FAILED(EscalationResolution.HUMAN_REPLY),
     LLM_FAILED(EscalationResolution.AI_RECOVERY),
     INTERNAL_ERROR(EscalationResolution.AI_RECOVERY);
 

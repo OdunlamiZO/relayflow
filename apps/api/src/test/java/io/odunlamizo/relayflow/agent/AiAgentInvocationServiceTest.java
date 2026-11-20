@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import io.odunlamizo.relayflow.agent.domain.AiAgentConfiguration;
 import io.odunlamizo.relayflow.agent.domain.AiAgentInvocationLog;
+import io.odunlamizo.relayflow.agent.domain.AiAgentInvocationStatus;
 import io.odunlamizo.relayflow.agent.domain.AutonomyCeiling;
 import io.odunlamizo.relayflow.agent.domain.ConversationAiDraft;
 import io.odunlamizo.relayflow.agent.domain.ExtractionField;
@@ -319,6 +320,43 @@ class AiAgentInvocationServiceTest {
     }
 
     @Test
+    void handsOffWhenStillUnclearAfterAClarifyingQuestion() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        stubPreviousTurn(AiAgentInvocationStatus.SENT, true);
+        stubLlm(clarifyingQuestion());
+
+        service().invoke(conversation, triggeringMessage);
+
+        assertThat(sentText()).isEqualTo(AiAgentConfiguration.DEFAULT_HANDOFF_MESSAGE);
+        assertThat(conversation.getEscalationType()).isEqualTo(EscalationType.CLARIFICATION_FAILED);
+    }
+
+    @Test
+    void asksAgainWhenThePreviousReplyWasNotAClarifyingQuestion() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        stubPreviousTurn(AiAgentInvocationStatus.SENT, false);
+        stubLlm(clarifyingQuestion());
+
+        service().invoke(conversation, triggeringMessage);
+
+        assertThat(sentText()).isEqualTo("Could you tell me more?");
+        assertThat(conversation.getEscalationType()).isNull();
+    }
+
+    @Test
+    void looksForThePreviousReplyOnlyInTheCurrentSession() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        stubLlm(clarifyingQuestion());
+
+        service().invoke(conversation, triggeringMessage);
+
+        verify(invocationLogRepository)
+                .findLatestForConversationBetween(
+                        eq(conversation.getId()), eq(conversation.getSessionStartedAt()), any());
+        assertThat(sentText()).isEqualTo("Could you tell me more?");
+    }
+
+    @Test
     void lowConfidenceAnswerIsStillDrafted() {
         configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
         stubLlm(new AgentLlmResponse("Maybe 5%?", "low", List.of(), false, false, Map.of(), false));
@@ -327,6 +365,21 @@ class AiAgentInvocationServiceTest {
 
         verify(messagingService, never()).createMessage(any(), any(), any(), any());
         assertThat(savedDraft().getProposedReply()).isEqualTo("Maybe 5%?");
+    }
+
+    private AgentLlmResponse clarifyingQuestion() {
+        return new AgentLlmResponse(
+                "Could you tell me more?", "high", List.of(), false, true, Map.of(), false);
+    }
+
+    private void stubPreviousTurn(AiAgentInvocationStatus status, boolean needsClarification) {
+        AiAgentInvocationLog previous = new AiAgentInvocationLog();
+        previous.setStatus(status);
+        previous.setOutputSnapshot(Map.of("needsClarification", needsClarification));
+
+        when(invocationLogRepository.findLatestForConversationBetween(
+                        eq(conversation.getId()), eq(conversation.getSessionStartedAt()), any()))
+                .thenReturn(Optional.of(previous));
     }
 
     private void stubLlm(AgentLlmResponse response) {

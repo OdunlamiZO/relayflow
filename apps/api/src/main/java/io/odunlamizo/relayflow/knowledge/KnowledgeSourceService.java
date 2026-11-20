@@ -4,11 +4,14 @@ package io.odunlamizo.relayflow.knowledge;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.knowledge.KnowledgeSourceFetcher.FetchResult;
 import io.odunlamizo.relayflow.knowledge.KnowledgeTemplateRenderer.Rendering;
 import io.odunlamizo.relayflow.knowledge.domain.KnowledgeSource;
 import io.odunlamizo.relayflow.knowledge.domain.KnowledgeSourceHeader;
+import io.odunlamizo.relayflow.knowledge.dto.KnowledgeSourceField;
+import io.odunlamizo.relayflow.knowledge.dto.KnowledgeSourceFieldsResponse;
 import io.odunlamizo.relayflow.knowledge.dto.KnowledgeSourceResponse;
 import io.odunlamizo.relayflow.knowledge.dto.PreviewKnowledgeResponse;
 import io.odunlamizo.relayflow.knowledge.dto.SaveKnowledgeSourceRequest;
@@ -17,7 +20,9 @@ import io.odunlamizo.relayflow.knowledge.dto.TestKnowledgeSourceResponse;
 import io.odunlamizo.relayflow.knowledge.repository.KnowledgeSourceRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -32,6 +37,13 @@ public class KnowledgeSourceService {
     static final int DEFAULT_CACHE_SECONDS = 60;
 
     static final int TEST_BODY_LIMIT = 20_000;
+
+    static final int FIELD_LIMIT = 200;
+
+    private static final int SAMPLE_LIMIT = 60;
+
+    /** Keys a placeholder path can't reach, since these characters are part of its syntax. */
+    private static final Pattern UNUSABLE_KEY = Pattern.compile("[.\\[\\]{}]");
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeSourceService.class);
 
@@ -124,6 +136,20 @@ public class KnowledgeSourceService {
                 result.statusCode(), formatBody(result), result.error());
     }
 
+    @Transactional(readOnly = true)
+    public KnowledgeSourceFieldsResponse listFields(UUID workspaceId, UUID sourceId) {
+        FetchResult result = fetcher.fetch(getOrThrow(workspaceId, sourceId)).join();
+
+        if (result.failed()) {
+            return new KnowledgeSourceFieldsResponse(List.of(), result.error());
+        }
+
+        List<KnowledgeSourceField> fields = new ArrayList<>();
+        collectFields(result.json(), "", fields);
+
+        return new KnowledgeSourceFieldsResponse(fields, null);
+    }
+
     public PreviewKnowledgeResponse preview(UUID workspaceId, String text) {
         Rendering rendering = renderer.renderText(workspaceId, text);
 
@@ -142,6 +168,43 @@ public class KnowledgeSourceService {
                             + String.join(", ", agents)
                             + " uses it. Remove it from there first.");
         }
+    }
+
+    /** Lists value paths, using only the first item of each array so long lists stay short. */
+    private void collectFields(JsonNode node, String path, List<KnowledgeSourceField> fields) {
+        if (fields.size() >= FIELD_LIMIT || node == null || node.isNull()) {
+            return;
+        }
+
+        if (node.isValueNode()) {
+            if (!path.isEmpty()) {
+                fields.add(new KnowledgeSourceField(path, sample(node.asText())));
+            }
+
+            return;
+        }
+
+        if (node.isArray()) {
+            if (!node.isEmpty()) {
+                collectFields(node.get(0), path + "[0]", fields);
+            }
+
+            return;
+        }
+
+        for (Map.Entry<String, JsonNode> entry : node.properties()) {
+            String key = entry.getKey();
+
+            if (key.isBlank() || UNUSABLE_KEY.matcher(key).find()) {
+                continue;
+            }
+
+            collectFields(entry.getValue(), path.isEmpty() ? key : path + "." + key, fields);
+        }
+    }
+
+    private String sample(String value) {
+        return value.length() <= SAMPLE_LIMIT ? value : value.substring(0, SAMPLE_LIMIT) + "…";
     }
 
     private String formatBody(FetchResult result) {
