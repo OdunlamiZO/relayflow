@@ -611,6 +611,7 @@ export type AiAgentConfiguration = {
   instructions: string | null;
   knowledgeBase: KnowledgeEntry[];
   escalationKeywords: string[];
+  handoffMessage: string;
   workflowMappings: WorkflowMapping[];
   extractionFields: ExtractionField[];
   createdAt: string;
@@ -625,6 +626,8 @@ export type UpdateAiAgentConfigurationRequest = {
   instructions?: string | null;
   knowledgeBase?: KnowledgeEntry[];
   escalationKeywords?: string[];
+  /** Omit to keep the current message; blank resets it to the default. */
+  handoffMessage?: string;
   workflowMappings?: WorkflowMapping[];
   extractionFields?: ExtractionField[];
 };

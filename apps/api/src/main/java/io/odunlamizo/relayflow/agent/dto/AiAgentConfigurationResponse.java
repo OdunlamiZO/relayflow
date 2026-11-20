@@ -21,6 +21,7 @@ public record AiAgentConfigurationResponse(
         String instructions,
         List<KnowledgeEntry> knowledgeBase,
         List<String> escalationKeywords,
+        String handoffMessage,
         List<WorkflowMapping> workflowMappings,
         List<ExtractionField> extractionFields,
         Instant createdAt,

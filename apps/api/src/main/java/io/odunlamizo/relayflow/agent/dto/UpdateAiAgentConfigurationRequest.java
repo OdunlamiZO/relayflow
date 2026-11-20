@@ -19,6 +19,8 @@ public record UpdateAiAgentConfigurationRequest(
         String instructions,
         List<KnowledgeEntry> knowledgeBase,
         List<String> escalationKeywords,
+        /** Null keeps the current message; blank resets it to the default. */
+        String handoffMessage,
         List<WorkflowMapping> workflowMappings,
         List<ExtractionField> extractionFields) {
 

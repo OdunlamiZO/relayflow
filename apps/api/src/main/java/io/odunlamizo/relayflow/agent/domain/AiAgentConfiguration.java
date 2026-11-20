@@ -31,6 +31,9 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "ai_agent_configs")
 public class AiAgentConfiguration {
 
+    public static final String DEFAULT_HANDOFF_MESSAGE =
+            "Thanks, I've passed this to a team member. They'll reply here soon.";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -66,6 +69,9 @@ public class AiAgentConfiguration {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "escalation_keywords", nullable = false, columnDefinition = "jsonb")
     private List<String> escalationKeywords = new ArrayList<>();
+
+    @Column(name = "handoff_message", nullable = false, columnDefinition = "text")
+    private String handoffMessage = DEFAULT_HANDOFF_MESSAGE;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "workflow_mappings", nullable = false, columnDefinition = "jsonb")
