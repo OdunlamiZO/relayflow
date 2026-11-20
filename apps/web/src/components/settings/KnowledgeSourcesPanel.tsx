@@ -404,7 +404,7 @@ function KnowledgeSourceEditor({
               isLoading={testSource.isPending}
               disabled={!url.trim()}
               onClick={handleTest}
-              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-secondary hover:text-secondary disabled:opacity-60"
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:border-secondary hover:text-secondary disabled:opacity-60"
             >
               Test
             </LoadingButton>
