@@ -9,12 +9,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.odunlamizo.relayflow.agent.domain.AiAgentConfiguration;
 import io.odunlamizo.relayflow.agent.domain.AiAgentInvocationLog;
+import io.odunlamizo.relayflow.agent.domain.AutonomyCeiling;
 import io.odunlamizo.relayflow.agent.domain.ConversationAiDraft;
 import io.odunlamizo.relayflow.agent.domain.ExtractionField;
 import io.odunlamizo.relayflow.agent.llm.AgentLlmRequest;
@@ -33,6 +35,7 @@ import io.odunlamizo.relayflow.messaging.MessagingService;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.EscalationType;
 import io.odunlamizo.relayflow.messaging.domain.Message;
+import io.odunlamizo.relayflow.messaging.dto.CreateMessageRequest;
 import io.odunlamizo.relayflow.messaging.repository.ConversationRepository;
 import io.odunlamizo.relayflow.sse.SseBroadcastEvent;
 import io.odunlamizo.relayflow.sse.SseEventType;
@@ -119,10 +122,13 @@ class AiAgentInvocationServiceTest {
 
         when(conversationRepository.findById(conversation.getId()))
                 .thenReturn(Optional.of(conversation));
-        when(aiAgentConfigurationService.resolveEnabledConfiguration(
-                        workspace.getId(), channelAccount.getId()))
+        lenient()
+                .when(
+                        aiAgentConfigurationService.resolveEnabledConfiguration(
+                                workspace.getId(), channelAccount.getId()))
                 .thenReturn(Optional.of(configuration));
-        when(slotClaimer.tryClaim(conversation, triggeringMessage))
+        lenient()
+                .when(slotClaimer.tryClaim(conversation, triggeringMessage))
                 .thenReturn(Optional.of(invocationLog));
     }
 
@@ -217,15 +223,125 @@ class AiAgentInvocationServiceTest {
     @EnumSource(
             value = EscalationType.class,
             names = {"KEYWORD_MATCHED", "AI_REQUESTED"})
-    void successfulLlmCallKeepsEscalationsThatNeedAHuman(EscalationType escalationType) {
+    void staysQuietWhileAnEscalationWaitsForAHuman(EscalationType escalationType) {
         escalate(escalationType);
+
+        service().invoke(conversation, triggeringMessage);
+
+        verify(llmClient, never()).complete(any());
+        verify(messagingService, never()).createMessage(any(), any(), any(), any());
+        assertThat(conversation.getEscalationType()).isEqualTo(escalationType);
+        assertThat(conversation.getEscalationReason()).isEqualTo("Earlier escalation");
+    }
+
+    @Test
+    void repliesAgainWhenTheEscalationIsFromAnEarlierSession() {
+        escalate(EscalationType.AI_REQUESTED);
+        conversation.setEscalatedAt(conversation.getSessionStartedAt().minusSeconds(3600));
         stubLlmResponse(false);
 
         service().invoke(conversation, triggeringMessage);
 
-        assertThat(conversation.getEscalatedAt()).isNotNull();
-        assertThat(conversation.getEscalationType()).isEqualTo(escalationType);
-        assertThat(conversation.getEscalationReason()).isEqualTo("Earlier escalation");
+        verify(llmClient).complete(any());
+    }
+
+    @Test
+    void aiRequestedEscalationSendsTheReplyThenEscalates() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        stubLlm(
+                new AgentLlmResponse(
+                        "Sure, I'll connect you with a team member.",
+                        "high",
+                        List.of(),
+                        true,
+                        false,
+                        Map.of(),
+                        false));
+
+        service().invoke(conversation, triggeringMessage);
+
+        assertThat(sentText()).isEqualTo("Sure, I'll connect you with a team member.");
+        assertThat(conversation.getEscalationType()).isEqualTo(EscalationType.AI_REQUESTED);
+    }
+
+    @Test
+    void aiRequestedEscalationWithoutAReplySendsTheHandoffMessage() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        configuration.setHandoffMessage("A team member will reply here.");
+        stubLlm(new AgentLlmResponse("", null, List.of(), true, false, Map.of(), false));
+
+        service().invoke(conversation, triggeringMessage);
+
+        assertThat(sentText()).isEqualTo("A team member will reply here.");
+    }
+
+    @Test
+    void keywordEscalationSendsTheHandoffMessage() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        configuration.setEscalationKeywords(List.of("team member"));
+        triggeringMessage.setText("Please connect me with a team member");
+
+        service().invoke(conversation, triggeringMessage);
+
+        verify(llmClient, never()).complete(any());
+        assertThat(sentText()).isEqualTo(AiAgentConfiguration.DEFAULT_HANDOFF_MESSAGE);
+        assertThat(conversation.getEscalationType()).isEqualTo(EscalationType.KEYWORD_MATCHED);
+    }
+
+    @Test
+    void draftOnlyEscalationSendsNothing() {
+        configuration.setEscalationKeywords(List.of("team member"));
+        triggeringMessage.setText("Please connect me with a team member");
+
+        service().invoke(conversation, triggeringMessage);
+
+        verify(messagingService, never()).createMessage(any(), any(), any(), any());
+        assertThat(conversation.getEscalationType()).isEqualTo(EscalationType.KEYWORD_MATCHED);
+    }
+
+    @Test
+    void clarifyingQuestionIsSentInsteadOfDrafted() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        stubLlm(
+                new AgentLlmResponse(
+                        "I'm not sure I understand. Could you tell me more?",
+                        "low",
+                        List.of(),
+                        false,
+                        true,
+                        Map.of(),
+                        false));
+
+        service().invoke(conversation, triggeringMessage);
+
+        assertThat(sentText()).isEqualTo("I'm not sure I understand. Could you tell me more?");
+        verify(draftRepository, never()).save(any());
+    }
+
+    @Test
+    void lowConfidenceAnswerIsStillDrafted() {
+        configuration.setAutonomyCeiling(AutonomyCeiling.AUTO_SEND);
+        stubLlm(new AgentLlmResponse("Maybe 5%?", "low", List.of(), false, false, Map.of(), false));
+
+        service().invoke(conversation, triggeringMessage);
+
+        verify(messagingService, never()).createMessage(any(), any(), any(), any());
+        assertThat(savedDraft().getProposedReply()).isEqualTo("Maybe 5%?");
+    }
+
+    private void stubLlm(AgentLlmResponse response) {
+        when(llmClientFactory.getClient(
+                        WorkspaceProviderSettings.NONE, configuration.getLlmProvider()))
+                .thenReturn(llmClient);
+        when(llmClient.complete(any())).thenReturn(response);
+    }
+
+    private String sentText() {
+        ArgumentCaptor<CreateMessageRequest> request =
+                ArgumentCaptor.forClass(CreateMessageRequest.class);
+        verify(messagingService).createMessage(any(), any(), request.capture(), any());
+
+        return request.getValue().text();
     }
 
     private AgentLlmResponse reply(String text, Map<String, String> extractedData, boolean failed) {

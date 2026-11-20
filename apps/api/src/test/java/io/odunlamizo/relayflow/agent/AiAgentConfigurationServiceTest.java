@@ -160,6 +160,7 @@ class AiAgentConfigurationServiceTest {
                         null,
                         null,
                         null,
+                        null,
                         List.of(new ExtractionField("email", "Email", "hook:missing")));
 
         assertThatThrownBy(
@@ -188,6 +189,7 @@ class AiAgentConfigurationServiceTest {
                         true,
                         AutonomyCeiling.DRAFT_ONLY,
                         "GEMINI",
+                        null,
                         null,
                         null,
                         null,
@@ -225,11 +227,51 @@ class AiAgentConfigurationServiceTest {
                         null,
                         null,
                         null,
+                        null,
                         List.of(new ExtractionField("amount", "Amount", "", false)));
 
         service().updateConfiguration(workspaceId, configurationId, request);
 
         assertThat(configuration.getExtractionFields())
                 .containsExactly(new ExtractionField("amount", "Amount", null, false));
+    }
+
+    @Test
+    void updateKeepsTheHandoffMessageWhenItIsNotSentAndResetsItWhenBlank() {
+        Workspace workspace = new Workspace();
+        workspace.setId(workspaceId);
+        AiAgentConfiguration configuration = configuration(true);
+        configuration.setWorkspace(workspace);
+        configuration.setHandoffMessage("Someone will be with you shortly.");
+        UUID configurationId = UUID.randomUUID();
+
+        when(configurationRepository.findInWorkspace(configurationId, workspaceId))
+                .thenReturn(Optional.of(configuration));
+        when(configurationRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service().updateConfiguration(workspaceId, configurationId, handoffUpdate(null));
+
+        assertThat(configuration.getHandoffMessage())
+                .isEqualTo("Someone will be with you shortly.");
+
+        service().updateConfiguration(workspaceId, configurationId, handoffUpdate("  "));
+
+        assertThat(configuration.getHandoffMessage())
+                .isEqualTo(AiAgentConfiguration.DEFAULT_HANDOFF_MESSAGE);
+    }
+
+    private UpdateAiAgentConfigurationRequest handoffUpdate(String handoffMessage) {
+        return new UpdateAiAgentConfigurationRequest(
+                "Support",
+                true,
+                AutonomyCeiling.DRAFT_ONLY,
+                null,
+                null,
+                null,
+                null,
+                handoffMessage,
+                null,
+                List.of());
     }
 }

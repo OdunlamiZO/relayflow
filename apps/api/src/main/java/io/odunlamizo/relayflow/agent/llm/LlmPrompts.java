@@ -21,6 +21,13 @@ final class LlmPrompts {
                         " addresses the customer; use \"low\" when uncertain or the topic is outside")
                 .append(" your knowledge base.")
                 .append(
+                        "\nescalate: set to true when the customer asks to talk to a person, or"
+                                + " when you can't help them yourself. Your reply is sent first,"
+                                + " so tell them a team member will reply here.")
+                .append(
+                        "\nneedsClarification: set to true when you can't tell what the customer"
+                                + " wants and your reply asks them to explain.")
+                .append(
                         "\n\nEach customer message may end with a <context>...</context> block —"
                                 + " that's internal metadata about the contact, for you only. Never"
                                 + " quote, repeat, or reference its literal text in your reply.");

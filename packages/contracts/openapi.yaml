@@ -4474,6 +4474,9 @@ components:
           items:
             type: string
           description: If any keyword matches the inbound message text the agent escalates immediately.
+        handoffMessage:
+          type: [string, "null"]
+          description: Sent to the customer when the agent escalates without a reply of its own. Omit to keep the current message; blank resets it to the default.
         workflowMappings:
           type: array
           items:
@@ -4485,7 +4488,7 @@ components:
 
     AiAgentConfigurationResponse:
       type: object
-      required: [id, workspaceId, name, isDefault, enabled, autonomyCeiling, knowledgeBase, escalationKeywords, workflowMappings, extractionFields, createdAt, updatedAt]
+      required: [id, workspaceId, name, isDefault, enabled, autonomyCeiling, knowledgeBase, escalationKeywords, handoffMessage, workflowMappings, extractionFields, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -4517,6 +4520,8 @@ components:
           type: array
           items:
             type: string
+        handoffMessage:
+          type: string
         workflowMappings:
           type: array
           items:

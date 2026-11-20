@@ -303,6 +303,14 @@ public class AiAgentConfigurationService {
         configuration.setInstructions(request.instructions());
         configuration.setKnowledgeBase(request.knowledgeBase());
         configuration.setEscalationKeywords(request.escalationKeywords());
+
+        if (request.handoffMessage() != null) {
+            configuration.setHandoffMessage(
+                    request.handoffMessage().isBlank()
+                            ? AiAgentConfiguration.DEFAULT_HANDOFF_MESSAGE
+                            : request.handoffMessage().strip());
+        }
+
         configuration.setWorkflowMappings(request.workflowMappings());
         configuration.setExtractionFields(
                 validatedExtractionFields(
@@ -363,6 +371,7 @@ public class AiAgentConfigurationService {
                 configuration.getInstructions(),
                 configuration.getKnowledgeBase(),
                 configuration.getEscalationKeywords(),
+                configuration.getHandoffMessage(),
                 configuration.getWorkflowMappings(),
                 configuration.getExtractionFields(),
                 configuration.getCreatedAt(),

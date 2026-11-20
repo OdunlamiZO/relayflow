@@ -74,6 +74,7 @@ type FormState = {
   instructions: string;
   knowledgeBase: KnowledgeEntry[];
   escalationKeywords: string[];
+  handoffMessage: string;
   workflowMappings: WorkflowMapping[];
   extractionFields: ExtractionField[];
 };
@@ -87,12 +88,16 @@ function formFromConfiguration(configuration: AiAgentConfiguration): FormState {
     instructions: configuration.instructions ?? "",
     knowledgeBase: configuration.knowledgeBase,
     escalationKeywords: configuration.escalationKeywords,
+    handoffMessage: configuration.handoffMessage ?? "",
     workflowMappings: configuration.workflowMappings,
     extractionFields: configuration.extractionFields,
   };
 }
 
 const BLANK_CONFIGURATION_ID = "new";
+
+const DEFAULT_HANDOFF_MESSAGE =
+  "Thanks, I've passed this to a team member. They'll reply here soon.";
 
 function blankConfiguration(workspaceId: string): AiAgentConfiguration {
   return {
@@ -106,6 +111,7 @@ function blankConfiguration(workspaceId: string): AiAgentConfiguration {
     instructions: "",
     knowledgeBase: [],
     escalationKeywords: [],
+    handoffMessage: "",
     workflowMappings: [],
     extractionFields: [],
     createdAt: "",
@@ -426,6 +432,7 @@ function AiAgentForm({
     instructions,
     knowledgeBase,
     escalationKeywords,
+    handoffMessage,
     workflowMappings,
     extractionFields,
   } = form;
@@ -440,6 +447,7 @@ function AiAgentForm({
       JSON.stringify(knowledgeBase) &&
     JSON.stringify(configuration.escalationKeywords) ===
       JSON.stringify(escalationKeywords) &&
+    (configuration.handoffMessage ?? "") === handoffMessage &&
     JSON.stringify(configuration.workflowMappings) ===
       JSON.stringify(workflowMappings) &&
     JSON.stringify(configuration.extractionFields) ===
@@ -461,6 +469,7 @@ function AiAgentForm({
         instructions: instructions.trim() || null,
         knowledgeBase,
         escalationKeywords,
+        handoffMessage: handoffMessage.trim(),
         workflowMappings,
         extractionFields,
       },
@@ -955,6 +964,25 @@ function AiAgentForm({
             Add
           </button>
         </div>
+      </section>
+
+      <section>
+        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          Handoff message
+        </h2>
+        <p className="mb-3 text-xs text-neutral-500">
+          Sent to the customer when they&apos;re handed to a human and the AI
+          has no reply of its own, such as when a keyword matches. The AI stays
+          quiet until a team member replies. Leave blank for the default.
+        </p>
+        <textarea
+          aria-label="Handoff message"
+          placeholder={DEFAULT_HANDOFF_MESSAGE}
+          value={handoffMessage}
+          onChange={(event) => patch({ handoffMessage: event.target.value })}
+          rows={2}
+          className="w-full rounded-lg border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-800 outline-none transition-colors placeholder:text-neutral-400 hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
+        />
       </section>
 
       <section>

@@ -139,7 +139,7 @@ public class AiAgentInvocationService {
         // staleConversation's lazy associations belong to an already-closed session.
         Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
 
-        if (conversation == null) {
+        if (conversation == null || conversation.isAwaitingHumanReply()) {
             return;
         }
 
@@ -229,6 +229,7 @@ public class AiAgentInvocationService {
             if (messageText.toLowerCase().contains(keyword.toLowerCase())) {
                 String reason = "Escalation keyword matched: \"" + keyword + "\"";
                 finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
+                sendHandoffReply(configuration, conversation, null);
                 broadcastEscalation(conversation, EscalationType.KEYWORD_MATCHED, reason);
 
                 return;
@@ -303,6 +304,7 @@ public class AiAgentInvocationService {
         if (response.escalate()) {
             String reason = "LLM requested escalation";
             finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
+            sendHandoffReply(configuration, conversation, response.reply());
             broadcastEscalation(conversation, EscalationType.AI_REQUESTED, reason);
 
             return;
@@ -336,7 +338,8 @@ public class AiAgentInvocationService {
         }
 
         boolean shouldDraft =
-                draftOnly || "low".equals(response.confidence()) || response.needsClarification();
+                draftOnly
+                        || ("low".equals(response.confidence()) && !response.needsClarification());
 
         if (shouldDraft) {
             saveDraft(
@@ -446,6 +449,17 @@ public class AiAgentInvocationService {
         merged.putAll(newData);
 
         return merged;
+    }
+
+    private void sendHandoffReply(
+            AiAgentConfiguration configuration, Conversation conversation, String reply) {
+        if (configuration.getAutonomyCeiling() == AutonomyCeiling.DRAFT_ONLY) {
+            return;
+        }
+
+        String text = reply != null && !reply.isBlank() ? reply : configuration.getHandoffMessage();
+
+        sendOutbound(conversation.getWorkspace().getId(), conversation.getId(), text);
     }
 
     private void sendOutbound(UUID workspaceId, UUID conversationId, String text) {

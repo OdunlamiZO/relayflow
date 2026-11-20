@@ -84,6 +84,14 @@ public class Conversation {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /** A reopened conversation starts a new session, so an older escalation no longer counts. */
+    public boolean isAwaitingHumanReply() {
+        return escalatedAt != null
+                && escalationType != null
+                && escalationType.getResolution() == EscalationResolution.HUMAN_REPLY
+                && !escalatedAt.isBefore(sessionStartedAt);
+    }
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
