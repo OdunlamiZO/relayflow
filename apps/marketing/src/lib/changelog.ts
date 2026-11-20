@@ -25,6 +25,15 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.8.2",
+    date: "2026-11-20",
+    changes: {
+      fixed: [
+        "The AI agent is told to trigger a matching workflow straight away, asking first only for fields listed as Still missing and never for a field set not to be asked for. Before, it could ask for details such as an amount that the workflow collects itself.",
+      ],
+    },
+  },
+  {
     version: "1.8.1",
     date: "2026-11-20",
     changes: {
