@@ -11,6 +11,7 @@ const RUN_STATUS_CHIP: Record<string, string> = {
   RUNNING: "bg-yellow-bg text-yellow-text",
   WAITING: "bg-blue-bg text-blue-text",
   FAILED: "bg-red-bg text-red-text",
+  CANCELLED: "bg-neutral-300 text-neutral-600",
 };
 
 const STEP_STATUS_CHIP: Record<string, string> = {
@@ -150,7 +151,13 @@ export function RunDetail({ workflowId, workspaceId, runId, onBack }: Props) {
 
       <div className="grid w-full flex-1 grid-cols-[minmax(0,1fr)] gap-3 overflow-y-auto p-4 [scrollbar-gutter:stable]">
         {run.errorMessage && (
-          <div className="rounded-lg border border-red-border bg-red-bg px-3 py-2 text-xs text-red-text">
+          <div
+            className={`rounded-lg border px-3 py-2 text-xs ${
+              run.status === "CANCELLED"
+                ? "border-neutral-300 bg-neutral-200 text-neutral-600"
+                : "border-red-border bg-red-bg text-red-text"
+            }`}
+          >
             {run.errorMessage}
           </div>
         )}

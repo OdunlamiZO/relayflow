@@ -88,8 +88,8 @@ export function SecretsPanel({ workspaceId }: Props) {
 
       <p className="mb-4 text-sm text-neutral-500">
         Store credentials — API keys, tokens — for a workflow&apos;s HTTP
-        Request node to use, without ever exposing the value itself. Reference
-        one as{" "}
+        Request node or a knowledge source to use, without ever exposing the
+        value itself. Reference one as{" "}
         <code className="rounded bg-neutral-100 px-1 text-[11px]">
           {"{{secrets.NAME}}"}
         </code>{" "}

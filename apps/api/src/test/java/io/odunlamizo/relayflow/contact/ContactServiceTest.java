@@ -121,7 +121,7 @@ class ContactServiceTest {
 
         verify(conversationAiDraftRepository).deleteByConversations(List.of(conversationId));
         verify(workflowRunRepository)
-                .failActiveForConversations(
+                .endActiveForConversations(
                         eq(List.of(conversationId)),
                         eq(List.of(WorkflowRunStatus.RUNNING, WorkflowRunStatus.WAITING)),
                         eq(WorkflowRunStatus.FAILED),

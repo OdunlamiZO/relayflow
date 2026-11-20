@@ -25,6 +25,8 @@ import io.odunlamizo.relayflow.messaging.repository.ConversationRepository;
 import io.odunlamizo.relayflow.messaging.repository.MessageRepository;
 import io.odunlamizo.relayflow.sse.SseBroadcastEvent;
 import io.odunlamizo.relayflow.sse.SseEventType;
+import io.odunlamizo.relayflow.workflow.domain.WorkflowRunStatus;
+import io.odunlamizo.relayflow.workflow.repository.WorkflowRunRepository;
 import io.odunlamizo.relayflow.workspace.WorkspaceService;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import io.odunlamizo.relayflow.workspace.repository.WorkspaceMemberRepository;
@@ -64,6 +66,8 @@ public class MessagingService {
 
     private final ConversationAiDraftRepository conversationAiDraftRepository;
 
+    private final WorkflowRunRepository workflowRunRepository;
+
     public MessagingService(
             ConversationRepository conversationRepository,
             MessageRepository messageRepository,
@@ -73,7 +77,8 @@ public class MessagingService {
             ChannelAccountService channelAccountService,
             WorkspaceMemberRepository workspaceMemberRepository,
             ApplicationEventPublisher eventPublisher,
-            ConversationAiDraftRepository conversationAiDraftRepository) {
+            ConversationAiDraftRepository conversationAiDraftRepository,
+            WorkflowRunRepository workflowRunRepository) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.mapper = mapper;
@@ -83,6 +88,7 @@ public class MessagingService {
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.eventPublisher = eventPublisher;
         this.conversationAiDraftRepository = conversationAiDraftRepository;
+        this.workflowRunRepository = workflowRunRepository;
     }
 
     @Transactional
@@ -150,6 +156,7 @@ public class MessagingService {
 
         if (status == ConversationStatus.CLOSED) {
             conversation.setAssigneeId(null);
+            cancelWorkflowRuns(conversation);
         }
 
         return mapper.toDto(conversationRepository.save(conversation));
@@ -301,6 +308,20 @@ public class MessagingService {
         }
 
         return mapper.toDto(message);
+    }
+
+    private void cancelWorkflowRuns(Conversation conversation) {
+        workflowRunRepository.endActiveForConversations(
+                List.of(conversation.getId()),
+                List.of(WorkflowRunStatus.RUNNING, WorkflowRunStatus.WAITING),
+                WorkflowRunStatus.CANCELLED,
+                "Stopped because the conversation was closed",
+                Instant.now());
+        conversation.setLockedByWorkflow(false);
+
+        log.info(
+                "Workflow runs cancelled, the conversation was closed {}",
+                kv("conversationId", conversation.getId()));
     }
 
     private Conversation getConversationRecord(UUID conversationId, UUID workspaceId) {

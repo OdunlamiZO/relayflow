@@ -209,7 +209,7 @@ public class ContactService {
 
         if (!conversationIds.isEmpty()) {
             conversationAiDraftRepository.deleteByConversations(conversationIds);
-            workflowRunRepository.failActiveForConversations(
+            workflowRunRepository.endActiveForConversations(
                     conversationIds,
                     List.of(WorkflowRunStatus.RUNNING, WorkflowRunStatus.WAITING),
                     WorkflowRunStatus.FAILED,

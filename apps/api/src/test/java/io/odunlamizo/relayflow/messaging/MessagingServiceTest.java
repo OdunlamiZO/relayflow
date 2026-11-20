@@ -4,6 +4,8 @@ package io.odunlamizo.relayflow.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,10 +21,13 @@ import io.odunlamizo.relayflow.messaging.domain.MessageSenderType;
 import io.odunlamizo.relayflow.messaging.dto.CreateMessageRequest;
 import io.odunlamizo.relayflow.messaging.repository.ConversationRepository;
 import io.odunlamizo.relayflow.messaging.repository.MessageRepository;
+import io.odunlamizo.relayflow.workflow.domain.WorkflowRunStatus;
+import io.odunlamizo.relayflow.workflow.repository.WorkflowRunRepository;
 import io.odunlamizo.relayflow.workspace.WorkspaceService;
 import io.odunlamizo.relayflow.workspace.domain.Workspace;
 import io.odunlamizo.relayflow.workspace.repository.WorkspaceMemberRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,6 +60,8 @@ class MessagingServiceTest {
 
     @Mock private ConversationAiDraftRepository conversationAiDraftRepository;
 
+    @Mock private WorkflowRunRepository workflowRunRepository;
+
     private MessagingService service() {
         return new MessagingService(
                 conversationRepository,
@@ -65,7 +72,8 @@ class MessagingServiceTest {
                 channelAccountService,
                 workspaceMemberRepository,
                 eventPublisher,
-                conversationAiDraftRepository);
+                conversationAiDraftRepository,
+                workflowRunRepository);
     }
 
     private Conversation storedConversation() {
@@ -139,5 +147,56 @@ class MessagingServiceTest {
 
         assertThat(conversation.getStatus()).isEqualTo(ConversationStatus.CLOSED);
         verify(messageRepository).save(any(Message.class));
+    }
+
+    @Test
+    void closingAConversationCancelsItsWorkflowRuns() {
+        Conversation conversation = conversationInWorkspace();
+        conversation.setLockedByWorkflow(true);
+
+        service()
+                .updateConversationStatus(
+                        conversation.getWorkspace().getId(),
+                        conversation.getId(),
+                        ConversationStatus.CLOSED);
+
+        verify(workflowRunRepository)
+                .endActiveForConversations(
+                        eq(List.of(conversation.getId())),
+                        eq(List.of(WorkflowRunStatus.RUNNING, WorkflowRunStatus.WAITING)),
+                        eq(WorkflowRunStatus.CANCELLED),
+                        eq("Stopped because the conversation was closed"),
+                        any());
+        assertThat(conversation.isLockedByWorkflow()).isFalse();
+        assertThat(conversation.getStatus()).isEqualTo(ConversationStatus.CLOSED);
+    }
+
+    @Test
+    void reopeningAConversationLeavesWorkflowRunsAlone() {
+        Conversation conversation = conversationInWorkspace();
+
+        service()
+                .updateConversationStatus(
+                        conversation.getWorkspace().getId(),
+                        conversation.getId(),
+                        ConversationStatus.OPEN);
+
+        verify(workflowRunRepository, never())
+                .endActiveForConversations(any(), any(), any(), any(), any());
+    }
+
+    private Conversation conversationInWorkspace() {
+        Workspace workspace = new Workspace();
+        workspace.setId(UUID.randomUUID());
+
+        Conversation conversation = new Conversation();
+        conversation.setId(UUID.randomUUID());
+        conversation.setWorkspace(workspace);
+
+        when(conversationRepository.findInWorkspace(conversation.getId(), workspace.getId()))
+                .thenReturn(Optional.of(conversation));
+        when(conversationRepository.save(conversation)).thenReturn(conversation);
+
+        return conversation;
     }
 }

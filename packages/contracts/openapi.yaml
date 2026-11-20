@@ -1010,8 +1010,8 @@ paths:
       operationId: createSecret
       summary: Create a secret
       description: >-
-        Requires the `SECRETS_WRITE` permission or owner role. Referenced in HTTP Request nodes as
-        `{{secrets.NAME}}`; the value is encrypted at rest.
+        Requires the `SECRETS_WRITE` permission or owner role. Referenced in HTTP Request nodes and
+        knowledge sources as `{{secrets.NAME}}`; the value is encrypted at rest.
       tags: [Secrets]
       parameters:
         - $ref: "#/components/parameters/workspaceIdPath"
@@ -1084,6 +1084,171 @@ paths:
       responses:
         "204":
           description: Secret deleted
+
+  /workspaces/{workspaceId}/knowledge-sources:
+    get:
+      operationId: listKnowledgeSources
+      summary: List the workspace's knowledge sources
+      description: Requires the `AI_AGENT_WRITE` permission or owner role.
+      tags: [KnowledgeSources]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: Knowledge sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KnowledgeSourceResponse"
+    post:
+      operationId: createKnowledgeSource
+      summary: Create a knowledge source
+      description: >-
+        Requires the `AI_AGENT_WRITE` permission or owner role. A GET endpoint returning JSON, whose
+        values an AI agent's knowledge base includes as `{{sources.NAME.path}}`. The URL and headers
+        can use `{{secrets.NAME}}`.
+      tags: [KnowledgeSources]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveKnowledgeSourceRequest"
+      responses:
+        "201":
+          description: Knowledge source created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSourceResponse"
+        "409":
+          description: A knowledge source with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/knowledge-sources/test:
+    post:
+      operationId: testKnowledgeSource
+      summary: Fetch an unsaved knowledge source once
+      description: >-
+        Requires the `AI_AGENT_WRITE` permission or owner role. Skips the cache. `body` is the
+        formatted JSON response, or the raw text when it isn't JSON, cut to 20,000 characters.
+      tags: [KnowledgeSources]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestKnowledgeSourceRequest"
+      responses:
+        "200":
+          description: Fetch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestKnowledgeSourceResponse"
+
+  /workspaces/{workspaceId}/knowledge-sources/preview:
+    post:
+      operationId: previewKnowledge
+      summary: Fill a knowledge text with live values
+      description: >-
+        Requires the `AI_AGENT_WRITE` permission or owner role. A value that can't be filled becomes
+        `(unavailable)` and is explained in `failures`.
+      tags: [KnowledgeSources]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreviewKnowledgeRequest"
+      responses:
+        "200":
+          description: Filled-in text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewKnowledgeResponse"
+
+  /workspaces/{workspaceId}/knowledge-sources/{sourceId}:
+    put:
+      operationId: updateKnowledgeSource
+      summary: Update a knowledge source
+      description: >-
+        Requires the `AI_AGENT_WRITE` permission or owner role. Renaming is refused while an AI
+        agent's knowledge base uses the source.
+      tags: [KnowledgeSources]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveKnowledgeSourceRequest"
+      responses:
+        "200":
+          description: Knowledge source updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSourceResponse"
+        "404":
+          description: Knowledge source not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The name is taken, or an AI agent uses the source under its current name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteKnowledgeSource
+      summary: Delete a knowledge source
+      description: Requires the `AI_AGENT_WRITE` permission or owner role.
+      tags: [KnowledgeSources]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Knowledge source deleted
+        "404":
+          description: Knowledge source not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: An AI agent's knowledge base uses the source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ── Channel Accounts ──────────────────────────────────────────────────────────
 
@@ -1499,6 +1664,9 @@ paths:
     patch:
       operationId: updateConversation
       summary: Update a conversation status
+      description: >
+        Closing a conversation unassigns it and cancels its running or waiting
+        workflow runs.
       tags: [Conversations]
       parameters:
         - $ref: "#/components/parameters/conversationIdPath"
@@ -2166,6 +2334,68 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: The workflow isn't published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/conversations/{conversationId}/agent-workflows:
+    get:
+      operationId: listConversationAgentWorkflows
+      summary: List the AI agent's workflows for a conversation
+      description: >
+        The published workflows mapped to the conversation's AI agent (the
+        channel's assigned agent, then the workspace default). Requires the
+        `INBOX` permission.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/conversationIdPath"
+      responses:
+        "200":
+          description: The agent's published workflows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkflowMapping"
+        "404":
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workspaces/{workspaceId}/conversations/{conversationId}/agent-workflows/{workflowId}/run:
+    post:
+      operationId: runConversationAgentWorkflow
+      summary: Start one of the AI agent's workflows
+      description: >
+        Starts the workflow for a person when the AI agent couldn't pick it. Ends a
+        clarifying agent turn, discards any draft, clears the escalation, and passes
+        the draft's extracted data as `agent.data.*`. Requires the `INBOX` permission.
+      tags: [AiAgent]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/conversationIdPath"
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Workflow started
+        "404":
+          description: Conversation not found, or the workflow isn't one of the agent's published workflows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The conversation is closed, a workflow is already running or waiting, or the agent is replying
           content:
             application/json:
               schema:
@@ -2952,6 +3182,61 @@ components:
         value:
           type: string
 
+    KnowledgeSourceHeader:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+          maxLength: 200
+        value:
+          type: string
+          maxLength: 2000
+
+    SaveKnowledgeSourceRequest:
+      type: object
+      required: [name, url]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          pattern: "^[A-Za-z][A-Za-z0-9_]*$"
+        url:
+          type: string
+          maxLength: 2000
+        headers:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/KnowledgeSourceHeader"
+        cacheSeconds:
+          type: integer
+          minimum: 0
+          maximum: 3600
+          default: 60
+          description: How long a successful response is reused. 0 fetches it for every reply.
+
+    TestKnowledgeSourceRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          maxLength: 2000
+        headers:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/KnowledgeSourceHeader"
+
+    PreviewKnowledgeRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          maxLength: 20000
+
     SaveHookRequest:
       type: object
       required: [name, expression, errorMessage]
@@ -3462,6 +3747,52 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    KnowledgeSourceResponse:
+      type: object
+      required: [id, name, url, headers, cacheSeconds, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          type: string
+        headers:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeSourceHeader"
+        cacheSeconds:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TestKnowledgeSourceResponse:
+      type: object
+      properties:
+        statusCode:
+          type: [integer, "null"]
+        body:
+          type: [string, "null"]
+        error:
+          type: [string, "null"]
+          description: Set when the fetch failed, such as a timeout, a non-2xx status, or a body that isn't JSON.
+
+    PreviewKnowledgeResponse:
+      type: object
+      required: [text, failures]
+      properties:
+        text:
+          type: string
+        failures:
+          type: array
+          items:
+            type: string
 
     SecretResponse:
       type: object
@@ -4277,10 +4608,11 @@ components:
 
     WorkflowRunStatus:
       type: string
-      enum: [RUNNING, WAITING, COMPLETED, FAILED]
+      enum: [RUNNING, WAITING, COMPLETED, FAILED, CANCELLED]
       description: >
         `WAITING` means the run is paused at a "Wait for Reply" node and resumes
-        when the contact replies.
+        when the contact replies. `CANCELLED` means the conversation was closed
+        while the run was running or waiting.
 
     WorkflowRunStepStatus:
       type: string

@@ -13,6 +13,7 @@ import { ChannelsList } from "./ChannelsList";
 import { GeneralPanel } from "./GeneralPanel";
 import { HooksPanel } from "./HooksPanel";
 import { IntegrationsPanel } from "./IntegrationsPanel";
+import { KnowledgeSourcesPanel } from "./KnowledgeSourcesPanel";
 import { MembersList } from "./MembersList";
 import { ProvidersPanel } from "./ProvidersPanel";
 
@@ -67,7 +68,14 @@ export function SettingsShell({ workspaceId }: Props) {
       : []),
     { href: "#members", icon: "group", label: "Members" },
     ...(canManageAiAgent
-      ? [{ href: "#ai-agent", icon: "smart_toy", label: "AI Agent" }]
+      ? [
+          { href: "#ai-agent", icon: "smart_toy", label: "AI Agent" },
+          {
+            href: "#knowledge-sources",
+            icon: "cloud_sync",
+            label: "Knowledge sources",
+          },
+        ]
       : []),
     ...(canSeeIntegrations
       ? [{ href: "#integrations", icon: "api", label: "Integrations" }]
@@ -191,6 +199,15 @@ export function SettingsShell({ workspaceId }: Props) {
                 >
                   <AiAgentPanel workspaceId={workspaceId} />
                 </DesktopOnly>
+              </div>
+            )}
+
+            {canManageAiAgent && (
+              <div
+                id="knowledge-sources"
+                className={sectionClass("#knowledge-sources")}
+              >
+                <KnowledgeSourcesPanel workspaceId={workspaceId} />
               </div>
             )}
 

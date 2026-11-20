@@ -12,6 +12,7 @@ const RUN_STATUS_CHIP: Record<string, string> = {
   RUNNING: "bg-yellow-bg text-yellow-text",
   WAITING: "bg-blue-bg text-blue-text",
   FAILED: "bg-red-bg text-red-text",
+  CANCELLED: "bg-neutral-300 text-neutral-600",
 };
 
 const LOCALE = "en-US";

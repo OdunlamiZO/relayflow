@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,8 @@ import io.odunlamizo.relayflow.agent.repository.ConversationAiDraftRepository;
 import io.odunlamizo.relayflow.channel.domain.ChannelAccount;
 import io.odunlamizo.relayflow.hook.HookService;
 import io.odunlamizo.relayflow.hook.domain.HookOutcome;
+import io.odunlamizo.relayflow.knowledge.KnowledgeTemplateRenderer;
+import io.odunlamizo.relayflow.knowledge.RenderedKnowledge;
 import io.odunlamizo.relayflow.messaging.MessagingService;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.EscalationType;
@@ -86,6 +89,8 @@ class AiAgentInvocationServiceTest {
 
     @Mock private HookService hookService;
 
+    @Mock private KnowledgeTemplateRenderer knowledgeRenderer;
+
     private final AiAgentConfiguration configuration = new AiAgentConfiguration();
 
     private Conversation conversation;
@@ -122,6 +127,10 @@ class AiAgentInvocationServiceTest {
     }
 
     private AiAgentInvocationService service() {
+        lenient()
+                .when(knowledgeRenderer.renderKnowledgeBase(any(), any()))
+                .thenAnswer(invocation -> RenderedKnowledge.unchanged(invocation.getArgument(1)));
+
         return new AiAgentInvocationService(
                 aiAgentConfigurationService,
                 invocationLogRepository,
@@ -137,7 +146,8 @@ class AiAgentInvocationServiceTest {
                 slotClaimer,
                 contactCustomFieldWriter,
                 new ExtractedDataValidator(hookService),
-                new PublishedWorkflowMappings(workflowDefinitionRepository));
+                new PublishedWorkflowMappings(workflowDefinitionRepository),
+                knowledgeRenderer);
     }
 
     private void stubLlmResponse(boolean failed) {
@@ -169,7 +179,7 @@ class AiAgentInvocationServiceTest {
 
     @Test
     void unexpectedPipelineErrorEscalatesAsInternalError() {
-        when(contextAssembler.assemble(configuration, conversation))
+        when(contextAssembler.assemble(eq(configuration), eq(conversation), any()))
                 .thenThrow(new IllegalStateException("boom"));
 
         service().invoke(conversation, triggeringMessage);
@@ -232,7 +242,7 @@ class AiAgentInvocationServiceTest {
                         anyMap(),
                         isNull()))
                 .thenReturn(HookOutcome.rejected("That email looks incomplete.", List.of()));
-        when(contextAssembler.assemble(configuration, conversation))
+        when(contextAssembler.assemble(eq(configuration), eq(conversation), any()))
                 .thenReturn(
                         new AgentLlmRequest(
                                 "system",
@@ -315,7 +325,7 @@ class AiAgentInvocationServiceTest {
                         anyMap(),
                         isNull()))
                 .thenReturn(HookOutcome.accepted(50000L, Map.of(), List.of()));
-        when(contextAssembler.assemble(configuration, conversation))
+        when(contextAssembler.assemble(eq(configuration), eq(conversation), any()))
                 .thenReturn(
                         new AgentLlmRequest(
                                 "system",

@@ -20,6 +20,8 @@ import io.odunlamizo.relayflow.agent.llm.LlmClientFactory;
 import io.odunlamizo.relayflow.agent.llm.LlmMessage;
 import io.odunlamizo.relayflow.agent.repository.AiAgentInvocationLogRepository;
 import io.odunlamizo.relayflow.agent.repository.ConversationAiDraftRepository;
+import io.odunlamizo.relayflow.knowledge.KnowledgeTemplateRenderer;
+import io.odunlamizo.relayflow.knowledge.RenderedKnowledge;
 import io.odunlamizo.relayflow.messaging.MessagingService;
 import io.odunlamizo.relayflow.messaging.domain.Conversation;
 import io.odunlamizo.relayflow.messaging.domain.EscalationResolution;
@@ -93,6 +95,8 @@ public class AiAgentInvocationService {
 
     private final PublishedWorkflowMappings publishedWorkflowMappings;
 
+    private final KnowledgeTemplateRenderer knowledgeRenderer;
+
     public AiAgentInvocationService(
             AiAgentConfigurationService aiAgentConfigurationService,
             AiAgentInvocationLogRepository invocationLogRepository,
@@ -108,7 +112,8 @@ public class AiAgentInvocationService {
             AiAgentInvocationSlotClaimer slotClaimer,
             ContactCustomFieldWriter contactCustomFieldWriter,
             ExtractedDataValidator extractedDataValidator,
-            PublishedWorkflowMappings publishedWorkflowMappings) {
+            PublishedWorkflowMappings publishedWorkflowMappings,
+            KnowledgeTemplateRenderer knowledgeRenderer) {
         this.aiAgentConfigurationService = aiAgentConfigurationService;
         this.invocationLogRepository = invocationLogRepository;
         this.draftRepository = draftRepository;
@@ -124,6 +129,7 @@ public class AiAgentInvocationService {
         this.contactCustomFieldWriter = contactCustomFieldWriter;
         this.extractedDataValidator = extractedDataValidator;
         this.publishedWorkflowMappings = publishedWorkflowMappings;
+        this.knowledgeRenderer = knowledgeRenderer;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -233,7 +239,10 @@ public class AiAgentInvocationService {
                 llmClientFactory.getClient(
                         conversation.getWorkspace().getProviderSettings(),
                         configuration.getLlmProvider());
-        AgentLlmRequest request = contextAssembler.assemble(configuration, conversation);
+        RenderedKnowledge knowledge =
+                knowledgeRenderer.renderKnowledgeBase(
+                        workspaceId, configuration.getKnowledgeBase());
+        AgentLlmRequest request = contextAssembler.assemble(configuration, conversation, knowledge);
         AgentLlmResponse response = llmClient.complete(request);
 
         if (response.failed()) {
@@ -266,7 +275,8 @@ public class AiAgentInvocationService {
                         "rejectedExtractions",
                                 validation.rejections().stream()
                                         .map(RejectedExtraction::toSnapshot)
-                                        .toList()));
+                                        .toList(),
+                        "knowledgeFailures", knowledge.failures()));
 
         contactCustomFieldWriter.apply(
                 conversation, validation.acceptedData(), configuration.getExtractionFields());
