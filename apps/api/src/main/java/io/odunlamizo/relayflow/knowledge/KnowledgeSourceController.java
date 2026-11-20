@@ -2,6 +2,7 @@ package io.odunlamizo.relayflow.knowledge;
 
 // Docs: docs/codebase-components.md#knowledgesourcecontroller
 
+import io.odunlamizo.relayflow.knowledge.dto.KnowledgeSourceFieldsResponse;
 import io.odunlamizo.relayflow.knowledge.dto.KnowledgeSourceResponse;
 import io.odunlamizo.relayflow.knowledge.dto.PreviewKnowledgeRequest;
 import io.odunlamizo.relayflow.knowledge.dto.PreviewKnowledgeResponse;
@@ -85,6 +86,17 @@ public class KnowledgeSourceController {
                 workspaceId, authentication, WorkspacePermission.AI_AGENT_WRITE);
 
         sourceService.deleteSource(workspaceId, sourceId);
+    }
+
+    @GetMapping("/{sourceId}/fields")
+    KnowledgeSourceFieldsResponse listFields(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID sourceId,
+            Authentication authentication) {
+        authorizationService.assertPermission(
+                workspaceId, authentication, WorkspacePermission.AI_AGENT_WRITE);
+
+        return sourceService.listFields(workspaceId, sourceId);
     }
 
     @PostMapping("/test")

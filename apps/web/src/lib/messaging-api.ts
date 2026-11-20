@@ -421,6 +421,18 @@ export type TestKnowledgeSourceResponse = {
   error: string | null;
 };
 
+export type KnowledgeSourceField = {
+  /** Goes after the source name, as in {{sources.rates.usd}} or {{sources.rates[0].usd}}. */
+  path: string;
+  sample: string;
+};
+
+export type KnowledgeSourceFields = {
+  fields: KnowledgeSourceField[];
+  /** Set when the source couldn't be fetched. */
+  error: string | null;
+};
+
 export type PreviewKnowledgeResponse = {
   text: string;
   failures: string[];
@@ -1107,6 +1119,12 @@ export class MessagingApiClient {
     return this.request<void>(
       `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources/${encodeURIComponent(sourceId)}`,
       { method: "DELETE" }
+    );
+  }
+
+  listKnowledgeSourceFields(workspaceId: string, sourceId: string) {
+    return this.request<KnowledgeSourceFields>(
+      `/workspaces/${encodeURIComponent(workspaceId)}/knowledge-sources/${encodeURIComponent(sourceId)}/fields`
     );
   }
 

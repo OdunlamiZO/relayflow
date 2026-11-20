@@ -1,12 +1,11 @@
 // Docs: docs/codebase-components.md#insert-at-cursorts
 
-/** Inserts text at the cursor, or appends it when there is no element, then places the cursor cursorOffset characters into the inserted text. */
+/** Replaces the selection with text, or appends it when there is no element, and puts the cursor after it. */
 export function insertAtCursor(
   element: HTMLInputElement | HTMLTextAreaElement | null,
   currentValue: string,
   text: string,
-  onChange: (value: string) => void,
-  cursorOffset: number = text.length
+  onChange: (value: string) => void
 ) {
   if (!element) {
     onChange(currentValue + text);
@@ -21,6 +20,6 @@ export function insertAtCursor(
 
   requestAnimationFrame(() => {
     element.focus();
-    element.setSelectionRange(start + cursorOffset, start + cursorOffset);
+    element.setSelectionRange(start + text.length, start + text.length);
   });
 }

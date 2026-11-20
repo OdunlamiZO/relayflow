@@ -9,16 +9,11 @@ import { LoadingButton } from "@/components/common/LoadingButton";
 import { Select } from "@/components/common/Select";
 import { Spinner } from "@/components/common/Spinner";
 import { useToast } from "@/components/providers/ToastProvider";
-import {
-  VariablePicker,
-  type WorkflowVariable,
-} from "@/components/workflows/VariablePicker";
 import { useAiAgentConfigurations } from "@/hooks/use-ai-agent-configurations";
 import { useBuiltInHooks } from "@/hooks/use-built-in-hooks";
 import { useCreateAiAgentConfiguration } from "@/hooks/use-create-ai-agent-configuration";
 import { useDeleteAiAgentConfiguration } from "@/hooks/use-delete-ai-agent-configuration";
 import { useHooks } from "@/hooks/use-hooks";
-import { useKnowledgeSources } from "@/hooks/use-knowledge-sources";
 import { useProviderSettings } from "@/hooks/use-provider-settings";
 import { useSetDefaultAiAgentConfiguration } from "@/hooks/use-set-default-ai-agent-configuration";
 import { useUpdateAiAgentConfiguration } from "@/hooks/use-update-ai-agent-configuration";
@@ -36,6 +31,7 @@ import type {
 } from "@/lib/messaging-api";
 
 import { KnowledgeAnswerPreview } from "./KnowledgeAnswerPreview";
+import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
 
 const INSTRUCTIONS_SAMPLE = `# ABOUT YOUR BUSINESS
 We're a small online store selling handmade crafts.
@@ -400,14 +396,6 @@ function AiAgentForm({
   const { data: customHooks = [], isSuccess: customHooksLoaded } =
     useHooks(workspaceId);
   const { showToast } = useToast();
-  const { data: knowledgeSources = [] } = useKnowledgeSources(workspaceId);
-  const sourceVariables: WorkflowVariable[] = knowledgeSources.map(
-    (source) => ({
-      name: `sources.${source.name}`,
-      label: source.url,
-      group: "sources",
-    })
-  );
   const answerRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
 
   const hookOptions = [
@@ -878,20 +866,17 @@ function AiAgentForm({
                   className="block w-full rounded-lg border border-neutral-300 bg-neutral-100 py-2 pl-3 pr-10 text-sm text-neutral-800 outline-none transition-colors hover:border-neutral-400 focus:border-secondary focus:ring-2 focus:ring-secondary/20"
                 />
                 <div className="absolute right-1 top-1.5">
-                  <VariablePicker
-                    variables={sourceVariables}
-                    onSelect={(expression) => {
-                      const placeholder = `{{${expression}}}`;
-
+                  <KnowledgeSourcePicker
+                    workspaceId={workspaceId}
+                    onSelect={(expression) =>
                       insertAtCursor(
                         answerRefs.current[index] ?? null,
                         entry.answer,
-                        placeholder,
+                        `{{${expression}}}`,
                         (answer) =>
-                          updateKnowledgeEntry(index, "answer", answer),
-                        placeholder.length - 2
-                      );
-                    }}
+                          updateKnowledgeEntry(index, "answer", answer)
+                      )
+                    }
                   />
                 </div>
               </div>
@@ -972,8 +957,9 @@ function AiAgentForm({
         </h2>
         <p className="mb-3 text-xs text-neutral-500">
           Sent to the customer when they&apos;re handed to a human and the AI
-          has no reply of its own, such as when a keyword matches. The AI stays
-          quiet until a team member replies. Leave blank for the default.
+          has no reply of its own, such as when a keyword matches or a message
+          is still unclear after the AI asked once. The AI stays quiet until a
+          team member replies. Leave blank for the default.
         </p>
         <textarea
           aria-label="Handoff message"

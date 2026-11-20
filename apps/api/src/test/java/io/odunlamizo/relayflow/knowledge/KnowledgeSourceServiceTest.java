@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.odunlamizo.relayflow.knowledge.KnowledgeSourceFetcher.FetchResult;
 import io.odunlamizo.relayflow.knowledge.domain.KnowledgeSource;
 import io.odunlamizo.relayflow.knowledge.domain.KnowledgeSourceHeader;
+import io.odunlamizo.relayflow.knowledge.dto.KnowledgeSourceField;
+import io.odunlamizo.relayflow.knowledge.dto.KnowledgeSourceFieldsResponse;
 import io.odunlamizo.relayflow.knowledge.dto.SaveKnowledgeSourceRequest;
 import io.odunlamizo.relayflow.knowledge.dto.TestKnowledgeSourceRequest;
 import io.odunlamizo.relayflow.knowledge.dto.TestKnowledgeSourceResponse;
@@ -138,6 +140,42 @@ class KnowledgeSourceServiceTest {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("\"usd\" : 1");
         assertThat(response.error()).isNull();
+    }
+
+    @Test
+    void listFieldsGivesEachValuePathWithASample() throws Exception {
+        KnowledgeSource source = source();
+        String body =
+                "{\"base\":\"USD\",\"rates\":{\"NGN\":1520.5,\"a.b\":1},"
+                        + "\"branches\":[{\"city\":\"Lagos\"},{\"city\":\"Abuja\"}],"
+                        + "\"closed\":null}";
+        when(fetcher.fetch(source))
+                .thenReturn(
+                        CompletableFuture.completedFuture(
+                                new FetchResult(200, body, objectMapper.readTree(body), null)));
+
+        KnowledgeSourceFieldsResponse response = service().listFields(WORKSPACE_ID, source.getId());
+
+        assertThat(response.error()).isNull();
+        assertThat(response.fields())
+                .containsExactly(
+                        new KnowledgeSourceField("base", "USD"),
+                        new KnowledgeSourceField("rates.NGN", "1520.5"),
+                        new KnowledgeSourceField("branches[0].city", "Lagos"));
+    }
+
+    @Test
+    void listFieldsGivesTheErrorWhenTheFetchFails() {
+        KnowledgeSource source = source();
+        when(fetcher.fetch(source))
+                .thenReturn(
+                        CompletableFuture.completedFuture(
+                                new FetchResult(503, null, null, "HTTP 503")));
+
+        KnowledgeSourceFieldsResponse response = service().listFields(WORKSPACE_ID, source.getId());
+
+        assertThat(response.fields()).isEmpty();
+        assertThat(response.error()).isEqualTo("HTTP 503");
     }
 
     private KnowledgeSourceService service() {

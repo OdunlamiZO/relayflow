@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 export type WorkflowVariable = {
   name: string;
   label: string;
-  group: "contact" | "ai" | "conversation" | "workflow" | "secrets" | "sources";
+  group: "contact" | "ai" | "conversation" | "workflow" | "secrets";
 };
 
 /** Mirrors VariableInterpolator's filters on the backend. */
@@ -132,11 +132,6 @@ export function VariablePicker({ variables, onSelect }: Props) {
     {
       title: "Secrets",
       items: variables.filter((variable) => variable.group === "secrets"),
-      allowFilters: false,
-    },
-    {
-      title: "Knowledge sources",
-      items: variables.filter((variable) => variable.group === "sources"),
       allowFilters: false,
     },
   ].filter((section) => section.items.length > 0);

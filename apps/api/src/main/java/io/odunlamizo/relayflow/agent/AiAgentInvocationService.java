@@ -310,6 +310,17 @@ public class AiAgentInvocationService {
             return;
         }
 
+        if (response.needsClarification()
+                && !validation.hasRejections()
+                && previousReplyAskedForClarification(conversation, invocationLog)) {
+            String reason = "Still unclear after a clarifying question";
+            finalise(invocationLog, AiAgentInvocationStatus.ESCALATED, reason);
+            sendHandoffReply(configuration, conversation, null);
+            broadcastEscalation(conversation, EscalationType.CLARIFICATION_FAILED, reason);
+
+            return;
+        }
+
         resolveTemporaryEscalation(conversation);
 
         if (validation.hasRejections()) {
@@ -449,6 +460,21 @@ public class AiAgentInvocationService {
         merged.putAll(newData);
 
         return merged;
+    }
+
+    /** True when the agent's last reply this session was a clarifying question it sent. */
+    private boolean previousReplyAskedForClarification(
+            Conversation conversation, AiAgentInvocationLog invocationLog) {
+        Instant before =
+                invocationLog.getStartedAt() != null ? invocationLog.getStartedAt() : Instant.now();
+
+        return invocationLogRepository
+                .findLatestForConversationBetween(
+                        conversation.getId(), conversation.getSessionStartedAt(), before)
+                .filter(previous -> previous.getStatus() == AiAgentInvocationStatus.SENT)
+                .map(AiAgentInvocationLog::getOutputSnapshot)
+                .map(snapshot -> Boolean.TRUE.equals(snapshot.get("needsClarification")))
+                .orElse(false);
     }
 
     private void sendHandoffReply(

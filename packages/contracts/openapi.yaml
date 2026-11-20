@@ -1180,6 +1180,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/PreviewKnowledgeResponse"
 
+  /workspaces/{workspaceId}/knowledge-sources/{sourceId}/fields:
+    get:
+      operationId: listKnowledgeSourceFields
+      summary: List a knowledge source's fields
+      description: >-
+        Requires the `AI_AGENT_WRITE` permission or owner role. Fetches the source through its
+        cache and lists each value's path with its current value. Only the first item of an array
+        is used, and at most 200 fields are listed. A failed fetch returns no fields and the error.
+      tags: [KnowledgeSources]
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The source's fields, or the fetch error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSourceFieldsResponse"
+        "404":
+          description: Knowledge source not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /workspaces/{workspaceId}/knowledge-sources/{sourceId}:
     put:
       operationId: updateKnowledgeSource
@@ -3783,6 +3814,26 @@ components:
           type: [string, "null"]
           description: Set when the fetch failed, such as a timeout, a non-2xx status, or a body that isn't JSON.
 
+    KnowledgeSourceFieldsResponse:
+      type: object
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          items:
+            type: object
+            required: [path, sample]
+            properties:
+              path:
+                type: string
+                description: Goes after the source name in a placeholder, such as `usd` in `{{sources.rates.usd}}`, or `[0].usd` in `{{sources.rates[0].usd}}`.
+              sample:
+                type: string
+                description: The current value, cut to 60 characters.
+        error:
+          type: [string, "null"]
+          description: Set when the source couldn't be fetched.
+
     PreviewKnowledgeResponse:
       type: object
       required: [text, failures]
@@ -4476,7 +4527,7 @@ components:
           description: If any keyword matches the inbound message text the agent escalates immediately.
         handoffMessage:
           type: [string, "null"]
-          description: Sent to the customer when the agent escalates without a reply of its own. Omit to keep the current message; blank resets it to the default.
+          description: Sent to the customer when the agent escalates without a reply of its own, such as on a keyword match or when a message is still unclear after a clarifying question. Omit to keep the current message; blank resets it to the default.
         workflowMappings:
           type: array
           items:
