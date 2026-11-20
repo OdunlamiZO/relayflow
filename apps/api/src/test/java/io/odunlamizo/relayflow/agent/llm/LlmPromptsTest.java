@@ -64,7 +64,8 @@ class LlmPromptsTest {
         assertThat(instruction)
                 .contains(
                         "\"amount\": Amount to borrow (include it only if the customer mentions"
-                                + " it — never ask for it)");
+                                + " it — never ask for it, not even before triggering a"
+                                + " workflow)");
         assertThat(instruction)
                 .contains("\"email\": Email address\n")
                 .doesNotContain("Email address (include it only");

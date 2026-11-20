@@ -25,6 +25,73 @@ export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
 // Newest release first; each version must match a git tag and the date that tag was cut.
 export const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.8.1",
+    date: "2026-11-20",
+    changes: {
+      added: [
+        "GET /workspaces/{workspaceId}/knowledge-sources/{sourceId}/fields fetches a source through its cache and lists its field paths with their current values.",
+      ],
+      changed: [
+        "The variable picker on a knowledge answer lists each source's fields with their current values. Picking one inserts the full placeholder, such as {{sources.rates.usd}}.",
+        "When a message is still unclear after the AI agent asked the customer to clarify, the agent sends the handoff message and hands the conversation to a person instead of asking again.",
+      ],
+      fixed: [
+        "The AI agent is told to hand off whenever its reply says a person will take over, and that a request for a person counts in any words or language. Before, it could promise a team member without handing the conversation off.",
+      ],
+    },
+  },
+  {
+    version: "1.8.0",
+    date: "2026-11-20",
+    changes: {
+      added: [
+        "Each AI agent has a handoff message, sent to the customer when the agent hands a conversation to a person without a reply of its own, such as when an escalation keyword matches.",
+      ],
+      changed: [
+        "When the AI agent hands a conversation to a person, it first sends its reply or the handoff message, then stays quiet until a team member replies. Agents set to Draft only send nothing.",
+        "A clarifying question from the AI agent is sent even at low confidence, instead of waiting as a draft.",
+      ],
+    },
+  },
+  {
+    version: "1.7.1",
+    date: "2026-11-20",
+    changes: {
+      added: [
+        "Variable pickers on a knowledge source's header values, listing the workspace's secrets, and on knowledge answers, listing the knowledge sources.",
+      ],
+      fixed: [
+        "The variable picker scrolls when it has more variables than fit, so every variable can be reached.",
+      ],
+    },
+  },
+  {
+    version: "1.7.0",
+    date: "2026-11-20",
+    changes: {
+      added: [
+        "Knowledge sources in Settings → Knowledge sources: a GET request that returns JSON, with headers, {{secrets.NAME}} for API keys, and how long to reuse a response. A knowledge answer uses a live value as {{sources.NAME.field}}, and the agent sees the current value each time it replies.",
+        "A value that can't be fetched reaches the AI agent as (unavailable). The agent is told not to guess it and to hand off when the customer needs it, and the reason is saved in the invocation log.",
+        "Test a knowledge source before saving it, and preview a knowledge answer with live values.",
+        "Run workflow in a conversation starts one of its AI agent's published workflows when the agent couldn't pick it. It clears the escalation and discards any draft.",
+        "Endpoints under /workspaces/{workspaceId}/knowledge-sources and /workspaces/{workspaceId}/conversations/{conversationId}/agent-workflows.",
+      ],
+      changed: [
+        "Closing a conversation cancels its running or waiting workflow runs, which show as CANCELLED with the reason.",
+        "A knowledge source can't be renamed or deleted while an AI agent's knowledge base uses it.",
+      ],
+    },
+  },
+  {
+    version: "1.6.0",
+    date: "2026-11-19",
+    changes: {
+      added: [
+        "When an Ask Question's hook rejects a voice reply, the workspace's chat model converts it to the expected value, such as \"five thousand\" to 5000, and the hook checks it again.",
+      ],
+    },
+  },
+  {
     version: "1.5.0",
     date: "2026-11-19",
     changes: {

@@ -84,6 +84,10 @@ public class AiAgentContextAssembler {
                             + " trigger that workflow — set \"reply\" to \"\" and add the"
                             + " trigger_workflow action to suggestedActions."
                             + " Never write a reply AND trigger a workflow at the same time."
+                            + " Trigger it as soon as the request matches. Don't ask for details"
+                            + " first, such as an amount: the workflow asks for what it needs."
+                            + " Before triggering, ask only for fields listed as \"Still"
+                            + " missing\"."
                             + " If no entry matches, reply directly.\n");
             for (WorkflowMapping mapping : workflowMappings) {
                 sb.append("\n- trigger_workflow:")

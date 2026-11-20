@@ -51,7 +51,9 @@ final class LlmPrompts {
                 }
 
                 if (!field.askIfMissing()) {
-                    sb.append(" (include it only if the customer mentions it — never ask for it)");
+                    sb.append(
+                            " (include it only if the customer mentions it — never ask for it,"
+                                    + " not even before triggering a workflow)");
                 }
             }
             sb.append(
